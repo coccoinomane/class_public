@@ -492,9 +492,15 @@ int perturb_indices_of_perturbs(
     ppt->has_cmb = _TRUE_;
   }
 
+  if (ppt->has_cl_cmb_rayleigh == _TRUE_) {
+    ppt->has_source_r = _TRUE_;
+    ppt->has_cmb = _TRUE_;
+  }
+
   index_type = 0;
   class_define_index(ppt->index_tp_t2,ppt->has_source_t,index_type,1);
   class_define_index(ppt->index_tp_p,ppt->has_source_p,index_type,1);
+  class_define_index(ppt->index_tp_r2,ppt->has_source_r,index_type,1);
   index_type_common = index_type;
 
   /** define k values with perturb_get_k_list() */
@@ -560,6 +566,8 @@ int perturb_indices_of_perturbs(
         index_type = index_type_common;
         class_define_index(ppt->index_tp_t0,         ppt->has_source_t,         index_type,1);
         class_define_index(ppt->index_tp_t1,         ppt->has_source_t,         index_type,1);
+        class_define_index(ppt->index_tp_r0,         ppt->has_source_r,         index_type,1);
+        class_define_index(ppt->index_tp_r1,         ppt->has_source_r,         index_type,1);
         class_define_index(ppt->index_tp_g,          ppt->has_source_g,         index_type,1);
         class_define_index(ppt->index_tp_delta_pk,   ppt->has_source_delta_pk,  index_type,1);
         class_define_index(ppt->index_tp_delta_g,    ppt->has_source_delta_g,   index_type,1);
@@ -602,6 +610,7 @@ int perturb_indices_of_perturbs(
 
         index_type = index_type_common;
         class_define_index(ppt->index_tp_t1,ppt->has_source_t,index_type,1);
+        class_define_index(ppt->index_tp_r1,ppt->has_source_r,index_type,1);
         ppt->tp_size[index_md] = index_type;
 
         class_test(index_type == 0,
@@ -4567,30 +4576,30 @@ int perturb_sources(
       if (ppt->has_source_t == _TRUE_) {
 
         /* newtonian gauge: simplest form, not efficient numerically */
-        /*
+        
           if (ppt->gauge == newtonian) {
           _set_source_(ppt->index_tp_t0) = pvecthermo[pth->index_th_exp_m_kappa] * pvecmetric[ppw->index_mt_phi_prime] + pvecthermo[pth->index_th_g] * delta_g / 4.;
           _set_source_(ppt->index_tp_t1) = pvecthermo[pth->index_th_exp_m_kappa] * k* pvecmetric[ppw->index_mt_psi] + pvecthermo[pth->index_th_g] * y[ppw->pv->index_pt_theta_b]/k;
           _set_source_(ppt->index_tp_t2) = pvecthermo[pth->index_th_g] * P;
           }
-        */
+        
 
         /* newtonian gauge: more complicated form, but efficient numerically */
          
-        if (ppt->gauge == newtonian) {
-          _set_source_(ppt->index_tp_t0) = 
-            pvecthermo[pth->index_th_exp_m_kappa] * 2. * pvecmetric[ppw->index_mt_phi_prime] 
-            + pvecthermo[pth->index_th_g] * (delta_g / 4. + y[ppw->pv->index_pt_phi])
-            + (pvecthermo[pth->index_th_dg] * y[ppw->pv->index_pt_theta_b] + pvecthermo[pth->index_th_g] * dy[ppw->pv->index_pt_theta_b])/k/k;
-
-          _set_source_(ppt->index_tp_t1) = pvecthermo[pth->index_th_exp_m_kappa] * k* (pvecmetric[ppw->index_mt_psi]-y[ppw->pv->index_pt_phi]);
-
-          _set_source_(ppt->index_tp_t2) = pvecthermo[pth->index_th_g] * P;
-        }
+        // if (ppt->gauge == newtonian) {
+        //   _set_source_(ppt->index_tp_t0) = 
+        //     pvecthermo[pth->index_th_exp_m_kappa] * 2. * pvecmetric[ppw->index_mt_phi_prime] 
+        //     + pvecthermo[pth->index_th_g] * (delta_g / 4. + y[ppw->pv->index_pt_phi])
+        //     + (pvecthermo[pth->index_th_dg] * y[ppw->pv->index_pt_theta_b] + pvecthermo[pth->index_th_g] * dy[ppw->pv->index_pt_theta_b])/k/k;
+        // 
+        //   _set_source_(ppt->index_tp_t1) = pvecthermo[pth->index_th_exp_m_kappa] * k* (pvecmetric[ppw->index_mt_psi]-y[ppw->pv->index_pt_phi]);
+        // 
+        //   _set_source_(ppt->index_tp_t2) = pvecthermo[pth->index_th_g] * P;
+        // }
 
 
         /* synchronous gauge: simplest form, not efficient numerically */
-        /*
+        
           if (ppt->gauge == synchronous) {
           _set_source_(ppt->index_tp_t0) = 
           -pvecthermo[pth->index_th_exp_m_kappa] * pvecmetric[ppw->index_mt_h_prime] / 6. 
@@ -4600,27 +4609,27 @@ int perturb_sources(
           pvecthermo[pth->index_th_exp_m_kappa] * k*k* 2./3. * ppw->s_l[2] * pvecmetric[ppw->index_mt_alpha] 
           + pvecthermo[pth->index_th_g] * P;
           }
-        */
+        
         
         /* synchronous gauge: more complicated form, but efficient numerically */
 
-        if (ppt->gauge == synchronous) {
-
-          a_prime_over_a = pvecback[pba->index_bg_a] * pvecback[pba->index_bg_H]; /* (a'/a)=aH */
-          a_prime_over_a_prime = pvecback[pba->index_bg_H_prime] * pvecback[pba->index_bg_a] + pow(pvecback[pba->index_bg_H] * pvecback[pba->index_bg_a],2); /* (a'/a)' = aH'+(aH)^2 */
-
-          _set_source_(ppt->index_tp_t0) = 
-            pvecthermo[pth->index_th_exp_m_kappa] * 2. * (pvecmetric[ppw->index_mt_eta_prime] -  a_prime_over_a_prime * pvecmetric[ppw->index_mt_alpha] -  a_prime_over_a * pvecmetric[ppw->index_mt_alpha_prime])
-            + pvecthermo[pth->index_th_g] * (delta_g/4. + y[ppw->pv->index_pt_eta] - 2. * a_prime_over_a * pvecmetric[ppw->index_mt_alpha]) // SW conter-terms + ISW
-            + pvecthermo[pth->index_th_dg] * (y[ppw->pv->index_pt_theta_b]/k/k + pvecmetric[ppw->index_mt_alpha]) 
-            + pvecthermo[pth->index_th_g] * (dy[ppw->pv->index_pt_theta_b]/k/k + pvecmetric[ppw->index_mt_alpha_prime]); // part of ISW + SW + Doppler
-
-          _set_source_(ppt->index_tp_t1) = 
-            pvecthermo[pth->index_th_exp_m_kappa] * k * (pvecmetric[ppw->index_mt_alpha_prime] + 2. * a_prime_over_a * pvecmetric[ppw->index_mt_alpha] - y[ppw->pv->index_pt_eta]); // part of ISW
-
-          _set_source_(ppt->index_tp_t2) = 
-            pvecthermo[pth->index_th_g] * P; // Polarisation
-        }
+        // if (ppt->gauge == synchronous) {
+        // 
+        //   a_prime_over_a = pvecback[pba->index_bg_a] * pvecback[pba->index_bg_H]; /* (a'/a)=aH */
+        //   a_prime_over_a_prime = pvecback[pba->index_bg_H_prime] * pvecback[pba->index_bg_a] + pow(pvecback[pba->index_bg_H] * pvecback[pba->index_bg_a],2); /* (a'/a)' = aH'+(aH)^2 */
+        // 
+        //   _set_source_(ppt->index_tp_t0) = 
+        //     pvecthermo[pth->index_th_exp_m_kappa] * 2. * (pvecmetric[ppw->index_mt_eta_prime] -  a_prime_over_a_prime * pvecmetric[ppw->index_mt_alpha] -  a_prime_over_a * pvecmetric[ppw->index_mt_alpha_prime])
+        //     + pvecthermo[pth->index_th_g] * (delta_g/4. + y[ppw->pv->index_pt_eta] - 2. * a_prime_over_a * pvecmetric[ppw->index_mt_alpha]) // SW conter-terms + ISW
+        //     + pvecthermo[pth->index_th_dg] * (y[ppw->pv->index_pt_theta_b]/k/k + pvecmetric[ppw->index_mt_alpha]) 
+        //     + pvecthermo[pth->index_th_g] * (dy[ppw->pv->index_pt_theta_b]/k/k + pvecmetric[ppw->index_mt_alpha_prime]); // part of ISW + SW + Doppler
+        // 
+        //   _set_source_(ppt->index_tp_t1) = 
+        //     pvecthermo[pth->index_th_exp_m_kappa] * k * (pvecmetric[ppw->index_mt_alpha_prime] + 2. * a_prime_over_a * pvecmetric[ppw->index_mt_alpha] - y[ppw->pv->index_pt_eta]); // part of ISW
+        // 
+        //   _set_source_(ppt->index_tp_t2) = 
+        //     pvecthermo[pth->index_th_g] * P; // Polarisation
+        // }
 
         /* what should you write if you wanted ONLY the ISW contribution? */
         /*
@@ -4687,6 +4696,39 @@ int perturb_sources(
         */
 
       }
+
+
+      /* Rayleigh scattering temperature. The sources are computed as shown in eq. 2.1 and 2.2 of arXiv:1307.8148 */
+      if (ppt->has_source_r == _TRUE_) {
+
+        /* Thomson visibility function & opacity */
+        double g_thomson = pvecthermo[pth->index_th_thomson_g];
+        double exp_m_kappa_thomson = pvecthermo[pth->index_th_thomson_exp_m_kappa];
+
+        /* First, set the Rayleigh sources to be equal to the total temperature ones... */
+        _set_source_(ppt->index_tp_r0) = _set_source_(ppt->index_tp_t0);
+        _set_source_(ppt->index_tp_r1) = _set_source_(ppt->index_tp_t1);
+        _set_source_(ppt->index_tp_r2) = _set_source_(ppt->index_tp_t2);
+
+        /* ... then, subtract the Thomson-only sources */
+        if (ppt->gauge == newtonian) {
+
+          _set_source_(ppt->index_tp_r0) -= exp_m_kappa_thomson * pvecmetric[ppw->index_mt_phi_prime] + g_thomson * delta_g / 4.;            
+          _set_source_(ppt->index_tp_r1) -= exp_m_kappa_thomson * k * pvecmetric[ppw->index_mt_psi] + g_thomson * y[ppw->pv->index_pt_theta_b]/k;
+          _set_source_(ppt->index_tp_r2) -= g_thomson * P;
+           
+        }
+
+        if (ppt->gauge == synchronous) {
+
+          _set_source_(ppt->index_tp_r0) -= - exp_m_kappa_thomson * pvecmetric[ppw->index_mt_h_prime]/6. + g_thomson * delta_g/4.;
+          _set_source_(ppt->index_tp_r1) -= g_thomson * y[ppw->pv->index_pt_theta_b] / k;
+          _set_source_(ppt->index_tp_r2) -= exp_m_kappa_thomson * k * k * 2./3. * ppw->s_l[2] * pvecmetric[ppw->index_mt_alpha] + g_thomson * P;
+
+        }
+
+      }
+
 
       /* scalar polarization */
       if (ppt->has_source_p == _TRUE_) {
@@ -4824,6 +4866,30 @@ int perturb_sources(
         _set_source_(ppt->index_tp_p) = -pvecthermo[pth->index_th_g] * sqrt(6.) * P;
       }
     }
+ 
+ 
+  /* Debug */
+  // /* Total and Rayleigh opacities, visibility functions and scattering rates */
+  // double exp_m_kappa_total = pvecthermo[pth->index_th_exp_m_kappa];
+  // double g_total = pvecthermo[pth->index_th_g];
+  // double dkappa_total = pvecthermo[pth->index_th_dkappa];
+  // double exp_m_kappa_rayleigh = pvecthermo[pth->index_th_rayleigh_exp_m_kappa];
+  // double g_rayleigh = pvecthermo[pth->index_th_rayleigh_g];
+  // double dkappa_rayleigh = pvecthermo[pth->index_th_rayleigh_dkappa];
+  // 
+  // /* Thomson scattering visibility function */      
+  // double exp_m_kappa_thomson = exp_m_kappa_total/exp_m_kappa_rayleigh;
+  // double dkappa_thomson = g_total/exp_m_kappa_total - dkappa_rayleigh;
+  // double g_thomson = exp_m_kappa_thomson * dkappa_thomson;
+  //   
+  // if (index_k == 200) {
+  //   fprintf (stderr, "%12g %12g %12g\n",
+  //     tau,
+  //     exp_m_kappa_thomson,
+  //     g_thomson
+  //   );
+  // }
+    
  
   return _SUCCESS_;
 

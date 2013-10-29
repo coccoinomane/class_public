@@ -51,7 +51,9 @@ struct spectra {
   //@{
 
   int has_tt; /**< do we want C_l^TT ? (T = temperature) */
+  int has_rr; /**< do we want C_l^RR ? (R = Rayleigh scattering) */
   int has_ee; /**< do we want C_l^EE ? (E = E-polarization) */
+  int has_tr; /**< do we want C_l^TR ? */
   int has_te; /**< do we want C_l^TE ? */
   int has_bb; /**< do we want C_l^BB ? (B = B-polarization) */
   int has_pp; /**< do we want C_l^phi-phi ? (phi = CMB lensing potential) */
@@ -64,7 +66,9 @@ struct spectra {
   int has_tl; /**< do we want C_l^T-l ? */
 
   int index_ct_tt; /**< index for type C_l^TT */
+  int index_ct_rr; /**< index for type C_l^RR */
   int index_ct_ee; /**< index for type C_l^EE */
+  int index_ct_tr; /**< index for type C_l^TR */
   int index_ct_te; /**< index for type C_l^TE */
   int index_ct_bb; /**< index for type C_l^BB */
   int index_ct_pp; /**< index for type C_l^phi-phi */

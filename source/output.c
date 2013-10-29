@@ -1305,8 +1305,12 @@ int output_open_cl_file(
     if (pop->output_format == class_format) {
       if (psp->has_tt == _TRUE_)
         fprintf(*clfile,"TT               ");
+      if (psp->has_rr == _TRUE_)
+        fprintf(*clfile,"RR               ");
       if (psp->has_ee == _TRUE_)
         fprintf(*clfile,"EE               ");
+      if (psp->has_tr == _TRUE_)
+        fprintf(*clfile,"TR                "); 
       if (psp->has_te == _TRUE_)
         fprintf(*clfile,"TE                "); 
       if (psp->has_bb == _TRUE_)
@@ -1340,10 +1344,14 @@ int output_open_cl_file(
     if (pop->output_format == camb_format) {
       if (psp->has_tt == _TRUE_)
         fprintf(*clfile,"TT               ");
+      if (psp->has_rr == _TRUE_)
+        fprintf(*clfile,"RR               ");
       if (psp->has_ee == _TRUE_)
         fprintf(*clfile,"EE               ");
       if (psp->has_bb == _TRUE_)
         fprintf(*clfile,"BB               ");
+      if (psp->has_tr == _TRUE_)
+        fprintf(*clfile,"TR                "); 
       if (psp->has_te == _TRUE_)
         fprintf(*clfile,"TE                "); 
       if (psp->has_pp == _TRUE_)
@@ -1419,10 +1427,14 @@ int output_one_line_of_cl(
 
     if (psp->has_tt == _TRUE_)
       fprintf(clfile," %16.10e",factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_tt]);
+    if (psp->has_rr == _TRUE_)
+      fprintf(clfile," %16.10e",factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_rr]);
     if (psp->has_ee == _TRUE_)
       fprintf(clfile," %16.10e",factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_ee]);
     if (psp->has_bb == _TRUE_)
       fprintf(clfile," %16.10e",factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_bb]);
+    if (psp->has_tr == _TRUE_)
+      fprintf(clfile," %16.10e",factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_tr]);
     if (psp->has_te == _TRUE_)
       fprintf(clfile," %16.10e",factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_te]);
     if (psp->has_pp == _TRUE_)

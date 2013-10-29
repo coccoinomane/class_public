@@ -37,32 +37,32 @@ int main(int argc, char **argv) {
     printf("\n\nError in perturb_init \n=>%s\n",pt.error_message);
     return _FAILURE_;
   }
-
+  
   if (primordial_init(&pr,&pt,&pm) == _FAILURE_) {
     printf("\n\nError in primordial_init \n=>%s\n",pm.error_message);
     return _FAILURE_;
   }
-
+  
   if (transfer_init(&pr,&ba,&th,&pt,&tr) == _FAILURE_) {
     printf("\n\nError in transfer_init \n=>%s\n",tr.error_message);
     return _FAILURE_;
   }
-
+  
   if (spectra_init(&pr,&ba,&pt,&tr,&pm,&sp) == _FAILURE_) {
     printf("\n\nError in spectra_init \n=>%s\n",sp.error_message);
     return _FAILURE_;
   }
-
+  
   if (nonlinear_init(&pr,&ba,&th,&pt,&tr,&pm,&sp,&nl) == _FAILURE_) {
     printf("\n\nError in nonlinear_init \n=>%s\n",nl.error_message);
     return _FAILURE_;
   }
-
+  
   if (lensing_init(&pr,&pt,&sp,&nl,&le) == _FAILURE_) {
     printf("\n\nError in lensing_init \n=>%s\n",le.error_message);
     return _FAILURE_;
   }
-
+  
   if (output_init(&ba,&pt,&sp,&nl,&le,&op) == _FAILURE_) {
     printf("\n\nError in output_init \n=>%s\n",op.error_message);
     return _FAILURE_;
@@ -70,45 +70,45 @@ int main(int argc, char **argv) {
 
   /****** all calculations done, now free the structures ******/
 
-  if (lensing_free(&le) == _FAILURE_) {
-    printf("\n\nError in lensing_free \n=>%s\n",le.error_message);
-    return _FAILURE_;
-  }
-
-  if (nonlinear_free(&nl) == _FAILURE_) {
-    printf("\n\nError in nonlinear_free \n=>%s\n",nl.error_message);
-    return _FAILURE_;
-  }
-
-  if (spectra_free(&sp) == _FAILURE_) {
-    printf("\n\nError in spectra_free \n=>%s\n",sp.error_message);
-    return _FAILURE_;
-  }
-
-  if (transfer_free(&tr) == _FAILURE_) {
-    printf("\n\nError in transfer_free \n=>%s\n",tr.error_message);
-    return _FAILURE_;
-  }
-
-  if (primordial_free(&pm) == _FAILURE_) {
-    printf("\n\nError in primordial_free \n=>%s\n",pm.error_message);
-    return _FAILURE_;
-  }
-
-  if (perturb_free(&pt) == _FAILURE_) {
-    printf("\n\nError in perturb_free \n=>%s\n",pt.error_message);
-    return _FAILURE_;
-  }
-
-  if (thermodynamics_free(&th) == _FAILURE_) {
-    printf("\n\nError in thermodynamics_free \n=>%s\n",th.error_message);
-    return _FAILURE_;
-  }
-
-  if (background_free(&ba) == _FAILURE_) {
-    printf("\n\nError in background_free \n=>%s\n",ba.error_message);
-    return _FAILURE_;
-  }
+  // if (lensing_free(&le) == _FAILURE_) {
+  //   printf("\n\nError in lensing_free \n=>%s\n",le.error_message);
+  //   return _FAILURE_;
+  // }
+  // 
+  // if (nonlinear_free(&nl) == _FAILURE_) {
+  //   printf("\n\nError in nonlinear_free \n=>%s\n",nl.error_message);
+  //   return _FAILURE_;
+  // }
+  // 
+  // if (spectra_free(&sp) == _FAILURE_) {
+  //   printf("\n\nError in spectra_free \n=>%s\n",sp.error_message);
+  //   return _FAILURE_;
+  // }
+  // 
+  // if (transfer_free(&tr) == _FAILURE_) {
+  //   printf("\n\nError in transfer_free \n=>%s\n",tr.error_message);
+  //   return _FAILURE_;
+  // }
+  // 
+  // if (primordial_free(&pm) == _FAILURE_) {
+  //   printf("\n\nError in primordial_free \n=>%s\n",pm.error_message);
+  //   return _FAILURE_;
+  // }
+  // 
+  // if (perturb_free(&pt) == _FAILURE_) {
+  //   printf("\n\nError in perturb_free \n=>%s\n",pt.error_message);
+  //   return _FAILURE_;
+  // }
+  // 
+  // if (thermodynamics_free(&th) == _FAILURE_) {
+  //   printf("\n\nError in thermodynamics_free \n=>%s\n",th.error_message);
+  //   return _FAILURE_;
+  // }
+  // 
+  // if (background_free(&ba) == _FAILURE_) {
+  //   printf("\n\nError in background_free \n=>%s\n",ba.error_message);
+  //   return _FAILURE_;
+  // }
 
   return _SUCCESS_;
 

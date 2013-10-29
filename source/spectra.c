@@ -1317,6 +1317,15 @@ int spectra_indices(
       psp->has_tt = _FALSE_;
     }
 
+    if (ppt->has_cl_cmb_rayleigh == _TRUE_) {
+      psp->has_rr = _TRUE_;
+      psp->index_ct_rr=index_ct;
+      index_ct++;
+    }
+    else {
+      psp->has_rr = _FALSE_;
+    }
+
     if (ppt->has_cl_cmb_polarization == _TRUE_) {
       psp->has_ee = _TRUE_;
       psp->index_ct_ee=index_ct;
@@ -1324,6 +1333,16 @@ int spectra_indices(
     }
     else {
       psp->has_ee = _FALSE_;
+    }
+
+    if ((ppt->has_cl_cmb_temperature == _TRUE_) && 
+        (ppt->has_cl_cmb_rayleigh == _TRUE_)) {
+      psp->has_tr = _TRUE_;
+      psp->index_ct_tr=index_ct;      
+      index_ct++;
+    }
+    else {
+      psp->has_tr = _FALSE_;
     }
 
     if ((ppt->has_cl_cmb_temperature == _TRUE_) && 
@@ -1462,7 +1481,9 @@ int spectra_indices(
       /* spectra computed up to l_scalar_max */
 
       if (psp->has_tt == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_tt] = ppt->l_scalar_max;
+      if (psp->has_rr == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_rr] = ppt->l_scalar_max;
       if (psp->has_ee == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_ee] = ppt->l_scalar_max;
+      if (psp->has_tr == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_tr] = ppt->l_scalar_max;
       if (psp->has_te == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_te] = ppt->l_scalar_max;
       if (psp->has_pp == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_pp] = ppt->l_scalar_max;
       if (psp->has_tp == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_tp] = ppt->l_scalar_max;
@@ -1505,7 +1526,9 @@ int spectra_indices(
       /* spectra computed up to l_tensor_max */
       
       if (psp->has_tt == _TRUE_) psp->l_max_ct[ppt->index_md_tensors][psp->index_ct_tt] = ppt->l_tensor_max;
+      if (psp->has_rr == _TRUE_) psp->l_max_ct[ppt->index_md_tensors][psp->index_ct_rr] = ppt->l_tensor_max;
       if (psp->has_ee == _TRUE_) psp->l_max_ct[ppt->index_md_tensors][psp->index_ct_ee] = ppt->l_tensor_max;
+      if (psp->has_tr == _TRUE_) psp->l_max_ct[ppt->index_md_tensors][psp->index_ct_tr] = ppt->l_tensor_max;
       if (psp->has_te == _TRUE_) psp->l_max_ct[ppt->index_md_tensors][psp->index_ct_te] = ppt->l_tensor_max;
       if (psp->has_bb == _TRUE_) psp->l_max_ct[ppt->index_md_tensors][psp->index_ct_bb] = ppt->l_tensor_max;
     }
@@ -1835,6 +1858,8 @@ int spectra_compute_cl(
   int index_ic1_ic2;
   double transfer_ic1_temp=0.;
   double transfer_ic2_temp=0.;
+  double transfer_ic1_rayl=0.;
+  double transfer_ic2_rayl=0.;
   double factor;
   /* variable switching between trapezoidal and spline integration.
      1: always spline
@@ -1900,6 +1925,30 @@ int spectra_compute_cl(
           
           transfer_ic1_temp = transfer_ic1[ptr->index_tt_t2];
           transfer_ic2_temp = transfer_ic2[ptr->index_tt_t2];
+          
+        }
+    }
+
+    if (ppt->has_cl_cmb_rayleigh == _TRUE_) {
+
+      if _scalars_ {
+
+          transfer_ic1_rayl = transfer_ic1[ptr->index_tt_r0] + transfer_ic1[ptr->index_tt_r1] + transfer_ic1[ptr->index_tt_r2];
+          transfer_ic2_rayl = transfer_ic2[ptr->index_tt_r0] + transfer_ic2[ptr->index_tt_r1] + transfer_ic2[ptr->index_tt_r2];
+          
+        }
+
+      if _vectors_ {
+
+          transfer_ic1_rayl = transfer_ic1[ptr->index_tt_r1] + transfer_ic1[ptr->index_tt_r2];
+          transfer_ic2_rayl = transfer_ic2[ptr->index_tt_r1] + transfer_ic2[ptr->index_tt_r2];
+          
+        }
+
+      if _tensors_ {
+          
+          transfer_ic1_rayl = transfer_ic1[ptr->index_tt_r2];
+          transfer_ic2_rayl = transfer_ic2[ptr->index_tt_r2];
           
         }
     }
@@ -1981,11 +2030,25 @@ int spectra_compute_cl(
         * transfer_ic2_temp
         * factor;
 
+    if (psp->has_rr == _TRUE_)
+      cl_integrand[index_q*cl_integrand_num_columns+1+psp->index_ct_rr]=
+        primordial_pk[index_ic1_ic2]
+        * transfer_ic1_rayl
+        * transfer_ic2_rayl
+        * factor;
+
     if (psp->has_ee == _TRUE_)
       cl_integrand[index_q*cl_integrand_num_columns+1+psp->index_ct_ee]=
         primordial_pk[index_ic1_ic2]
         * transfer_ic1[ptr->index_tt_e]
         * transfer_ic2[ptr->index_tt_e]
+        * factor;
+    
+    if (psp->has_tr == _TRUE_)
+      cl_integrand[index_q*cl_integrand_num_columns+1+psp->index_ct_tr]=
+        primordial_pk[index_ic1_ic2]
+        * 0.5*(transfer_ic1_temp * transfer_ic1_rayl +
+               transfer_ic1_rayl * transfer_ic2_temp)
         * factor;
     
     if (psp->has_te == _TRUE_)

@@ -17,7 +17,8 @@ vpath .base build
 ########################################################
 
 # your C compiler:
-CC       = gcc -Wall #-g -pg -E#-ggdb
+CC       = /usr/local/bin/gcc-4.8 #-g -pg -E#-ggdb
+# CC       = gcc -Wall -g
 #CC       = icc #-ggdb
 #CC       = pgcc
 
@@ -26,6 +27,7 @@ AR        = ar rv
 
 # your optimization flag
 OPTFLAG = -O4 -ffast-math #-march=native
+# OPTFLAG = -O4
 #OPTFLAG = -Ofast -ffast-math #-march=native
 #OPTFLAG = -fast
 

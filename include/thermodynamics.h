@@ -75,6 +75,14 @@ struct thermo
 
   short compute_cb2_derivatives; /**< do we want to include in computation derivatives of baryon sound speed? */
 
+  short has_rayleigh_scattering;  /** Do we want to compute the interaction rate and visibility function of Rayleigh scattering?
+                                      Note that the frequency dependence is not included at this stage, so that the only
+                                      difference with the usual interaction rate is that the number density of neutral 
+                                      Hydrogen is used instead of that of free electrons. */
+
+  double rayleigh_frequency;                /**< frequency where to compute the Rayleigh scattering */
+
+
   /** parameters for reio_camb */
 
   double reionization_width; /**< width of H reionization */
@@ -129,6 +137,7 @@ struct thermo
   double annihilation_f_halo; /** takes the contribution of DM annihilation in halos into account*/
   double annihilation_z_halo; /** characteristic redshift for DM annihilation in halos*/
 
+
   //@}
 
   /** @name - all indices for the vector of thermodynamical (=th) quantities stored in table */
@@ -136,19 +145,34 @@ struct thermo
   //@{
 
   int index_th_xe;            /**< ionization fraction \f$ x_e \f$ */
-  int index_th_dkappa;        /**< Thomson scattering rate \f$ d \kappa / d \tau\f$ (units 1/Mpc) */
   int index_th_tau_d;         /**< Baryon drag optical depth */
-  int index_th_ddkappa;       /**< scattering rate derivative \f$ d^2 \kappa / d \tau^2 \f$ */
-  int index_th_dddkappa;      /**< scattering rate second derivative \f$ d^3 \kappa / d \tau^3 \f$ */
-  int index_th_exp_m_kappa;  /**< \f$ exp^{-\kappa} \f$ */
-  int index_th_g;             /**< visibility function \f$ g = (d \kappa / d \tau) * exp^{-\kappa} \f$ */
   int index_th_dg;            /**< visibility function derivative \f$ (d g / d \tau) \f$ */
   int index_th_ddg;           /**< visibility function second derivative \f$ (d^2 g / d \tau^2) \f$ */
   int index_th_Tb;            /**< baryon temperature \f$ T_b \f$ */
   int index_th_cb2;           /**< squared baryon sound speed \f$ c_b^2 \f$ */
-  int index_th_dcb2;          /**< derivative wrt conformal time of squared baryon sound speed \f$ d [c_b^2] / d \tau \f$ (only computed if some non-mininmal tight-coupling schemes is requested) */
+  int index_th_dcb2;          /**< derivative wrt conformal time of squared baryon sound speed \f$ d [c_b^2] / d \tau \f$ (only computed if some non-minimal tight-coupling schemes is requested) */
   int index_th_ddcb2;         /**< second derivative wrt conformal time of squared baryon sound speed  \f$ d^2 [c_b^2] / d \tau^2 \f$ (only computed if some non0-minimal tight-coupling schemes is requested) */ 
   int index_th_rate;          /**< maximum variation rate of \f$ exp^{-\kappa}, g and (d g / d \tau), used for computing integration step in perturbation module */
+
+  int index_th_dkappa;        /**< total scattering rate \f$ d \kappa / d \tau\f$ (units 1/Mpc) */
+  int index_th_ddkappa;       /**< total scattering rate derivative \f$ d^2 \kappa / d \tau^2 \f$ */
+  int index_th_dddkappa;      /**< total scattering rate second derivative \f$ d^3 \kappa / d \tau^3 \f$ */
+  int index_th_exp_m_kappa;  /**< \f$ exp^{-\kappa} \f$ */
+  int index_th_g;             /**< total visibility function \f$ g = (d \kappa / d \tau) * exp^{-\kappa} \f$ */
+
+  int index_th_thomson_dkappa;        /**< Thomson scattering rate \f$ d \kappa / d \tau\f$ (units 1/Mpc) */
+  int index_th_thomson_ddkappa;       /**< Thomson scattering rate derivative \f$ d^2 \kappa / d \tau^2 \f$ */
+  int index_th_thomson_dddkappa;      /**< Thomson scattering rate second derivative \f$ d^3 \kappa / d \tau^3 \f$ */
+  int index_th_thomson_exp_m_kappa;   /**< \f$ exp^{-\kappa} \f$ for Thomson scattering */
+  int index_th_thomson_g;             /**< Thomson visibility function \f$ g = (d \kappa / d \tau) * exp^{-\kappa} \f$ */
+
+  int index_th_rayleigh_dkappa;        /**< Rayleigh scattering rate \f$ d \kappa / d \tau\f$ (units 1/Mpc) */
+  int index_th_rayleigh_ddkappa;       /**< Rayleigh scattering rate derivative \f$ d^2 \kappa / d \tau^2 \f$ */
+  int index_th_rayleigh_dddkappa;      /**< Rayleigh scattering rate second derivative \f$ d^3 \kappa / d \tau^3 \f$ */
+  int index_th_rayleigh_exp_m_kappa;   /**< \f$ exp^{-\kappa} \f$ for Rayleigh scattering */
+  int index_th_rayleigh_g;             /**< Rayleigh visibility function \f$ g = (d \kappa / d \tau) * exp^{-\kappa} \f$ */
+
+
   int th_size;                /**< size of thermodynamics vector */ 
 
   //@}
@@ -250,12 +274,15 @@ struct recombination {
 
   //@{
 
-  int index_re_z;          /**< redshift \f$ z \f$ */
-  int index_re_xe;         /**< ionization fraction \f$ x_e \f$ */
-  int index_re_Tb;         /**< baryon temperature \f$ T_b \f$ */
-  int index_re_cb2;        /**< squared baryon sound speed \f$ c_b^2 \f$ */
-  int index_re_dkappadtau; /**< Thomson scattering rate \f$ d \kappa / d \tau\f$ (units 1/Mpc) */
-  int re_size;             /**< size of this vector */
+  int index_re_z;                   /**< redshift \f$ z \f$ */
+  int index_re_xe;                  /**< ionization fraction \f$ x_e \f$ */
+  int index_re_Tb;                  /**< baryon temperature \f$ T_b \f$ */
+  int index_re_cb2;                 /**< squared baryon sound speed \f$ c_b^2 \f$ */
+  int index_re_dkappadtau;          /**< Thomson scattering rate \f$ d \kappa / d \tau\f$ (units 1/Mpc) */
+  int index_re_rayleigh_dkappadtau; /**< Rayleigh scattering rate \f$ d \kappa / d \tau\f$ (units 1/Mpc) (with no frequency dependence)*/
+  // int index_re_x_HI;       /**< neutral hydrogen fraction \f$ x_HI \f$ */
+  // int index_re_x_HeI;      /**< neutral helium fraction \f$ x_HeI \f$ */
+  int re_size;                      /**< size of this vector */
 
   //@}
 
@@ -351,6 +378,9 @@ struct reionization {
   int index_re_dkappadtau; /**< Thomson scattering rate \f$ d \kappa / d \tau\f$ (units 1/Mpc) */
   int index_re_dkappadz;   /**< Thomson scattering rate with respect to redshift \f$ d \kappa / d z\f$ (units 1/Mpc) */
   int index_re_d3kappadz3; /**< second derivative of previous quantity with respect to redshift */
+  int index_re_rayleigh_dkappadtau; /**< Rayleigh scattering rate \f$ d \kappa / d \tau\f$ (units 1/Mpc) (with no frequency dependence)*/
+  // int index_re_x_HI;       /**< neutral hydrogen fraction \f$ x_HI \f$ */
+  // int index_re_x_HeI;      /**< neutral helium fraction \f$ x_HeI \f$ */
   int re_size;             /**< size of this vector */
 
   //@}
@@ -649,5 +679,16 @@ extern "C" {
 #define _Z_REC_MIN_ 500.
 
 //@}
+
+/**  
+ * @name Physical constant needed to compute the Rayleigh scattering rate
+ */
+
+//@{
+
+#define _NU_EFF_ 3.1016927457e6      /**< Effective frequency for the Rayleigh scattering, in Ghz (see arXiv:1307.8148) */
+
+//@}
+
 
 #endif

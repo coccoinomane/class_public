@@ -552,6 +552,12 @@ int input_init(
 
   }
 
+  /* Read the frequency for the Cl's of the Rayleigh scattering, and compute the ratio between
+  the Rayleigh and Thomson interaction rates at such frequency. The formula is given in arXiv:1307.8148. */
+  class_read_double("rayleigh_frequency",pth->rayleigh_frequency);
+  
+
+
   /* reionization parametrization */
   class_call(parser_read_string(pfc,"reio_parametrization",&string1,&flag1,errmsg),
              errmsg,
@@ -663,6 +669,15 @@ int input_init(
       ppt->has_perturbations = _TRUE_;  
       ppt->has_cls = _TRUE_;
     }
+
+    if ((strstr(string1,"rCl") != NULL) || (strstr(string1,"RCl") != NULL) || (strstr(string1,"RCL") != NULL)) {
+      pth->has_rayleigh_scattering = _TRUE_;
+      ppt->has_cl_cmb_rayleigh = _TRUE_;
+      ppt->has_cl_cmb_temperature = _TRUE_;
+      ppt->has_perturbations = _TRUE_;  
+      ppt->has_cls = _TRUE_;
+
+    }
     
     if ((strstr(string1,"lCl") != NULL) || (strstr(string1,"LCl") != NULL) || (strstr(string1,"LCL") != NULL)) {
       ppt->has_cl_cmb_lensing_potential = _TRUE_;
@@ -771,6 +786,7 @@ int input_init(
                  "Inconsistency: you want P(k) of matter, but no scalar modes\n");
 
     }
+    
 
     class_call(parser_read_string(pfc,"gauge",&string1,&flag1,errmsg),
                errmsg,
@@ -1840,10 +1856,13 @@ int input_default_params(
 
   pth->compute_cb2_derivatives=_FALSE_;
 
+  pth->has_rayleigh_scattering = _FALSE_;
+
   /** - perturbation structure */
 
   ppt->has_cl_cmb_temperature = _FALSE_;
   ppt->has_cl_cmb_polarization = _FALSE_;
+  ppt->has_cl_cmb_rayleigh = _FALSE_;
   ppt->has_cl_cmb_lensing_potential = _FALSE_;
   ppt->has_cl_density = _FALSE_;
   ppt->has_cl_lensing_potential = _FALSE_;
@@ -1865,6 +1884,8 @@ int input_default_params(
   ppt->l_tensor_max=500;
   ppt->l_lss_max=300;
   ppt->k_max_for_pk=0.1;
+
+  pth->rayleigh_frequency = 143;
 
   ppt->gauge=synchronous;
 

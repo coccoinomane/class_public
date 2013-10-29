@@ -70,9 +70,13 @@ struct transfers {
   int index_tt_t2;      /**< index for transfer type = temperature (j=2 term) */
   int index_tt_e;      /**< index for transfer type = E-polarization */
   int index_tt_b;      /**< index for transfer type = B-polarization */
+  int index_tt_r0;      /**< index for transfer type = temperature from Rayleigh scattering (j=0 term) */
+  int index_tt_r1;      /**< index for transfer type = temperature from Rayleigh scattering (j=1 term) */
+  int index_tt_r2;      /**< index for transfer type = temperature from Rayleigh scattering (j=2 term) */
   int index_tt_lcmb;   /**< index for transfer type = CMB lensing */
   int index_tt_density; /**< index for first bin of transfer type = matter density */
   int index_tt_lensing; /**< index for first bin of transfer type = galaxy lensing */
+
 
   int * tt_size;     /**< number of requested transfer types tt_size[index_md] for each mode */
 

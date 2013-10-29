@@ -104,6 +104,7 @@ struct perturbs
 
   short has_cl_cmb_temperature;       /**< do we need Cl's for CMB temperature? */
   short has_cl_cmb_polarization;      /**< do we need Cl's for CMB polarization? */
+  short has_cl_cmb_rayleigh;          /**< do we need Cl's for the Rayleigh scattering? */
   short has_cl_cmb_lensing_potential; /**< do we need Cl's for CMB lensing potential? */
   short has_cl_lensing_potential;     /**< do we need Cl's for galaxy lensing potential? */ 
   short has_cl_density;               /**< do we need Cl's for matter density? */
@@ -174,6 +175,7 @@ struct perturbs
 
   short has_source_t;  /**< do we need source for CMB temperature? */
   short has_source_p;  /**< do we need source for CMB polarisation? */
+  short has_source_r;  /**< do we need source for Rayleigh scattering? */
   short has_source_g;  /**< do we need source for gravitationnal potential? */
   short has_source_delta_pk; /**< do we need source for delta total? */ 
   short has_source_delta_g;   /**< do we need source for delta of gammas? */
@@ -197,6 +199,9 @@ struct perturbs
   int index_tp_t1; /**< index value for temperature (j=1 term) */
   int index_tp_t2; /**< index value for temperature (j=2 term) */
   int index_tp_p; /**< index value for polarization */
+  int index_tp_r0; /**< index value for Rayleigh scattering (j=0 term) */
+  int index_tp_r1; /**< index value for Rayleigh scattering (j=1 term) */
+  int index_tp_r2; /**< index value for Rayleigh scattering (j=2 term) */
   int index_tp_g; /**< index value for gravitationnal potential */
   int index_tp_delta_pk; /**< index value for delta tot */
   int index_tp_delta_g;   /**< index value for delta of gammas */
@@ -670,5 +675,7 @@ extern "C" {
 #endif
 
 /**************************************************************/
+
+
 
 #endif

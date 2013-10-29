@@ -453,6 +453,11 @@ int transfer_indices_of_transfers(
     index_tt++;
   }
 
+  if (ppt->has_cl_cmb_rayleigh == _TRUE_) {
+    ptr->index_tt_r2 = index_tt;
+    index_tt++;
+  }
+
   if (ppt->has_cl_cmb_polarization == _TRUE_) {
     ptr->index_tt_e = index_tt;
     index_tt++;
@@ -470,6 +475,13 @@ int transfer_indices_of_transfers(
       ptr->index_tt_t0 = index_tt;
       index_tt++;
       ptr->index_tt_t1 = index_tt;
+      index_tt++;
+    }
+
+    if (ppt->has_cl_cmb_rayleigh == _TRUE_) {
+      ptr->index_tt_r0 = index_tt;
+      index_tt++;
+      ptr->index_tt_r1 = index_tt;
       index_tt++;
     }
 
@@ -500,6 +512,11 @@ int transfer_indices_of_transfers(
 
     if (ppt->has_cl_cmb_temperature == _TRUE_) {
       ptr->index_tt_t1 = index_tt;
+      index_tt++;
+    }
+
+    if (ppt->has_cl_cmb_rayleigh == _TRUE_) {
+      ptr->index_tt_r1 = index_tt;
       index_tt++;
     }
 
@@ -783,6 +800,10 @@ int transfer_get_l_list(
 
         if ((ppt->has_cl_cmb_temperature == _TRUE_) && 
             ((index_tt == ptr->index_tt_t0) || (index_tt == ptr->index_tt_t1) || (index_tt == ptr->index_tt_t2)))
+          l_max=ppt->l_scalar_max;
+        
+        if ((ppt->has_cl_cmb_rayleigh == _TRUE_) && 
+            ((index_tt == ptr->index_tt_r0) || (index_tt == ptr->index_tt_r1) || (index_tt == ptr->index_tt_r2)))
           l_max=ppt->l_scalar_max;
         
         if ((ppt->has_cl_cmb_polarization == _TRUE_) && (index_tt == ptr->index_tt_e))
@@ -1255,6 +1276,15 @@ int transfer_get_source_correspondence(
           if ((ppt->has_cl_cmb_temperature == _TRUE_) && (index_tt == ptr->index_tt_t2)) 
             tp_of_tt[index_md][index_tt]=ppt->index_tp_t2;
           
+          if ((ppt->has_cl_cmb_rayleigh == _TRUE_) && (index_tt == ptr->index_tt_r0)) 
+            tp_of_tt[index_md][index_tt]=ppt->index_tp_r0;
+          
+          if ((ppt->has_cl_cmb_rayleigh == _TRUE_) && (index_tt == ptr->index_tt_r1)) 
+            tp_of_tt[index_md][index_tt]=ppt->index_tp_r1;
+          
+          if ((ppt->has_cl_cmb_rayleigh == _TRUE_) && (index_tt == ptr->index_tt_r2)) 
+            tp_of_tt[index_md][index_tt]=ppt->index_tp_r2;
+          
           if ((ppt->has_cl_cmb_polarization == _TRUE_) && (index_tt == ptr->index_tt_e)) 
             tp_of_tt[index_md][index_tt]=ppt->index_tp_p;
           
@@ -1277,6 +1307,12 @@ int transfer_get_source_correspondence(
           if ((ppt->has_cl_cmb_temperature == _TRUE_) && (index_tt == ptr->index_tt_t2)) 
             tp_of_tt[index_md][index_tt]=ppt->index_tp_t2;
           
+          if ((ppt->has_cl_cmb_rayleigh == _TRUE_) && (index_tt == ptr->index_tt_r1)) 
+            tp_of_tt[index_md][index_tt]=ppt->index_tp_r1;
+          
+          if ((ppt->has_cl_cmb_rayleigh == _TRUE_) && (index_tt == ptr->index_tt_r2)) 
+            tp_of_tt[index_md][index_tt]=ppt->index_tp_r2;
+          
           if ((ppt->has_cl_cmb_polarization == _TRUE_) && (index_tt == ptr->index_tt_e)) 
             tp_of_tt[index_md][index_tt]=ppt->index_tp_p;
           
@@ -1288,6 +1324,9 @@ int transfer_get_source_correspondence(
           
           if ((ppt->has_cl_cmb_temperature == _TRUE_) && (index_tt == ptr->index_tt_t2)) 
             tp_of_tt[index_md][index_tt]=ppt->index_tp_t2;
+          
+          if ((ppt->has_cl_cmb_rayleigh == _TRUE_) && (index_tt == ptr->index_tt_r2)) 
+            tp_of_tt[index_md][index_tt]=ppt->index_tp_r2;
           
           if ((ppt->has_cl_cmb_polarization == _TRUE_) && (index_tt == ptr->index_tt_e)) 
             tp_of_tt[index_md][index_tt]=ppt->index_tp_p;
@@ -1404,6 +1443,11 @@ int transfer_source_tau_size(
       /* scalar temperature */
       if ((ppt->has_cl_cmb_temperature == _TRUE_) && 
           ((index_tt == ptr->index_tt_t0) || (index_tt == ptr->index_tt_t1) || (index_tt == ptr->index_tt_t2)))
+        *tau_size = ppt->tau_size;
+
+      /* scalar temperature for Rayleigh scattering */
+      if ((ppt->has_cl_cmb_rayleigh == _TRUE_) && 
+          ((index_tt == ptr->index_tt_r0) || (index_tt == ptr->index_tt_r1) || (index_tt == ptr->index_tt_r2)))
         *tau_size = ppt->tau_size;
 
       /* scalar polarisation */
@@ -3396,6 +3440,9 @@ int transfer_can_be_neglected(
       if ((index_tt == ptr->index_tt_t0) && (l < (k-ppr->transfer_neglect_delta_k_S_t0)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
       else if ((index_tt == ptr->index_tt_t1) && (l < (k-ppr->transfer_neglect_delta_k_S_t1)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
       else if ((index_tt == ptr->index_tt_t2) && (l < (k-ppr->transfer_neglect_delta_k_S_t2)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
+      else if ((index_tt == ptr->index_tt_r0) && (l < (k-ppr->transfer_neglect_delta_k_S_t0)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
+      else if ((index_tt == ptr->index_tt_r1) && (l < (k-ppr->transfer_neglect_delta_k_S_t1)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
+      else if ((index_tt == ptr->index_tt_r2) && (l < (k-ppr->transfer_neglect_delta_k_S_t2)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
       else if ((index_tt == ptr->index_tt_e) && (l < (k-ppr->transfer_neglect_delta_k_S_e)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
       else if ((index_tt == ptr->index_tt_lcmb) && (l < (k-ppr->transfer_neglect_delta_k_S_lcmb)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
       
@@ -3404,15 +3451,18 @@ int transfer_can_be_neglected(
   else if _vectors_ {
       
       if ((index_tt == ptr->index_tt_t1) && (l < (k-ppr->transfer_neglect_delta_k_V_t1)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
-      else if ((index_tt == ptr->index_tt_t2*ptr->angular_rescaling) && (l < (k-ppr->transfer_neglect_delta_k_V_t2)*pba->conformal_age)) *neglect = _TRUE_;
-      else if ((index_tt == ptr->index_tt_e*ptr->angular_rescaling) && (l < (k-ppr->transfer_neglect_delta_k_V_e)*pba->conformal_age)) *neglect = _TRUE_;
-      else if ((index_tt == ptr->index_tt_b*ptr->angular_rescaling) && (l < (k-ppr->transfer_neglect_delta_k_V_b)*pba->conformal_age)) *neglect = _TRUE_;
+      else if ((index_tt == ptr->index_tt_t2) && (l < (k-ppr->transfer_neglect_delta_k_V_t2)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
+      else if ((index_tt == ptr->index_tt_r1) && (l < (k-ppr->transfer_neglect_delta_k_V_t1)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
+      else if ((index_tt == ptr->index_tt_r2) && (l < (k-ppr->transfer_neglect_delta_k_V_t2)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
+      else if ((index_tt == ptr->index_tt_e) && (l < (k-ppr->transfer_neglect_delta_k_V_e)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
+      else if ((index_tt == ptr->index_tt_b) && (l < (k-ppr->transfer_neglect_delta_k_V_b)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
 
     }
 
   else if _tensors_ {
 
       if ((index_tt == ptr->index_tt_t2) && (l < (k-ppr->transfer_neglect_delta_k_T_t2)*pba->conformal_age)) *neglect = _TRUE_;
+      else if ((index_tt == ptr->index_tt_r2) && (l < (k-ppr->transfer_neglect_delta_k_T_t2)*pba->conformal_age)) *neglect = _TRUE_;
       else if ((index_tt == ptr->index_tt_e) && (l < (k-ppr->transfer_neglect_delta_k_T_e)*pba->conformal_age)) *neglect = _TRUE_;
       else if ((index_tt == ptr->index_tt_b) && (l < (k-ppr->transfer_neglect_delta_k_T_b)*pba->conformal_age)) *neglect = _TRUE_;
 
@@ -3439,18 +3489,24 @@ int transfer_late_source_can_be_neglected(
       if ((index_tt == ptr->index_tt_t0) ||
           (index_tt == ptr->index_tt_t1) ||
           (index_tt == ptr->index_tt_t2) ||
+          (index_tt == ptr->index_tt_r0) ||
+          (index_tt == ptr->index_tt_r1) ||
+          (index_tt == ptr->index_tt_r2) ||
           (index_tt == ptr->index_tt_e))
           *neglect = _TRUE_;
     }
     else if (_vectors_) {
       if ((index_tt == ptr->index_tt_t1) ||
           (index_tt == ptr->index_tt_t2) ||
+          (index_tt == ptr->index_tt_r1) ||
+          (index_tt == ptr->index_tt_r2) ||
           (index_tt == ptr->index_tt_e) ||
           (index_tt == ptr->index_tt_b))
         *neglect = _TRUE_;
     }
     else if (_tensors_) {
       if ((index_tt == ptr->index_tt_t2) ||
+          (index_tt == ptr->index_tt_r2) ||
           (index_tt == ptr->index_tt_e) ||
           (index_tt == ptr->index_tt_b))
         *neglect = _TRUE_;
@@ -3711,13 +3767,13 @@ int transfer_select_radial_function(
 
       if (ppt->has_cl_cmb_temperature == _TRUE_) {
          
-        if (index_tt == ptr->index_tt_t0) {
+        if ((index_tt == ptr->index_tt_t0) || (index_tt == ptr->index_tt_r0)) {
           *radial_type = SCALAR_TEMPERATURE_0;
         }       
-        if (index_tt == ptr->index_tt_t1) {
+        if ((index_tt == ptr->index_tt_t1) || (index_tt == ptr->index_tt_r1)) {
           *radial_type = SCALAR_TEMPERATURE_1;
         }
-        if (index_tt == ptr->index_tt_t2) {
+        if ((index_tt == ptr->index_tt_t2) || (index_tt == ptr->index_tt_r2)) {
           *radial_type = SCALAR_TEMPERATURE_2;
         }
         
@@ -3736,10 +3792,10 @@ int transfer_select_radial_function(
       
       if (ppt->has_cl_cmb_temperature == _TRUE_) {
         
-        if (index_tt == ptr->index_tt_t1) {
+        if ((index_tt == ptr->index_tt_t1) || (index_tt == ptr->index_tt_r1)) {
           *radial_type = VECTOR_TEMPERATURE_1;
         }
-        if (index_tt == ptr->index_tt_t2) {
+        if ((index_tt == ptr->index_tt_t2) || (index_tt == ptr->index_tt_r2)) {
           *radial_type = VECTOR_TEMPERATURE_2;
         }
       }
@@ -3760,7 +3816,7 @@ int transfer_select_radial_function(
 
       if (ppt->has_cl_cmb_temperature == _TRUE_) {
 
-        if (index_tt == ptr->index_tt_t2) {
+        if ((index_tt == ptr->index_tt_t2) || (index_tt == ptr->index_tt_r2)) {
           *radial_type = TENSOR_TEMPERATURE_2;
         }
       }
