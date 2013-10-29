@@ -1507,7 +1507,7 @@ int transfer_source_tau_size(
       }
 
       /* galaxy lensing Cl's, differs from density Cl's since the source
-         function will spead from the selection function region up to
+         function will spread from the selection function region up to
          tau0 */
       if ((ppt->has_cl_lensing_potential == _TRUE_) && (index_tt >= ptr->index_tt_lensing) && (index_tt < ptr->index_tt_lensing+ppt->selection_num)) {
 
@@ -1589,7 +1589,7 @@ int transfer_compute_for_each_q(
   /* - second workspace field: list of tau0-tau values, tau0_minus_tau[index_tau] */
   double * tau0_minus_tau;
 
-  /* - third workspace field: list of trapezoidal weights for integration in tau0_minus_tau */
+  /* - third workspace field: list of trapezoidal weights for integration over tau */
   double * w_trapz;
 
   /* - fourth workspace field, containing just a double: number of time values */
@@ -1925,7 +1925,7 @@ int transfer_interpolate_sources(
  * @param index_tt              Input : index of type of (transfer) source
  * @param sources               Output: transfer source
  * @param tau0_minus_tau        Output: values of (tau0-tau) at which source are sample
- * @param w_trapz               Output: trapezoidal weights for integration in (tau0-tau)
+ * @param w_trapz               Output: trapezoidal weights for integration over tau
  * @param tau_size_double       Output: pointer to size of previous two arrays, converted to double
  * @return the error status
  */
@@ -2075,11 +2075,11 @@ int transfer_sources(
           
           }
 
-          /* Compute trapezoidal weights for integration in (tau0-tau) */
-          class_call(array_trapezoidal_weights(tau0_minus_tau,
-                                               tau_size,
-                                               w_trapz,
-                                               ptr->error_message),
+          /* Compute trapezoidal weights for integration over tau */
+          class_call(array_trapezoidal_mweights(tau0_minus_tau,
+                                                tau_size,
+                                                w_trapz,
+                                                ptr->error_message),
                      ptr->error_message,
                      ptr->error_message); 
         }
@@ -2123,11 +2123,11 @@ int transfer_sources(
                      ptr->error_message,
                      ptr->error_message);
 
-          /* Compute trapezoidal weights for integration in (tau0-tau) */
-          class_call(array_trapezoidal_weights(tau0_minus_tau,
-                                               tau_size,
-                                               w_trapz,
-                                               ptr->error_message),
+          /* Compute trapezoidal weights for integration over tau */
+          class_call(array_trapezoidal_mweights(tau0_minus_tau,
+                                                tau_size,
+                                                w_trapz,
+                                                ptr->error_message),
                      ptr->error_message,
                      ptr->error_message);
 
@@ -2229,11 +2229,11 @@ int transfer_sources(
                      ptr->error_message,
                      ptr->error_message);
         
-          /* Compute trapezoidal weights for integration in (tau0-tau) */
-          class_call(array_trapezoidal_weights(tau0_minus_tau_lensing_sources,
-                                               tau_sources_size,
-                                               w_trapz_lensing_sources,
-                                               ptr->error_message),
+          /* Compute trapezoidal weights for integration over tau */
+          class_call(array_trapezoidal_mweights(tau0_minus_tau_lensing_sources,
+                                                tau_sources_size,
+                                                w_trapz_lensing_sources,
+                                                ptr->error_message),
                      ptr->error_message,
                      ptr->error_message);
         
@@ -2279,11 +2279,11 @@ int transfer_sources(
                      ptr->error_message,
                      ptr->error_message);
 
-          /* Compute trapezoidal weights for integration in (tau0-tau) */
-          class_call(array_trapezoidal_weights(tau0_minus_tau,
-                                               tau_size,
-                                               w_trapz,
-                                               ptr->error_message),
+          /* Compute trapezoidal weights for integration over tau */
+          class_call(array_trapezoidal_mweights(tau0_minus_tau,
+                                                tau_size,
+                                                w_trapz,
+                                                ptr->error_message),
                      ptr->error_message,
                      ptr->error_message);
 
@@ -2358,11 +2358,11 @@ int transfer_sources(
       tau0_minus_tau[index_tau] = tau0 - ppt->tau_sampling[index_tau];
     }
 
-    /* Compute trapezoidal weights for integration in (tau0-tau) */
-    class_call(array_trapezoidal_weights(tau0_minus_tau,
-                                         tau_size,
-                                         w_trapz,
-                                         ptr->error_message),
+    /* Compute trapezoidal weights for integration over tau */
+    class_call(array_trapezoidal_mweights(tau0_minus_tau,
+                                          tau_size,
+                                          w_trapz,
+                                          ptr->error_message),
                ptr->error_message,
                ptr->error_message);
   }
@@ -2605,7 +2605,8 @@ int transfer_lensing_sampling(
              ptr->error_message);
 
   for (index_tau=0; index_tau<tau_size; index_tau++) {
-    tau0_minus_tau[index_tau]=pba->conformal_age-tau_min-((double)index_tau)/((double)tau_size-1.)*(tau0-tau_min);
+    //tau0_minus_tau[index_tau]=pba->conformal_age-tau_min-((double)index_tau)/((double)tau_size-1.)*(tau0-tau_min);
+    tau0_minus_tau[index_tau]=((double)(tau_size-1-index_tau))/((double)(tau_size-1))*(tau0-tau_min);
   }
 
   return _SUCCESS_;
@@ -2771,7 +2772,7 @@ int transfer_selection_times(
  * @param ptr                   Input : pointer to transfers structure
  * @param selection             Output: normalized selection function
  * @param tau0_minus_tau        Input : values of (tau0-tau) at which source are sample
- * @param w_trapz               Input : trapezoidal weights for (tau0-tau) integration
+ * @param w_trapz               Input : trapezoidal weights for integration over tau
  * @param tau_size              Input : size of previous two arrays
  * @param pvecback              Input : allocated array of background values
  * @param tau_0                 Input : time today
@@ -2941,7 +2942,7 @@ int transfer_compute_for_each_l(
                                  &use_limber),
              ptr->error_message,
              ptr->error_message);
-  
+
   if (use_limber == _TRUE_) {
     
     class_call(transfer_limber(ptw->tau_size,
@@ -3204,7 +3205,7 @@ int transfer_integrate(
              ptr->error_message);
 
   /** This integral is correct for the case where no truncation has
-      occured. If it has been truncated at som index_tau_max because
+      occured. If it has been truncated at some index_tau_max because
       f[index_tau_max+1]==0, it is still correct. The 'mistake' in using
       the wrong weight w_trapz[index_tau_max] is exactly compensated by the
       triangle we miss. However, for the Bessel cut off, we must subtract the
@@ -3437,34 +3438,49 @@ int transfer_can_be_neglected(
 
   if _scalars_ {
 
-      if ((index_tt == ptr->index_tt_t0) && (l < (k-ppr->transfer_neglect_delta_k_S_t0)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
-      else if ((index_tt == ptr->index_tt_t1) && (l < (k-ppr->transfer_neglect_delta_k_S_t1)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
-      else if ((index_tt == ptr->index_tt_t2) && (l < (k-ppr->transfer_neglect_delta_k_S_t2)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
-      else if ((index_tt == ptr->index_tt_r0) && (l < (k-ppr->transfer_neglect_delta_k_S_t0)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
-      else if ((index_tt == ptr->index_tt_r1) && (l < (k-ppr->transfer_neglect_delta_k_S_t1)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
-      else if ((index_tt == ptr->index_tt_r2) && (l < (k-ppr->transfer_neglect_delta_k_S_t2)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
-      else if ((index_tt == ptr->index_tt_e) && (l < (k-ppr->transfer_neglect_delta_k_S_e)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
-      else if ((index_tt == ptr->index_tt_lcmb) && (l < (k-ppr->transfer_neglect_delta_k_S_lcmb)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
+      if ((ppt->has_cl_cmb_temperature == _TRUE_) && (index_tt == ptr->index_tt_t0) && (l < (k-ppr->transfer_neglect_delta_k_S_t0)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
+
+      else if ((ppt->has_cl_cmb_temperature == _TRUE_) && (index_tt == ptr->index_tt_t1) && (l < (k-ppr->transfer_neglect_delta_k_S_t1)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
+
+      else if ((ppt->has_cl_cmb_temperature == _TRUE_) && (index_tt == ptr->index_tt_t2) && (l < (k-ppr->transfer_neglect_delta_k_S_t2)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
+
+      else if ((ppt->has_cl_cmb_rayleigh == _TRUE_) && (index_tt == ptr->index_tt_r0) && (l < (k-ppr->transfer_neglect_delta_k_S_t2)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
+
+      else if ((ppt->has_cl_cmb_rayleigh == _TRUE_) && (index_tt == ptr->index_tt_r1) && (l < (k-ppr->transfer_neglect_delta_k_S_t2)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
+
+      else if ((ppt->has_cl_cmb_rayleigh == _TRUE_) && (index_tt == ptr->index_tt_r2) && (l < (k-ppr->transfer_neglect_delta_k_S_t2)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
+
+      else if ((ppt->has_cl_cmb_polarization == _TRUE_) && (index_tt == ptr->index_tt_e) && (l < (k-ppr->transfer_neglect_delta_k_S_e)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
+
+      else if ((ppt->has_cl_cmb_lensing_potential == _TRUE_) && (index_tt == ptr->index_tt_lcmb) && (l < (k-ppr->transfer_neglect_delta_k_S_lcmb)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
       
     }
   
   else if _vectors_ {
       
-      if ((index_tt == ptr->index_tt_t1) && (l < (k-ppr->transfer_neglect_delta_k_V_t1)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
-      else if ((index_tt == ptr->index_tt_t2) && (l < (k-ppr->transfer_neglect_delta_k_V_t2)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
-      else if ((index_tt == ptr->index_tt_r1) && (l < (k-ppr->transfer_neglect_delta_k_V_t1)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
-      else if ((index_tt == ptr->index_tt_r2) && (l < (k-ppr->transfer_neglect_delta_k_V_t2)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
-      else if ((index_tt == ptr->index_tt_e) && (l < (k-ppr->transfer_neglect_delta_k_V_e)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
-      else if ((index_tt == ptr->index_tt_b) && (l < (k-ppr->transfer_neglect_delta_k_V_b)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
+      if ((ppt->has_cl_cmb_temperature == _TRUE_) && (index_tt == ptr->index_tt_t1) && (l < (k-ppr->transfer_neglect_delta_k_V_t1)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
+
+      else if ((ppt->has_cl_cmb_temperature == _TRUE_) && (index_tt == ptr->index_tt_t2) && (l < (k-ppr->transfer_neglect_delta_k_V_t2)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
+
+      else if ((ppt->has_cl_cmb_rayleigh == _TRUE_) && (index_tt == ptr->index_tt_r1) && (l < (k-ppr->transfer_neglect_delta_k_V_t2)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
+
+      else if ((ppt->has_cl_cmb_rayleigh == _TRUE_) && (index_tt == ptr->index_tt_r2) && (l < (k-ppr->transfer_neglect_delta_k_V_t2)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
+
+      else if ((ppt->has_cl_cmb_polarization == _TRUE_) && (index_tt == ptr->index_tt_e) && (l < (k-ppr->transfer_neglect_delta_k_V_e)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
+
+      else if ((ppt->has_cl_cmb_polarization == _TRUE_) && (index_tt == ptr->index_tt_b) && (l < (k-ppr->transfer_neglect_delta_k_V_b)*pba->conformal_age*ptr->angular_rescaling)) *neglect = _TRUE_;
 
     }
 
   else if _tensors_ {
 
-      if ((index_tt == ptr->index_tt_t2) && (l < (k-ppr->transfer_neglect_delta_k_T_t2)*pba->conformal_age)) *neglect = _TRUE_;
-      else if ((index_tt == ptr->index_tt_r2) && (l < (k-ppr->transfer_neglect_delta_k_T_t2)*pba->conformal_age)) *neglect = _TRUE_;
-      else if ((index_tt == ptr->index_tt_e) && (l < (k-ppr->transfer_neglect_delta_k_T_e)*pba->conformal_age)) *neglect = _TRUE_;
-      else if ((index_tt == ptr->index_tt_b) && (l < (k-ppr->transfer_neglect_delta_k_T_b)*pba->conformal_age)) *neglect = _TRUE_;
+      if ((ppt->has_cl_cmb_temperature == _TRUE_) && (index_tt == ptr->index_tt_t2) && (l < (k-ppr->transfer_neglect_delta_k_T_t2)*pba->conformal_age)) *neglect = _TRUE_;
+
+      if ((ppt->has_cl_cmb_rayleigh == _TRUE_) && (index_tt == ptr->index_tt_r2) && (l < (k-ppr->transfer_neglect_delta_k_T_t2)*pba->conformal_age)) *neglect = _TRUE_;
+
+      else if ((ppt->has_cl_cmb_polarization == _TRUE_) && (index_tt == ptr->index_tt_e) && (l < (k-ppr->transfer_neglect_delta_k_T_e)*pba->conformal_age)) *neglect = _TRUE_;
+
+      else if ((ppt->has_cl_cmb_polarization == _TRUE_) && (index_tt == ptr->index_tt_b) && (l < (k-ppr->transfer_neglect_delta_k_T_b)*pba->conformal_age)) *neglect = _TRUE_;
 
     }
 
@@ -3486,30 +3502,54 @@ int transfer_late_source_can_be_neglected(
   if (l > ppr->transfer_neglect_late_source) {
     
     if (_scalars_) {
-      if ((index_tt == ptr->index_tt_t0) ||
-          (index_tt == ptr->index_tt_t1) ||
-          (index_tt == ptr->index_tt_t2) ||
-          (index_tt == ptr->index_tt_r0) ||
-          (index_tt == ptr->index_tt_r1) ||
-          (index_tt == ptr->index_tt_r2) ||
-          (index_tt == ptr->index_tt_e))
+      if (ppt->has_cl_cmb_temperature == _TRUE_) {
+        if ((index_tt == ptr->index_tt_t0) ||
+            (index_tt == ptr->index_tt_t1) ||
+            (index_tt == ptr->index_tt_t2))
           *neglect = _TRUE_;
+      }
+      if (ppt->has_cl_cmb_rayleigh == _TRUE_) {
+        if ((index_tt == ptr->index_tt_r0) ||
+            (index_tt == ptr->index_tt_r1) ||
+            (index_tt == ptr->index_tt_r2))
+          *neglect = _TRUE_;
+      }
+      if (ppt->has_cl_cmb_polarization == _TRUE_) {
+        if (index_tt == ptr->index_tt_e)
+          *neglect = _TRUE_;
+      }
     }
     else if (_vectors_) {
-      if ((index_tt == ptr->index_tt_t1) ||
-          (index_tt == ptr->index_tt_t2) ||
-          (index_tt == ptr->index_tt_r1) ||
-          (index_tt == ptr->index_tt_r2) ||
-          (index_tt == ptr->index_tt_e) ||
-          (index_tt == ptr->index_tt_b))
-        *neglect = _TRUE_;
+      if (ppt->has_cl_cmb_temperature == _TRUE_) {
+        if ((index_tt == ptr->index_tt_t1) ||
+            (index_tt == ptr->index_tt_t2))
+          *neglect = _TRUE_;
+      }   
+      if (ppt->has_cl_cmb_rayleigh == _TRUE_) {
+        if ((index_tt == ptr->index_tt_r1) ||
+            (index_tt == ptr->index_tt_r2))
+          *neglect = _TRUE_;
+      }   
+      if (ppt->has_cl_cmb_polarization == _TRUE_) {
+        if ((index_tt == ptr->index_tt_e) ||
+            (index_tt == ptr->index_tt_b))
+          *neglect = _TRUE_;
+      }
     }
     else if (_tensors_) {
-      if ((index_tt == ptr->index_tt_t2) ||
-          (index_tt == ptr->index_tt_r2) ||
-          (index_tt == ptr->index_tt_e) ||
-          (index_tt == ptr->index_tt_b))
-        *neglect = _TRUE_;
+      if (ppt->has_cl_cmb_temperature == _TRUE_) {
+        if (index_tt == ptr->index_tt_t2)
+          *neglect = _TRUE_;
+      }   
+      if (ppt->has_cl_cmb_rayleigh == _TRUE_) {
+        if (index_tt == ptr->index_tt_r2)
+          *neglect = _TRUE_;
+      }   
+      if (ppt->has_cl_cmb_polarization == _TRUE_) {
+        if ((index_tt == ptr->index_tt_e) ||
+            (index_tt == ptr->index_tt_b))
+          *neglect = _TRUE_;
+      }
     }
   }
 
