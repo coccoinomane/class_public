@@ -32,6 +32,8 @@ struct lensing {
   //@{
 
   int has_tt; /**< do we want lensed C_l^TT ? (T = temperature) */
+  int has_rr; /**< do we want lensed C_l^RR ? (R = Rayleigh) */
+  int has_tr; /**< do we want lensed C_l^TR ? */
   int has_ee; /**< do we want lensed C_l^EE ? (E = E-polarization) */
   int has_te; /**< do we want lensed C_l^TE ? */
   int has_bb; /**< do we want C_l^BB ? (B = B-polarization) */
@@ -43,6 +45,8 @@ struct lensing {
   int has_tl; /**< do we want C_l^T-l ? */
 
   int index_lt_tt; /**< index for type C_l^TT */
+  int index_lt_rr; /**< index for type C_l^RR */
+  int index_lt_tr; /**< index for type C_l^TR */
   int index_lt_ee; /**< index for type C_l^EE */
   int index_lt_te; /**< index for type C_l^TE */
   int index_lt_bb; /**< index for type C_l^BB */
@@ -133,6 +137,14 @@ extern "C" {
                         struct lensing * ple
                         );
   
+  int lensing_lensed_cl_rr(
+                        double *ksi_rr, 
+                        double **d00,
+                        double *w8,
+                        int nmu,
+                        struct lensing * ple
+                        );
+  
   int lensing_lensed_cl_te(
                            double *ksiX, 
                            double **d20,
@@ -151,9 +163,14 @@ extern "C" {
 			      struct lensing * ple
 			      );
   int lensing_addback_cl_tt(
-			    struct lensing *ple,
-			    double *cl_tt
-			    );
+          struct lensing *ple,
+          double *cl_tt
+          );
+
+  int lensing_addback_cl_rr(
+          struct lensing *ple,
+          double *cl_rr
+          );
 
   int lensing_addback_cl_te(
 			    struct lensing *ple,

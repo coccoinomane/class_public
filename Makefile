@@ -17,7 +17,7 @@ vpath .base build
 ########################################################
 
 # your C compiler:
-CC       = /usr/local/bin/gcc-4.8 #-g -pg -E#-ggdb
+CC       = /usr/local/bin/gcc #-g -pg -E#-ggdb
 # CC       = gcc -Wall -g
 #CC       = icc #-ggdb
 #CC       = pgcc

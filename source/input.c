@@ -556,6 +556,9 @@ int input_init(
   the Rayleigh and Thomson interaction rates at such frequency. The formula is given in arXiv:1307.8148. */
   class_read_double("rayleigh_frequency",pth->rayleigh_frequency);
   
+  class_test (pth->rayleigh_frequency > _RAYLEIGH_NU_MAX_,
+    errmsg,
+    "the formula that CLASS implements for Rayleigh scattering (eq. 2.1 of arXiv:1307.8148) does not support frequencies larger than about 2000 Ghz.");
 
 
   /* reionization parametrization */
@@ -803,7 +806,7 @@ int input_init(
       }
     }
     
-  }
+  }    
 
   /** (d) define the primordial spectrum */
 

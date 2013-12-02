@@ -39,7 +39,7 @@ enum ncdmfa_flags {ncdmfa_off, ncdmfa_on};
 
 //@{
 
-enum tca_method {first_order_MB,first_order_CAMB,first_order_CLASS,second_order_CRS,second_order_CLASS,compromise_CLASS};
+enum tca_method {first_order_MB,first_order_CAMB,first_order_CLASS,second_order_CRS,second_order_CLASS,compromise_CLASS,tca_none};
 enum rsa_method {rsa_null,rsa_MD,rsa_MD_with_reio,rsa_none};
 enum ufa_method {ufa_mb,ufa_hu,ufa_CLASS,ufa_none};
 enum ncdmfa_method {ncdmfa_mb,ncdmfa_hu,ncdmfa_CLASS,ncdmfa_none};
@@ -191,6 +191,9 @@ struct perturbs
   short has_source_theta_ur; /**< do we need source for theta of ultra-relativistic neutrinos/relics? */
   short has_source_theta_ncdm; /**< do we need source for theta of all non-cold dark matter species (e.g. massive neutrinos)? */
 
+  /* Should we evolve the Raleigh hierarchy difference, or just build LOS differences? */
+  short use_rayleigh_diff;
+
   /* remember that the temperature source function includes three
      terms that we call 0,1,2 (since the strategy in class v > 1.7 is
      to avoid the integration by part that would reduce the source to
@@ -299,11 +302,31 @@ struct perturb_vector
   int index_pt_shear_g;   /**< photon shear */
   int index_pt_l3_g;      /**< photon l=3 */
   int l_max_g;            /**< max momentum in Boltzmann hierarchy (at least 3) */
+  int index_pt_delta_g_tot;   /**< photon density (including Rayleigh) */
+  int index_pt_theta_g_tot;   /**< photon velocity (including Rayleigh) */
+  int index_pt_shear_g_tot;   /**< photon shear (including Rayleigh) */
+  int index_pt_l3_g_tot;      /**< photon l=3 (including Rayleigh) */
+  int l_max_g_tot;            /**< max momentum in Boltzmann hierarchy (at least 3) */
+  int index_pt_delta_g_x;   /**< photon density (Rayleigh only) */
+  int index_pt_theta_g_x;   /**< photon velocity (Rayleigh only) */
+  int index_pt_shear_g_x;   /**< photon shear (Rayleigh only) */
+  int index_pt_l3_g_x;      /**< photon l=3 (Rayleigh only) */
+  int l_max_g_x;            /**< max momentum in Boltzmann hierarchy (at least 3) */
   int index_pt_pol0_g;    /**< photon polarization, l=0 */
   int index_pt_pol1_g;    /**< photon polarization, l=1 */
   int index_pt_pol2_g;    /**< photon polarization, l=2 */
   int index_pt_pol3_g;    /**< photon polarization, l=3 */
   int l_max_pol_g;        /**< max momentum in Boltzmann hierarchy (at least 3) */
+  int index_pt_pol0_g_tot;    /**< photon polarization, l=0 */
+  int index_pt_pol1_g_tot;    /**< photon polarization, l=1 */
+  int index_pt_pol2_g_tot;    /**< photon polarization, l=2 */
+  int index_pt_pol3_g_tot;    /**< photon polarization, l=3 */
+  int l_max_pol_g_tot;        /**< max momentum in Boltzmann hierarchy (at least 3) */
+  int index_pt_pol0_g_x;    /**< photon polarization, l=0 */
+  int index_pt_pol1_g_x;    /**< photon polarization, l=1 */
+  int index_pt_pol2_g_x;    /**< photon polarization, l=2 */
+  int index_pt_pol3_g_x;    /**< photon polarization, l=3 */
+  int l_max_pol_g_x;        /**< max momentum in Boltzmann hierarchy (at least 3) */
   int index_pt_delta_b;   /**< baryon density */
   int index_pt_theta_b;   /**< baryon velocity */
   int index_pt_delta_cdm; /**< cdm density */

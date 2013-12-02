@@ -3476,7 +3476,7 @@ int transfer_can_be_neglected(
 
       if ((ppt->has_cl_cmb_temperature == _TRUE_) && (index_tt == ptr->index_tt_t2) && (l < (k-ppr->transfer_neglect_delta_k_T_t2)*pba->conformal_age)) *neglect = _TRUE_;
 
-      if ((ppt->has_cl_cmb_rayleigh == _TRUE_) && (index_tt == ptr->index_tt_r2) && (l < (k-ppr->transfer_neglect_delta_k_T_t2)*pba->conformal_age)) *neglect = _TRUE_;
+      else if ((ppt->has_cl_cmb_rayleigh == _TRUE_) && (index_tt == ptr->index_tt_r2) && (l < (k-ppr->transfer_neglect_delta_k_T_t2)*pba->conformal_age)) *neglect = _TRUE_;
 
       else if ((ppt->has_cl_cmb_polarization == _TRUE_) && (index_tt == ptr->index_tt_e) && (l < (k-ppr->transfer_neglect_delta_k_T_e)*pba->conformal_age)) *neglect = _TRUE_;
 

@@ -181,6 +181,14 @@ void* class_protect_memcpy(void* dest, void* from, size_t sz);
   }                                                                                                              \
 }
 
+#define class_test_permissive(condition, error_message_output, args...) {                                        \
+  if (condition) {                                                                                               \
+    class_test_message(error_message_output,#condition, args);                                                   \
+    printf ("\n%s\n\n", error_message_output);                                                                         \
+    fflush(stdout);                                                                                              \
+  }                                                                                                              \
+}
+
 #define class_test_parallel(condition, error_message_output, args...) {                                          \
   if (abort == _FALSE_) {                                                                                        \
     if (condition) {                                                                                             \

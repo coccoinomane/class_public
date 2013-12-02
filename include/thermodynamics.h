@@ -146,8 +146,6 @@ struct thermo
 
   int index_th_xe;            /**< ionization fraction \f$ x_e \f$ */
   int index_th_tau_d;         /**< Baryon drag optical depth */
-  int index_th_dg;            /**< visibility function derivative \f$ (d g / d \tau) \f$ */
-  int index_th_ddg;           /**< visibility function second derivative \f$ (d^2 g / d \tau^2) \f$ */
   int index_th_Tb;            /**< baryon temperature \f$ T_b \f$ */
   int index_th_cb2;           /**< squared baryon sound speed \f$ c_b^2 \f$ */
   int index_th_dcb2;          /**< derivative wrt conformal time of squared baryon sound speed \f$ d [c_b^2] / d \tau \f$ (only computed if some non-minimal tight-coupling schemes is requested) */
@@ -159,21 +157,35 @@ struct thermo
   int index_th_dddkappa;      /**< total scattering rate second derivative \f$ d^3 \kappa / d \tau^3 \f$ */
   int index_th_exp_m_kappa;  /**< \f$ exp^{-\kappa} \f$ */
   int index_th_g;             /**< total visibility function \f$ g = (d \kappa / d \tau) * exp^{-\kappa} \f$ */
+  int index_th_dg;            /**< visibility function derivative \f$ (d g / d \tau) \f$ */
+  int index_th_ddg;           /**< visibility function second derivative \f$ (d^2 g / d \tau^2) \f$ */
 
   int index_th_thomson_dkappa;        /**< Thomson scattering rate \f$ d \kappa / d \tau\f$ (units 1/Mpc) */
   int index_th_thomson_ddkappa;       /**< Thomson scattering rate derivative \f$ d^2 \kappa / d \tau^2 \f$ */
   int index_th_thomson_dddkappa;      /**< Thomson scattering rate second derivative \f$ d^3 \kappa / d \tau^3 \f$ */
   int index_th_thomson_exp_m_kappa;   /**< \f$ exp^{-\kappa} \f$ for Thomson scattering */
   int index_th_thomson_g;             /**< Thomson visibility function \f$ g = (d \kappa / d \tau) * exp^{-\kappa} \f$ */
+  int index_th_thomson_dg;            /**< visibility function derivative \f$ (d g / d \tau) \f$ */
+  int index_th_thomson_ddg;            /**< visibility function second derivative \f$ (d^2 g / d \tau^2) \f$ */
 
   int index_th_rayleigh_dkappa;        /**< Rayleigh scattering rate \f$ d \kappa / d \tau\f$ (units 1/Mpc) */
   int index_th_rayleigh_ddkappa;       /**< Rayleigh scattering rate derivative \f$ d^2 \kappa / d \tau^2 \f$ */
   int index_th_rayleigh_dddkappa;      /**< Rayleigh scattering rate second derivative \f$ d^3 \kappa / d \tau^3 \f$ */
   int index_th_rayleigh_exp_m_kappa;   /**< \f$ exp^{-\kappa} \f$ for Rayleigh scattering */
   int index_th_rayleigh_g;             /**< Rayleigh visibility function \f$ g = (d \kappa / d \tau) * exp^{-\kappa} \f$ */
-
+  int index_th_rayleigh_dg;            /**< visibility function derivative \f$ (d g / d \tau) \f$ */
+  int index_th_rayleigh_ddg;            /**< visibility function second derivative \f$ (d^2 g / d \tau^2) \f$ */
 
   int th_size;                /**< size of thermodynamics vector */ 
+
+  //@}
+
+  /** @name - indices for the type of scattering (EXPERIMENTAL) */
+
+  //@{
+
+  int index_sc_thomson;
+  int index_sc_rayleigh;
 
   //@}
 
@@ -199,17 +211,18 @@ struct thermo
 
   //@{
 
-  double z_rec;   /**< z at which the visibility reaches its maximum (= recombination redshift) */
-  double tau_rec; /**< conformal time at which the visibility reaches its maximum (= recombination time) */
-  double rs_rec;  /**< comoving sound horizon at recombination */
-  double ds_rec;  /**< physical sound horizon at recombination */
-  double ra_rec;  /**< conformal angular diameter distance to recombination */
-  double da_rec;  /**< physical angular diameter distance to recombination */
-  double z_d;     /**< baryon drag redshift */
-  double tau_d;   /**< baryon drag time */
-  double ds_d;    /**< physical sound horizon at baryon drag */
-  double rs_d;    /**< comoving sound horizon at baryon drag */
-  double tau_cut; /**< at at which the visibility goes below a fixed fraction of the maximum visibility, used for an approximation in perturbation module */
+  double z_rec;             /**< z at which the total visibility reaches its maximum (= recombination redshift) */
+  double z_rec_thomson;     /**< z at which the Thomson visibility reaches its maximum */
+  double tau_rec;           /**< conformal time at which the visibility reaches its maximum (= recombination time) */
+  double rs_rec;            /**< comoving sound horizon at recombination */
+  double ds_rec;            /**< physical sound horizon at recombination */
+  double ra_rec;            /**< conformal angular diameter distance to recombination */
+  double da_rec;            /**< physical angular diameter distance to recombination */
+  double z_d;               /**< baryon drag redshift */
+  double tau_d;             /**< baryon drag time */
+  double ds_d;              /**< physical sound horizon at baryon drag */
+  double rs_d;              /**< comoving sound horizon at baryon drag */
+  double tau_cut;           /**< at at which the visibility goes below a fixed fraction of the maximum visibility, used for an approximation in perturbation module */
   double angular_rescaling; /**< [ratio ra_rec / (tau0-tau_rec)]: gives CMB rescaling in angular space relative to flat model (=1 for curvature K=0) */
 
   //@}
@@ -280,8 +293,6 @@ struct recombination {
   int index_re_cb2;                 /**< squared baryon sound speed \f$ c_b^2 \f$ */
   int index_re_dkappadtau;          /**< Thomson scattering rate \f$ d \kappa / d \tau\f$ (units 1/Mpc) */
   int index_re_rayleigh_dkappadtau; /**< Rayleigh scattering rate \f$ d \kappa / d \tau\f$ (units 1/Mpc) (with no frequency dependence)*/
-  // int index_re_x_HI;       /**< neutral hydrogen fraction \f$ x_HI \f$ */
-  // int index_re_x_HeI;      /**< neutral helium fraction \f$ x_HeI \f$ */
   int re_size;                      /**< size of this vector */
 
   //@}
@@ -379,8 +390,6 @@ struct reionization {
   int index_re_dkappadz;   /**< Thomson scattering rate with respect to redshift \f$ d \kappa / d z\f$ (units 1/Mpc) */
   int index_re_d3kappadz3; /**< second derivative of previous quantity with respect to redshift */
   int index_re_rayleigh_dkappadtau; /**< Rayleigh scattering rate \f$ d \kappa / d \tau\f$ (units 1/Mpc) (with no frequency dependence)*/
-  // int index_re_x_HI;       /**< neutral hydrogen fraction \f$ x_HI \f$ */
-  // int index_re_x_HeI;      /**< neutral helium fraction \f$ x_HeI \f$ */
   int re_size;             /**< size of this vector */
 
   //@}
@@ -481,6 +490,26 @@ extern "C" {
 			  double * pvecback,
 			  double * pvecthermo
 			  );
+
+  int thermodynamics_at_z_thomson(
+        struct background * pba,
+        struct thermo * pth,
+        double z,
+        short inter_mode,
+        int * last_index,
+        double * pvecback,
+        double * pvecthermo
+        );
+
+  int thermodynamics_at_z_rayleigh(
+        struct background * pba,
+        struct thermo * pth,
+        double z,
+        short inter_mode,
+        int * last_index,
+        double * pvecback,
+        double * pvecthermo
+        );
 
   int thermodynamics_init(
 			  struct precision * ppr,
@@ -677,6 +706,7 @@ extern "C" {
 #define _YHE_SMALL_ 0.01   /**< minimal \f$ Y_{He} \f$ */
 #define _Z_REC_MAX_ 2000.
 #define _Z_REC_MIN_ 500.
+#define _RAYLEIGH_NU_MAX_ 2000.
 
 //@}
 

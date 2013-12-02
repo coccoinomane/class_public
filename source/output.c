@@ -54,13 +54,13 @@ int output_total_cl_at_l(
 	
         class_alloc(cl_md[index_md],  
                     psp->ct_size*sizeof(double),
-                    ple->error_message);	
+                    pop->error_message);	
       
       if (psp->ic_size[index_md] > 1)
 	
         class_alloc(cl_md_ic[index_md],
                     psp->ic_ic_size[index_md]*psp->ct_size*sizeof(double),
-                    ple->error_message);
+                    pop->error_message);
     }
     
     class_call(spectra_cl_at_l(psp,
@@ -1307,10 +1307,10 @@ int output_open_cl_file(
         fprintf(*clfile,"TT               ");
       if (psp->has_rr == _TRUE_)
         fprintf(*clfile,"RR               ");
-      if (psp->has_ee == _TRUE_)
-        fprintf(*clfile,"EE               ");
       if (psp->has_tr == _TRUE_)
         fprintf(*clfile,"TR                "); 
+      if (psp->has_ee == _TRUE_)
+        fprintf(*clfile,"EE               ");
       if (psp->has_te == _TRUE_)
         fprintf(*clfile,"TE                "); 
       if (psp->has_bb == _TRUE_)
@@ -1350,12 +1350,12 @@ int output_open_cl_file(
         fprintf(*clfile,"TT               ");
       if (psp->has_rr == _TRUE_)
         fprintf(*clfile,"RR               ");
+      if (psp->has_tr == _TRUE_)
+        fprintf(*clfile,"TR                "); 
       if (psp->has_ee == _TRUE_)
         fprintf(*clfile,"EE               ");
       if (psp->has_bb == _TRUE_)
         fprintf(*clfile,"BB               ");
-      if (psp->has_tr == _TRUE_)
-        fprintf(*clfile,"TR                "); 
       if (psp->has_te == _TRUE_)
         fprintf(*clfile,"TE                "); 
       if (psp->has_pp == _TRUE_)
@@ -1437,12 +1437,12 @@ int output_one_line_of_cl(
       fprintf(clfile," %16.10e",factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_tt]);
     if (psp->has_rr == _TRUE_)
       fprintf(clfile," %16.10e",factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_rr]);
+    if (psp->has_tr == _TRUE_)
+      fprintf(clfile," %16.10e",factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_tr]);
     if (psp->has_ee == _TRUE_)
       fprintf(clfile," %16.10e",factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_ee]);
     if (psp->has_bb == _TRUE_)
       fprintf(clfile," %16.10e",factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_bb]);
-    if (psp->has_tr == _TRUE_)
-      fprintf(clfile," %16.10e",factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_tr]);
     if (psp->has_te == _TRUE_)
       fprintf(clfile," %16.10e",factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_te]);
     if (psp->has_pp == _TRUE_)

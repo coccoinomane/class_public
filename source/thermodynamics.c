@@ -174,6 +174,8 @@ int thermodynamics_at_z(
       pvecthermo[pth->index_th_rayleigh_dddkappa] = 0;
       pvecthermo[pth->index_th_rayleigh_exp_m_kappa] = 0; /* TODO: can we safely assume that kappa(tau_0)>>1? */
       pvecthermo[pth->index_th_rayleigh_g] = 0;
+      pvecthermo[pth->index_th_rayleigh_dg] = 0;
+      pvecthermo[pth->index_th_rayleigh_ddg] = 0;
       
       /* The Thomson scattering rate is equal to the total scattering rate */
       pvecthermo[pth->index_th_thomson_dkappa] = pvecthermo[pth->index_th_dkappa];
@@ -181,6 +183,8 @@ int thermodynamics_at_z(
       pvecthermo[pth->index_th_thomson_dddkappa] = pvecthermo[pth->index_th_dddkappa];
       pvecthermo[pth->index_th_thomson_exp_m_kappa] = pvecthermo[pth->index_th_exp_m_kappa];
       pvecthermo[pth->index_th_thomson_g] = pvecthermo[pth->index_th_g];
+      pvecthermo[pth->index_th_thomson_dg] = pvecthermo[pth->index_th_dg];
+      pvecthermo[pth->index_th_thomson_ddg] = pvecthermo[pth->index_th_ddg];
 
     }
     
@@ -250,6 +254,107 @@ int thermodynamics_at_z(
   }
   return _SUCCESS_;
 }
+
+/** 
+ * Thermodynamics quantities at given redshift z, assuming only Thomson scattering matters.
+ *
+ * The inputs and outputs of the function are the same of 'thermodynamics_at_z'. The only
+ * difference is that the values of dkappa, exp_m_kappa, g, dg, dgg stored in pvecthermo
+ * will only reflect what expected from Thomson scattering, thus neglecting the effect
+ * of Rayleigh scattering.
+ *
+ * This functions is exactly equal to 'thermodynamics_at_z' in absence of Rayleigh scattering.
+ *
+ */
+
+
+int thermodynamics_at_z_thomson(
+      struct background * pba,
+      struct thermo * pth,
+      double z,
+      short inter_mode,
+      int * last_index,
+      double * pvecback,
+      double * pvecthermo
+      )
+{
+  
+  
+  class_call(thermodynamics_at_z(pba,
+                                 pth,
+                                 z,
+                                 inter_mode,
+                                 last_index,
+                                 pvecback,
+                                 pvecthermo),
+             pth->error_message,
+             pth->error_message);
+  
+  if (pth->has_rayleigh_scattering == _TRUE_) {
+    pvecthermo[pth->index_th_dkappa] = pvecthermo[pth->index_th_thomson_dkappa];
+    pvecthermo[pth->index_th_ddkappa] = pvecthermo[pth->index_th_thomson_ddkappa];
+    pvecthermo[pth->index_th_dddkappa] = pvecthermo[pth->index_th_thomson_dddkappa];
+    pvecthermo[pth->index_th_exp_m_kappa] = pvecthermo[pth->index_th_thomson_exp_m_kappa];
+    pvecthermo[pth->index_th_g] = pvecthermo[pth->index_th_thomson_g];
+    pvecthermo[pth->index_th_dg] = pvecthermo[pth->index_th_thomson_dg];
+    pvecthermo[pth->index_th_ddg] = pvecthermo[pth->index_th_thomson_ddg];
+  }
+ 
+  return _SUCCESS_;
+}
+
+
+/** 
+ * Thermodynamics quantities at given redshift z, assuming only Rayleigh scattering.
+ *
+ * The inputs and outputs of the function are the same of 'thermodynamics_at_z'. The only
+ * difference is that the values of dkappa, exp_m_kappa, g, dg, dgg stored in pvecthermo
+ * will only reflect what expected from Rayleigh scattering, thus neglecting the effect
+ * of Thomson scattering.
+ *
+ * This functions is exactly equal to 'thermodynamics_at_z' in absence of Thomson scattering.
+ *
+ */
+
+
+int thermodynamics_at_z_rayleigh(
+      struct background * pba,
+      struct thermo * pth,
+      double z,
+      short inter_mode,
+      int * last_index,
+      double * pvecback,
+      double * pvecthermo
+      )
+{
+  
+  
+  class_call(thermodynamics_at_z(pba,
+                                 pth,
+                                 z,
+                                 inter_mode,
+                                 last_index,
+                                 pvecback,
+                                 pvecthermo),
+             pth->error_message,
+             pth->error_message);
+  
+  if (pth->has_rayleigh_scattering == _TRUE_) {
+    pvecthermo[pth->index_th_dkappa] = pvecthermo[pth->index_th_rayleigh_dkappa];
+    pvecthermo[pth->index_th_ddkappa] = pvecthermo[pth->index_th_rayleigh_ddkappa];
+    pvecthermo[pth->index_th_dddkappa] = pvecthermo[pth->index_th_rayleigh_dddkappa];
+    pvecthermo[pth->index_th_exp_m_kappa] = pvecthermo[pth->index_th_rayleigh_exp_m_kappa];
+    pvecthermo[pth->index_th_g] = pvecthermo[pth->index_th_rayleigh_g];
+    pvecthermo[pth->index_th_dg] = pvecthermo[pth->index_th_rayleigh_dg];
+    pvecthermo[pth->index_th_ddg] = pvecthermo[pth->index_th_rayleigh_ddg];
+  }
+ 
+  return _SUCCESS_;
+}
+
+
+
+
 
 /** 
  * Initialize the thermo structure, and in particular the
@@ -551,7 +656,7 @@ int thermodynamics_init(
       (pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_ddkappa] +
        pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_dkappa] *
        pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_dkappa]) *
-      exp(pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_g]);
+      pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_exp_m_kappa];
     
     /** -> compute g''  */
     pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_ddg] = 
@@ -636,18 +741,101 @@ int thermodynamics_init(
       pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_thomson_exp_m_kappa] = 
         exp_m_kappa_total / pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_rayleigh_exp_m_kappa];
       
-      /* Compute visibility functions */  
+      /* Rayleigh and Thomson scattering rates */  
       double dkappa_rayleigh = pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_rayleigh_dkappa];
-      pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_rayleigh_g] = 
-        pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_rayleigh_exp_m_kappa] * dkappa_rayleigh;
       pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_thomson_dkappa] = 
         pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_dkappa] - dkappa_rayleigh;
+
+      /* In the Rayleigh scattering we also include the opacity from Thomson scattering */
+      pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_rayleigh_g] = 
+        pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_exp_m_kappa] * dkappa_rayleigh;
+      
+      /* In the Thomson scattering WE DO NOT include the opacity from Rayleigh scattering */
       pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_thomson_g] = 
         pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_thomson_exp_m_kappa] * 
         pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_thomson_dkappa];
 
+      /* Ignoring the effect of Thomson scattering on the Rayleigh visibility function: */
+      
+      // /* Compute visibility functions */  
+      // double dkappa_rayleigh = pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_rayleigh_dkappa];
+      // pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_rayleigh_g] = 
+      //   pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_rayleigh_exp_m_kappa] * dkappa_rayleigh;
+      // pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_thomson_dkappa] = 
+      //   pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_dkappa] - dkappa_rayleigh;
+      // pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_thomson_g] = 
+      //   pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_thomson_exp_m_kappa] * 
+      //   pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_thomson_dkappa];
+      // 
+      // /* Compute the derivative of the Rayleigh visibility function */
+      // pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_rayleigh_dg] = 
+      //   (pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_rayleigh_ddkappa] +
+      //    pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_rayleigh_dkappa] *
+      //    pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_rayleigh_dkappa]) *
+      //   pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_rayleigh_exp_m_kappa];
+
     } // end of loop on z
   
+    /* Compute the derivative of the Rayleigh visibility function */
+    class_call(array_spline_table_line_to_line(
+                 tau_table,
+                 pth->tt_size,
+                 pth->thermodynamics_table,
+                 pth->th_size,
+                 pth->index_th_rayleigh_g,
+                 pth->index_th_rayleigh_ddg,
+                 _SPLINE_EST_DERIV_,
+                 pth->error_message),
+         pth->error_message,
+         pth->error_message);
+  
+    class_call(array_derive_spline_table_line_to_line(
+                  tau_table,
+                  pth->tt_size,
+                  pth->thermodynamics_table,
+                  pth->th_size,
+                  pth->index_th_rayleigh_g,
+                  pth->index_th_rayleigh_ddg,
+                  pth->index_th_rayleigh_dg,
+                  pth->error_message),
+         pth->error_message,
+         pth->error_message);
+  
+  
+    /* Compute the derivative of the Thomson visibility function */
+    class_call(array_spline_table_line_to_line(
+                 tau_table,
+                 pth->tt_size,
+                 pth->thermodynamics_table,
+                 pth->th_size,
+                 pth->index_th_thomson_dkappa,
+                 pth->index_th_thomson_dddkappa,
+                 _SPLINE_EST_DERIV_,
+                 pth->error_message),
+         pth->error_message,
+         pth->error_message);
+      
+    class_call(array_derive_spline_table_line_to_line(
+                  tau_table,
+                  pth->tt_size,
+                  pth->thermodynamics_table,
+                  pth->th_size,
+                  pth->index_th_thomson_dkappa,
+                  pth->index_th_thomson_dddkappa,
+                  pth->index_th_thomson_ddkappa,
+                  pth->error_message),
+         pth->error_message,
+         pth->error_message);
+      
+    for (index_tau=pth->tt_size-1; index_tau>=0; index_tau--) {
+      pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_thomson_dg] = 
+        (pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_thomson_ddkappa] +
+         pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_thomson_dkappa] *
+         pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_thomson_dkappa]) *
+        pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_thomson_exp_m_kappa];
+    
+    }
+    
   } // end of Rayleigh scattering computation
 
 
@@ -698,13 +886,34 @@ int thermodynamics_init(
   /* approximation for maximum of g, using cubic interpolation, assuming equally spaced z's */
   pth->z_rec=pth->z_table[index_tau+1]+0.5*(pth->z_table[index_tau+1]-pth->z_table[index_tau])*(pth->thermodynamics_table[(index_tau)*pth->th_size+pth->index_th_g]-pth->thermodynamics_table[(index_tau+2)*pth->th_size+pth->index_th_g])/(pth->thermodynamics_table[(index_tau)*pth->th_size+pth->index_th_g]-2.*pth->thermodynamics_table[(index_tau+1)*pth->th_size+pth->index_th_g]+pth->thermodynamics_table[(index_tau+2)*pth->th_size+pth->index_th_g]);
 
-  class_test(pth->z_rec+ppr->smallest_allowed_variation >= _Z_REC_MAX_,
-	     pth->error_message,
-	     "found a recombination redshift greater or equal to the maximum value imposed in thermodynamics.h, z_rec_max=%g",_Z_REC_MAX_);
 
-  class_test(pth->z_rec-ppr->smallest_allowed_variation <= _Z_REC_MIN_,
-	     pth->error_message,
-	     "found a recombination redshift smaller or equal to the maximum value imposed in thermodynamics.h, z_rec_min=%g",_Z_REC_MIN_);
+  /** - find what would have been the maximum of g without Rayleigh scattering */
+  if (pth->has_rayleigh_scattering == _TRUE_) {
+
+    int index_tau;
+
+    index_tau=pth->tt_size-1;
+    while (pth->z_table[index_tau]>_Z_REC_MAX_) {
+      index_tau--;
+    }
+
+    class_test(pth->thermodynamics_table[(index_tau+1)*pth->th_size+pth->index_th_thomson_g] >
+  	     pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_thomson_g],
+  	     pth->error_message,
+  	     "found a recombination redshift greater or equal to the maximum value imposed in thermodynamics.h, z_rec_max=%g",_Z_REC_MAX_);
+
+    while (pth->thermodynamics_table[(index_tau+1)*pth->th_size+pth->index_th_thomson_g] <
+  	 pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_thomson_g]) {
+      index_tau--;
+    }
+  
+    g_max = pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_thomson_g];
+    index_tau_max = index_tau;
+
+    /* approximation for maximum of g, using cubic interpolation, assuming equally spaced z's */
+    pth->z_rec_thomson=pth->z_table[index_tau+1]+0.5*(pth->z_table[index_tau+1]-pth->z_table[index_tau])*(pth->thermodynamics_table[(index_tau)*pth->th_size+pth->index_th_thomson_g]-pth->thermodynamics_table[(index_tau+2)*pth->th_size+pth->index_th_thomson_g])/(pth->thermodynamics_table[(index_tau)*pth->th_size+pth->index_th_thomson_g]-2.*pth->thermodynamics_table[(index_tau+1)*pth->th_size+pth->index_th_thomson_g]+pth->thermodynamics_table[(index_tau+2)*pth->th_size+pth->index_th_thomson_g]);
+
+  }
 
   /** - find conformal recombination time using background_tau_of_z() **/
 
@@ -806,7 +1015,7 @@ int thermodynamics_init(
   // }
   // else {
   // 
-  //   fprintf (stderr, "%16s %16s %16s %16s %16s %16s %16s %16s %16s %16s %16s\n",
+  //   fprintf (stderr, "%16s %16s %16s %16s %16s %16s %16s %16s %16s %16s %16s \n",
   //     "tau","z","dkappa_t","dkappa_r","dkappa_tot","g_t","g_r","g_tot","exp_m_kappa_t","exp_m_kappa_r","exp_m_kappa_tot");
   //   int i;
   //   for (i=0; i < pth->tt_size; ++i) {
@@ -848,6 +1057,10 @@ int thermodynamics_init(
     printf(" -> baryon drag stops at z = %f\n",pth->z_d);
     printf("    corresponding to conformal time = %f Mpc\n",pth->tau_d);
     printf("    with comoving sound horizon rs = %f Mpc\n",pth->rs_d);
+    if (pth->has_rayleigh_scattering == _TRUE_) {
+      printf(" -> Rayleigh scattering with nu = %f Ghz\n",pth->rayleigh_frequency);
+      printf("    moves recombination from z=%f to z=%f\n",pth->z_rec_thomson,pth->z_rec);
+    }
     if ((pth->reio_parametrization == reio_camb) || (pth->reio_parametrization == reio_half_tanh)) {
       if (pth->reio_z_or_tau==reio_tau) 
 	printf(" -> reionization  at z = %f\n",pth->z_reio);
@@ -947,13 +1160,25 @@ int thermodynamics_indices(
     pth->index_th_rayleigh_dddkappa = index++;
     pth->index_th_rayleigh_exp_m_kappa = index++;
     pth->index_th_rayleigh_g = index++;
+    pth->index_th_rayleigh_dg = index++;
+    pth->index_th_rayleigh_ddg = index++;
+
     pth->index_th_thomson_dkappa = index++;
     pth->index_th_thomson_ddkappa = index++;
     pth->index_th_thomson_dddkappa = index++;
     pth->index_th_thomson_exp_m_kappa = index++;
     pth->index_th_thomson_g = index++;
+    pth->index_th_thomson_dg = index++;
+    pth->index_th_thomson_ddg = index++;
   }
-
+  // /* With no Rayeligh scattering, the total scattering rate is just Thomson's */
+  // else {
+  //   pth->index_th_thomson_dkappa = pth->index_th_dkappa;
+  //   pth->index_th_thomson_ddkappa = pth->index_th_ddkappa;
+  //   pth->index_th_thomson_dddkappa = pth->index_th_dddkappa;
+  //   pth->index_th_thomson_exp_m_kappa = pth->index_th_exp_m_kappa;
+  //   pth->index_th_thomson_g = pth->index_th_g;    
+  // }
 
 
   /* derivatives of baryon sound speed (only computed if some non-minimal tight-coupling schemes is requested) */
@@ -2879,10 +3104,10 @@ int thermodynamics_recombination_with_recfast(
     
     if (pth->has_rayleigh_scattering == _TRUE_) {
 
-      /* x_HI, number of neutral H atoms per H nucleus. It is obtained as x_HI = 1 - x_HII = 1 - y[0] */
+      /* x_HI = n_HI/n_H, number of neutral H atoms per H nucleus. It is obtained as x_HI = 1 - x_HII = 1 - y[0] */
       double x_HI = 1 - y[0];
       
-      /* x_HeI = n_HeI / (n_HI + n_HII), number of neutral He atoms per H nuclues. It is obtained as
+      /* x_HeI = n_HeI/n_H = n_HeI/(n_HI + n_HII), number of neutral He atoms per H nuclues. It is obtained as
       x_HeI = x_He - x_HeII - x_HeIII, where x_He=fHe is the total number of He nuclei per H nuclues. Since there
       are no fully ionised Helium nuclei around recombination, we set x_HeIII to zero. The quantity
       evolved by CLASS is y[1] = n_HeII/n_He = x_HeII*(n_H/n_He) = x_HeII/fHe, so that
@@ -2898,12 +3123,20 @@ int thermodynamics_recombination_with_recfast(
         = (1.+zend) * (1.+zend) * preco->Nnow * (x_HI + R_He*x_HeI) * _sigma_ * _Mpc_over_m_;
       
       /* Include the frequency dependence (see eq. 2.1 of arXiv:1307.8148) in the Rayleigh scattering rate,
-      making sure to include the scaling due to the redshifting of photons. */
+      making sure to include the scaling due to the redshifting of photons. Note that we use a coefficient
+      for the nu^8 contribution that is different than the one in arXiv:1307.8148v1; this is because
+      the first version of the paper had a typo. Here we implement the correct factor as extracted from 
+      Table I of Lee 2005 (MNRAS,358).  */
       double nu_ratio = pth->rayleigh_frequency/_NU_EFF_;
       double nu_4 = pow((1.+zend)*nu_ratio,4);
       double nu_6 = pow((1.+zend)*nu_ratio,6) * 638/243.;
-      double nu_8 = pow((1.+zend)*nu_ratio,8) * 1626820991/136048896.;
-      *(preco->recombination_table+(Nz-i-1)*preco->re_size+preco->index_re_rayleigh_dkappadtau) *= nu_4 + nu_6 + nu_8;
+      double nu_8 = pow((1.+zend)*nu_ratio,8) * 1299667/239196.;
+      if ((nu_4 + nu_6 + nu_8) < 1)
+        *(preco->recombination_table+(Nz-i-1)*preco->re_size+preco->index_re_rayleigh_dkappadtau) *= nu_4 + nu_6 + nu_8;
+
+      /* Check when the scattering is close to or above the Lyman frequency where resonant scattering becomes relevant */
+      // if ((nu_4 + nu_6 + nu_8) > 1)
+      //   printf ("%12g %12g\n", 1+zend, nu_4 + nu_6 + nu_8);
       
       /* Uncomment to modify the full dkappa */
       *(preco->recombination_table+(Nz-i-1)*preco->re_size+preco->index_re_dkappadtau) += 

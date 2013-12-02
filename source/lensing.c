@@ -134,6 +134,8 @@ int lensing_init(
   double * cl_unlensed;  /* cl_unlensed[index_ct] */
   double * cl_tt; /* unlensed  cl, to be filled to avoid repeated calls to spectra_cl_at_l */
   double * cl_te; /* unlensed  cl, to be filled to avoid repeated calls to spectra_cl_at_l */
+  double * cl_rr; /* unlensed  cl, to be filled to avoid repeated calls to spectra_cl_at_l */
+  double * cl_tr; /* unlensed  cl, to be filled to avoid repeated calls to spectra_cl_at_l */
   double * cl_ee; /* unlensed  cl, to be filled to avoid repeated calls to spectra_cl_at_l */
   double * cl_bb; /* unlensed  cl, to be filled to avoid repeated calls to spectra_cl_at_l */
   double * cl_pp; /* potential cl, to be filled to avoid repeated calls to spectra_cl_at_l */
@@ -424,6 +426,16 @@ int lensing_init(
   class_alloc(cl_tt,
               (ple->l_unlensed_max+1)*sizeof(double),
               ple->error_message);
+  if (ple->has_rr==_TRUE_) {
+    class_alloc(cl_rr,
+                (ple->l_unlensed_max+1)*sizeof(double),
+                ple->error_message);
+  }
+  if (ple->has_tr==_TRUE_) {
+    class_alloc(cl_tr,
+                (ple->l_unlensed_max+1)*sizeof(double),
+                ple->error_message);
+  }
   if (ple->has_te==_TRUE_) {
     class_alloc(cl_te,
                 (ple->l_unlensed_max+1)*sizeof(double),
@@ -471,6 +483,12 @@ int lensing_init(
                ple->error_message);
     cl_tt[l] = cl_unlensed[ple->index_lt_tt];
     cl_pp[l] = cl_unlensed[ple->index_lt_pp];
+    if (ple->has_rr==_TRUE_) {
+      cl_rr[l] = cl_unlensed[ple->index_lt_rr];
+    }
+    if (ple->has_tr==_TRUE_) {
+      cl_tr[l] = cl_unlensed[ple->index_lt_tr];
+    }
     if (ple->has_te==_TRUE_) {
       cl_te[l] = cl_unlensed[ple->index_lt_te];
     }
@@ -534,6 +552,16 @@ int lensing_init(
   if (ple->has_tt==_TRUE_) {
     
     class_calloc(ksi,
+                 (num_mu-1),
+                 sizeof(double),
+                 ple->error_message);
+  }
+  
+  /** ksi_rr is for RR (Rayleigh-Rayleigh) and is the same as ksi **/
+  double * ksi_rr;
+  if (ple->has_rr==_TRUE_) {
+    
+    class_calloc(ksi_rr,
                  (num_mu-1),
                  sizeof(double),
                  ple->error_message);
@@ -619,9 +647,9 @@ int lensing_init(
       
 
       if (ple->has_tt==_TRUE_) {
-	
+  
         res = fac1*cl_tt[l];
-	
+  
         lens = (X_000*X_000*d00[index_mu][l] +
                 X_p000*X_p000*d1m1[index_mu][l]
                 *Cgl2[index_mu]*8./(ll*(ll+1)) +
@@ -634,6 +662,24 @@ int lensing_init(
         }
         res *= lens;
         ksi[index_mu] += res;
+      }
+      
+      if (ple->has_rr==_TRUE_) {
+  
+        res = fac1*cl_rr[l];
+  
+        lens = (X_000*X_000*d00[index_mu][l] +
+                X_p000*X_p000*d1m1[index_mu][l]
+                *Cgl2[index_mu]*8./(ll*(ll+1)) +
+                (X_p000*X_p000*d00[index_mu][l] +
+                 X_220*X_220*d2m2[index_mu][l])
+                *Cgl2[index_mu]*Cgl2[index_mu]);
+        if (ppr->accurate_lensing == _FALSE_) {
+          /* Remove unlensed correlation function */
+          lens -= d00[index_mu][l];
+        }
+        res *= lens;
+        ksi_rr[index_mu] += res;
       }
       
       if (ple->has_te==_TRUE_) {
@@ -700,6 +746,17 @@ int lensing_init(
                ple->error_message);
   }
 
+  if (ple->has_rr==_TRUE_) {
+    class_call(lensing_lensed_cl_rr(ksi_rr,d00,w8,num_mu-1,ple),
+               ple->error_message,
+               ple->error_message);
+    if (ppr->accurate_lensing == _FALSE_) {
+      class_call(lensing_addback_cl_rr(ple,cl_rr),
+                 ple->error_message,
+                 ple->error_message);
+    }
+  }
+
   if (ple->has_te==_TRUE_) {
     class_call(lensing_lensed_cl_te(ksiX,d20,w8,num_mu-1,ple),
                ple->error_message,
@@ -760,6 +817,8 @@ int lensing_init(
   
   if (ple->has_tt==_TRUE_)
     free(ksi);
+  if (ple->has_rr==_TRUE_)
+    free(ksi_rr);
   if (ple->has_te==_TRUE_)
     free(ksiX);
   if (ple->has_ee==_TRUE_ || ple->has_bb==_TRUE_) {
@@ -775,6 +834,10 @@ int lensing_init(
 
   free(cl_unlensed);
   free(cl_tt);
+  if (ple->has_rr==_TRUE_)
+    free(cl_rr);
+  if (ple->has_tr==_TRUE_)
+    free(cl_tr);
   if (ple->has_te==_TRUE_)
     free(cl_te);
   if (ple->has_ee==_TRUE_ || ple->has_bb==_TRUE_) {
@@ -848,6 +911,22 @@ int lensing_indices(
   }
   else {
     ple->has_tt = _FALSE_;
+  }
+
+  if (psp->has_rr == _TRUE_) {
+    ple->has_rr = _TRUE_;
+    ple->index_lt_rr=psp->index_ct_rr;
+  }
+  else {
+    ple->has_rr = _FALSE_;
+  }
+
+  if (psp->has_tr == _TRUE_) {
+    ple->has_tr = _TRUE_;
+    ple->index_lt_tr=psp->index_ct_tr;
+  }
+  else {
+    ple->has_tr = _FALSE_;
   }
 
   if (psp->has_ee == _TRUE_) {
@@ -1003,7 +1082,7 @@ int lensing_indices(
   /* we want to output Cl_lensed up to the same l_max as Cl_unlensed
      (even if a number delta_l_max of extra values of l have been used
      internally for more accurate results). Notable exception to the
-     above rule: ClBB_lensed(saclars) must be outputed at least up to the same l_max as
+     above rule: ClBB_lensed(scalars) must be outputted at least up to the same l_max as
      ClEE_unlensed(scalars) (since ClBB_unlensed is null for scalars)
 */
 
@@ -1065,6 +1144,41 @@ int lensing_lensed_cl_tt(
 }
 
 /**
+ * Same as lensing_lensed_cl_tt for Rayleigh scattering.
+ */
+
+
+int lensing_lensed_cl_rr(
+                         double *ksi_rr, 
+                         double **d00,
+                         double *w8,
+                         int nmu,
+                         struct lensing * ple
+                         ) {
+  
+  double cle;
+  int imu;
+  int index_l;
+
+  /** Integration by Gauss-Legendre quadrature **/
+#pragma omp parallel for                        \
+  private (imu,index_l,cle)                     \
+  schedule (static)
+
+  for(index_l=0; index_l<ple->l_size; index_l++){
+    cle=0;
+    for (imu=0;imu<nmu;imu++) {
+      cle += ksi_rr[imu]*d00[imu][(int)ple->l[index_l]]*w8[imu]; /* loop could be optimized */
+    }
+    ple->cl_lens[index_l*ple->lt_size+ple->index_lt_rr]=cle*2.0*_PI_;
+  }
+
+  return _SUCCESS_;
+}
+
+
+
+/**
  * This routine adds back the unlensed cl_tt power spectrum
  * Used in case of fast (and BB inaccurate) integration of 
  * correlation functions.
@@ -1086,6 +1200,24 @@ int lensing_addback_cl_tt(
   return _SUCCESS_;
 
 }
+
+/**
+ * Same as lensing_addback_cl_tt for Rayleigh scattering.
+ */
+
+int lensing_addback_cl_rr(
+                          struct lensing * ple,
+                          double *cl_rr) {
+  int index_l, l;
+
+  for (index_l=0; index_l<ple->l_size; index_l++) {
+    l = (int)ple->l[index_l];
+    ple->cl_lens[index_l*ple->lt_size+ple->index_lt_rr] += cl_rr[l];
+  }
+  return _SUCCESS_;
+
+}
+
 
 /**
  * This routine computes the lensed power spectra by Gaussian quadrature 
