@@ -4989,10 +4989,10 @@ int perturb_sources(
           
           /* Uncomment to substitute CLASS polarisation with the Rayleigh one. Make sure that the polarisation
           source is not overwritten below! */
-          _set_source_(ppt->index_tp_p) = sqrt(6.) * g_tot * P_tot  -  sqrt(6.) * g_th * P;
-          
-          /* Uncomment to set the polarised sources only using the background visibility (no use of the Rayleigh hierarcy) */
-          _set_source_(ppt->index_tp_p) = sqrt(6.) * (g_tot - g_th) * P;
+          // _set_source_(ppt->index_tp_p) = sqrt(6.) * g_tot * P_tot  -  sqrt(6.) * g_th * P;
+          // 
+          // /* Uncomment to set the polarised sources only using the background visibility (no use of the Rayleigh hierarcy) */
+          // _set_source_(ppt->index_tp_p) = sqrt(6.) * (g_tot - g_th) * P;
           
           /* Re-establish the Thomson scattering variables */
           class_call(thermodynamics_at_z_thomson(pba,
