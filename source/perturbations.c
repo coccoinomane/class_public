@@ -4677,13 +4677,12 @@ int perturb_sources(
 
         /* newtonian gauge: simplest form, not efficient numerically */
         
-          // if (ppt->gauge == newtonian) {
-          // _set_source_(ppt->index_tp_t0) = pvecthermo[pth->index_th_exp_m_kappa] * pvecmetric[ppw->index_mt_phi_prime] + pvecthermo[pth->index_th_g] * delta_g / 4.;
-          // _set_source_(ppt->index_tp_t1) = pvecthermo[pth->index_th_exp_m_kappa] * k* pvecmetric[ppw->index_mt_psi] + pvecthermo[pth->index_th_g] * y[ppw->pv->index_pt_theta_b]/k;
-          // _set_source_(ppt->index_tp_t2) = pvecthermo[pth->index_th_g] * P;
-          // }
+        // if (ppt->gauge == newtonian) {
+        //   _set_source_(ppt->index_tp_t0) = pvecthermo[pth->index_th_exp_m_kappa] * pvecmetric[ppw->index_mt_phi_prime] + pvecthermo[pth->index_th_g] * delta_g / 4.;
+        //   _set_source_(ppt->index_tp_t1) = pvecthermo[pth->index_th_exp_m_kappa] * k* pvecmetric[ppw->index_mt_psi] + pvecthermo[pth->index_th_g] * y[ppw->pv->index_pt_theta_b]/k;
+        //   _set_source_(ppt->index_tp_t2) = pvecthermo[pth->index_th_g] * P;
+        // }
         
-
         /* newtonian gauge: more complicated form, but efficient numerically */
          
         if (ppt->gauge == newtonian) {
@@ -4697,19 +4696,17 @@ int perturb_sources(
           _set_source_(ppt->index_tp_t2) = pvecthermo[pth->index_th_g] * P;
         }
 
-
         /* synchronous gauge: simplest form, not efficient numerically */
         
-          // if (ppt->gauge == synchronous) {
-          // _set_source_(ppt->index_tp_t0) = 
-          // -pvecthermo[pth->index_th_exp_m_kappa] * pvecmetric[ppw->index_mt_h_prime] / 6. 
-          // + pvecthermo[pth->index_th_g] / 4. * delta_g;
-          // _set_source_(ppt->index_tp_t1) = pvecthermo[pth->index_th_g] * y[ppw->pv->index_pt_theta_b] / k;
-          // _set_source_(ppt->index_tp_t2) = 
-          // pvecthermo[pth->index_th_exp_m_kappa] * k*k* 2./3. * ppw->s_l[2] * pvecmetric[ppw->index_mt_alpha] 
-          // + pvecthermo[pth->index_th_g] * P;
-          // }
-        
+        // if (ppt->gauge == synchronous) {
+        // _set_source_(ppt->index_tp_t0) = 
+        // -pvecthermo[pth->index_th_exp_m_kappa] * pvecmetric[ppw->index_mt_h_prime] / 6. 
+        // + pvecthermo[pth->index_th_g] / 4. * delta_g;
+        // _set_source_(ppt->index_tp_t1) = pvecthermo[pth->index_th_g] * y[ppw->pv->index_pt_theta_b] / k;
+        // _set_source_(ppt->index_tp_t2) = 
+        // pvecthermo[pth->index_th_exp_m_kappa] * k*k* 2./3. * ppw->s_l[2] * pvecmetric[ppw->index_mt_alpha] 
+        // + pvecthermo[pth->index_th_g] * P;
+        // }
         
         /* synchronous gauge: more complicated form, but efficient numerically */
 
@@ -4768,8 +4765,10 @@ int perturb_sources(
           }
         */
 
-
-        /* Rayleigh scattering temperature. The sources are computed as shown in eq. 2.1 and 2.2 of arXiv:1307.8148 */
+        // -----------------------------------------------------------------------------
+        // -                             Rayleigh scattering                           -
+        // -----------------------------------------------------------------------------
+        
         if (ppt->has_source_r == _TRUE_) {
 
           double z = 1./pvecback[pba->index_bg_a]-1.;
@@ -4848,29 +4847,29 @@ int perturb_sources(
             // -           With simple sources            -
             // --------------------------------------------
             
-            // /* Thomson + Rayleigh scattering */
-            // source_TOT0 = exp_m_kappa_tot * pvecmetric[ppw->index_mt_phi_prime] + g_tot * delta_g_tot / 4.;
-            // source_TOT1 = exp_m_kappa_tot * k * pvecmetric[ppw->index_mt_psi] + g_tot * y[ppw->pv->index_pt_theta_b]/k;
-            // source_TOT2 = g_tot * P_tot;
-            // 
-            // /* Thomson scattering */
-            // source_t0 = exp_m_kappa_th * pvecmetric[ppw->index_mt_phi_prime] + g_th * delta_g / 4.;
-            // source_t1 = exp_m_kappa_th * k * pvecmetric[ppw->index_mt_psi] + g_th * y[ppw->pv->index_pt_theta_b]/k;
-            // source_t2 = g_th * P;
-            
-            // --------------------------------------------------------
-            // -           Simple sources, just background            -
-            // --------------------------------------------------------
-            
             /* Thomson + Rayleigh scattering */
-            source_TOT0 = exp_m_kappa_tot * pvecmetric[ppw->index_mt_phi_prime] + g_tot * delta_g / 4.;
+            source_TOT0 = exp_m_kappa_tot * pvecmetric[ppw->index_mt_phi_prime] + g_tot * delta_g_tot / 4.;
             source_TOT1 = exp_m_kappa_tot * k * pvecmetric[ppw->index_mt_psi] + g_tot * y[ppw->pv->index_pt_theta_b]/k;
-            source_TOT2 = g_tot * P;
+            source_TOT2 = g_tot * P_tot;
             
             /* Thomson scattering */
             source_t0 = exp_m_kappa_th * pvecmetric[ppw->index_mt_phi_prime] + g_th * delta_g / 4.;
             source_t1 = exp_m_kappa_th * k * pvecmetric[ppw->index_mt_psi] + g_th * y[ppw->pv->index_pt_theta_b]/k;
             source_t2 = g_th * P;
+            
+            // --------------------------------------------------------
+            // -           Simple sources, just background            -
+            // --------------------------------------------------------
+            
+            // /* Thomson + Rayleigh scattering */
+            // source_TOT0 = exp_m_kappa_tot * pvecmetric[ppw->index_mt_phi_prime] + g_tot * delta_g / 4.;
+            // source_TOT1 = exp_m_kappa_tot * k * pvecmetric[ppw->index_mt_psi] + g_tot * y[ppw->pv->index_pt_theta_b]/k;
+            // source_TOT2 = g_tot * P;
+            // 
+            // /* Thomson scattering */
+            // source_t0 = exp_m_kappa_th * pvecmetric[ppw->index_mt_phi_prime] + g_th * delta_g / 4.;
+            // source_t1 = exp_m_kappa_th * k * pvecmetric[ppw->index_mt_psi] + g_th * y[ppw->pv->index_pt_theta_b]/k;
+            // source_t2 = g_th * P;
             
             // ----------------------------------------------------
             // -           Simple sources, no SW & ISW            -
@@ -4923,17 +4922,45 @@ int perturb_sources(
             // -          With efficient sources          -
             // --------------------------------------------
 
+            /* Thomson + Rayleigh scattering */
+            source_TOT0 = exp_m_kappa_tot * 2. *
+              (pvecmetric[ppw->index_mt_eta_prime] -  a_prime_over_a_prime * pvecmetric[ppw->index_mt_alpha]
+              - a_prime_over_a * pvecmetric[ppw->index_mt_alpha_prime])
+              + g_tot * (delta_g_tot/4. + y[ppw->pv->index_pt_eta] - 2. * a_prime_over_a * pvecmetric[ppw->index_mt_alpha]) // SW counter-terms + ISW
+              + dg_tot * (y[ppw->pv->index_pt_theta_b]/k/k + pvecmetric[ppw->index_mt_alpha]) 
+              + g_tot * (dy[ppw->pv->index_pt_theta_b]/k/k + pvecmetric[ppw->index_mt_alpha_prime]); // part of ISW + SW + Doppler
+            source_TOT1 = exp_m_kappa_tot * k
+              * (pvecmetric[ppw->index_mt_alpha_prime]
+              + 2. * a_prime_over_a * pvecmetric[ppw->index_mt_alpha] - y[ppw->pv->index_pt_eta]); // part of ISW
+            source_TOT2 = g_tot * P_tot;
+            
+            /* Thomson scattering */          
+            source_t0 = exp_m_kappa_th * 2. *
+              (pvecmetric[ppw->index_mt_eta_prime] -  a_prime_over_a_prime * pvecmetric[ppw->index_mt_alpha]
+              - a_prime_over_a * pvecmetric[ppw->index_mt_alpha_prime])
+              + g_th * (delta_g/4. + y[ppw->pv->index_pt_eta] - 2. * a_prime_over_a * pvecmetric[ppw->index_mt_alpha]) // SW counter-terms + ISW
+              + dg_th * (y[ppw->pv->index_pt_theta_b]/k/k + pvecmetric[ppw->index_mt_alpha]) 
+              + g_th * (dy[ppw->pv->index_pt_theta_b]/k/k + pvecmetric[ppw->index_mt_alpha_prime]); // part of ISW + SW + Doppler
+            source_t1 = exp_m_kappa_th * k
+              * (pvecmetric[ppw->index_mt_alpha_prime]
+              + 2. * a_prime_over_a * pvecmetric[ppw->index_mt_alpha] - y[ppw->pv->index_pt_eta]); // part of ISW
+            source_t2 = g_th * P;
+            
+            // -----------------------------------------------------------
+            // -           Efficient sources, just background            -
+            // -----------------------------------------------------------
+
             // /* Thomson + Rayleigh scattering */
             // source_TOT0 = exp_m_kappa_tot * 2. *
             //   (pvecmetric[ppw->index_mt_eta_prime] -  a_prime_over_a_prime * pvecmetric[ppw->index_mt_alpha]
             //   - a_prime_over_a * pvecmetric[ppw->index_mt_alpha_prime])
-            //   + g_tot * (delta_g_tot/4. + y[ppw->pv->index_pt_eta] - 2. * a_prime_over_a * pvecmetric[ppw->index_mt_alpha]) // SW counter-terms + ISW
+            //   + g_tot * (delta_g/4. + y[ppw->pv->index_pt_eta] - 2. * a_prime_over_a * pvecmetric[ppw->index_mt_alpha]) // SW counter-terms + ISW
             //   + dg_tot * (y[ppw->pv->index_pt_theta_b]/k/k + pvecmetric[ppw->index_mt_alpha]) 
             //   + g_tot * (dy[ppw->pv->index_pt_theta_b]/k/k + pvecmetric[ppw->index_mt_alpha_prime]); // part of ISW + SW + Doppler
             // source_TOT1 = exp_m_kappa_tot * k
             //   * (pvecmetric[ppw->index_mt_alpha_prime]
             //   + 2. * a_prime_over_a * pvecmetric[ppw->index_mt_alpha] - y[ppw->pv->index_pt_eta]); // part of ISW
-            // source_TOT2 = g_tot * P_tot;
+            // source_TOT2 = g_tot * P;
             // 
             // /* Thomson scattering */          
             // source_t0 = exp_m_kappa_th * 2. *
@@ -4946,34 +4973,6 @@ int perturb_sources(
             //   * (pvecmetric[ppw->index_mt_alpha_prime]
             //   + 2. * a_prime_over_a * pvecmetric[ppw->index_mt_alpha] - y[ppw->pv->index_pt_eta]); // part of ISW
             // source_t2 = g_th * P;
-            
-            // -----------------------------------------------------------
-            // -           Efficient sources, just background            -
-            // -----------------------------------------------------------
-
-            /* Thomson + Rayleigh scattering */
-            source_TOT0 = exp_m_kappa_tot * 2. *
-              (pvecmetric[ppw->index_mt_eta_prime] -  a_prime_over_a_prime * pvecmetric[ppw->index_mt_alpha]
-              - a_prime_over_a * pvecmetric[ppw->index_mt_alpha_prime])
-              + g_tot * (delta_g/4. + y[ppw->pv->index_pt_eta] - 2. * a_prime_over_a * pvecmetric[ppw->index_mt_alpha]) // SW counter-terms + ISW
-              + dg_tot * (y[ppw->pv->index_pt_theta_b]/k/k + pvecmetric[ppw->index_mt_alpha]) 
-              + g_tot * (dy[ppw->pv->index_pt_theta_b]/k/k + pvecmetric[ppw->index_mt_alpha_prime]); // part of ISW + SW + Doppler
-            source_TOT1 = exp_m_kappa_tot * k
-              * (pvecmetric[ppw->index_mt_alpha_prime]
-              + 2. * a_prime_over_a * pvecmetric[ppw->index_mt_alpha] - y[ppw->pv->index_pt_eta]); // part of ISW
-            source_TOT2 = g_tot * P;
-
-            /* Thomson scattering */          
-            source_t0 = exp_m_kappa_th * 2. *
-              (pvecmetric[ppw->index_mt_eta_prime] -  a_prime_over_a_prime * pvecmetric[ppw->index_mt_alpha]
-              - a_prime_over_a * pvecmetric[ppw->index_mt_alpha_prime])
-              + g_th * (delta_g/4. + y[ppw->pv->index_pt_eta] - 2. * a_prime_over_a * pvecmetric[ppw->index_mt_alpha]) // SW counter-terms + ISW
-              + dg_th * (y[ppw->pv->index_pt_theta_b]/k/k + pvecmetric[ppw->index_mt_alpha]) 
-              + g_th * (dy[ppw->pv->index_pt_theta_b]/k/k + pvecmetric[ppw->index_mt_alpha_prime]); // part of ISW + SW + Doppler
-            source_t1 = exp_m_kappa_th * k
-              * (pvecmetric[ppw->index_mt_alpha_prime]
-              + 2. * a_prime_over_a * pvecmetric[ppw->index_mt_alpha] - y[ppw->pv->index_pt_eta]); // part of ISW
-            source_t2 = g_th * P;
             
           }
 
@@ -4989,9 +4988,9 @@ int perturb_sources(
           
           /* Uncomment to substitute CLASS polarisation with the Rayleigh one. Make sure that the polarisation
           source is not overwritten below! */
-          // _set_source_(ppt->index_tp_p) = sqrt(6.) * g_tot * P_tot  -  sqrt(6.) * g_th * P;
-          // 
-          // /* Uncomment to set the polarised sources only using the background visibility (no use of the Rayleigh hierarcy) */
+          _set_source_(ppt->index_tp_p) = sqrt(6.) * g_tot * P_tot  -  sqrt(6.) * g_th * P;
+          
+          /* Uncomment to set the polarised sources only using the background visibility (no use of the Rayleigh hierarcy) */
           // _set_source_(ppt->index_tp_p) = sqrt(6.) * (g_tot - g_th) * P;
           
           /* Re-establish the Thomson scattering variables */

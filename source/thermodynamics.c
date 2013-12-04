@@ -167,7 +167,7 @@ int thermodynamics_at_z(
     
     if (pth->has_rayleigh_scattering == _TRUE_) {
 
-      /* The neutral hydrogen and helium fractions are negligible because everything is ionised in the early Universe,
+      /* The neutral hydrogen and helium fractions are negligible in the early Universe, because everything is ionised,
       hence there is no Rayleigh scattering. */
       pvecthermo[pth->index_th_rayleigh_dkappa] = 0;
       pvecthermo[pth->index_th_rayleigh_ddkappa] = 0;
@@ -686,6 +686,10 @@ int thermodynamics_init(
 
   }
   
+  // ----------------------------------------------------------
+  // -                    Rayleigh scattering                 -
+  // ----------------------------------------------------------
+  
   /* Compute g and e^-k for the Rayleigh scattering. This is basically the same computation done above
   for the Thomson scattering with minimal modifications. */
   if (pth->has_rayleigh_scattering == _TRUE_) {
@@ -776,7 +780,7 @@ int thermodynamics_init(
 
     } // end of loop on z
   
-    /* Compute the derivative of the Rayleigh visibility function */
+    /* Numerically compute the derivative of the Rayleigh visibility function */
     class_call(array_spline_table_line_to_line(
                  tau_table,
                  pth->tt_size,
@@ -802,39 +806,30 @@ int thermodynamics_init(
          pth->error_message);
   
   
-    /* Compute the derivative of the Thomson visibility function */
+    /* Numerically compute the derivative of the Thomson visibility function */
     class_call(array_spline_table_line_to_line(
                  tau_table,
                  pth->tt_size,
                  pth->thermodynamics_table,
                  pth->th_size,
-                 pth->index_th_thomson_dkappa,
-                 pth->index_th_thomson_dddkappa,
+                 pth->index_th_thomson_g,
+                 pth->index_th_thomson_ddg,
                  _SPLINE_EST_DERIV_,
                  pth->error_message),
          pth->error_message,
          pth->error_message);
-      
+  
     class_call(array_derive_spline_table_line_to_line(
                   tau_table,
                   pth->tt_size,
                   pth->thermodynamics_table,
                   pth->th_size,
-                  pth->index_th_thomson_dkappa,
-                  pth->index_th_thomson_dddkappa,
-                  pth->index_th_thomson_ddkappa,
+                  pth->index_th_thomson_g,
+                  pth->index_th_thomson_ddg,
+                  pth->index_th_thomson_dg,
                   pth->error_message),
          pth->error_message,
          pth->error_message);
-      
-    for (index_tau=pth->tt_size-1; index_tau>=0; index_tau--) {
-      pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_thomson_dg] = 
-        (pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_thomson_ddkappa] +
-         pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_thomson_dkappa] *
-         pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_thomson_dkappa]) *
-        pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_thomson_exp_m_kappa];
-    
-    }
     
   } // end of Rayleigh scattering computation
 
@@ -987,11 +982,11 @@ int thermodynamics_init(
 
 
 
-  /* Debug - print thermodynamical quantities to file or screen */
+  /* Some debug - print thermodynamical quantities to file or screen */
   // if (pth->has_rayleigh_scattering == _FALSE_) {
   // 
-  //   fprintf (stderr, "%16s %16s %16s %16s %16s\n",
-  //     "tau","z","dkappa_t","g_t","exp_m_kappa_t\n");
+  //   fprintf (stderr, "%16s %16s %16s %16s %16s %16s\n",
+  //     "# tau","z","dkappa_t","g_t","dg_t","exp_m_kappa_t\n");
   //   int i;
   //   for (i=0; i < pth->tt_size; ++i) {
   // 
@@ -1006,17 +1001,19 @@ int thermodynamics_init(
   // 
   //     double dkappa_t = pth->thermodynamics_table[i*pth->th_size+pth->index_th_dkappa];
   //     double g_t = pth->thermodynamics_table[i*pth->th_size+pth->index_th_g];
+  //     double dg_t = pth->thermodynamics_table[i*pth->th_size+pth->index_th_dg];
   //     double exp_m_kappa_t = pth->thermodynamics_table[i*pth->th_size+pth->index_th_exp_m_kappa];
   // 
-  //     fprintf (stderr, "%16g %16g %16g %16g %16g\n",
-  //       tau, z, dkappa_t, g_t, exp_m_kappa_t);
+  //     fprintf (stderr, "%16g %16g %16g %16g %16g %16g\n",
+  //       tau, z, dkappa_t, g_t, dg_t, exp_m_kappa_t);
   //   }
   // 
   // }
   // else {
   // 
-  //   fprintf (stderr, "%16s %16s %16s %16s %16s %16s %16s %16s %16s %16s %16s \n",
-  //     "tau","z","dkappa_t","dkappa_r","dkappa_tot","g_t","g_r","g_tot","exp_m_kappa_t","exp_m_kappa_r","exp_m_kappa_tot");
+  //   fprintf (stderr, "%16s %16s %16s %16s %16s %16s %16s %16s %16s %16s %16s %16s %16s %16s %16s %16s \n",
+  //     "# tau","z","dkappa_t","dkappa_r","dkappa_tot","g_t","g_r","g_tot","g_diff","dg_t","dg_r","dg_tot","dg_diff",
+  //     "exp_m_kappa_t","exp_m_kappa_r","exp_m_kappa_tot");
   //   int i;
   //   for (i=0; i < pth->tt_size; ++i) {
   // 
@@ -1036,13 +1033,19 @@ int thermodynamics_init(
   //     double g_t = pth->thermodynamics_table[i*pth->th_size+pth->index_th_thomson_g];
   //     double g_r = pth->thermodynamics_table[i*pth->th_size+pth->index_th_rayleigh_g];
   //     double g_tot = pth->thermodynamics_table[i*pth->th_size+pth->index_th_g];
+  //     double g_diff = g_tot - g_t;
+  // 
+  //     double dg_t = pth->thermodynamics_table[i*pth->th_size+pth->index_th_thomson_dg];
+  //     double dg_r = pth->thermodynamics_table[i*pth->th_size+pth->index_th_rayleigh_dg];
+  //     double dg_tot = pth->thermodynamics_table[i*pth->th_size+pth->index_th_dg];
+  //     double dg_diff = dg_tot - dg_t;
   // 
   //     double exp_m_kappa_t = pth->thermodynamics_table[i*pth->th_size+pth->index_th_thomson_exp_m_kappa];
   //     double exp_m_kappa_r = pth->thermodynamics_table[i*pth->th_size+pth->index_th_rayleigh_exp_m_kappa];
   //     double exp_m_kappa_tot = pth->thermodynamics_table[i*pth->th_size+pth->index_th_exp_m_kappa];
   //   
-  //     fprintf (stderr, "%16g %16g %16g %16g %16g %16g %16g %16g %16g %16g %16g \n",
-  //       tau, z, dkappa_t, dkappa_r, dkappa_tot, g_t, g_r, g_tot, exp_m_kappa_t, exp_m_kappa_r, exp_m_kappa_tot);
+  //     fprintf (stderr, "%16g %16g %16g %16g %16g %16g %16g %16g %16g %16g %16g %16g %16g %16g %16g %16g \n",
+  //       tau, z, dkappa_t, dkappa_r, dkappa_tot, g_t, g_r, g_tot, g_diff, dg_t, dg_r, dg_tot, dg_diff, exp_m_kappa_t, exp_m_kappa_r, exp_m_kappa_tot);
   //   }
   // }
 
