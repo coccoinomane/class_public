@@ -14,6 +14,8 @@
 #include "spectra.h"
 #include "nonlinear.h"
 #include "lensing.h"
+#include "bispectra.h"
+#include "fisher.h"
 #include "output.h"
 
 /* macro for reading parameter values with routines from the parser */

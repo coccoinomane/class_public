@@ -244,6 +244,16 @@ enum pk_def {
   delta_tot_from_poisson_squared /**< use delta_tot inferred from gravitational potential through Poisson equation */
 };
 
+
+/**
+  * Possible interpolation techniques, used e.g. for Bessel functions
+  */
+enum interpolation_methods {
+  linear_interpolation,               /* Linear interpolation */
+  cubic_interpolation                 /* Cubic spline interpolation */
+};
+
+
 /**
  * All precision parameters. 
  *  
@@ -654,6 +664,14 @@ struct precision
   int num_mu_minus_lmax; /**< difference between num_mu and l_max, increase for more precision */
   int delta_l_max; /**<difference between l_max in unlensed and lensed spectra */
   double tol_gauss_legendre; /**< tolerance with which quadrature points are found: must be very small for an accurate integration (if not entered manually, set automatically to match machine precision) */
+  //@}
+
+  /** @name - parameters related to bispectra */
+
+  //@{
+
+  enum interpolation_methods bessels_interpolation; /**< how to interpolate the Bessel functions used in the bispectrum integral */
+
   //@}
 
   /** @name - general precision parameters */

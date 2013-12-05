@@ -10,11 +10,14 @@ int main(int argc, char **argv) {
   struct background ba;       /* for cosmological background */
   struct thermo th;           /* for thermodynamics */
   struct perturbs pt;         /* for source functions */
+  struct bessels bs;          /* for bessel functions */
   struct transfers tr;        /* for transfer functions */
   struct primordial pm;       /* for primordial spectra */
   struct spectra sp;          /* for output spectra */
   struct nonlinear nl;        /* for non-linear spectra */
   struct lensing le;          /* for lensed spectra */
+  struct bispectra bi;        /* for bispectra */
+  struct fisher fi;           /* for fisher matrix */
   struct output op;           /* for output files */
   ErrorMsg errmsg;            /* for error messages */
 
@@ -35,6 +38,11 @@ int main(int argc, char **argv) {
 
   if (perturb_init(&pr,&ba,&th,&pt) == _FAILURE_) {
     printf("\n\nError in perturb_init \n=>%s\n",pt.error_message);
+    return _FAILURE_;
+  }
+
+  if (bessel_init(&pr,&bs) == _FAILURE_) {
+    printf("\n\nError in bessel_init \n =>%s\n",bs.error_message);
     return _FAILURE_;
   }
 
@@ -92,6 +100,11 @@ int main(int argc, char **argv) {
 
   if (primordial_free(&pm) == _FAILURE_) {
     printf("\n\nError in primordial_free \n=>%s\n",pm.error_message);
+    return _FAILURE_;
+  }
+
+  if (bessel_free(&pr,&bs) == _FAILURE_)  {
+    printf("\n\nError in bessel_free \n=>%s\n",bs.error_message);
     return _FAILURE_;
   }
 

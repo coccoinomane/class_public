@@ -17,7 +17,7 @@ vpath .base build
 ########################################################
 
 # your C compiler:
-CC       = gcc -Wall #-g -pg -E#-ggdb
+CC       = gcc # -Wall -g -pg -E#-ggdb
 #CC       = icc #-ggdb
 #CC       = pgcc
 
@@ -40,7 +40,7 @@ LDFLAG = -g -fPIC
 
 # leave blank to compile without HyRec, or put path to HyRec directory 
 # (with no slash at the end: e.g. hyrec or ../hyrec)
-HYREC = hyrec
+HYREC = 
 
 ########################################################
 ###### IN PRINCIPLE THE REST SHOULD BE LEFT UNCHANGED ##
@@ -67,7 +67,7 @@ endif
 %.o:  %.c .base
 	cd $(WRKDIR);$(CC) $(OPTFLAG) $(OMPFLAG) $(CCFLAG) $(INCLUDES) -c ../$< -o $*.o
 
-TOOLS = growTable.o dei_rkck.o sparse.o evolver_rkck.o  evolver_ndf15.o arrays.o parser.o quadrature.o hyperspherical.o common.o
+TOOLS = growTable.o dei_rkck.o sparse.o evolver_rkck.o  evolver_ndf15.o arrays.o parser.o quadrature.o bessel.o hyperspherical.o common.o
 
 SOURCE = input.o background.o thermodynamics.o perturbations.o transfer.o primordial.o spectra.o trg.o nonlinear.o lensing.o
 

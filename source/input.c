@@ -1686,6 +1686,29 @@ int input_init(
   if (ple->has_lensed_cls == _TRUE_)
     ppt->l_scalar_max+=ppr->delta_l_max;
 
+  /** h.8. parameters related to the bispectrum computation */
+
+  class_call(parser_read_string(pfc,"bessels_interpolation",&string1,&flag1,errmsg),
+	     errmsg,
+	     errmsg);	
+
+  if (flag1 == _TRUE_) {
+
+    if (((strstr(string1,"linear") != NULL) || (strstr(string1,"LINEAR") != NULL)))
+      ppr->bessels_interpolation = linear_interpolation;
+
+    else if (((strstr(string1,"cubic") != NULL) || (strstr(string1,"CUBIC") != NULL) || (strstr(string1,"spline") != NULL) || (strstr(string1,"SPLINE") != NULL)))
+      ppr->bessels_interpolation = cubic_interpolation;
+    
+    else
+      class_test(1==1,
+    		   errmsg,	       
+    		   "You wrote: bessels_interpolation=%s. Could not identify any of the supported interpolation techniques ('linear', 'cubic') in such input",string1);
+
+  }
+
+
+
   /** (i) shall we write background quantitites in a file? */
 
   class_call(parser_read_string(pfc,"write background",&string1,&flag1,errmsg),
@@ -2223,6 +2246,14 @@ int input_default_precision ( struct precision * ppr ) {
   ppr->num_mu_minus_lmax=70;
   ppr->delta_l_max=500; // 750 for 0.2% near l_max, 1000 for 0.1%
 
+
+  /**
+   * - parameter related to bispectra
+   */
+
+  ppr->bessels_interpolation = linear_interpolation;
+
+
   /**
    * - automatic estimate of machine precision
    */
@@ -2236,6 +2267,7 @@ int input_default_precision ( struct precision * ppr ) {
 
   ppr->tol_gauss_legendre = ppr->smallest_allowed_variation;
 
+  
   return _SUCCESS_;
 
 }

@@ -35,7 +35,6 @@ int bessel_at_x(
 		int index_l,
 		double * j
 		) {
-
   
   /** Summary: */
 
@@ -74,14 +73,245 @@ int bessel_at_x(
     a = (*(pbs->x_min[index_l])+pbs->x_step*(index_x+1) - x)/pbs->x_step;
     *j= a * pbs->j[index_l][index_x] 
       + (1.-a) * ( pbs->j[index_l][index_x+1]
-		   - a * ((a+1.) * pbs->ddj[index_l][index_x]
-			  +(2.-a) * pbs->ddj[index_l][index_x+1]) 
-		   * pbs->x_step * pbs->x_step / 6.0);
+          - a * ((a+1.) * pbs->ddj[index_l][index_x]
+           +(2.-a) * pbs->ddj[index_l][index_x+1]) 
+          * pbs->x_step * pbs->x_step / 6.0);
+
+    /* This would be linear interpolation */
+    // *j= a * pbs->j[index_l][index_x] 
+    //   + (1.-a) * pbs->j[index_l][index_x+1];
+
   }
+
+  // *** MY MODIFICATIONS ***
+  // int l = pbs->l[index_l];
+  // printf("from table: j(%d, %20.15g) = %g\n", l, (*pbs->x_min[index_l]) + (index_x)*pbs->x_step, pbs->j[index_l][index_x]);
+  // printf("from table: j(%d, %20.15g) = %g\n", l, (*pbs->x_min[index_l]) + (index_x+1)*pbs->x_step, pbs->j[index_l][index_x+1]);
+  // printf("interp    : j(%d, %20.15g) = %g\n", l, x, *j);
+  // *** END OF MY MODIFICATIONS ***
+  
 
   return _SUCCESS_;
 
 }
+
+
+
+
+// *** MY MODIFICATIONS ***/
+
+
+/** 
+ * Same as above, but using linear interpolation instead of cubic one.
+ */
+int bessel_at_x_linear(
+    struct bessels * pbs,
+    double x,
+    int index_l,
+    double * j
+    ) {
+
+  /** Summary: */
+
+  /** - define local variables */
+
+  int index_x;          /* index in the interpolation table */
+  double a;         /* quantities for the splint interpolation formula */
+
+  /** - if index_l is too large to be in the interpolation table, return  an error */
+
+  class_test(index_l > pbs->l_size,
+       pbs->error_message,
+       "index_l=%d>l_size=%d; increase l_max.",index_l,pbs->l_size);
+
+  /* Shortcuts */
+  double x_min = *(pbs->x_min[index_l]);
+  double x_step = pbs->x_step;
+
+  /** - if x is too small to be in the interpolation table, return 0 */
+
+  if (x < x_min) {
+    *j = 0;
+    return _SUCCESS_;
+  }
+  else {
+
+    /** - if x is too large to be in the interpolation table, return an error (this should never occur since x_max in the table should really be the highest value needed by the code, given the precision parameters) */
+
+    class_test(x > pbs->x_max,
+         pbs->error_message,
+         "x=%e>x_max=%e in bessel structure",x,pbs->x_max);
+
+    /** - otherwise, interpolation is needed: */
+
+    /** (a) find index_x, i.e. the position of x in the table; no complicated algorithm needed, since values are regularly spaced with a known step and known first value */
+
+    index_x = (int)((x-x_min)/x_step);
+
+    /** (b) find result with the splint algorithm (equivalent to the one in numerical recipies, although terms are rearranged differently to minimize number of operations) */
+    a = (x_min + x_step*(index_x+1) - x)/x_step;
+
+    double * j_x = &(pbs->j[index_l][index_x]);
+    *j= a * (*j_x)    +     (1.-a) *  (*(j_x+1));
+
+  }
+
+  /* Some debug */
+  // int l = pbs->l[index_l];
+  // printf("from table: j(%d, %20.15g) = %g\n", l, (*pbs->x_min[index_l]) + (index_x)*pbs->x_step, pbs->j[index_l][index_x]);
+  // printf("from table: j(%d, %20.15g) = %g\n", l, (*pbs->x_min[index_l]) + (index_x+1)*pbs->x_step, pbs->j[index_l][index_x+1]);
+  // printf("interp    : j(%d, %20.15g) = %g\n", l, x, *j);
+
+  return _SUCCESS_;
+
+}
+
+// *** END OF MY MODIFICATIONS ***
+
+
+
+
+// *** MY MODIFICATIONS ***
+
+/**
+ * Given the integration domain kk and the array f[index_k], compute the following integral using trapezoidal rule:
+ * 
+ *     /
+ *    |  dk k^2 f[k] * g[k] * j_l[k*r]
+ *    /
+ *
+ * The Bessel functions are interpolated from the table in the Bessel structure pbs. The delta_k array should
+ * contains the trapezoidal measure around a given k[i], that is k[i+1] - k[i-1]. Note that delta_k[0] = k[1] - k[0]
+ * and delta_k[k_size-1] = k[k_size-1] - k[k_size-2].
+ *
+ * If you give a NULL pointer for the g function, then it is assumed to be unity.
+ */
+int bessel_convolution(
+    struct precision * ppr,
+    struct bessels * pbs,
+    double * kk,
+    double * delta_kk,
+    int k_size,
+    double * f,
+    double * g,
+    int index_l,
+    double r,
+    double * integral,
+    ErrorMsg error_message
+    )
+{
+
+  /* Loop variable */
+  int index_k;
+
+  /* Initialize the integral */
+  *integral = 0;
+
+  /* Find the value of l from the Bessel structure */
+  int l = pbs->l[index_l];
+     
+  /* We shall store the value of j_l2(r*k2) in here */
+  double j;
+
+  
+  // *** Actual integration ***
+    
+  for (index_k = 0; index_k < k_size; ++index_k) {
+
+    /* Value of the function f in k */
+    double f_in_k = f[index_k];
+
+    /* If the function f vanishes, do not bother computing the Bessel function,
+      and jump to the next iteration without incrementing the integral.  Note that this
+      is important because CLASS transfer functions at first-order are set to zero above
+      a certain value of k. */
+    if (f_in_k == 0.)
+      continue;
+
+    /* Same for the g function, if it is defined */
+    double g_in_k = 1.;
+    
+    if (g != NULL) {
+
+      g_in_k = g[index_k];
+
+      if (g_in_k == 0.)
+        continue;
+    }
+
+    /* Value of the considered k */
+    double k = kk[index_k];
+
+    
+    // *** Bessel interpolation ***
+
+    double x = k*r;
+
+    /* j_l(x) vanishers for x < x_min(l) */
+    if (x < *(pbs->x_min[index_l]))
+      continue;
+    
+    int index_x = (int)((x-*(pbs->x_min[index_l]))/pbs->x_step);
+    double a = (*(pbs->x_min[index_l])+pbs->x_step*(index_x+1) - x)/pbs->x_step;
+
+    /* Store in 'j' the value of j_l(r*k) */
+    if (ppr->bessels_interpolation == linear_interpolation) {
+      
+      j = a * pbs->j[index_l][index_x] 
+          + (1.-a) * pbs->j[index_l][index_x+1];
+
+      /* Uncomment the following if you prefer to use the built-in function (slightly slower,
+      but performs cheks on the interpolation bounds) */
+      // class_call (bessel_at_x_linear (
+      //               pbs,
+      //               k*r,
+      //               index_l,
+      //               &j),
+      //   pbs->error_message,
+      //   error_message);
+    }
+    else if (ppr->bessels_interpolation == cubic_interpolation) {
+
+      j = a * pbs->j[index_l][index_x]
+          + (1.-a) * ( pbs->j[index_l][index_x+1]
+            - a * ((a+1.) * pbs->ddj[index_l][index_x]
+            +(2.-a) * pbs->ddj[index_l][index_x+1]) 
+            * pbs->x_step * pbs->x_step / 6.0);
+ 
+      /* Uncomment the following if you prefer to use the built-in function (slightly slower,
+      but performs cheks on the interpolation bounds) */
+      // class_call (bessel_at_x (
+      //               pbs,
+      //               k*r,
+      //               index_l,
+      //               &j),
+      //   pbs->error_message,
+      //   error_message);
+    }
+
+    /* Value of the integrand function */
+    double integrand = k * k * j * f_in_k * g_in_k;
+
+    /* Increment the estimate of the integral */
+    *integral += integrand * delta_kk[index_k];
+    
+  } // end of for(index_k)
+   
+   
+  /* Divide the integral by a factor 1/2 to account for the trapezoidal rule */
+  (*integral) *= 0.5;
+   
+  return _SUCCESS_;
+  
+} // end of bessel_convolution
+
+
+
+// *** END OF MY MODIFICATIONS ***/
+
+
+
+
 
 /**
  * Get spherical Bessel functions (either read from file or compute
@@ -157,6 +387,9 @@ int bessel_init(
       printf("No harmonic space transfer functions to compute. Bessel module skipped.\n");
     return _SUCCESS_;
   }
+
+  if (pbs->bessels_verbose > 0)
+    printf("Computing bessels\n");
 
   /** - infer l values from precision parameters and from l_max */
 
@@ -319,9 +552,6 @@ int bessel_init(
 
   /** - if not, compute form scratch : */
 
-  if (pbs->bessels_verbose > 0)
-    printf("Computing bessels\n");
-
   class_alloc(pbs->x_size,pbs->l_size*sizeof(int*),pbs->error_message);
   class_alloc(pbs->buffer,pbs->l_size*sizeof(double*),pbs->error_message);
   class_alloc(pbs->x_min,pbs->l_size*sizeof(double*),pbs->error_message);
@@ -411,6 +641,17 @@ int bessel_init(
   return _SUCCESS_;
 }
 
+
+
+
+
+
+
+
+
+
+
+
 /**
  * Free all memory space allocated by bessel_init().
  *
@@ -443,8 +684,13 @@ int bessel_free(
     
   }
 
+  // *** MY MODIFICATIONS ***
+  free(pbs->index_l);
+  // *** END OF MY MODIFICATIONS ***
+
   return _SUCCESS_; 
 }
+
 
 /**
  * Define number and values of mutipoles l. This is crucial since not
@@ -625,9 +871,6 @@ int bessel_j_for_l(
   
   x_min = x_min_down;
 
-  //DEBUG/HACK! Force xmin = 1e-5;
-  x_min = 1e-5;
-
   class_call(bessel_j(pbs,
 		      pbs->l[index_l], /* l */
 		      x_min, /* x */
@@ -770,6 +1013,29 @@ int bessel_j(
   double trigarg,expterm,fl;
   double l3,cosb;
 
+  // *** MY MODIFICATIONS ***
+  /* Uncomment to use the Bessel functions in the Slatec distribution */
+  // float * result = malloc(sizeof(float));
+  // 
+  // besselJ_l1(
+  //    l+0.5,
+  //    (float)x,
+  //    1,
+  //    result,
+  //    pbs->error_message          
+  //    );
+  //    
+  // *jl = sqrt_pi_over_2/sqrt(x)*(double)(*result);
+  //    
+  // free(result);
+  // 
+  // // *** Some debug
+  // // printf("j_l(%d,%20.15g) = %15g\n", l, x, *jl);
+  // 
+  //    
+  // return _SUCCESS_;
+  // *** END OF MY MODIFICATIONS ***
+  
   class_test(l < 0,
 	     pbs->error_message,
 	     " ");
