@@ -4793,10 +4793,10 @@ int perturb_sources(
           double dg_th = pvecthermo[pth->index_th_thomson_dg];  
 
           /* Uncomment to ignore the effect of reionization in polarization and temperature */
-          if (z <= pth->z_reio) {
-            g_tot = dg_tot = 0;
-            g_th = dg_th = 0;
-          }
+          // if (z <= pth->z_reio) {
+          //   g_tot = dg_tot = 0;
+          //   g_th = dg_th = 0;
+          // }
 
           double delta_g_tot = y[ppw->pv->index_pt_delta_g_tot];
           double theta_g_tot = y[ppw->pv->index_pt_theta_g_tot];
