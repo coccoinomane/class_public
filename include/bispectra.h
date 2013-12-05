@@ -5,6 +5,7 @@
 
 #include "lensing.h"
 #include "spectra.h"
+#include "bessel.h"
 
 /* Useful variables for defining arrays */
 #define _MAX_LENGTH_LABEL_ 64   /* Maximum length allowed for the label strings (e.g. for the bispectra types such as 'local', 'intrinsic') */

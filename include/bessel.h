@@ -5,6 +5,7 @@
 
 #include "common.h"
 #include "arrays.h"
+#include "transfer.h"
 
 /**
  * Structure containing everything about spherical bessel functions 
@@ -28,11 +29,7 @@ struct bessels {
 
   double x_step; /**< step dx for sampling Bessel functions */
 
-  short bessel_always_recompute; /**< if set to true, Bessels are never read from / written in files */
-
   short use_pbs; /**< if _TRUE_, try to get bessel function from this module, if _FALSE_, from new hypershperical module. For non-flat models this parameter is forced by input module to be _FALSE_ */
-
-  int get_HIS_from_shared_memory; /**< flag specifying if class should try to get HIS from shared memory */
 
  //@}
 
@@ -44,6 +41,8 @@ struct bessels {
 
   int l_size; /**< number of multipole values */
   int * l; /**< list of multipole values, l[index_l] */
+
+  int * index_l; /**< pbs2->index_l[l] is the index of 'l' inside pbs->l. If 'l' is not contained in pbs->l, then pbs2->index_l[L]=-1 */
 
   double j_cut; /**< value of \f$ j_l \f$ below which it is approximated by zero (in the region x << l) */
   int has_dj;   /**< set to true means j_l'(x) also need to be stored */
@@ -102,6 +101,7 @@ extern "C" {
 
   int bessel_init(
 		  struct precision * ppr,
+			struct transfers * ptr,
 		  struct bessels * pbs
 		  );
 
@@ -111,6 +111,7 @@ extern "C" {
 
   int bessel_get_l_list(
 			struct precision * ppr,
+			struct transfers * ptr,
 			struct bessels * pbs
 			);
 

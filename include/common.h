@@ -246,11 +246,20 @@ enum pk_def {
 
 
 /**
-  * Possible interpolation techniques, used e.g. for Bessel functions
-  */
+ * Possible interpolation techniques, used e.g. for Bessel functions
+ */
 enum interpolation_methods {
   linear_interpolation,               /* Linear interpolation */
   cubic_interpolation                 /* Cubic spline interpolation */
+};
+
+/**
+ * Which treatment to use for the integration over k3 in the bispectrum?
+ */
+enum k3_extrapolation {
+  no_k3_extrapolation,
+  flat_k3_extrapolation,
+  linear_k3_extrapolation
 };
 
 
@@ -408,6 +417,7 @@ struct precision
 
   double k_step_sub; /**< step in k space, in units of one period of acoustic oscillation at decoupling, for scales inside sound horizon at decoupling */
   double k_step_super; /**< step in k space, in units of one period of acoustic oscillation at decoupling, for scales above sound horizon at decoupling */  
+  double k_logstep_super; /**< logarithmic step in k space, used to best sample the largest k's */  
   double k_step_transition; /**< dimensionless number regulating the transition from 'sub' steps to 'super' steps. Decrease for more precision. */
 
   double k_per_decade_for_pk; /**< if values needed between kmax inferred from k_oscillations and k_kmax_for_pk, this gives the number of k per decade outside the BAO region*/
@@ -666,11 +676,39 @@ struct precision
   double tol_gauss_legendre; /**< tolerance with which quadrature points are found: must be very small for an accurate integration (if not entered manually, set automatically to match machine precision) */
   //@}
 
+  /** @name - parameters related to Bessel functions */
+
+  //@{
+
+  double bessel_x_step; /**< step dx for sampling Bessel functions \f$ j_l(x) \f$ */
+  double bessel_j_cut; /**< value of \f$ j_l \f$ below which it is approximated by zero (in the region \f$ x \ll l \f$) */
+  double bessel_tol_x_min;  /**< precision with which x_min such that j_l(x_min)=j_cut is found (order of magnitude set by k_min) */
+  enum interpolation_methods bessels_interpolation; /**< how to interpolate the Bessel functions used in the bispectrum integral */
+
+  //@}
+
   /** @name - parameters related to bispectra */
 
   //@{
 
-  enum interpolation_methods bessels_interpolation; /**< how to interpolate the Bessel functions used in the bispectrum integral */
+  short compute_only_even_ls; /**< should we only include even l's in the multipole list? */
+  short compute_only_odd_ls;  /**< should we only include odd l's in the multipole list? */
+
+  /* The parameters below apply only to non-separable shapes, such as the intrinsic bispectrum
+  and the galileon ones. */
+  enum interpolation_methods transfers_k1_interpolation; /**< how to interpolate the transfer functions in the k1 direction in the bispectrum integral? */
+  enum interpolation_methods transfers_k2_interpolation; /**< how to interpolate the transfer functions in the k2 direction in the bispectrum integral? */
+
+  /* Which integration scheme should we follow for k3 in the bispectrum integral?
+  The k3 range can be extended beyond the hard boundary imposed by the triangular
+  condition. This extrapolation has the purpose of stabilizing an integration otherwise problematic */
+  /* TODO: implement bispectrum extrapolation */
+  enum k3_extrapolation bispectra_k3_extrapolation;
+
+  /* How much to exted the k3 range in view of the bispectrum integration? */
+  /* TODO: implement bispectrum extrapolation */
+  double extra_k3_oscillations_left;
+  double extra_k3_oscillations_right;
 
   //@}
 

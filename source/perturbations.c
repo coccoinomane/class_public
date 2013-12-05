@@ -1170,15 +1170,27 @@ int perturb_get_k_list(
   /* values until k_max_cmb */
 
   while (k < k_max_cmb) {
-    step = ppr->k_step_super 
-      + 0.5 * (tanh((k-k_rec)/k_rec/ppr->k_step_transition)+1.) * (ppr->k_step_sub-ppr->k_step_super);
-      
-    class_test(step * k_rec / k < ppr->smallest_allowed_variation,
-               ppt->error_message,
-               "k step =%e < machine precision : leads either to numerical error or infinite loop",step * k_rec);
-     
-    k += step * k_rec;
 
+    /* Linear step. The tanh function is just a smooth transition between the two linear regimes. When
+    k_rec*ppr->k_scalar_step_transition is small, we have that the tanh function acts as a step function of 
+    argument k-k_rec */
+    double lin_step = ppr->k_step_super 
+      + 0.5 * (tanh((k-k_rec)/k_rec/ppr->k_step_transition)+1.) * (ppr->k_step_sub-ppr->k_step_super);
+
+    /* Logarithmic step */
+    double log_step = k * (ppr->k_logstep_super - 1.);
+
+    class_test(MIN(lin_step*k_rec, log_step) / k < ppr->smallest_allowed_variation,
+      ppt->error_message,
+      "k step =%e < machine precision : leads either to numerical error or infinite loop", MIN(lin_step*k_rec, log_step));
+
+    /* Use the smallest between the logarithmic and linear steps. If we are considering small enough scales,
+    just use the linear step. */
+    if ((log_step > (lin_step*k_rec)) || (k > k_rec))
+      k += lin_step * k_rec;
+    else
+      k *= ppr->k_logstep_super;
+        
     /* if K>0, the transfer function will be calculated for discrete
        integer values of nu=3,4,5,... where nu=sqrt(k2+(1+m)K) and
        m=0,1,2 for scalars/vectors/tensors. However we are free to
@@ -1193,6 +1205,33 @@ int perturb_get_k_list(
     ppt->k[index_k] = k;
 
     index_k++;
+    
+    /* ORIGINAL CLASS */
+    // step = ppr->k_step_super 
+    //   + 0.5 * (tanh((k-k_rec)/k_rec/ppr->k_step_transition)+1.) * (ppr->k_step_sub-ppr->k_step_super);
+    //   
+    // class_test(step * k_rec / k < ppr->smallest_allowed_variation,
+    //            ppt->error_message,
+    //            "k step =%e < machine precision : leads either to numerical error or infinite loop",step * k_rec);
+    //  
+    // k += step * k_rec;
+    // 
+    // /* if K>0, the transfer function will be calculated for discrete
+    //    integer values of nu=3,4,5,... where nu=sqrt(k2+(1+m)K) and
+    //    m=0,1,2 for scalars/vectors/tensors. However we are free to
+    //    define in the perturbation module some arbitrary values of k:
+    //    later on, the transfer module will interpolate at values of k
+    //    corresponding exactly to integer values of nu.*/
+    // 
+    // class_test(k == ppt->k[index_k-1],
+    //            ppt->error_message,
+    //            "consecutive values of k should differ");
+    // 
+    // ppt->k[index_k] = k;
+    // 
+    // index_k++;
+    /* END OF ORIGINAL CLASS */
+    
   }
 
   ppt->k_size_cmb = index_k;
@@ -1251,6 +1290,11 @@ int perturb_get_k_list(
 
     }
   */
+
+  /* Some debug - print out the k-list */
+  // for (index_k=0; index_k < ppt->k_size; ++index_k) {
+  //   fprintf (stderr, "%17d %17.7g\n", index_k, ppt->k[index_k]);
+  // }
 
   return _SUCCESS_;
 

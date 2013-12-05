@@ -26,6 +26,9 @@ int input_init_from_arguments(
                               struct spectra *psp,
                               struct nonlinear * pnl,
                               struct lensing *ple,
+                              struct bessels *pbs,
+                              struct bispectra *pbi,
+                              struct fisher *pfi,
                               struct output *pop,
                               ErrorMsg errmsg
                               ) {
@@ -119,6 +122,9 @@ int input_init_from_arguments(
                         psp,
                         pnl,
                         ple,
+                        pbs,
+                        pbi,
+                        pfi,
                         pop,
                         errmsg),
              errmsg,
@@ -147,6 +153,9 @@ int input_init(
                struct spectra *psp,
                struct nonlinear * pnl,
                struct lensing *ple,
+               struct bessels *pbs,
+               struct bispectra *pbi,
+               struct fisher *pfi, 
                struct output *pop,
                ErrorMsg errmsg
                ) {
@@ -201,6 +210,9 @@ int input_init(
                                   psp,
                                   pnl,
                                   ple,
+                                  pbs,
+                                  pbi,
+                                  pfi,
                                   pop),
              errmsg,
              errmsg);
@@ -652,6 +664,10 @@ int input_init(
 
   if (flag1 == _TRUE_) {
 
+    // ========================================================================================
+    // =                                     Power spectra                                    =
+    // ========================================================================================
+
     if ((strstr(string1,"tCl") != NULL) || (strstr(string1,"TCl") != NULL) || (strstr(string1,"TCL") != NULL)) {
       ppt->has_cl_cmb_temperature = _TRUE_;  
       ppt->has_perturbations = _TRUE_;  
@@ -681,6 +697,11 @@ int input_init(
       ppt->has_perturbations = _TRUE_;
       ppt->has_cls = _TRUE_;
     }
+    
+    
+    // ========================================================================================
+    // =                                   Power spectra                                    =
+    // ========================================================================================
 
     if ((strstr(string1,"mPk") != NULL) || (strstr(string1,"MPk") != NULL) || (strstr(string1,"MPK") != NULL)) {
       ppt->has_pk_matter=_TRUE_; 
@@ -698,7 +719,98 @@ int input_init(
       ppt->has_perturbations = _TRUE_;  
     }
 
+    // ========================================================================================
+    // =                                       Bispectra                                      =
+    // ========================================================================================
+    
+    if ((strstr(string1,"tBisp") != NULL) || (strstr(string1,"tBispectrum") != NULL) || (strstr(string1,"tB") != NULL)) {
+      ppt->has_cl_cmb_temperature = _TRUE_;  
+      ppt->has_perturbations = _TRUE_;  
+      ppt->has_cls = _TRUE_;
+      pbs->use_pbs = _TRUE_;
+      pbi->has_bispectra = _TRUE_;
+    }
+    
+    if ((strstr(string1,"pBisp") != NULL) || (strstr(string1,"pBispectrum") != NULL) || (strstr(string1,"eBisp") != NULL)) {
+      ppt->has_cl_cmb_polarization = _TRUE_;  
+      ppt->has_perturbations = _TRUE_;  
+      ppt->has_cls = _TRUE_;
+      pbs->use_pbs = _TRUE_;
+      pbi->has_bispectra = _TRUE_;
+    }
+
+    if (strstr(string1,"fisher") != NULL) {
+
+      pfi->has_fisher = _TRUE_;
+
+    }
+
   }
+
+
+  // ============================================================================================
+  // =                                     Bispectrum types                                     =
+  // ============================================================================================
+
+  class_call (parser_read_string(pfc,"bispectrum_types",&string1,&flag1,errmsg),
+    errmsg,
+    errmsg);
+
+  if ((pbi->has_bispectra == _TRUE_) && (flag1 == _TRUE_)) {
+  
+    /* Compute primordial temperature bispectrum with a local shape function */
+    if (strstr(string1,"local") != NULL) {
+      pbi->has_local_model = _TRUE_;  
+    }
+  
+    /* Compute primordial temperature bispectrum with an equilateral shape function */
+    if (strstr(string1,"equilateral") != NULL) {
+      pbi->has_equilateral_model = _TRUE_;
+    }
+
+    /* Compute primordial temperature bispectrum with an orthogonal shape function */
+    if (strstr(string1,"orthogonal") != NULL) {
+      pbi->has_orthogonal_model = _TRUE_;  
+    }
+
+    /* Compute primordial temperature bispectrum with the two Galileon shapes in arXiv:1303.2125 */
+    if (strstr(string1,"galileon") != NULL) {
+      pbi->has_galileon_model = _TRUE_;  
+    }
+
+    /* Compute the approximation to the intrinsic bispectrum for the squeezed limit */
+    /* TODO: Implement squeezed limit of intrinsic bispectrum */
+    // if ((strstr(string1,"intrinsic_squeezed") != NULL) || (strstr(string1,"i_squeezed") != NULL)) {
+    //   pbi->has_intrinsic_squeezed = _TRUE_;
+    //   ppt->has_cl_cmb_zeta = _TRUE_;
+    //   psp->compute_cl_derivative = _TRUE_;
+    // }
+
+    /* Compute the approximation to the intrinsic bispectrum for the squeezed limit */
+    if ((strstr(string1,"local_squeezed") != NULL) || (strstr(string1,"l_squeezed") != NULL)) {
+      pbi->has_local_squeezed = _TRUE_;
+    }
+
+    /* Compute the approximation to the intrinsic bispectrum for the squeezed limit */
+    if ((strstr(string1,"cosine_shape") != NULL) || (strstr(string1,"cos") != NULL)) {
+      pbi->has_cosine_shape = _TRUE_;
+    }
+
+    /* Compute the approximation to the intrinsic bispectrum for the squeezed limit */
+    if ((strstr(string1,"isw-lensing") != NULL) || (strstr(string1,"isw lensing") != NULL)) {
+      pbi->has_isw_lensing = _TRUE_;
+    }
+
+    /* Intrinsic bispectrum. This is induced by second-order effects in the evolution of the cosmological
+    perturbations. */
+    /* TODO: Implement intrinsic bispectrum */
+    // if (strstr(string1,"intrinsic") != NULL) {
+    //   pbi->has_bispectra = _TRUE_;
+    //   ppt->has_perturbations2 = _TRUE_;
+    // }
+    
+  } // end of bispectrum_types parsing
+
 
   if (ppt->has_perturbations == _TRUE_) { 
 
@@ -1146,7 +1258,7 @@ int input_init(
 
   /** (e) parameters for final spectra */
 
-  if (ppt->has_cls == _TRUE_) {
+  if ((ppt->has_cls == _TRUE_) || (pbi->has_bispectra)) {
 
     if (ppt->has_scalars == _TRUE_) {
       if ((ppt->has_cl_cmb_temperature == _TRUE_) || 
@@ -1438,6 +1550,15 @@ int input_init(
   class_read_int("lensing_verbose",
                  ple->lensing_verbose);
 
+  class_read_int("bessels_verbose",
+                 pbs->bessels_verbose);
+
+  class_read_int("bispectra_verbose",
+                 pbi->bispectra_verbose);
+
+  class_read_int("fisher_verbose",
+                 pfi->fisher_verbose);
+
   class_read_int("output_verbose",
                  pop->output_verbose);
 
@@ -1686,27 +1807,39 @@ int input_init(
   if (ple->has_lensed_cls == _TRUE_)
     ppt->l_scalar_max+=ppr->delta_l_max;
 
-  /** h.8. parameters related to the bispectrum computation */
 
-  class_call(parser_read_string(pfc,"bessels_interpolation",&string1,&flag1,errmsg),
-	     errmsg,
-	     errmsg);	
+  /** h.9. parameters related to the Bessel functions */
 
-  if (flag1 == _TRUE_) {
+  class_read_double("bessel_x_step",ppr->bessel_x_step);
+  class_read_double("bessel_j_cut",ppr->bessel_j_cut);
+  class_read_double("bessel_tol_x_min",ppr->bessel_tol_x_min);
+  
+  /* Compute l_max and x_max for the Bessel module */
 
-    if (((strstr(string1,"linear") != NULL) || (strstr(string1,"LINEAR") != NULL)))
-      ppr->bessels_interpolation = linear_interpolation;
+  if ((ppt->has_cls == _TRUE_) || (pbi->has_bispectra)) {
 
-    else if (((strstr(string1,"cubic") != NULL) || (strstr(string1,"CUBIC") != NULL) || (strstr(string1,"spline") != NULL) || (strstr(string1,"SPLINE") != NULL)))
-      ppr->bessels_interpolation = cubic_interpolation;
+    pbs->l_max=0;
+    pbs->x_max=0;
+
+    if (ppt->has_scalars == _TRUE_) {
+      
+      if ((ppt->has_cl_cmb_temperature == _TRUE_) || 
+          (ppt->has_cl_cmb_polarization == _TRUE_) || 
+          (ppt->has_cl_cmb_lensing_potential == _TRUE_))
+        pbs->l_max=MAX(ppt->l_scalar_max,pbs->l_max);
+
+      if ((ppt->has_cl_lensing_potential == _TRUE_) || 
+          (ppt->has_cl_density == _TRUE_))
+        pbs->l_max=MAX(ppt->l_lss_max,pbs->l_max);
+    }
     
-    else
-      class_test(1==1,
-    		   errmsg,	       
-    		   "You wrote: bessels_interpolation=%s. Could not identify any of the supported interpolation techniques ('linear', 'cubic') in such input",string1);
+    if (ppt->has_tensors == _TRUE_)
+      pbs->l_max=MAX(ppt->l_tensor_max,pbs->l_max);
 
+    pbs->x_max=MAX(pbs->l_max*ppr->k_max_tau0_over_l_max,pbs->x_max);
+    pbs->x_step = ppr->bessel_x_step;
+    pbs->x_max = ((int)(pbs->x_max * 1.01 / pbs->x_step)+1)*pbs->x_step;
   }
-
 
 
   /** (i) shall we write background quantitites in a file? */
@@ -1770,6 +1903,321 @@ int input_init(
     }
   }
   
+  
+  
+  /***********  EXTRA PARAMETERS NEEDED FOR THE BISPECTRUM AND FISHER MATRIX COMPUTATIONS **************/
+    
+  // ==========================================================
+  // =                     Perturbations                      =
+  // ==========================================================
+
+  /* Extra k-sampling parameter to better sample to largest scales */
+  class_read_double("k_logstep_super",ppr->k_logstep_super);
+  
+  
+  // =================================================
+  // =                     Bessels                   =
+  // =================================================
+
+  class_call(parser_read_string(pfc,"bessels_interpolation",&string1,&flag1,errmsg),
+	     errmsg,
+	     errmsg);	
+
+  if (flag1 == _TRUE_) {
+
+    if (((strstr(string1,"linear") != NULL) || (strstr(string1,"LINEAR") != NULL)))
+      ppr->bessels_interpolation = linear_interpolation;
+
+    else if (((strstr(string1,"cubic") != NULL) || (strstr(string1,"CUBIC") != NULL) || (strstr(string1,"spline") != NULL) || (strstr(string1,"SPLINE") != NULL)))
+      ppr->bessels_interpolation = cubic_interpolation;
+    
+    else
+      class_test(1==1,
+    		   errmsg,	       
+    		   "You wrote: bessels_interpolation=%s. Could not identify any of the supported interpolation techniques ('linear', 'cubic') in such input",string1);
+
+  }
+
+
+
+
+  // ===================================================
+  // =                     Bispectra                   =
+  // ===================================================
+
+  /* Which kind of technique should we use for the k3-integration of the bispectrum? */
+  class_call(parser_read_string(pfc,"bispectra_k3_extrapolation",&string1,&flag1,errmsg),
+       errmsg,
+       errmsg);
+
+  if (flag1 == _TRUE_) {
+
+    if (strstr(string1,"no_extrapolation") != NULL)
+      ppr->bispectra_k3_extrapolation = no_k3_extrapolation;
+
+    else if (strstr(string1,"flat_extrapolation") != NULL)
+      ppr->bispectra_k3_extrapolation = flat_k3_extrapolation;
+
+    else if (strstr(string1,"linear_extrapolation") != NULL)
+      ppr->bispectra_k3_extrapolation = linear_k3_extrapolation;
+
+    else
+      class_stop(errmsg,
+        "Could not recognize the value given for the 'bispectra_k3_extrapolation' option. Choose between 'no_extrapolation', 'flat_extrapolation'\
+or 'linear_extrapolation'.", "");
+
+  }
+
+  /* How much to exted the k3 range in view of the bispectrum integration? */
+  class_read_double("extra_k3_oscillations_right", ppr->extra_k3_oscillations_right);
+  class_read_double("extra_k3_oscillations_left", ppr->extra_k3_oscillations_left);
+
+
+
+  // ****   l-interpolation of bispectra   ****
+
+  class_call(parser_read_string(pfc,"bispectra_interpolation",&string1,&flag1,errmsg),
+         errmsg,
+         errmsg);  
+  
+  if (flag1 == _TRUE_) {
+
+    /* For trilinear interpolation, we need an all-even grid */
+    if ((strstr(string1,"trilinear") != NULL) || (strstr(string1,"tri") != NULL)) {
+      pfi->bispectra_interpolation = trilinear_interpolation;
+      ppr->compute_only_even_ls = _TRUE_;
+    }
+  
+    /* For trilinear interpolation, we need an all-even grid */
+    else if ((strstr(string1,"smart") != NULL) || (strstr(string1,"SMART") != NULL)) {
+      pfi->bispectra_interpolation = smart_interpolation;
+      ppr->compute_only_even_ls = _TRUE_;
+    }
+
+    else if (strstr(string1,"sum") != NULL)
+      pfi->bispectra_interpolation = sum_over_all_multipoles;
+  
+    else if (strcmp(string1,"mesh") == 0)
+      pfi->bispectra_interpolation = mesh_interpolation;
+  
+    else if ((strcmp(string1,"mesh_2d") == 0) || (strcmp(string1,"mesh_2D") == 0))
+      pfi->bispectra_interpolation = mesh_interpolation_2d;
+      
+    else
+      class_test(1==1,
+      errmsg,
+      "You wrote: bispectra_interpolation=%s. Could not identify any of the supported interpolation techniques ('trilinear', 'mesh', 'mesh_2d', 'sum') in such input",string1);
+  
+  }
+
+
+
+  // ****   Interpolation of transfer functions   ****
+  
+  class_call(parser_read_string(pfc,"transfers_k1_interpolation",&string1,&flag1,errmsg),
+	     errmsg,
+	     errmsg);	
+
+  if (flag1 == _TRUE_) {
+
+    if (((strstr(string1,"linear") != NULL) || (strstr(string1,"LINEAR") != NULL)))
+      ppr->transfers_k1_interpolation = linear_interpolation;
+
+    else if (((strstr(string1,"cubic") != NULL) || (strstr(string1,"CUBIC") != NULL) || (strstr(string1,"spline") != NULL) || (strstr(string1,"SPLINE") != NULL)))
+      ppr->transfers_k1_interpolation = cubic_interpolation;
+    
+    else
+      class_test(1==1,
+    		   errmsg,	       
+    		   "You wrote: transfers_k1_interpolation=%s. Could not identify any of the supported interpolation techniques ('linear', 'cubic') in such input",string1);
+
+  }
+
+
+  class_call(parser_read_string(pfc,"transfers_k2_interpolation",&string1,&flag1,errmsg),
+	     errmsg,
+	     errmsg);	
+
+  if (flag1 == _TRUE_) {
+
+    if (((strstr(string1,"linear") != NULL) || (strstr(string1,"LINEAR") != NULL)))
+      ppr->transfers_k2_interpolation = linear_interpolation;
+
+    else if (((strstr(string1,"cubic") != NULL) || (strstr(string1,"CUBIC") != NULL) || (strstr(string1,"spline") != NULL) || (strstr(string1,"SPLINE") != NULL)))
+      ppr->transfers_k2_interpolation = cubic_interpolation;
+    
+    else
+      class_test(1==1,
+    		   errmsg,	       
+    		   "You wrote: transfers_k2_interpolation=%s. Could not identify any of the supported interpolation techniques ('linear', 'cubic') in such input",string1);
+
+  }
+
+
+
+
+  // ***  Update x_max  ***
+
+  if (pbi->has_bispectra == _TRUE_) {
+
+    /* Take all multipoles if requested */
+    if (pfi->bispectra_interpolation == sum_over_all_multipoles)
+      ppr->l_linstep = 1;
+
+    /* Check that l_max is even for trilinear interpolation */
+    if (pfi->bispectra_interpolation == trilinear_interpolation)
+      class_test ((pbs->l_max%2)!=0,
+        errmsg,
+        "For trilinear interpolation of the bispectra, ensure that both 'l_max_scalars' and 'l_max_tensors' are even");
+
+    /* Parameters related to the r-integration in the bispectrum integral  */
+    pbi->r_min = 13000;
+    class_read_double("r_min", pbi->r_min);
+
+    double tau0_sup = 15000.;
+    pbi->r_max = tau0_sup;
+    class_read_double("r_max", pbi->r_max);
+
+    pbi->r_size = 100;
+    class_read_int("r_size", pbi->r_size);
+    
+
+    /* TODO: update x_max to take into account the k3 extrapolation (use following piece of code)*/
+    // if (ppr->bispectra_k3_extrapolation != no_k3_extrapolation) {
+    // 
+    //   /* The physical range is the one dictated by the triangular condition: k1 + k2 = k3 */
+    //   double physical_k3_range = k_max_pt - k_min_pt;
+    //   
+    //   /* The extended range allows for the Bessel function j(k3*(tau0 - tau_rec)) to develop at least
+    //     ppr->extra_k3_oscillations oscillations in k3 in order to stabilize the bispectrum integral. */
+    //   double extended_k3_range = 2.*_PI_*ppr->extra_k3_oscillations/(ptr2->tau0 - ptr2->tau_rec);
+    //     
+    //   if (physical_k3_range < extended_k3_range)
+    //     k_max_tr += (extended_k3_range - physical_k3_range);    
+    // 
+    //   // printf("physical_k3_range=%g, extended_k3_range=%g\n", physical_k3_range, extended_k3_range);
+    //   // printf("PRE:  k_max_tr = %g\n", k_max_pt);
+    //   // printf("POST: k_max_tr = %g\n", k_max_tr);
+    // }
+
+
+    /* Determine maximum k-value needed in the line of sight integration at first order. This is 
+    needed to determine the maximum sampling of the Bessel functions */
+    double tau0_inf = 8000.;
+    double k_max = ppr->k_max_tau0_over_l_max * ppt->l_scalar_max / tau0_inf;
+  
+    /* Maximum argument for the Bessel functions in the line of sight integration.  For the time being, we do
+    set x_max  here, even if we shouldn't as tau0 cannot be accessed by this module.  This is why we define
+    a superior limit for tau0. */
+    double x_max = MAX (pbs->x_max, k_max * MAX(tau0_sup, pbi->r_max));
+  
+    printf("# Temporary message: Setting pbs->x_max from %g to %g\n",
+      ((int)(pbs->x_max * 1.1 / pbs->x_step)+1)*pbs->x_step,
+      ((int)(x_max * 1.1 / pbs->x_step)+1)*pbs->x_step);
+  
+    pbs->x_max = ((int)(x_max * 1.1 / pbs->x_step)+1)*pbs->x_step;
+  
+
+  } // end of if(has_bispectra)
+
+
+
+  // =======================================================
+  // =                     Fisher matrix                   =
+  // =======================================================
+
+  /* Read the experiment sky coverage. */
+  class_read_double("experiment_f_sky", pfi->f_sky);
+
+  /* Read the experiment beam at FWHM in arcminutes and convert it to radians. */
+  class_call (parser_read_list_of_doubles (pfc,
+           "experiment_beam_fwhm",
+           &(int1),
+           &(pointer1),
+           &flag1,
+           errmsg),
+       errmsg,
+       errmsg);
+    
+  if (flag1 == _TRUE_) {
+
+    class_test(int1 > _N_FREQUENCY_CHANNELS_MAX_,
+      errmsg,
+      "you specified too many frequency bands for the experiment, increase _N_FREQUENCY_CHANNELS_MAX_ in include/bispectra.h or specify \
+less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
+
+    pfi->n_channels = int1;
+
+    for (i=0; i<int1; i++)
+      pfi->beam[i] = pointer1[i]/60. * _PI_/180.;
+    
+    free(pointer1);
+  }
+
+
+  /* Read the TEMPERATURE noise for the experiment in uK^2, and convert it to the actual noise */
+  if ((pfi->has_fisher == _TRUE_) && (ppt->has_cl_cmb_temperature == _TRUE_)) {
+
+    class_call (parser_read_list_of_doubles (pfc,
+                 "experiment_noise_t",
+                 &(int1),
+                 &(pointer1),
+                 &flag1,
+                 errmsg),
+      errmsg,
+      errmsg);
+    
+    if (flag1 == _TRUE_) {
+
+      class_test(int1 != pfi->n_channels,
+        errmsg,
+        "the number of entries for 'experiment_beam_fwhm' and 'experiment_noise_t' must be equal");
+
+      /* Compute the actual noise, as in astro-ph/0506396v2 */
+      for (i=0; i<int1; i++) {
+        pfi->noise_t[i] = pow(pointer1[i]/1e6*pfi->beam[i]/pba->T_cmb,2);
+        // printf ("pfi->noise_t[i] = %g\n", pfi->noise_t[i]);
+      }
+    
+      free(pointer1);
+    }
+  } // end of T noise
+
+  /* Read the POLARIZATION noise for the experiment in uK^2, and convert it to Kelvins */
+  if ((pfi->has_fisher == _TRUE_) && (ppt->has_cl_cmb_polarization == _TRUE_)) {
+
+    class_call (parser_read_list_of_doubles (pfc,
+                 "experiment_noise_e",
+                 &(int1),
+                 &(pointer1),
+                 &flag1,
+                 errmsg),
+      errmsg,
+      errmsg);
+    
+    if (flag1 == _TRUE_) {
+
+      class_test(int1 != pfi->n_channels,
+        errmsg,
+        "the number of entries for 'experiment_beam_fwhm' and 'experiment_noise_e' must be equal");
+
+      /* Compute the actual noise, as in astro-ph/0506396v2 */
+      for (i=0; i<int1; i++) {
+        pfi->noise_e[i] = pow(pointer1[i]/1e6*pfi->beam[i]/pba->T_cmb,2);
+        // printf ("pfi->noise_e[i] = %g\n", pfi->noise_e[i]);
+      }
+    
+      free(pointer1);
+    }
+  } // end of E noise
+
+  
+  
+  
+  
+  
+  
+  
   return _SUCCESS_;
 
 }
@@ -1796,6 +2244,9 @@ int input_default_params(
                          struct spectra *psp,
                          struct nonlinear * pnl,
                          struct lensing *ple,
+                         struct bessels *pbs,
+                         struct bispectra *pbi,
+                         struct fisher *pfi, 
                          struct output *pop
                          ) {
 
@@ -1997,7 +2448,47 @@ int input_default_params(
   psp->spectra_verbose = 0;
   pnl->nonlinear_verbose = 0;
   ple->lensing_verbose = 0;
+  pbs->bessels_verbose = 0;
+  pbi->bispectra_verbose = 0;
+  pfi->fisher_verbose = 0;
   pop->output_verbose = 0;
+
+
+
+
+
+  /***********  EXTRA PARAMETERS NEEDED FOR THE BISPECTRUM AND FISHER MATRIX COMPUTATIONS **************/
+  
+  // =============================================================
+  // =                     Bispectra structure                   =
+  // =============================================================
+
+  pbi->bispectra_verbose = 0;
+  pbi->has_bispectra = _FALSE_;
+  pbi->has_local_model = _FALSE_;
+  pbi->has_equilateral_model = _FALSE_;
+  pbi->has_orthogonal_model = _FALSE_;
+  pbi->has_galileon_model = _FALSE_;
+  pbi->has_intrinsic_squeezed = _FALSE_;
+  pbi->has_local_squeezed = _FALSE_;
+  pbi->has_cosine_shape = _FALSE_;
+  pbi->has_isw_lensing = _FALSE_;
+  pbi->has_intrinsic = _FALSE_;
+  pbi->store_bispectra_to_disk = _FALSE_;
+
+
+  // ========================================================
+  // =                    Fisher structure                  =
+  // ========================================================
+
+  pfi->fisher_verbose = 0;
+  pfi->has_fisher = _FALSE_;
+  pfi->bispectra_interpolation = mesh_interpolation_2d;
+  pfi->f_sky = 1;
+  pfi->n_channels = 1;
+  pfi->beam[0] = 0;
+  pfi->noise_t[0] = 0;
+  pfi->noise_e[0] = 0;
 
   return _SUCCESS_;
 
@@ -2248,11 +2739,12 @@ int input_default_precision ( struct precision * ppr ) {
 
 
   /**
-   * - parameter related to bispectra
+   * - parameter related to the Bessel functions
    */
 
-  ppr->bessels_interpolation = linear_interpolation;
-
+  ppr->bessel_x_step=0.5;
+  ppr->bessel_j_cut=1.e-5;
+  ppr->bessel_tol_x_min =1.e-4;
 
   /**
    * - automatic estimate of machine precision
@@ -2267,6 +2759,18 @@ int input_default_precision ( struct precision * ppr ) {
 
   ppr->tol_gauss_legendre = ppr->smallest_allowed_variation;
 
+
+  /***********  EXTRA PARAMETERS NEEDED FOR THE BISPECTRUM AND FISHER MATRIX COMPUTATIONS **************/
+
+  ppr->k_logstep_super=10; /* Unreasonably high not to interfer with standard CLASS k-sampling */
+  ppr->compute_only_even_ls = _FALSE_;
+  ppr->compute_only_odd_ls = _FALSE_;
+  ppr->bessels_interpolation = linear_interpolation;
+  ppr->transfers_k1_interpolation = linear_interpolation;
+  ppr->transfers_k2_interpolation = linear_interpolation;
+  ppr->bispectra_k3_extrapolation = no_k3_extrapolation;
+  ppr->extra_k3_oscillations_left = 0;
+  ppr->extra_k3_oscillations_right = 0;
   
   return _SUCCESS_;
 

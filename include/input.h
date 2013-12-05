@@ -154,6 +154,9 @@ extern "C" {
 		 struct spectra *psp,
 		 struct nonlinear *pnl,
 		 struct lensing *ple,
+     struct bessels *pbs,
+     struct bispectra *pbi,
+     struct fisher *pfi, 
 		 struct output *pop,
 		 ErrorMsg errmsg
 		 );
@@ -169,6 +172,9 @@ extern "C" {
 		 struct spectra *psp,
 		 struct nonlinear *pnl,
 		 struct lensing *ple,
+     struct bessels *pbs,
+     struct bispectra *pbi,
+     struct fisher *pfi, 
 		 struct output *pop,
 		 ErrorMsg errmsg
 		 );
@@ -182,6 +188,9 @@ extern "C" {
 			   struct spectra *psp,
 			   struct nonlinear *pnl,
 			   struct lensing *ple,
+         struct bessels *pbs,
+         struct bispectra *pbi,
+         struct fisher *pfi, 
 			   struct output *pop
 			   );
   

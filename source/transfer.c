@@ -355,6 +355,27 @@ int transfer_init(
   } /* end of parallel region */
 
   if (abort == _TRUE_) return _FAILURE_;
+
+  
+  /* Compute the derived transfer functions */
+  for (int index_q = 0; index_q < ptr->q_size; index_q++) {  
+    for (int index_md = 0; index_md < ptr->md_size; index_md++) {
+      for (int index_ic = 0; index_ic < ppt->ic_size[index_md]; index_ic++) {
+        for (int index_tt = 0; index_tt < ptr->tt_size[index_md]; index_tt++) {
+          for (int index_l = 0; index_l < ptr->l_size[index_md]; index_l++) {
+
+            #define transfer(INDEX_TT) ptr->transfer[index_md][((index_ic * ptr->tt_size[index_md] + INDEX_TT)\
+                                       * ptr->l_size[index_md] + index_l)\
+                                       * ptr->q_size + index_q]\
+
+            if ((ppt->has_cl_cmb_temperature == _TRUE_) && (index_tt == ptr->index_tt_t)) 
+              transfer(ptr->index_tt_t) = transfer(ptr->index_tt_t0) + transfer(ptr->index_tt_t1) + transfer(ptr->index_tt_t2);
+
+          }
+        }
+      }
+    }
+  }
   
   /* finally, free arrays allocated outside parallel zone */
 
@@ -369,6 +390,7 @@ int transfer_init(
   class_call(hyperspherical_HIS_free(&BIS,ptr->error_message),
              ptr->error_message,
              ptr->error_message); 
+
   return _SUCCESS_;
 }
 
@@ -470,6 +492,8 @@ int transfer_indices_of_transfers(
       ptr->index_tt_t0 = index_tt;
       index_tt++;
       ptr->index_tt_t1 = index_tt;
+      index_tt++;
+      ptr->index_tt_t = index_tt;
       index_tt++;
     }
 
@@ -673,7 +697,7 @@ int transfer_get_l_list(
           ppr->l_linstep*ptr->angular_rescaling);
   */
 
-  /* check that largests need value of l_max */
+  /* check the largest value needed for l */
 
   if (ppt->has_cls == _TRUE_) {
 
@@ -713,14 +737,14 @@ int transfer_get_l_list(
 
   /** - when the logarithmic step becomes larger than some linear step, 
       stick to this linear step till l_max */
-  
-  increment = ppr->l_linstep*ptr->angular_rescaling;
-  
+
+  increment = MAX (ppr->l_linstep*ptr->angular_rescaling, 1);
+
   while ((current_l+increment) <= l_max) {
     
     index_l ++;
     current_l += increment;
-    
+
   }
 
   /** - last value set to exactly l_max */
@@ -733,7 +757,7 @@ int transfer_get_l_list(
   } 
   
   ptr->l_size_max = index_l+1;
-  
+
   /** - so far we just counted the number of values. Now repeat the
       whole thing but fill array with values. */
   
@@ -752,7 +776,7 @@ int transfer_get_l_list(
     
   }
   
-  increment = ppr->l_linstep*ptr->angular_rescaling;
+  increment = MAX (ppr->l_linstep*ptr->angular_rescaling, 1);
   
   while ((ptr->l[index_l]+increment) <= l_max) {
     
@@ -767,6 +791,82 @@ int transfer_get_l_list(
     ptr->l[index_l]= l_max;
     
   }
+
+
+
+  /* If needed, convert odd values to even ones or viceversa. */
+  
+  if ((ppr->compute_only_even_ls==_TRUE_) || (ppr->compute_only_odd_ls==_TRUE_)) {
+
+    int * l_copy;
+    class_alloc (l_copy, ptr->l_size_max*sizeof(int), ptr->error_message);
+    for (index_l=0; index_l < ptr->l_size_max; ++index_l)
+      l_copy[index_l] = ptr->l[index_l];
+    
+    /* Create an all-even grid */
+    if (ppr->compute_only_even_ls == _TRUE_) {
+      for (index_l=0; index_l < ptr->l_size_max; ++index_l)
+        if (l_copy[index_l]%2!=0)
+          l_copy[index_l] = l_copy[index_l]+1;
+    }
+    /* ... or an all-odd grid */
+    else if (ppr->compute_only_odd_ls == _TRUE_) {
+      for (index_l=0; index_l < ptr->l_size_max; ++index_l)
+        if (l_copy[index_l]%2==0)
+          l_copy[index_l] = l_copy[index_l]+1;
+    }
+    
+    /* Some debug */
+    // for (index_l=0; index_l < ptr->l_size_max; ++index_l)
+    //   printf ("%5d %5d\n", index_l, l_copy[index_l]);
+    
+    /* Remove duplicates */
+    int index_l_copy = 0;
+    index_l = 0;
+    ptr->l[index_l] = l_copy[index_l_copy];
+    index_l++;
+    
+    for (index_l_copy=1; index_l_copy < ptr->l_size_max; ++index_l_copy) {
+      if (l_copy[index_l_copy] != l_copy[index_l_copy-1]) {
+        ptr->l[index_l] = l_copy[index_l_copy];
+        index_l++;
+      }
+    }
+    
+    ptr->l_size_max = index_l;
+
+  } // end of if(compute even/odd l-grid)
+
+printf ("~*~*~*~*~ Executing line %d of function %s\n", __LINE__, __func__); fflush(stdout);
+  /* Find out the index in ptr->l corresponding to a given l. */
+  class_alloc (ptr->index_l, (ptr->l[ptr->l_size_max-1]+1)*sizeof(int), ptr->error_message);
+
+  int l;
+
+  for(l=0; l<=ptr->l[ptr->l_size_max-1]; ++l) {
+  
+    ptr->index_l[l] = -1;
+  
+    for (index_l=0; index_l<ptr->l_size_max; ++index_l)
+      if (l==ptr->l[index_l]) ptr->index_l[l] = index_l;
+    
+    /* Some debug */
+    // printf("ptr->index_l[%d] = %d\n", l, ptr->index_l[l]);
+  }
+
+  /* Print some information on the multipoles to be computed */
+  if (ptr->transfer_verbose > 0)
+    printf(" -> we shall compute %d %smultipoles ranging from l=%d to %d\n",
+      ptr->l_size_max, (ppr->compute_only_even_ls==_TRUE_?"EVEN ":""), ptr->l[0], ptr->l[ptr->l_size_max-1]);
+
+  /* Print the full l-list */
+  if (ptr->transfer_verbose > 1) {
+    printf ("     * ");
+    for (index_l=0; index_l < (ptr->l_size_max-1); ++index_l)
+      printf ("%d,", ptr->l[index_l]);
+    printf ("%d\n", ptr->l[index_l]);
+  }
+
 
   /* for each mode and type, find relevant size of l array,
      l_size_tt[index_md][index_tt] (since for some modes and types
@@ -1240,7 +1340,7 @@ int transfer_get_source_correspondence(
   
   for (index_md = 0; index_md < ptr->md_size; index_md++) {
 
-    class_alloc(tp_of_tt[index_md],ptr->tt_size[index_md]*sizeof(int),ptr->error_message);
+    class_calloc(tp_of_tt[index_md],ptr->tt_size[index_md],sizeof(int),ptr->error_message);
 
     for (index_tt=0; index_tt<ptr->tt_size[index_md]; index_tt++) {
     
@@ -1254,7 +1354,7 @@ int transfer_get_source_correspondence(
           
           if ((ppt->has_cl_cmb_temperature == _TRUE_) && (index_tt == ptr->index_tt_t2)) 
             tp_of_tt[index_md][index_tt]=ppt->index_tp_t2;
-          
+                    
           if ((ppt->has_cl_cmb_polarization == _TRUE_) && (index_tt == ptr->index_tt_e)) 
             tp_of_tt[index_md][index_tt]=ppt->index_tp_p;
           
@@ -1266,6 +1366,11 @@ int transfer_get_source_correspondence(
           
           if ((ppt->has_cl_lensing_potential == _TRUE_) && (index_tt >= ptr->index_tt_lensing) && (index_tt < ptr->index_tt_lensing+ppt->selection_num))
             tp_of_tt[index_md][index_tt]=ppt->index_tp_g;
+
+          /* We flag the derived transfer functions with a negative value, so that no computation is performed
+          to obtain them. */
+          if ((ppt->has_cl_cmb_temperature == _TRUE_) && (index_tt == ptr->index_tt_t)) 
+            tp_of_tt[index_md][index_tt]=-1;
           
         }
     
@@ -1588,6 +1693,13 @@ int transfer_compute_for_each_q(
       /** - loop over types. For each of them: */
 
       for (index_tt = 0; index_tt < ptr->tt_size[index_md]; index_tt++) {
+        
+        /* Skip the indices corresponding to the derived transfer functions. These are those transfer
+        functions that can be obtained from the other ones (such as index_tt_t0, index_tt_t1, index_tt_t2,
+        index_tt_e, etc) and thus do not require to be computed by solving the line of sight integral */
+        if (tp_of_tt[index_md][index_tt] < 0) {
+          continue;
+        }
         
         /** check if we must now deal with a new source with a
             new index ppt->index_type. If yes, interpolate it at the

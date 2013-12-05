@@ -65,14 +65,16 @@ struct transfers {
 
   int md_size;       /**< number of modes included in computation */
 
+
   int index_tt_t0;      /**< index for transfer type = temperature (j=0 term) */
   int index_tt_t1;      /**< index for transfer type = temperature (j=1 term) */
   int index_tt_t2;      /**< index for transfer type = temperature (j=2 term) */
-  int index_tt_e;      /**< index for transfer type = E-polarization */
-  int index_tt_b;      /**< index for transfer type = B-polarization */
-  int index_tt_lcmb;   /**< index for transfer type = CMB lensing */
+  int index_tt_e;       /**< index for transfer type = E-polarization */
+  int index_tt_b;       /**< index for transfer type = B-polarization */
+  int index_tt_lcmb;    /**< index for transfer type = CMB lensing */
   int index_tt_density; /**< index for first bin of transfer type = matter density */
   int index_tt_lensing; /**< index for first bin of transfer type = galaxy lensing */
+  int index_tt_t;       /**< index for derived transfer type = temperature (that is, j0+j1+j2) */
 
   int * tt_size;     /**< number of requested transfer types tt_size[index_md] for each mode */
 
@@ -89,6 +91,8 @@ struct transfers {
   int l_size_max; /**< greatest of all l_size[index_md] */
 
   int * l;        /**< list of multipole values l[index_l] */
+  
+  int * index_l;  /**< pbs2->index_l[l] is the index of 'l' inside pbs->l. If 'l' is not contained in pbs->l, then pbs2->index_l[L]=-1 */
 
   //int * l_size_bessel; /**< for each wavenumber, maximum value of l at which bessel functions must be evaluated */
 

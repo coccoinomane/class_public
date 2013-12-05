@@ -1900,8 +1900,8 @@ int spectra_compute_cl(
 
       if _scalars_ {
 
-          transfer_ic1_temp = transfer_ic1[ptr->index_tt_t0] + transfer_ic1[ptr->index_tt_t1] + transfer_ic1[ptr->index_tt_t2];
-          transfer_ic2_temp = transfer_ic2[ptr->index_tt_t0] + transfer_ic2[ptr->index_tt_t1] + transfer_ic2[ptr->index_tt_t2];
+          transfer_ic1_temp = transfer_ic1[ptr->index_tt_t];
+          transfer_ic2_temp = transfer_ic2[ptr->index_tt_t];
           
         }
 

@@ -10,18 +10,18 @@ int main(int argc, char **argv) {
   struct background ba;       /* for cosmological background */
   struct thermo th;           /* for thermodynamics */
   struct perturbs pt;         /* for source functions */
-  struct bessels bs;          /* for bessel functions */
   struct transfers tr;        /* for transfer functions */
   struct primordial pm;       /* for primordial spectra */
   struct spectra sp;          /* for output spectra */
   struct nonlinear nl;        /* for non-linear spectra */
   struct lensing le;          /* for lensed spectra */
+  struct bessels bs;          /* for bessel functions */
   struct bispectra bi;        /* for bispectra */
   struct fisher fi;           /* for fisher matrix */
   struct output op;           /* for output files */
   ErrorMsg errmsg;            /* for error messages */
 
-  if (input_init_from_arguments(argc, argv,&pr,&ba,&th,&pt,&tr,&pm,&sp,&nl,&le,&op,errmsg) == _FAILURE_) {
+  if (input_init_from_arguments(argc, argv,&pr,&ba,&th,&pt,&tr,&pm,&sp,&nl,&le,&bs,&bi,&fi,&op,errmsg) == _FAILURE_) {
     printf("\n\nError running input_init_from_arguments \n=>%s\n",errmsg); 
     return _FAILURE_;
   }
@@ -38,11 +38,6 @@ int main(int argc, char **argv) {
 
   if (perturb_init(&pr,&ba,&th,&pt) == _FAILURE_) {
     printf("\n\nError in perturb_init \n=>%s\n",pt.error_message);
-    return _FAILURE_;
-  }
-
-  if (bessel_init(&pr,&bs) == _FAILURE_) {
-    printf("\n\nError in bessel_init \n =>%s\n",bs.error_message);
     return _FAILURE_;
   }
 
@@ -70,6 +65,21 @@ int main(int argc, char **argv) {
     printf("\n\nError in lensing_init \n=>%s\n",le.error_message);
     return _FAILURE_;
   }
+  
+  if (bessel_init(&pr,&tr,&bs) == _FAILURE_) {
+    printf("\n\nError in bessel_init \n =>%s\n",bs.error_message);
+    return _FAILURE_;
+  }
+
+  // if (bispectra_init(&pr,&ba,&th,&pt,&bs,&tr,&pm,&sp,&le,&bi) == _FAILURE_) {
+  //   printf("\n\nError in bispectra_init \n=>%s\n",bi.error_message);
+  //   return _FAILURE_;
+  // }
+  //    
+  // if (fisher_init(&pr,&ba,&th,&pt,&bs,&tr,&pm,&sp,&le,&bi,&fi) == _FAILURE_) {
+  //   printf("\n\nError in fisher_init \n=>%s\n",fi.error_message);
+  //   return _FAILURE_;
+  // }
 
   if (output_init(&ba,&pt,&sp,&nl,&le,&op) == _FAILURE_) {
     printf("\n\nError in output_init \n=>%s\n",op.error_message);
@@ -77,6 +87,21 @@ int main(int argc, char **argv) {
   }
 
   /****** all calculations done, now free the structures ******/
+
+  // if (fisher_free(&pt,&bi,&fi) == _FAILURE_) {
+  //   printf("\n\nError in fisher_free \n=>%s\n",fi.error_message);
+  //   return _FAILURE_;
+  // }
+  // 
+  // if (bispectra_free(&pt,&sp,&bi) == _FAILURE_) {
+  //   printf("\n\nError in bispectra_free \n=>%s\n",bi.error_message);
+  //   return _FAILURE_;
+  // }
+
+  if (bessel_free(&bs) == _FAILURE_)  {
+    printf("\n\nError in bessel_free \n=>%s\n",bs.error_message);
+    return _FAILURE_;
+  }
 
   if (lensing_free(&le) == _FAILURE_) {
     printf("\n\nError in lensing_free \n=>%s\n",le.error_message);
@@ -100,11 +125,6 @@ int main(int argc, char **argv) {
 
   if (primordial_free(&pm) == _FAILURE_) {
     printf("\n\nError in primordial_free \n=>%s\n",pm.error_message);
-    return _FAILURE_;
-  }
-
-  if (bessel_free(&pr,&bs) == _FAILURE_)  {
-    printf("\n\nError in bessel_free \n=>%s\n",bs.error_message);
     return _FAILURE_;
   }
 
