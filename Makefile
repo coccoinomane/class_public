@@ -9,6 +9,8 @@ WRKDIR = $(MDIR)/build
 	touch build/.base
 
 vpath %.c source:tools:main:test
+vpath %.f90 source:tools:main:test
+vpath %.f source:tools:main:test
 vpath %.o build
 vpath .base build
 
@@ -37,6 +39,11 @@ OMPFLAG   = -fopenmp
 # all other compilation flags
 CCFLAG = -g -fPIC -std=c99
 LDFLAG = -g -fPIC
+
+# Your Fortran compiler, for the Slatec library
+FC       = gfortran
+FORTRAN_OPTFLAG = -O
+LDFLAG += -lgfortran
 
 # leave blank to compile without HyRec, or put path to HyRec directory 
 # (with no slash at the end: e.g. hyrec or ../hyrec)
@@ -67,9 +74,18 @@ endif
 %.o:  %.c .base
 	cd $(WRKDIR);$(CC) $(OPTFLAG) $(OMPFLAG) $(CCFLAG) $(INCLUDES) -c ../$< -o $*.o
 
-TOOLS = growTable.o dei_rkck.o sparse.o evolver_rkck.o  evolver_ndf15.o arrays.o parser.o quadrature.o bessel.o hyperspherical.o common.o song_tools.o
+%.o:  %.f90 .base
+	cd $(WRKDIR);$(FC) $(FFLAGS) $(FORTRAN_OPTFLAG) -c ../$< -o $*.o
 
-SOURCE = input.o background.o thermodynamics.o perturbations.o transfer.o primordial.o spectra.o trg.o nonlinear.o lensing.o bispectra.o
+%.o:  %.f .base
+	cd $(WRKDIR);$(FC) $(FFLAGS) $(FORTRAN_OPTFLAG) -c ../$< -o $*.o
+
+
+TOOLS = growTable.o dei_rkck.o sparse.o evolver_rkck.o  evolver_ndf15.o arrays.o parser.o quadrature.o bessel.o hyperspherical.o common.o
+
+BISPECTRUM_TOOLS = song_tools.o slatec_3j_f90.o mesh_interpolation.o
+
+SOURCE = input.o background.o thermodynamics.o perturbations.o transfer.o primordial.o spectra.o trg.o nonlinear.o lensing.o bispectra.o fisher.o
 
 INPUT = input.o
 
@@ -133,7 +149,7 @@ all: class libclass.a
 libclass.a: $(TOOLS) $(SOURCE) $(EXTERNAL)
 	$(AR)  $@ $(addprefix build/, $(TOOLS) $(SOURCE) $(EXTERNAL))
 
-class: $(TOOLS) $(SOURCE) $(EXTERNAL) $(OUTPUT) $(CLASS)
+class: $(TOOLS) $(BISPECTRUM_TOOLS) $(SOURCE) $(EXTERNAL) $(OUTPUT) $(CLASS)
 	$(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o class $(addprefix build/,$(notdir $^)) -lm
 
 test_sigma: $(TOOLS) $(SOURCE) $(EXTERNAL) $(OUTPUT) $(TEST_SIGMA)

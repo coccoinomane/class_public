@@ -422,6 +422,7 @@ int transfer_free(
     free(ptr->l_size_tt);
     free(ptr->l_size);
     free(ptr->l);
+    free(ptr->index_l);
     free(ptr->q);
     free(ptr->k);
     free(ptr->transfer);
@@ -587,7 +588,7 @@ int transfer_indices_of_transfers(
              ptr->error_message);
 
   /** get l values using transfer_get_l_list() */
-  class_call(transfer_get_l_list(ppr,ppt,ptr),
+  class_call(transfer_get_l_list(ppr,ppt,ptr,sgnK),
              ptr->error_message,
              ptr->error_message);
 
@@ -681,7 +682,8 @@ int transfer_perturbation_source_spline_free(
 int transfer_get_l_list(
                         struct precision * ppr,
                         struct perturbs * ppt,
-                        struct transfers * ptr
+                        struct transfers * ptr,
+                        int sgnK
                         ) {
 
   int index_l;
@@ -722,23 +724,31 @@ int transfer_get_l_list(
 
   /** - start from l = 2 and increase with logarithmic step */
 
+  /* Change the steps according to the curvature of the Universe */
+  int l_linstep = ppr->l_linstep;
+  double l_logstep = ppr->l_logstep;
+
+  if (sgnK != 0) {
+    l_linstep *= ptr->angular_rescaling;
+    l_logstep = pow(ppr->l_logstep,ptr->angular_rescaling);
+  }
+
   index_l = 0;
   current_l = 2;
-  increment = MAX((int)(current_l * (pow(ppr->l_logstep,ptr->angular_rescaling)-1.)),1);
+  increment = MAX((int)(current_l * (l_logstep-1.)),1);
   
-  while (((current_l+increment) < l_max) && 
-         (increment < ppr->l_linstep*ptr->angular_rescaling)) {
+  while (((current_l+increment) < l_max) && (increment < l_linstep)) {
     
     index_l ++;
     current_l += increment;
-    increment = MAX((int)(current_l * (pow(ppr->l_logstep,ptr->angular_rescaling)-1.)),1);
+    increment = MAX((int)(current_l * (l_logstep-1.)),1);
     
   }
 
   /** - when the logarithmic step becomes larger than some linear step, 
       stick to this linear step till l_max */
 
-  increment = MAX (ppr->l_linstep*ptr->angular_rescaling, 1);
+  increment = MAX (l_linstep, 1);
 
   while ((current_l+increment) <= l_max) {
     
@@ -765,18 +775,18 @@ int transfer_get_l_list(
   
   index_l = 0;
   ptr->l[0] = 2;
-  increment = MAX((int)(ptr->l[0] * (pow(ppr->l_logstep,ptr->angular_rescaling)-1.)),1);
+  increment = MAX((int)(ptr->l[0] * (l_logstep-1.)),1);
   
   while (((ptr->l[index_l]+increment) < l_max) && 
-         (increment < ppr->l_linstep*ptr->angular_rescaling)) {
+         (increment < l_linstep)) {
     
     index_l ++;
     ptr->l[index_l]=ptr->l[index_l-1]+increment;
-    increment = MAX((int)(ptr->l[index_l] * (pow(ppr->l_logstep,ptr->angular_rescaling)-1.)),1);
+    increment = MAX((int)(ptr->l[index_l] * (l_logstep-1.)),1);
     
   }
   
-  increment = MAX (ppr->l_linstep*ptr->angular_rescaling, 1);
+  increment = l_linstep;
   
   while ((ptr->l[index_l]+increment) <= l_max) {
     
@@ -794,73 +804,73 @@ int transfer_get_l_list(
 
 
 
-  /* If needed, convert odd values to even ones or viceversa. */
-  
-  if ((ppr->compute_only_even_ls==_TRUE_) || (ppr->compute_only_odd_ls==_TRUE_)) {
-
-    int * l_copy;
-    class_alloc (l_copy, ptr->l_size_max*sizeof(int), ptr->error_message);
-    for (index_l=0; index_l < ptr->l_size_max; ++index_l)
-      l_copy[index_l] = ptr->l[index_l];
-    
-    /* Create an all-even grid */
-    if (ppr->compute_only_even_ls == _TRUE_) {
-      for (index_l=0; index_l < ptr->l_size_max; ++index_l)
-        if (l_copy[index_l]%2!=0)
-          l_copy[index_l] = l_copy[index_l]+1;
-    }
-    /* ... or an all-odd grid */
-    else if (ppr->compute_only_odd_ls == _TRUE_) {
-      for (index_l=0; index_l < ptr->l_size_max; ++index_l)
-        if (l_copy[index_l]%2==0)
-          l_copy[index_l] = l_copy[index_l]+1;
-    }
-    
-    /* Some debug */
-    // for (index_l=0; index_l < ptr->l_size_max; ++index_l)
-    //   printf ("%5d %5d\n", index_l, l_copy[index_l]);
-    
-    /* Remove duplicates */
-    int index_l_copy = 0;
-    index_l = 0;
-    ptr->l[index_l] = l_copy[index_l_copy];
-    index_l++;
-    
-    for (index_l_copy=1; index_l_copy < ptr->l_size_max; ++index_l_copy) {
-      if (l_copy[index_l_copy] != l_copy[index_l_copy-1]) {
-        ptr->l[index_l] = l_copy[index_l_copy];
-        index_l++;
-      }
-    }
-    
-    ptr->l_size_max = index_l;
-
-  } // end of if(compute even/odd l-grid)
-
-printf ("~*~*~*~*~ Executing line %d of function %s\n", __LINE__, __func__); fflush(stdout);
-  /* Find out the index in ptr->l corresponding to a given l. */
-  class_alloc (ptr->index_l, (ptr->l[ptr->l_size_max-1]+1)*sizeof(int), ptr->error_message);
-
-  int l;
-
-  for(l=0; l<=ptr->l[ptr->l_size_max-1]; ++l) {
-  
-    ptr->index_l[l] = -1;
-  
-    for (index_l=0; index_l<ptr->l_size_max; ++index_l)
-      if (l==ptr->l[index_l]) ptr->index_l[l] = index_l;
-    
-    /* Some debug */
-    // printf("ptr->index_l[%d] = %d\n", l, ptr->index_l[l]);
-  }
-
-  /* Print some information on the multipoles to be computed */
-  if (ptr->transfer_verbose > 0)
-    printf(" -> we shall compute %d %smultipoles ranging from l=%d to %d\n",
-      ptr->l_size_max, (ppr->compute_only_even_ls==_TRUE_?"EVEN ":""), ptr->l[0], ptr->l[ptr->l_size_max-1]);
+  // /* If needed, convert odd values to even ones or viceversa. */
+  // 
+  // if ((ppr->compute_only_even_ls==_TRUE_) || (ppr->compute_only_odd_ls==_TRUE_)) {
+  // 
+  //   int * l_copy;
+  //   class_alloc (l_copy, ptr->l_size_max*sizeof(int), ptr->error_message);
+  //   for (index_l=0; index_l < ptr->l_size_max; ++index_l)
+  //     l_copy[index_l] = ptr->l[index_l];
+  //   
+  //   /* Create an all-even grid */
+  //   if (ppr->compute_only_even_ls == _TRUE_) {
+  //     for (index_l=0; index_l < ptr->l_size_max; ++index_l)
+  //       if (l_copy[index_l]%2!=0)
+  //         l_copy[index_l] = l_copy[index_l]+1;
+  //   }
+  //   /* ... or an all-odd grid */
+  //   else if (ppr->compute_only_odd_ls == _TRUE_) {
+  //     for (index_l=0; index_l < ptr->l_size_max; ++index_l)
+  //       if (l_copy[index_l]%2==0)
+  //         l_copy[index_l] = l_copy[index_l]+1;
+  //   }
+  //   
+  //   /* Some debug */
+  //   // for (index_l=0; index_l < ptr->l_size_max; ++index_l)
+  //   //   printf ("%5d %5d\n", index_l, l_copy[index_l]);
+  //   
+  //   /* Remove duplicates */
+  //   int index_l_copy = 0;
+  //   index_l = 0;
+  //   ptr->l[index_l] = l_copy[index_l_copy];
+  //   index_l++;
+  //   
+  //   for (index_l_copy=1; index_l_copy < ptr->l_size_max; ++index_l_copy) {
+  //     if (l_copy[index_l_copy] != l_copy[index_l_copy-1]) {
+  //       ptr->l[index_l] = l_copy[index_l_copy];
+  //       index_l++;
+  //     }
+  //   }
+  //   
+  //   ptr->l_size_max = index_l;
+  // 
+  // } // end of if(compute even/odd l-grid)
+  // 
+  // 
+  // /* Find out the index in ptr->l corresponding to a given l. */
+  // class_alloc (ptr->index_l, (ptr->l[ptr->l_size_max-1]+1)*sizeof(int), ptr->error_message);
+  // 
+  // int l;
+  // 
+  // for(l=0; l<=ptr->l[ptr->l_size_max-1]; ++l) {
+  // 
+  //   ptr->index_l[l] = -1;
+  // 
+  //   for (index_l=0; index_l<ptr->l_size_max; ++index_l)
+  //     if (l==ptr->l[index_l]) ptr->index_l[l] = index_l;
+  //   
+  //   /* Some debug */
+  //   // printf("ptr->index_l[%d] = %d\n", l, ptr->index_l[l]);
+  // }
+  // 
+  // /* Print some information on the multipoles to be computed */
+  // if (ptr->transfer_verbose > 0)
+  //   printf(" -> we shall compute %d %smultipoles ranging from l=%d to %d\n",
+  //     ptr->l_size_max, (ppr->compute_only_even_ls==_TRUE_?"EVEN ":""), ptr->l[0], ptr->l[ptr->l_size_max-1]);
 
   /* Print the full l-list */
-  if (ptr->transfer_verbose > 1) {
+  if (ptr->transfer_verbose > 0) {
     printf ("     * ");
     for (index_l=0; index_l < (ptr->l_size_max-1); ++index_l)
       printf ("%d,", ptr->l[index_l]);

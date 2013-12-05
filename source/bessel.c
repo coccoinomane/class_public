@@ -456,10 +456,6 @@ int bessel_free(
     
   }
 
-  // *** MY MODIFICATIONS ***
-  free(pbs->index_l);
-  // *** END OF MY MODIFICATIONS ***
-
   return _SUCCESS_; 
 }
 
@@ -710,7 +706,7 @@ int bessel_j(
   double l3,cosb;
 
   // *** MY MODIFICATIONS ***
-  /* Uncomment to use the Bessel functions in the Slatec distribution */
+  // /* Uncomment to use the Bessel functions in the Slatec distribution */
   // float * result = malloc(sizeof(float));
   // 
   // besselJ_l1(
@@ -721,13 +717,12 @@ int bessel_j(
   //    pbs->error_message          
   //    );
   //    
-  // *jl = sqrt_pi_over_2/sqrt(x)*(double)(*result);
+  // *jl = _SQRT_PI_OVER_2_/sqrt(x)*(double)(*result);
   //    
   // free(result);
   // 
   // // *** Some debug
   // // printf("j_l(%d,%20.15g) = %15g\n", l, x, *jl);
-  // 
   //    
   // return _SUCCESS_;
   // *** END OF MY MODIFICATIONS ***

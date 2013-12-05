@@ -13,15 +13,39 @@ k_step_sub=0.05
 k_step_super=0.0005
 k_logstep_super=1.2
 k_step_transition=0.2
-k_step_trans = 0.15
+k_step_trans = 0.30
 bessel_x_step = 0.02
 
 k_max_tau0_over_l_max = 3
 l_max_scalars = 2000
-l_logstep = 1.1
-l_linstep = 20
+l_logstep = 1.35
+l_linstep = 50
 
 bispectra_interpolation = mesh_2d
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ##### Cl permille ######
 # tol_tau_approx=1.e-5

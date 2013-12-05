@@ -76,10 +76,10 @@ int main(int argc, char **argv) {
     return _FAILURE_;
   }
      
-  // if (fisher_init(&pr,&ba,&th,&pt,&bs,&tr,&pm,&sp,&le,&bi,&fi) == _FAILURE_) {
-  //   printf("\n\nError in fisher_init \n=>%s\n",fi.error_message);
-  //   return _FAILURE_;
-  // }
+  if (fisher_init(&pr,&ba,&th,&pt,&bs,&tr,&pm,&sp,&le,&bi,&fi) == _FAILURE_) {
+    printf("\n\nError in fisher_init \n=>%s\n",fi.error_message);
+    return _FAILURE_;
+  }
 
   if (output_init(&ba,&pt,&sp,&nl,&le,&op) == _FAILURE_) {
     printf("\n\nError in output_init \n=>%s\n",op.error_message);
@@ -88,10 +88,10 @@ int main(int argc, char **argv) {
 
   /****** all calculations done, now free the structures ******/
 
-  // if (fisher_free(&pt,&bi,&fi) == _FAILURE_) {
-  //   printf("\n\nError in fisher_free \n=>%s\n",fi.error_message);
-  //   return _FAILURE_;
-  // }
+  if (fisher_free(&pt,&bi,&fi) == _FAILURE_) {
+    printf("\n\nError in fisher_free \n=>%s\n",fi.error_message);
+    return _FAILURE_;
+  }
   
   if (bispectra_free(&pt,&sp,&bi) == _FAILURE_) {
     printf("\n\nError in bispectra_free \n=>%s\n",bi.error_message);

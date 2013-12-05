@@ -42,8 +42,6 @@ struct bessels {
   int l_size; /**< number of multipole values */
   int * l; /**< list of multipole values, l[index_l] */
 
-  int * index_l; /**< pbs2->index_l[l] is the index of 'l' inside pbs->l. If 'l' is not contained in pbs->l, then pbs2->index_l[L]=-1 */
-
   double j_cut; /**< value of \f$ j_l \f$ below which it is approximated by zero (in the region x << l) */
   int has_dj;   /**< set to true means j_l'(x) also need to be stored */
 

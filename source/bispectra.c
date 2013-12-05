@@ -495,12 +495,19 @@ int bispectra_indices (
   // =================================================================================================
   
   /* We compute the bispectrum on a mesh where l1>=l2>=l3, with l3 determined by the triangular
-  condition. All the multipoles are drawn from pbi->l, which is a copy of pbs->l.  */
+  condition. All the multipoles are drawn from pbi->l, which is a copy of ptr->l.  */
 
-  pbi->l_size = pbs->l_size;
+  pbi->l_size = ptr->l_size_max;
   class_alloc (pbi->l, pbi->l_size*sizeof(int), pbi->error_message);
   for(int index_l=0; index_l<pbi->l_size; ++index_l)
-    pbi->l[index_l] = pbs->l[index_l];
+    pbi->l[index_l] = ptr->l[index_l];
+
+  /* Some debug - Print the full l-list */
+  // printf ("     * ");
+  // for (int index_l=0; index_l < (pbi->l_size-1); ++index_l)
+  //   printf ("%d,", pbi->l[index_l]);
+  // printf ("%d\n", pbi->l[pbi->l_size-1]);
+
 
   /* Maximum value in pbi->l */
   pbi->l_max = pbi->l[pbi->l_size-1];
@@ -3254,7 +3261,7 @@ int bispectra_non_separable_integrate_over_r (
     #pragma omp for schedule (dynamic)
     for (int index_l1 = 0; index_l1 < pbi->l_size; ++index_l1) {
 
-      if (pbi->bispectra_verbose > 2)
+      if (pbi->bispectra_verbose > 1)
         printf("     * computing the r-integral for l1=%d, index_l1=%d\n", pbi->l[index_l1], index_l1);
     
       for (int index_l2 = 0; index_l2 <= index_l1; ++index_l2) {
