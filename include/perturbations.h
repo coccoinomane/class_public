@@ -268,6 +268,14 @@ struct perturbs
 
   //@}
 
+  /** @name - parameters for the second-order perturbations */
+
+  //@{
+
+  short has_cmb_temperature_2;
+
+  //@}
+
   /** @name - technical parameters */
 
   //@{

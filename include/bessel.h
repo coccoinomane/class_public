@@ -99,6 +99,27 @@ extern "C" {
 		  double * j
 		  );
 
+  int bessel_at_x_linear(
+		  struct bessels * pbs,
+		  double x,
+		  int l,
+		  double * j
+		  );
+
+  int bessel_convolution(
+      struct precision * ppr,
+      struct bessels * pbs,
+      double * kk,
+      double * delta_kk,
+      int k_size,
+      double * f,
+      double * g,
+      int index_l,
+      double r,
+      double * integral,
+      ErrorMsg error_message
+      );
+
   int bessel_init(
 		  struct precision * ppr,
 			struct transfers * ptr,
@@ -127,7 +148,7 @@ extern "C" {
 	       double x,
 	       double * jl
 	       );
-    
+
 #ifdef __cplusplus
 }
 #endif

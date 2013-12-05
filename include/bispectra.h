@@ -6,6 +6,7 @@
 #include "lensing.h"
 #include "spectra.h"
 #include "bessel.h"
+#include "song_tools.h"
 
 /* Useful variables for defining arrays */
 #define _MAX_LENGTH_LABEL_ 64   /* Maximum length allowed for the label strings (e.g. for the bispectra types such as 'local', 'intrinsic') */
@@ -187,7 +188,7 @@ struct bispectra {
 
 
   /* First-order primordial power spectrum as a function of k. It is indexed as pbi->pk[index_k]
-    where 'index_k' indexes ptr->k. Its size is ptr->k_size[ppt->index_md_scalars]. */
+    where 'index_k' indexes ptr->q. Its size is ptr->q_size. */
   double * pk;
 
   /* Same as above, but now 'index_k' indexes ppt->k. Its size is ppt->k_size[ppt->index_md_scalars]. */
@@ -203,7 +204,7 @@ struct bispectra {
   double ** dlog_cls;        /* Logarithmic derivative of the C_l's, as in Lewis 2012 */
 
   /* Array that contains the measure for the trapezoidal integration over k of the first-order transfer
-  functions. It is defined as ptr->k[i+1] - ptr->k[i-1]. */
+  functions. It is defined as ptr->q[i+1] - ptr->q[i-1]. */
   double * delta_k;
   
 
@@ -341,7 +342,7 @@ struct bispectra_workspace_non_separable {
   double * k_window;
 
   /* Inverse window function for the interpolation of the k-space bispectrum. It is indexed as pwb->k_window[index_k]
-  where 'index_k' indexes ptr->k. Its size is ptr->k_size[ppt->index_md_scalars]. */
+  where 'index_k' indexes ptr->q. Its size is ptr->q_size. */
   double * k_window_inverse;
 
 

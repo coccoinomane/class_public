@@ -71,11 +71,11 @@ int main(int argc, char **argv) {
     return _FAILURE_;
   }
 
-  // if (bispectra_init(&pr,&ba,&th,&pt,&bs,&tr,&pm,&sp,&le,&bi) == _FAILURE_) {
-  //   printf("\n\nError in bispectra_init \n=>%s\n",bi.error_message);
-  //   return _FAILURE_;
-  // }
-  //    
+  if (bispectra_init(&pr,&ba,&th,&pt,&bs,&tr,&pm,&sp,&le,&bi) == _FAILURE_) {
+    printf("\n\nError in bispectra_init \n=>%s\n",bi.error_message);
+    return _FAILURE_;
+  }
+     
   // if (fisher_init(&pr,&ba,&th,&pt,&bs,&tr,&pm,&sp,&le,&bi,&fi) == _FAILURE_) {
   //   printf("\n\nError in fisher_init \n=>%s\n",fi.error_message);
   //   return _FAILURE_;
@@ -92,11 +92,11 @@ int main(int argc, char **argv) {
   //   printf("\n\nError in fisher_free \n=>%s\n",fi.error_message);
   //   return _FAILURE_;
   // }
-  // 
-  // if (bispectra_free(&pt,&sp,&bi) == _FAILURE_) {
-  //   printf("\n\nError in bispectra_free \n=>%s\n",bi.error_message);
-  //   return _FAILURE_;
-  // }
+  
+  if (bispectra_free(&pt,&sp,&bi) == _FAILURE_) {
+    printf("\n\nError in bispectra_free \n=>%s\n",bi.error_message);
+    return _FAILURE_;
+  }
 
   if (bessel_free(&bs) == _FAILURE_)  {
     printf("\n\nError in bessel_free \n=>%s\n",bs.error_message);

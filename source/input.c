@@ -2460,6 +2460,12 @@ int input_default_params(
   /***********  EXTRA PARAMETERS NEEDED FOR THE BISPECTRUM AND FISHER MATRIX COMPUTATIONS **************/
   
   // =============================================================
+  // =                   Perturbation structure                  =
+  // =============================================================
+  
+  ppt->has_cmb_temperature_2 = _FALSE_;
+
+  // =============================================================
   // =                     Bispectra structure                   =
   // =============================================================
 

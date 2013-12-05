@@ -29,16 +29,6 @@ typedef char ErrorMsg[_ERRORMSGSIZE_]; /**< Generic error messages (there is suc
 #define _FILENAMESIZE_ 256 /**< size of the string read in each line of the file (extra characters not taken into account) */
 typedef char FileName[_FILENAMESIZE_];
 
-#define _PI_ 3.1415926535897932384626433832795e0 /**< The number pi */
-
-#define _PIHALF_ 1.57079632679489661923132169164e0 /**< pi divided by 2 */
-
-#define _TWOPI_ 6.283185307179586476925286766559e0 /**< 2 times pi */
-
-#define _SQRT6_ 2.4494897427831780981972840747059e0 /**< square root of 6. */
-
-#define _SQRT_PI_ 1.77245385090551602729816748334e0 /**< square root of pi. */
-
 #define _MAX_IT_ 10000/**< default maximum number of iterations in conditional loops (to avoid infinite loops) */
 
 #define _QUADRATURE_MAX_ 250 /**< maximum allowed number of abssices in quadrature integral estimation */
@@ -59,6 +49,25 @@ typedef char FileName[_FILENAMESIZE_];
 #define NRSIGN(a,b) ((b) >= 0.0 ? fabs(a) : -fabs(a))
 
 #define index_symmetric_matrix(i1,i2,N) (((i1)<=(i2)) ? (i2+N*i1-(i1*(i1+1))/2) : (i1+N*i2-(i2*(i2+1))/2)) /**< assigns an index from 0 to [N(N+1)/2-1] to the coefficients M_{i1,i2} of an N*N symmetric matrix; useful for converting a symmetric matrix to a vector, without loosing or double-counting any information */
+
+#define alternating_sign(m) ((m)%2 == 0 ? 1 : -1) /**< Return (-1)^m with integer m */
+
+/* Numerical constants */
+#define _PI_ 3.1415926535897932384626433832795e0 /**< The number pi */
+#define _PIHALF_ 1.57079632679489661923132169164e0 /**< pi divided by 2 */
+#define _TWOPI_ 6.283185307179586476925286766559e0 /**< 2 times pi */
+#define _SQRT6_ 2.4494897427831780981972840747059e0 /**< square root of 6. */
+#define _SQRT_PI_ 1.77245385090551602729816748334e0 /**< square root of pi. */
+#define _ONE_THIRD_ 0.3333333333333333333333333333
+#define _SQRT_PI_OVER_2_ 1.25331413731550025120788264241
+#define _SQRT_2_ 1.414213562373095049
+#define _SQRT_3_ 1.732050807568877294
+#define _SQRT_5_ 2.236067977499789696
+#define _SQRT_6_ 2.449489742783178098
+#define _SQRT_7_ 2.645751311064590591
+#define _SQRT_8_ 2.828427124746190098
+#define _SQRT_10_ 3.162277660168379332
+#define _FOUR_THIRDS_ 1.33333333333333333333333333
 
 // needed because of weird openmp bug on macosx lion...
 void class_protect_sprintf(char* dest, char* tpl,...);
@@ -138,14 +147,28 @@ void* class_protect_memcpy(void* dest, void* from, size_t sz);
   pointer=calloc(init,size);                                                                                     \
   if (pointer == NULL) {                                                                                         \
     int size_int;                                                                                                \
-    size_int = size;                                                                                             \
+    size_int = init*size;                                                                                        \
     class_alloc_message(error_message_output,#pointer, size_int);                                                \
     return _FAILURE_;                                                                                            \
   }                                                                                                              \
 } 
 
-/* macro for re-allocating memory, returning error if it failed */
-#define class_realloc(pointer, newname, size, error_message_output)  {                                          \
+/* same inside parallel structure */
+#define class_calloc_parallel(pointer, init,size, error_message_output)  {                                       \
+  pointer=NULL;                                                                                                  \
+  if (abort == _FALSE_) {                                                                                        \
+    pointer=calloc(init,size);                                                                                   \
+    if (pointer == NULL) {                                                                                       \
+      int size_int;                                                                                              \
+      size_int = init*size;                                                                                      \
+      class_alloc_message(error_message_output,#pointer, size_int);                                              \
+      abort=_TRUE_;                                                                                              \
+    }                                                                                                            \
+  }                                                                                                              \
+} 
+
+/* macro for re-allocating memory, returning error if it failed */ 
+#define class_realloc(pointer, newname, size, error_message_output)  {                                           \
     pointer=realloc(newname,size);                                                                               \
   if (pointer == NULL) {                                                                                         \
     int size_int;                                                                                                \
@@ -178,6 +201,13 @@ void* class_protect_memcpy(void* dest, void* from, size_t sz);
   if (condition) {                                                                                               \
     class_test_message(error_message_output,#condition, args);                                                   \
     return _FAILURE_;                                                                                            \
+  }                                                                                                              \
+}
+
+#define class_test_permissive(condition, error_message_output, args...) {                                        \
+  if (condition) {                                                                                               \
+    class_test_message(error_message_output,#condition, args);                                                   \
+    printf ("%s\n", error_message_output);                                                                       \
   }                                                                                                              \
 }
 
