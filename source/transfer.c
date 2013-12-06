@@ -804,70 +804,70 @@ int transfer_get_l_list(
 
 
 
-  // /* If needed, convert odd values to even ones or viceversa. */
-  // 
-  // if ((ppr->compute_only_even_ls==_TRUE_) || (ppr->compute_only_odd_ls==_TRUE_)) {
-  // 
-  //   int * l_copy;
-  //   class_alloc (l_copy, ptr->l_size_max*sizeof(int), ptr->error_message);
-  //   for (index_l=0; index_l < ptr->l_size_max; ++index_l)
-  //     l_copy[index_l] = ptr->l[index_l];
-  //   
-  //   /* Create an all-even grid */
-  //   if (ppr->compute_only_even_ls == _TRUE_) {
-  //     for (index_l=0; index_l < ptr->l_size_max; ++index_l)
-  //       if (l_copy[index_l]%2!=0)
-  //         l_copy[index_l] = l_copy[index_l]+1;
-  //   }
-  //   /* ... or an all-odd grid */
-  //   else if (ppr->compute_only_odd_ls == _TRUE_) {
-  //     for (index_l=0; index_l < ptr->l_size_max; ++index_l)
-  //       if (l_copy[index_l]%2==0)
-  //         l_copy[index_l] = l_copy[index_l]+1;
-  //   }
-  //   
-  //   /* Some debug */
-  //   // for (index_l=0; index_l < ptr->l_size_max; ++index_l)
-  //   //   printf ("%5d %5d\n", index_l, l_copy[index_l]);
-  //   
-  //   /* Remove duplicates */
-  //   int index_l_copy = 0;
-  //   index_l = 0;
-  //   ptr->l[index_l] = l_copy[index_l_copy];
-  //   index_l++;
-  //   
-  //   for (index_l_copy=1; index_l_copy < ptr->l_size_max; ++index_l_copy) {
-  //     if (l_copy[index_l_copy] != l_copy[index_l_copy-1]) {
-  //       ptr->l[index_l] = l_copy[index_l_copy];
-  //       index_l++;
-  //     }
-  //   }
-  //   
-  //   ptr->l_size_max = index_l;
-  // 
-  // } // end of if(compute even/odd l-grid)
-  // 
-  // 
-  // /* Find out the index in ptr->l corresponding to a given l. */
-  // class_alloc (ptr->index_l, (ptr->l[ptr->l_size_max-1]+1)*sizeof(int), ptr->error_message);
-  // 
-  // int l;
-  // 
-  // for(l=0; l<=ptr->l[ptr->l_size_max-1]; ++l) {
-  // 
-  //   ptr->index_l[l] = -1;
-  // 
-  //   for (index_l=0; index_l<ptr->l_size_max; ++index_l)
-  //     if (l==ptr->l[index_l]) ptr->index_l[l] = index_l;
-  //   
-  //   /* Some debug */
-  //   // printf("ptr->index_l[%d] = %d\n", l, ptr->index_l[l]);
-  // }
-  // 
-  // /* Print some information on the multipoles to be computed */
-  // if (ptr->transfer_verbose > 0)
-  //   printf(" -> we shall compute %d %smultipoles ranging from l=%d to %d\n",
-  //     ptr->l_size_max, (ppr->compute_only_even_ls==_TRUE_?"EVEN ":""), ptr->l[0], ptr->l[ptr->l_size_max-1]);
+  /* If needed, convert odd values to even ones or viceversa. */
+  
+  if ((ppr->compute_only_even_ls==_TRUE_) || (ppr->compute_only_odd_ls==_TRUE_)) {
+  
+    int * l_copy;
+    class_alloc (l_copy, ptr->l_size_max*sizeof(int), ptr->error_message);
+    for (index_l=0; index_l < ptr->l_size_max; ++index_l)
+      l_copy[index_l] = ptr->l[index_l];
+    
+    /* Create an all-even grid */
+    if (ppr->compute_only_even_ls == _TRUE_) {
+      for (index_l=0; index_l < ptr->l_size_max; ++index_l)
+        if (l_copy[index_l]%2!=0)
+          l_copy[index_l] = l_copy[index_l]+1;
+    }
+    /* ... or an all-odd grid */
+    else if (ppr->compute_only_odd_ls == _TRUE_) {
+      for (index_l=0; index_l < ptr->l_size_max; ++index_l)
+        if (l_copy[index_l]%2==0)
+          l_copy[index_l] = l_copy[index_l]+1;
+    }
+    
+    /* Some debug */
+    // for (index_l=0; index_l < ptr->l_size_max; ++index_l)
+    //   printf ("%5d %5d\n", index_l, l_copy[index_l]);
+    
+    /* Remove duplicates */
+    int index_l_copy = 0;
+    index_l = 0;
+    ptr->l[index_l] = l_copy[index_l_copy];
+    index_l++;
+    
+    for (index_l_copy=1; index_l_copy < ptr->l_size_max; ++index_l_copy) {
+      if (l_copy[index_l_copy] != l_copy[index_l_copy-1]) {
+        ptr->l[index_l] = l_copy[index_l_copy];
+        index_l++;
+      }
+    }
+    
+    ptr->l_size_max = index_l;
+  
+  } // end of if(compute even/odd l-grid)
+  
+  
+  /* Find out the index in ptr->l corresponding to a given l. */
+  class_alloc (ptr->index_l, (ptr->l[ptr->l_size_max-1]+1)*sizeof(int), ptr->error_message);
+  
+  int l;
+  
+  for(l=0; l<=ptr->l[ptr->l_size_max-1]; ++l) {
+  
+    ptr->index_l[l] = -1;
+  
+    for (index_l=0; index_l<ptr->l_size_max; ++index_l)
+      if (l==ptr->l[index_l]) ptr->index_l[l] = index_l;
+    
+    /* Some debug */
+    // printf("ptr->index_l[%d] = %d\n", l, ptr->index_l[l]);
+  }
+  
+  /* Print some information on the multipoles to be computed */
+  if (ptr->transfer_verbose > 0)
+    printf(" -> we shall compute %d %smultipoles ranging from l=%d to %d\n",
+      ptr->l_size_max, (ppr->compute_only_even_ls==_TRUE_?"EVEN ":""), ptr->l[0], ptr->l[ptr->l_size_max-1]);
 
   /* Print the full l-list */
   if (ptr->transfer_verbose > 0) {
