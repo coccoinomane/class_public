@@ -1,20 +1,33 @@
-# Permillish precision on the local template f_nl
+# Quick debug
+# k_min_tau0=0.05
+# k_step_sub=3
+# k_step_super=1
+# k_logstep_super=20
+# k_step_transition=0.2
+
+# Few percent precision on the local template f_nl
 # k_min_tau0=0.05
 # k_step_sub=0.1
-# k_step_super=0.0015
-# k_logstep_super=1.4
-# k_step_transition=0.2
-# k_step_trans = 0.45
-# bessel_x_step = 0.05
+# k_step_super=0.025
+# k_logstep_super=1.2
+
+# Permillish precision on the local template f_nl
+k_min_tau0=0.05
+k_step_sub=0.1
+k_step_super=0.0015
+k_logstep_super=1.4
+k_step_transition=0.2
+k_step_trans = 0.45
+bessel_x_step = 0.05
 
 # Random improvement over the above
-k_min_tau0=0.01
-k_step_sub=0.05
-k_step_super=0.0005
-k_logstep_super=1.2
-k_step_transition=0.2
-k_step_trans = 0.30
-bessel_x_step = 0.02
+# k_min_tau0=0.01
+# k_step_sub=0.05
+# k_step_super=0.0005
+# k_logstep_super=1.2
+# k_step_transition=0.2
+# k_step_trans = 0.30
+# bessel_x_step = 0.02
 
 k_max_tau0_over_l_max = 3
 l_max_scalars = 2000

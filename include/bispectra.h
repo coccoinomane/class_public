@@ -21,6 +21,9 @@ enum bispectra_types {
   intrinsic_bispectrum
 };
 
+/* Possible parity states */
+#define _ODD_ 1
+#define _EVEN_ 0
 
 
 struct bispectra {
@@ -78,13 +81,20 @@ struct bispectra {
 
   short has_bispectra_t;
   short has_bispectra_e;
+  short has_bispectra_b;
 
   int index_bf_t;
   int index_bf_e;
+  int index_bf_b;
   int bf_size;
 
-  /* Actual number of bispectra to be computed (usually 'bf_size' to the power of 3) */
+  /* Actual number of bispectra to be computed (usually 'bf_size' to the power of 3, it is 8 for
+  T and E: TTT, TTE, TET, ETT, EET, ETE, TEE, EEE) */
   int n_probes;
+
+  /* Parity of the considered field. Even parity (T,E) is represented by zero, odd parity
+  by 1. Indexed as field_parity[index_bf] */
+  int field_parity[_MAX_NUM_FIELDS_];
 
   /* Array that relates the bispectrum field indices (T,E,B) to the index of the transfer functions */
   int index_tt_of_bf[_MAX_NUM_FIELDS_];
@@ -306,6 +316,7 @@ struct bispectra_workspace_separable {
   double ** gamma_integrand;    /* gamma_integrand[thread][index_r] */
   double ** delta_integrand;    /* delta_integrand[thread][index_r] */
 
+
 };
 
 
@@ -329,6 +340,11 @@ struct bispectra_workspace_non_separable {
     double * out
     );
 
+  /* Considered bispectrum XYZ (e.g. TTT, TEE, ...) */
+  int X;
+  int Y;
+  int Z;
+  
   /* The shape function does not need to be sampled as finely as the transfer functions, as it generally does not
   oscillate. We shall use interpolation in order to obtain the value in the integration grid. */
   double * k_smooth_grid;
