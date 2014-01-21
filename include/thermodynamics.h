@@ -61,6 +61,10 @@ struct thermo
   
   //@{
 
+  short has_interacting_dm; /**< do we need to include interactions of dm with the other species? */
+
+  double u_dm; /**< interaction strength between CDM and photons (see eq. 7 of http://arxiv.org/abs/1309.7588v2) */
+
   double YHe;  /**< \f$ Y_{He} \f$ : primordial helium fraction */
 
   enum recombination_algorithm recombination; /**< recombination code */
@@ -149,6 +153,16 @@ struct thermo
   int index_th_dcb2;          /**< derivative wrt conformal time of squared baryon sound speed \f$ d [c_b^2] / d \tau \f$ (only computed if some non-mininmal tight-coupling schemes is requested) */
   int index_th_ddcb2;         /**< second derivative wrt conformal time of squared baryon sound speed  \f$ d^2 [c_b^2] / d \tau^2 \f$ (only computed if some non0-minimal tight-coupling schemes is requested) */ 
   int index_th_rate;          /**< maximum variation rate of \f$ exp^{-\kappa}, g and (d g / d \tau), used for computing integration step in perturbation module */
+
+  /* Interacting DM (same meaning as above but for DM-photon interactions) */
+  int index_th_dmu;        
+  int index_th_ddmu;       
+  int index_th_dddmu;      
+  int index_th_exp_m_mu;   
+  int index_th_g_mu;       
+  int index_th_dg_mu;      
+  int index_th_ddg_mu;     
+  
   int th_size;                /**< size of thermodynamics vector */ 
 
   //@}
@@ -159,7 +173,7 @@ struct thermo
 
   int tt_size; /**< number of lines (redshift steps) in the tables */
   double * z_table; /**< vector z_table[index_z] with values of redshift (vector of size tt_size) */
-  double * thermodynamics_table; /**< table thermodynamics_table[index_z*pth->tt_size+pba->index_th] with all other quantities (array of size th_size*tt_size) */
+  double * thermodynamics_table; /**< table thermodynamics_table[index_z*pth->th_size+pba->index_th] with all other quantities (array of size th_size*tt_size) */
 
   //@}
 
@@ -557,6 +571,7 @@ extern "C" {
 
   int thermodynamics_merge_reco_and_reio(
 					 struct precision * ppr,
+		       struct background * pba,
 					 struct thermo * pth,
 					 struct recombination * preco,
 					 struct reionization * preio

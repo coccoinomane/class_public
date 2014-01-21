@@ -302,11 +302,17 @@ int thermodynamics_init(
 	      pth->error_message,
 	      "Y_He=%g out of bounds (%g<Y_He<%g)",pth->YHe,_YHE_SMALL_,_YHE_BIG_);
 
+  /** - check interacting CDM parameters */
+
+  class_test((pth->u_dm<0),
+       pth->error_message,
+       "the interaction strength parameter cannot be negative");
+
   /** - check energy injection parameters */
 
   class_test((pth->annihilation<0),
-	     pth->error_message,
-	     "annihilation parameter cannot be negative");
+       pth->error_message,
+       "annihilation parameter cannot be negative");
 
   class_test((pth->annihilation_variation>0),
 	     pth->error_message,
@@ -383,7 +389,7 @@ int thermodynamics_init(
   /** - merge tables in recombination and reionization structures into
         a single table in thermo structure */
 
-  class_call(thermodynamics_merge_reco_and_reio(ppr,pth,preco,preio),
+  class_call(thermodynamics_merge_reco_and_reio(ppr,pba,pth,preco,preio),
 	     pth->error_message,
 	     pth->error_message);
  
@@ -800,6 +806,17 @@ int thermodynamics_indices(
 
   pth->index_th_rate = index;
   index++;
+
+  /* For interacting DM, we have a new whole sector of photon interactions */
+  if (pth->has_interacting_dm == _TRUE_) {
+    pth->index_th_dmu = index++;        
+    pth->index_th_ddmu = index++;       
+    pth->index_th_dddmu = index++;      
+    pth->index_th_exp_m_mu = index++;   
+    pth->index_th_g_mu = index++;       
+    pth->index_th_dg_mu = index++;      
+    pth->index_th_ddg_mu = index++;     
+  }
 
   /* end of indices */
   pth->th_size = index;
@@ -2964,6 +2981,7 @@ int thermodynamics_derivs_with_recfast(
 
 int thermodynamics_merge_reco_and_reio(
 				       struct precision * ppr,
+				       struct background * pba,
 				       struct thermo * pth,
 				       struct recombination * preco,
 				       struct reionization * preio
@@ -3022,6 +3040,25 @@ int thermodynamics_merge_reco_and_reio(
     pth->thermodynamics_table[index_th*pth->th_size+pth->index_th_cb2]=
       preco->recombination_table[index_re*preco->re_size+preco->index_re_cb2];
   }
+
+  /* For interacting DM, we don't need to evolve RECFAST. We just code down our
+  interaction quantities here. */
+  if (pth->has_interacting_dm == _TRUE_) {
+
+    /* Energy density of cold dark matter in J/m^3 */    
+    double rho_cdm_today = pow(pba->H0*_c_/_Mpc_over_m_,2)*3/8./_PI_/_G_*pba->Omega0_cdm*_c_*_c_;
+
+    for (int index_z=0; index_z < pth->tt_size; ++index_z) {
+      
+      double z = pth->z_table[index_z];
+
+      /* Build the DM-photon interaction rate */
+      pth->thermodynamics_table[index_z*pth->th_size + pth->index_th_dmu] =
+        (1+z) * (1+z) * rho_cdm_today * _sigma_ / (100 * 1e9 * _eV_) * _Mpc_over_m_ * pth->u_dm;      
+    }
+    
+  } // end of (has_interacting_dm)
+  
 
   /** - free the temporary structures */
 

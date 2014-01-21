@@ -523,6 +523,14 @@ int input_init(
 
   /** (b) assign values to thermodynamics cosmological parameters */
 
+  /* Read the DM-photon interaction strength */
+  class_read_double("u_dm", pth->u_dm);
+  
+  if (pth->u_dm != 0) {
+    pth->has_interacting_dm = _TRUE_;
+  }
+
+
   /* primordial helium fraction */
   class_call(parser_read_string(pfc,"YHe",&string1,&flag1,errmsg),
              errmsg,
@@ -1852,6 +1860,9 @@ int input_default_params(
 
   /** - thermodynamics structure */
 
+  pth->has_interacting_dm = _FALSE_;
+  pth->u_dm = 0;
+  
   pth->YHe=_BBN_;
   pth->recombination=recfast;
   pth->reio_parametrization=reio_camb;
