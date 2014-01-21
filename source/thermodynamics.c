@@ -519,8 +519,6 @@ int thermodynamics_init(
 	       pth->error_message);
   }
 
-  free(tau_table);
-
   /** -> compute visibility : \f$ g= (d \kappa/d \tau) e^{- \kappa} */
 
   /* loop on z (decreasing z, increasing time) */
@@ -693,6 +691,73 @@ int thermodynamics_init(
              pba->error_message,
              pth->error_message);
 
+  /* Some debug - print thermodynamical quantities to file or screen */
+  // if (pth->has_rayleigh_scattering == _FALSE_) {
+  // 
+  //   fprintf (stderr, "%16s %16s %16s %16s %16s %16s\n",
+  //     "# tau","z","dkappa_t","g_t","dg_t","exp_m_kappa_t\n");
+  //   int i;
+  //   for (i=0; i < pth->tt_size; ++i) {
+  // 
+  //     if (i%4!=0) continue;
+  // 
+  //     double z = pth->z_table[i];
+  //     double tau;
+  // 
+  //     class_call(background_tau_of_z(pba,z,&tau),
+  //            pba->error_message,
+  //            pth->error_message);
+  // 
+  //     double dkappa_t = pth->thermodynamics_table[i*pth->th_size+pth->index_th_dkappa];
+  //     double g_t = pth->thermodynamics_table[i*pth->th_size+pth->index_th_g];
+  //     double dg_t = pth->thermodynamics_table[i*pth->th_size+pth->index_th_dg];
+  //     double exp_m_kappa_t = pth->thermodynamics_table[i*pth->th_size+pth->index_th_exp_m_kappa];
+  // 
+  //     fprintf (stderr, "%16g %16g %16g %16g %16g %16g\n",
+  //       tau, z, dkappa_t, g_t, dg_t, exp_m_kappa_t);
+  //   }
+  // 
+  // }
+  // else {
+  // 
+  //   fprintf (stderr, "%16s %16s %16s %16s %16s %16s %16s %16s %16s %16s %16s %16s %16s %16s %16s %16s \n",
+  //     "# tau","z","dkappa_t","dkappa_r","dkappa_tot","g_t","g_r","g_tot","g_diff","dg_t","dg_r","dg_tot","dg_diff",
+  //     "exp_m_kappa_t","exp_m_kappa_r","exp_m_kappa_tot");
+  //   int i;
+  //   for (i=0; i < pth->tt_size; ++i) {
+  // 
+  //     if (i%4!=0) continue;
+  // 
+  //     double z = pth->z_table[i];
+  //     double tau;
+  // 
+  //     class_call(background_tau_of_z(pba,z,&tau),
+  //            pba->error_message,
+  //            pth->error_message);
+  // 
+  //     double dkappa_t = pth->thermodynamics_table[i*pth->th_size+pth->index_th_thomson_dkappa];
+  //     double dkappa_r = pth->thermodynamics_table[i*pth->th_size+pth->index_th_rayleigh_dkappa];
+  //     double dkappa_tot = pth->thermodynamics_table[i*pth->th_size+pth->index_th_dkappa];
+  // 
+  //     double g_t = pth->thermodynamics_table[i*pth->th_size+pth->index_th_thomson_g];
+  //     double g_r = pth->thermodynamics_table[i*pth->th_size+pth->index_th_rayleigh_g];
+  //     double g_tot = pth->thermodynamics_table[i*pth->th_size+pth->index_th_g];
+  //     double g_diff = g_tot - g_t;
+  // 
+  //     double dg_t = pth->thermodynamics_table[i*pth->th_size+pth->index_th_thomson_dg];
+  //     double dg_r = pth->thermodynamics_table[i*pth->th_size+pth->index_th_rayleigh_dg];
+  //     double dg_tot = pth->thermodynamics_table[i*pth->th_size+pth->index_th_dg];
+  //     double dg_diff = dg_tot - dg_t;
+  // 
+  //     double exp_m_kappa_t = pth->thermodynamics_table[i*pth->th_size+pth->index_th_thomson_exp_m_kappa];
+  //     double exp_m_kappa_r = pth->thermodynamics_table[i*pth->th_size+pth->index_th_rayleigh_exp_m_kappa];
+  //     double exp_m_kappa_tot = pth->thermodynamics_table[i*pth->th_size+pth->index_th_exp_m_kappa];
+  //   
+  //     fprintf (stderr, "%16g %16g %16g %16g %16g %16g %16g %16g %16g %16g %16g %16g %16g %16g %16g %16g \n",
+  //       tau, z, dkappa_t, dkappa_r, dkappa_tot, g_t, g_r, g_tot, g_diff, dg_t, dg_r, dg_tot, dg_diff, exp_m_kappa_t, exp_m_kappa_r, exp_m_kappa_tot);
+  //   }
+  // }
+
   /** - if verbose flag set to next-to-minimum value, print the main results */
 
   if (pth->thermodynamics_verbose > 0) {
@@ -722,6 +787,7 @@ int thermodynamics_init(
     }
   }
 
+  free(tau_table);
   free(pvecback);
 
   return _SUCCESS_;
@@ -3052,13 +3118,27 @@ int thermodynamics_merge_reco_and_reio(
       
       double z = pth->z_table[index_z];
 
-      /* Build the DM-photon interaction rate */
+      /* We build the DM-photon interaction rate as a * n_cdm * sigma_cdm * c, as 
+      explained in http://arxiv.org/abs/1309.7588v2. Note in particular that we
+      parametrise the interaction strength as in their eq. 7, that is using
+      u_dm = (sigma_cdm / sigma_thomson) * (100 GeV / m_cdm),
+      where m_cdm is the mass of the cdm particle and sigma_cdm is the interaction
+      rate with the photons. By using u_dm, we avoid specifying both the interaction
+      rate and the cdm-particle mass. */
       pth->thermodynamics_table[index_z*pth->th_size + pth->index_th_dmu] =
         (1+z) * (1+z) * rho_cdm_today * _sigma_ / (100 * 1e9 * _eV_) * _Mpc_over_m_ * pth->u_dm;      
     }
     
   } // end of (has_interacting_dm)
   
+  /* Debug */
+  for (i=0; i < pth->tt_size; ++i) {
+    if (i%4!=0) continue;
+    double z = pth->z_table[i];
+    double dmu = pth->thermodynamics_table[i*pth->th_size+pth->index_th_dmu];
+    double dkappa = pth->thermodynamics_table[i*pth->th_size+pth->index_th_dkappa];
+    fprintf (stderr, "%12g %12g %12g\n", z, dkappa, dmu);
+  }
 
   /** - free the temporary structures */
 
