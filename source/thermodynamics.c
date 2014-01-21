@@ -3132,13 +3132,13 @@ int thermodynamics_merge_reco_and_reio(
   } // end of (has_interacting_dm)
   
   /* Debug */
-  for (i=0; i < pth->tt_size; ++i) {
-    if (i%4!=0) continue;
-    double z = pth->z_table[i];
-    double dmu = pth->thermodynamics_table[i*pth->th_size+pth->index_th_dmu];
-    double dkappa = pth->thermodynamics_table[i*pth->th_size+pth->index_th_dkappa];
-    fprintf (stderr, "%12g %12g %12g\n", z, dkappa, dmu);
-  }
+  // for (i=0; i < pth->tt_size; ++i) {
+  //   if (i%4!=0) continue;
+  //   double z = pth->z_table[i];
+  //   double dmu = pth->thermodynamics_table[i*pth->th_size+pth->index_th_dmu];
+  //   double dkappa = pth->thermodynamics_table[i*pth->th_size+pth->index_th_dkappa];
+  //   fprintf (stderr, "%12g %12g %12g\n", z, dkappa, dmu);
+  // }
 
   /** - free the temporary structures */
 
