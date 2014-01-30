@@ -165,6 +165,27 @@ int thermodynamics_at_z(
     /* in this regime, variation rate = dkappa/dtau */
     pvecthermo[pth->index_th_rate] = pvecthermo[pth->index_th_dkappa];
     
+
+    /* For interacting DM, we don't need to evolve RECFAST. We just code down our interaction quantities here.
+    For explanations on the quantities involved, see comments in thermodynamics_merge_reco_and_reio. */
+    if (pth->has_interacting_dm == _TRUE_) {
+
+      /* Energy density of cold dark matter in J/m^3 */    
+      double rho_cdm_today = pow(pba->H0*_c_/_Mpc_over_m_,2)*3/8./_PI_/_G_*pba->Omega0_cdm*_c_*_c_;
+
+      /* DM-photon interaction rate */      
+      pvecthermo[pth->index_th_dmu] =
+        (1+z) * (1+z) * rho_cdm_today * _sigma_ / (100 * 1e9 * _eV_) * _Mpc_over_m_ * pth->u_dm;
+
+      /* The only time-dependent bit in dmu is 1/a^2, which gives -2*H/a */
+      pvecthermo[pth->index_th_ddmu] =
+        -2*pvecback[pba->index_bg_H]/(1+z) * pvecthermo[pth->index_th_dmu];
+      
+      /* At early times, we assume a high number of scatterings */
+      pvecthermo[pth->index_th_exp_m_mu] = 0;
+    
+    } // end of (has_interacting_dm)
+    
   }
 
   /** - interpolate in table with array_interpolate_spline() (normal
@@ -489,6 +510,60 @@ int thermodynamics_init(
 						       pth->error_message),
 	     pth->error_message,
 	     pth->error_message);
+
+  // ================================================================================
+  // =                           Interacting dark matter                            =
+  // ================================================================================
+  
+  if (pth->has_interacting_dm == _TRUE_) {
+    
+    /** -> second derivative with respect to tau of dmu (in view of integration) */
+    class_call(array_spline_table_line_to_line(tau_table,
+  					     pth->tt_size,
+  					     pth->thermodynamics_table,
+  					     pth->th_size,
+  					     pth->index_th_dmu,
+  					     pth->index_th_dddmu,
+  					     _SPLINE_EST_DERIV_,
+  					     pth->error_message),
+  	     pth->error_message,
+  	     pth->error_message);
+    
+    /** -> first derivative with respect to tau of dmu (using spline interpolation) */
+    class_call(array_derive_spline_table_line_to_line(tau_table,
+  						    pth->tt_size,
+  						    pth->thermodynamics_table,
+  						    pth->th_size,
+  						    pth->index_th_dmu,
+  						    pth->index_th_dddmu,
+  						    pth->index_th_ddmu,
+  						    pth->error_message),
+  	     pth->error_message,
+  	     pth->error_message);
+    
+    /** -> compute -mu = [int_{tau_today}^{tau} dtau dmu/dtau], store temporarily in column "mu" */ 
+    class_call(array_integrate_spline_table_line_to_line(tau_table,
+  						       pth->tt_size,
+  						       pth->thermodynamics_table,
+  						       pth->th_size,
+  						       pth->index_th_dmu,
+  						       pth->index_th_dddmu,
+  						       pth->index_th_mu,
+  						       pth->error_message),
+  	     pth->error_message,
+  	     pth->error_message);
+         
+    /* loop on z (decreasing z, increasing time) */
+    for (index_tau=pth->tt_size-1; index_tau>=0; index_tau--) {
+
+      /** -> compute exp(-mu) */    
+      pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_exp_m_mu] = 
+        exp(pth->thermodynamics_table[index_tau*pth->th_size+pth->index_th_mu]);
+      
+    }
+         
+  } // end of if (has_interacting_dm)
+  
   
   /** -> derivatives of baryon sound speed (only computed if some non-minimal tight-coupling schemes is requested) */
   if (pth->compute_cb2_derivatives == _TRUE_) {
@@ -692,12 +767,12 @@ int thermodynamics_init(
              pth->error_message);
 
   /* Some debug - print thermodynamical quantities to file or screen */
-  // if (pth->has_rayleigh_scattering == _FALSE_) {
+  // if (pth->has_interacting_dm == _FALSE_) {
   // 
   //   fprintf (stderr, "%16s %16s %16s %16s %16s %16s\n",
   //     "# tau","z","dkappa_t","g_t","dg_t","exp_m_kappa_t\n");
-  //   int i;
-  //   for (i=0; i < pth->tt_size; ++i) {
+  // 
+  //   for (int i=0; i < pth->tt_size; ++i) {
   // 
   //     if (i%4!=0) continue;
   // 
@@ -720,11 +795,10 @@ int thermodynamics_init(
   // }
   // else {
   // 
-  //   fprintf (stderr, "%16s %16s %16s %16s %16s %16s %16s %16s %16s %16s %16s %16s %16s %16s %16s %16s \n",
-  //     "# tau","z","dkappa_t","dkappa_r","dkappa_tot","g_t","g_r","g_tot","g_diff","dg_t","dg_r","dg_tot","dg_diff",
-  //     "exp_m_kappa_t","exp_m_kappa_r","exp_m_kappa_tot");
-  //   int i;
-  //   for (i=0; i < pth->tt_size; ++i) {
+  //   fprintf (stderr, "%16s %16s %16s %16s %16s %16s %16s %16s %16s \n",
+  //     "# tau","z","a","dkappa","exp_m_kappa","dmu","ddmu","mu","exp_m_mu");
+  // 
+  //   for (int i=0; i < pth->tt_size; ++i) {
   // 
   //     if (i%4!=0) continue;
   // 
@@ -735,26 +809,21 @@ int thermodynamics_init(
   //            pba->error_message,
   //            pth->error_message);
   // 
-  //     double dkappa_t = pth->thermodynamics_table[i*pth->th_size+pth->index_th_thomson_dkappa];
-  //     double dkappa_r = pth->thermodynamics_table[i*pth->th_size+pth->index_th_rayleigh_dkappa];
-  //     double dkappa_tot = pth->thermodynamics_table[i*pth->th_size+pth->index_th_dkappa];
+  //     class_call(background_at_tau(pba,tau,pba->long_info,pba->inter_normal,&last_index_back,pvecback),
+  //          pba->error_message,
+  //          pth->error_message);
   // 
-  //     double g_t = pth->thermodynamics_table[i*pth->th_size+pth->index_th_thomson_g];
-  //     double g_r = pth->thermodynamics_table[i*pth->th_size+pth->index_th_rayleigh_g];
-  //     double g_tot = pth->thermodynamics_table[i*pth->th_size+pth->index_th_g];
-  //     double g_diff = g_tot - g_t;
+  //     double a = pvecback[pba->index_bg_a];
+  //     double dkappa = pth->thermodynamics_table[i*pth->th_size+pth->index_th_dkappa];
+  //     double exp_m_kappa = pth->thermodynamics_table[i*pth->th_size+pth->index_th_exp_m_kappa];
   // 
-  //     double dg_t = pth->thermodynamics_table[i*pth->th_size+pth->index_th_thomson_dg];
-  //     double dg_r = pth->thermodynamics_table[i*pth->th_size+pth->index_th_rayleigh_dg];
-  //     double dg_tot = pth->thermodynamics_table[i*pth->th_size+pth->index_th_dg];
-  //     double dg_diff = dg_tot - dg_t;
+  //     double dmu = pth->thermodynamics_table[i*pth->th_size+pth->index_th_dmu];
+  //     double ddmu = pth->thermodynamics_table[i*pth->th_size+pth->index_th_ddmu];
+  //     double mu = pth->thermodynamics_table[i*pth->th_size+pth->index_th_mu];
+  //     double exp_m_mu = pth->thermodynamics_table[i*pth->th_size+pth->index_th_exp_m_mu];
   // 
-  //     double exp_m_kappa_t = pth->thermodynamics_table[i*pth->th_size+pth->index_th_thomson_exp_m_kappa];
-  //     double exp_m_kappa_r = pth->thermodynamics_table[i*pth->th_size+pth->index_th_rayleigh_exp_m_kappa];
-  //     double exp_m_kappa_tot = pth->thermodynamics_table[i*pth->th_size+pth->index_th_exp_m_kappa];
-  //   
-  //     fprintf (stderr, "%16g %16g %16g %16g %16g %16g %16g %16g %16g %16g %16g %16g %16g %16g %16g %16g \n",
-  //       tau, z, dkappa_t, dkappa_r, dkappa_tot, g_t, g_r, g_tot, g_diff, dg_t, dg_r, dg_tot, dg_diff, exp_m_kappa_t, exp_m_kappa_r, exp_m_kappa_tot);
+  //     fprintf (stderr, "%16g %16g %16g %16g %16g %16g %16g %16g %16g \n",
+  //       tau, z, a, dkappa, exp_m_kappa, dmu, ddmu, mu, exp_m_mu);
   //   }
   // }
 
@@ -879,9 +948,7 @@ int thermodynamics_indices(
     pth->index_th_ddmu = index++;       
     pth->index_th_dddmu = index++;      
     pth->index_th_exp_m_mu = index++;   
-    pth->index_th_g_mu = index++;       
-    pth->index_th_dg_mu = index++;      
-    pth->index_th_ddg_mu = index++;     
+    pth->index_th_mu = index++;
   }
 
   /* end of indices */
@@ -3107,15 +3174,19 @@ int thermodynamics_merge_reco_and_reio(
       preco->recombination_table[index_re*preco->re_size+preco->index_re_cb2];
   }
 
-  /* For interacting DM, we don't need to evolve RECFAST. We just code down our
-  interaction quantities here. */
+
+  // ==============================================================================
+  // =                          Interacting dark matter                           =
+  // ==============================================================================
+  
+  /* For interacting DM, we don't need to evolve RECFAST. We just code down our interaction quantities here. */
   if (pth->has_interacting_dm == _TRUE_) {
 
     /* Energy density of cold dark matter in J/m^3 */    
     double rho_cdm_today = pow(pba->H0*_c_/_Mpc_over_m_,2)*3/8./_PI_/_G_*pba->Omega0_cdm*_c_*_c_;
-
+    
     for (int index_z=0; index_z < pth->tt_size; ++index_z) {
-      
+
       double z = pth->z_table[index_z];
 
       /* We build the DM-photon interaction rate as a * n_cdm * sigma_cdm * c, as 
@@ -3124,13 +3195,14 @@ int thermodynamics_merge_reco_and_reio(
       u_dm = (sigma_cdm / sigma_thomson) * (100 GeV / m_cdm),
       where m_cdm is the mass of the cdm particle and sigma_cdm is the interaction
       rate with the photons. By using u_dm, we avoid specifying both the interaction
-      rate and the cdm-particle mass. */
-      pth->thermodynamics_table[index_z*pth->th_size + pth->index_th_dmu] =
-        (1+z) * (1+z) * rho_cdm_today * _sigma_ / (100 * 1e9 * _eV_) * _Mpc_over_m_ * pth->u_dm;      
+      rate and the cdm-particle mass. */      
+      pth->thermodynamics_table[index_z*pth->th_size+pth->index_th_dmu] =
+        (1+z) * (1+z) * rho_cdm_today * _sigma_ / (100 * 1e9 * _eV_) * _Mpc_over_m_ * pth->u_dm;
+
     }
     
   } // end of (has_interacting_dm)
-  
+
   /* Debug */
   // for (i=0; i < pth->tt_size; ++i) {
   //   if (i%4!=0) continue;

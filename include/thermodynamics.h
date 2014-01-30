@@ -159,9 +159,7 @@ struct thermo
   int index_th_ddmu;       
   int index_th_dddmu;      
   int index_th_exp_m_mu;   
-  int index_th_g_mu;       
-  int index_th_dg_mu;      
-  int index_th_ddg_mu;     
+  int index_th_mu;
   
   int th_size;                /**< size of thermodynamics vector */ 
 
