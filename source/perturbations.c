@@ -4668,7 +4668,7 @@ int perturb_sources(
            plus sign to comply with the 'historical convention'
            established in CMBFAST and CAMB. */
 
-        _set_source_(ppt->index_tp_p) = sqrt(6.) * pvecthermo[pth->index_th_g] * P;  
+        _set_source_(ppt->index_tp_p) = 0;  
 
       }
 
@@ -5146,7 +5146,7 @@ int perturb_sources(
            plus sign to comply with the 'historical convention'
            established in CMBFAST and CAMB. */
 
-        _set_source_(ppt->index_tp_p) = sqrt(6.) * pvecthermo[pth->index_th_g] * P;
+        _set_source_(ppt->index_tp_p) = 0;
       }
     }
  
