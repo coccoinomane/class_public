@@ -2129,6 +2129,10 @@ or 'linear_extrapolation'.", "");
   /* Read the experiment sky coverage. */
   class_read_double("experiment_f_sky", pfi->f_sky);
 
+  /* Minimum and maximum multipole to consider in the Fisher sum */
+  class_read_int("fisher_l_min",pfi->l_min_estimator);
+  class_read_int("fisher_l_max",pfi->l_max_estimator);
+
   /* Read the experiment beam at FWHM in arcminutes and convert it to radians. */
   class_call (parser_read_list_of_doubles (pfc,
            "experiment_beam_fwhm",
@@ -2490,6 +2494,8 @@ int input_default_params(
   pfi->fisher_verbose = 0;
   pfi->has_fisher = _FALSE_;
   pfi->bispectra_interpolation = mesh_interpolation_2d;
+  pfi->l_min_estimator = 2;
+  pfi->l_max_estimator = 10000000;
   pfi->f_sky = 1;
   pfi->n_channels = 1;
   pfi->beam[0] = 0;

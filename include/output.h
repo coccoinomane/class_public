@@ -4,6 +4,7 @@
 #define __OUTPUT__
 
 #include "lensing.h"
+#include "fisher.h"
 
 /**
  * Maximum number of values of redshift at which the spectra will be
@@ -89,6 +90,8 @@ extern "C" {
 		  struct spectra * psp,
 		  struct nonlinear * pnl,
 		  struct lensing * ple,
+      struct bispectra * pbi,
+      struct fisher * pfi,
 		  struct output * pop
 		  );
 
@@ -99,6 +102,12 @@ extern "C" {
 		struct lensing * ple,
 		struct output * pop
 		);
+
+  int output_fisher(
+    struct bispectra * pbi,
+    struct fisher * pfi,
+    struct output * pop
+    );
 
   int output_pk(
 		struct background * pba,

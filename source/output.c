@@ -106,6 +106,8 @@ int output_init(
                 struct spectra * psp,
                 struct nonlinear * pnl,
                 struct lensing * ple,
+                struct bispectra * pbi,
+                struct fisher * pfi,
                 struct output * pop
                 ) {
 
@@ -113,7 +115,7 @@ int output_init(
 
   /** - check that we really want to output at least one file */
 
-  if ((ppt->has_cls == _FALSE_) && (ppt->has_pk_matter == _FALSE_) && (pnl->method == nl_none) && (ppt->has_density_transfers == _FALSE_) && (ppt->has_velocity_transfers == _FALSE_) && (pop->write_background == _FALSE_)) {
+  if ((ppt->has_cls == _FALSE_) && (ppt->has_pk_matter == _FALSE_) && (pfi->has_fisher == _FALSE_) && (pnl->method == nl_none) && (ppt->has_density_transfers == _FALSE_) && (ppt->has_velocity_transfers == _FALSE_) && (pop->write_background == _FALSE_)) {
     if (pop->output_verbose > 0)
       printf("No output files requested. Output module skipped.\n");
     return _SUCCESS_;
@@ -156,6 +158,17 @@ int output_init(
                pop->error_message,
                pop->error_message);
   }
+
+  /** - deal with the Fisher matrix for the various CMB bispectra */
+  
+  if (pfi->has_fisher == _TRUE_) {
+
+    class_call(output_fisher(pbi,pfi,pop),
+	       pop->error_message,
+	       pop->error_message);
+  
+  }
+
 
   /** - deal with background quantitites */
 
@@ -551,6 +564,146 @@ int output_cl(
   return _SUCCESS_;
 
 } 
+
+
+
+
+/** 
+ * This routine writes the output files for the Fisher matrix of the CMB bispectrum.
+ * 
+ * @param pba Input: pointer to background structure (needed for calling spectra_pk_at_z())
+ * @param ppt Input : pointer perturbation structure
+ * @param psp Input : pointer to spectra structure
+ * @param pop Input : pointer to output structure
+ */
+
+int output_fisher(
+        struct bispectra * pbi,
+        struct fisher * pfi,
+        struct output * pop
+        )
+{
+  
+  // ============================================================================
+  // =                                 Open files                               =
+  // ============================================================================
+          
+  FILE * fisher_lmax, * fisher_lmin, * fisher;
+  FileName filename;  
+
+  /* Open the file for the Fisher matrix */
+  sprintf (filename, "%s%s.dat", pop->root, "fisher");
+  class_open (fisher, filename, "w", pop->error_message);
+
+  /* Open the file for the signal to noise as a function of the maximum resolution of the experiment */
+  if ((pfi->l_min_estimator > pfi->l_min) || (pfi->l_max_estimator < pfi->l_max))
+    sprintf (filename, "%s%s_%d_%d.dat", pop->root, "fisher_lmax", pfi->l_min_estimator, pfi->l_max_estimator);
+  else
+    sprintf (filename, "%s%s.dat", pop->root, "fisher_lmax");
+  class_open (fisher_lmax, filename, "w", pop->error_message);
+  
+  /* We can compute the S/N for varying l_min only when we interpolate all 3 l-dimensions using the mesh-interpolation. */
+  if ((pfi->bispectra_interpolation == mesh_interpolation) ||
+      (pfi->bispectra_interpolation == sum_over_all_multipoles)) {
+
+    if ((pfi->l_min_estimator > pfi->l_min) || (pfi->l_max_estimator < pfi->l_max))
+      sprintf (filename, "%s%s_%d_%d.dat", pop->root, "fisher_lmin", pfi->l_min_estimator, pfi->l_max_estimator);
+    else
+      sprintf (filename, "%s%s.dat", pop->root, "fisher_lmin");
+    class_open (fisher_lmin, filename, "w", pop->error_message);
+  }
+  
+  // ==========================================================================
+  // =                                Print labels                            =
+  // ==========================================================================
+  
+  char label[256];
+  
+  fprintf (fisher_lmax, "%20s ", "l_max");
+  for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt) {
+    sprintf (label, "SN_%s", pbi->bt_labels[index_bt]);
+    fprintf (fisher_lmax, "%20s ", label);
+  }
+  for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt) {
+    sprintf (label, "SN_cum_%s", pbi->bt_labels[index_bt]);
+    fprintf (fisher_lmax, "%20s ", label);
+  }
+  fprintf (fisher_lmax, "\n");
+  
+  if ((pfi->bispectra_interpolation == mesh_interpolation) ||
+      (pfi->bispectra_interpolation == sum_over_all_multipoles)) {
+    
+    fprintf (fisher_lmin, "%20s ", "l_min");
+    for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt) {
+      sprintf (label, "SN_%s", pbi->bt_labels[index_bt]);
+      fprintf (fisher_lmin, "%20s ", label);
+    }
+    for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt) {
+      sprintf (label, "SN_cum_%s", pbi->bt_labels[index_bt]);
+      fprintf (fisher_lmin, "%20s ", label);
+    }
+    fprintf (fisher_lmin, "\n");
+  }
+  
+  // ==========================================================================
+  // =                                Print values                            =
+  // ==========================================================================
+  
+  /* Fisher matrix */
+  fprintf (fisher, pfi->info);
+  
+  /* S/N as a function of the l_max of the experiment */
+  for (int index_l1=0; index_l1 < pfi->l1_size; ++index_l1) {
+    
+    fprintf (fisher_lmax, "%20d ", pfi->l1[index_l1]);
+
+    for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt)
+      fprintf (fisher_lmax, "%20.7g ", sqrt(pfi->fisher_matrix_l1[index_l1][index_bt][index_bt]));
+
+    for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt)
+      fprintf (fisher_lmax, "%20.7g ", sqrt(pfi->fisher_matrix_lmax[index_l1][index_bt][index_bt]));
+
+    fprintf (fisher_lmax, "\n");
+
+  } // end of for (index_l1)
+  
+  /* S/N as a function of the l_min of the experiment */
+  if ((pfi->bispectra_interpolation == mesh_interpolation) ||
+      (pfi->bispectra_interpolation == sum_over_all_multipoles)) {
+    
+    for (int index_l3=0; index_l3 < pfi->l3_size; ++index_l3) {
+    
+      fprintf (fisher_lmin, "%20d ", pfi->l3[index_l3]);
+
+      for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt)
+        fprintf (fisher_lmin, "%20.7g ", sqrt(pfi->fisher_matrix_l3[index_l3][index_bt][index_bt]));
+
+      for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt)
+        fprintf (fisher_lmin, "%20.7g ", sqrt(pfi->fisher_matrix_lmin[index_l3][index_bt][index_bt]));
+
+      fprintf (fisher_lmin, "\n");
+
+    } // end of for (index_l3)    
+  }
+  
+  // ==============================================================================
+  // =                               Close files                                  =
+  // ==============================================================================
+  
+  fclose (fisher);
+  fclose (fisher_lmax);
+  
+  if ((pfi->bispectra_interpolation == mesh_interpolation) ||
+      (pfi->bispectra_interpolation == sum_over_all_multipoles))
+    fclose (fisher_lmin);
+  
+  return _SUCCESS_;
+          
+}
+
+
+
+
 
 /** 
  * This routines writes the output in files for Fourier matter power spectra P(k)'s.

@@ -81,14 +81,14 @@ int main(int argc, char **argv) {
     return _FAILURE_;
   }
 
-  if (output_init(&ba,&pt,&sp,&nl,&le,&op) == _FAILURE_) {
+  if (output_init(&ba,&pt,&sp,&nl,&le,&bi,&fi,&op) == _FAILURE_) {
     printf("\n\nError in output_init \n=>%s\n",op.error_message);
     return _FAILURE_;
   }
 
   /****** all calculations done, now free the structures ******/
 
-  if (fisher_free(&pt,&bi,&fi) == _FAILURE_) {
+  if (fisher_free(&bi,&fi) == _FAILURE_) {
     printf("\n\nError in fisher_free \n=>%s\n",fi.error_message);
     return _FAILURE_;
   }

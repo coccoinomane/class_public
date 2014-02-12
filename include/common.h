@@ -38,6 +38,7 @@ typedef char FileName[_FILENAMESIZE_];
 #define _TOLVAR_ 100. /**< The minimum allowed variation is the machine precision times this number */
 
 #define _HUGE_ 1.e99
+#define _MINUSCULE_ 1e-99
 
 #ifndef __CLASSDIR__
 #define __CLASSDIR__ "." /**< The directory of CLASS. This is set to the absolute path to the CLASS directory so this is just a failsafe. */

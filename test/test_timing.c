@@ -98,7 +98,7 @@ int main(int argc, char **argv) {
   printf("time in lensing = %4.3f s\n",cpu_time_lensing); 
   
 
-  if (output_init(&ba,&pt,&sp,&nl,&le,&op) == _FAILURE_) {
+  if (output_init(&ba,&pt,&sp,&nl,&le,&bi,&fi,&op) == _FAILURE_) {
     printf("\n\nError in output_init \n=>%s\n",op.error_message);
     return _FAILURE_;
   }
