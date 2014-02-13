@@ -150,6 +150,18 @@ int perturb_init(
              ppt->error_message,
              "In the synchronous gauge, it is not self-consistent to assume no CDM: the later is used to define the initial timelike hypersurface. You can either add a negligible amount of CDM or switch to newtonian gauge");
 
+  class_test((ppt->gauge == synchronous) && (pth->has_interacting_dm == _TRUE_),
+             ppt->error_message,
+             "Interacting DM is only implemented in the Newtonian gauge. Set gauge=newt.");
+
+  class_test((pth->has_interacting_dm == _TRUE_) && (pba->has_cdm == _FALSE_),
+             ppt->error_message,
+             "Interacting DM without DM is a bit hard to implement! Set Omega_cdm!=0.");
+
+  class_test((pth->has_interacting_dm == _TRUE_) && (ppr->radiation_streaming_approximation != rsa_none),
+             ppt->error_message,
+             "Radiation streaming approximation not implemented in presence of interacting DM. Set radiation_streaming_approximation = %d", rsa_none);
+
   class_test ((ppr->tight_coupling_approximation < first_order_MB) ||
               (ppr->tight_coupling_approximation > compromise_CLASS),
               ppt->error_message,
@@ -5390,6 +5402,7 @@ int perturb_derivs(double tau,
           dy[pv->index_pt_delta_cdm] = -(y[pv->index_pt_theta_cdm]+metric_continuity); /* cdm density */
 
           dy[pv->index_pt_theta_cdm] = - a_prime_over_a*y[pv->index_pt_theta_cdm] + metric_euler; /* cdm velocity */
+                    
         }
 
         /** ---> synchronous gauge: cdm density only (velocity set to zero by definition of the gauge) */
@@ -5633,6 +5646,25 @@ int perturb_derivs(double tau,
           }
         }
       }
+      
+      // =================================================================================
+      // =                               Interacting DM                                  =
+      // =================================================================================
+
+      if (pth->has_interacting_dm == _TRUE_) {
+        
+        double mu_dot = pvecthermo[pth->index_th_dmu];
+        double S_inv = 4./3. * pvecback[pba->index_bg_rho_g]/pvecback[pba->index_bg_rho_cdm];
+        
+        /* Photon dipole */        
+        dy[pv->index_pt_theta_g] -= mu_dot * (theta_g - y[pv->index_pt_theta_cdm]);
+
+        /* CDM dipole */ 
+        dy[pv->index_pt_theta_cdm] -= S_inv * mu_dot * (y[pv->index_pt_theta_cdm] - theta_g);
+        
+      } // end of if has_interacting_dm
+      
+      
       
       /** -> metric */
       
