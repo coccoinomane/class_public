@@ -40,10 +40,10 @@ OMPFLAG   = -fopenmp
 CCFLAG = -g -fPIC -std=c99
 LDFLAG = -g -fPIC
 
-# Your Fortran compiler, for the Slatec library
-FC       = gfortran
-FORTRAN_OPTFLAG = -O
-LDFLAG += -lgfortran
+# Your Fortran compiler, if you need to use the Fortran Slatec library
+# FC       = gfortran
+# FORTRAN_OPTFLAG = -O
+# LDFLAG += -lgfortran
 
 # leave blank to compile without HyRec, or put path to HyRec directory 
 # (with no slash at the end: e.g. hyrec or ../hyrec)
@@ -83,7 +83,7 @@ endif
 
 TOOLS = growTable.o dei_rkck.o sparse.o evolver_rkck.o  evolver_ndf15.o arrays.o parser.o quadrature.o bessel.o hyperspherical.o common.o
 
-BISPECTRUM_TOOLS = song_tools.o slatec_3j_f90.o mesh_interpolation.o
+BISPECTRUM_TOOLS = song_tools.o slatec_3j_C.o mesh_interpolation.o
 
 SOURCE = input.o background.o thermodynamics.o perturbations.o transfer.o primordial.o spectra.o trg.o nonlinear.o lensing.o bispectra.o fisher.o
 

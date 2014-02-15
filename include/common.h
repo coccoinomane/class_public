@@ -39,6 +39,7 @@ typedef char FileName[_FILENAMESIZE_];
 
 #define _HUGE_ 1.e99
 #define _MINUSCULE_ 1e-99
+#define _EPS_ 0.01 /**< Constant used to cast a float to an integer. Must be smaller than 0.5 */
 
 #ifndef __CLASSDIR__
 #define __CLASSDIR__ "." /**< The directory of CLASS. This is set to the absolute path to the CLASS directory so this is just a failsafe. */
