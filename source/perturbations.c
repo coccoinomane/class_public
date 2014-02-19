@@ -163,7 +163,7 @@ int perturb_init(
              "Radiation streaming approximation not implemented in presence of interacting DM. Set radiation_streaming_approximation = %d", rsa_none);
 
   class_test ((ppr->tight_coupling_approximation < first_order_MB) ||
-              (ppr->tight_coupling_approximation > compromise_CLASS),
+              (ppr->tight_coupling_approximation > tca_none),
               ppt->error_message,
               "your tight_coupling_approximation is set to %d, out of range defined in perturbations.h",ppr->tight_coupling_approximation);
 
@@ -2585,7 +2585,7 @@ int perturb_vector_init(
 	
         }
       
-        class_test(ppw->approx[ppw->index_ap_tca] == (int)tca_off,
+        class_test((ppw->approx[ppw->index_ap_tca] == (int)tca_off) && (ppr->tight_coupling_approximation != tca_none),
                    ppt->error_message,
                    "scalar initial conditions assume tight-coupling approximation turned on");
       
@@ -3745,7 +3745,7 @@ int perturb_approximations(
         /** (b.2.a) compute recombination time scale for photons, \f$ \tau_{\gamma} = 1/ \kappa' \f$ */
         tau_c = 1./ppw->pvecthermo[pth->index_th_dkappa];
 
-        /** (b.2.b) check whether tight-coupling approximation should be on */
+        /** (b.2.b) check whether tight-coupling approximation should be on */		
         if ((tau_c/tau_h < ppr->tight_coupling_trigger_tau_c_over_tau_h) &&
             (tau_c/tau_k < ppr->tight_coupling_trigger_tau_c_over_tau_k)) {
           ppw->approx[ppw->index_ap_tca] = (int)tca_on;
@@ -3753,6 +3753,10 @@ int perturb_approximations(
         else {
           ppw->approx[ppw->index_ap_tca] = (int)tca_off;
         }
+		
+				/* Turn off the TCA no matter what if the method is tca_none */
+				if (ppr->tight_coupling_approximation == tca_none)
+					ppw->approx[ppw->index_ap_tca] = (int)tca_off;
 
       }
 
@@ -5658,6 +5662,20 @@ int perturb_derivs(double tau,
         
         /* Photon dipole */        
         dy[pv->index_pt_theta_g] -= mu_dot * (theta_g - y[pv->index_pt_theta_cdm]);
+
+        /** ---> if photon tight-coupling is off: */
+        if (ppw->approx[ppw->index_ap_tca] == (int)tca_off) {
+			
+            /* Photon quadrupole */
+            dy[pv->index_pt_shear_g] -= mu_dot * y[pv->index_pt_shear_g];
+
+		    /* Photon octopole */
+            dy[pv->index_pt_l3_g] -= mu_dot * y[pv->index_pt_l3_g];
+
+            /* Photon higher momenta */ 
+            for (l = 4; l < pv->l_max_g; l++)
+                dy[pv->index_pt_delta_g+l] -= mu_dot * y[pv->index_pt_delta_g+l];
+        }
 
         /* CDM dipole */ 
         dy[pv->index_pt_theta_cdm] -= S_inv * mu_dot * (y[pv->index_pt_theta_cdm] - theta_g);
