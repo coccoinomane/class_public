@@ -174,6 +174,25 @@ struct spectra {
                        or nearly constant, and with arbitrary sign.
                     */
 
+  double * ln_pk_ksz_parallel;   /**< Matter power spectrum for the parallel component of the 
+                       kinetic Sunyaev-Zeldovich effect, computed using the first line of Eq. 7
+                       in http://arxiv.org/abs/astro-ph/0106342. Indexed as ln_pk, but without the
+                       complications associated to the initial conditions indices (we always
+                       set index_ic1_ic2=psp->ic_ic_size=0).
+                    */
+
+  double * ddln_pk_ksz_parallel; /**< second derivative of above array with respect to log(tau), for spline interpolation. */
+
+  double * ln_pk_ksz_perpendicular;   /**< Matter power spectrum for the perpendicular component of the 
+                       kinetic Sunyaev-Zeldovich effect, computed using the second line of Eq. 7
+                       in http://arxiv.org/abs/astro-ph/0106342. Indexed as ln_pk, but without the
+                       complications associated to the initial conditions indices (we always
+                       set index_ic1_ic2=psp->ic_ic_size=0).
+                    */
+
+  double * ddln_pk_ksz_perpendicular; /**< second derivative of above array with respect to log(tau), for spline interpolation. */
+
+
   double sigma8;    /**< sigma8 parameter */
 
   double * ln_pk_nl;   /**< Non-linear matter power spectrum.
@@ -359,6 +378,7 @@ extern "C" {
                  struct spectra * psp
                  );
 
+
   int spectra_sigma(
                     struct background * pba,
                     struct primordial * ppm,
@@ -373,6 +393,35 @@ extern "C" {
                                struct perturbs * ppt,
                                struct spectra * psp
                                );
+
+  int spectra_pk_ksz_sampling(
+        struct background * pba,
+        struct perturbs * ppt,
+        struct spectra * psp
+        );
+
+  int spectra_pk_ksz(
+        struct background * pba,
+        struct perturbs * ppt,
+        struct primordial * ppm,
+        struct nonlinear *pnl,
+        struct spectra * psp
+        );
+
+  int kernel_ksz_perpendicular (
+        double k,
+        double q,
+        double mu,
+        double * result,
+        ErrorMsg errmsg);
+
+  int kernel_ksz_parallel (
+        double k,
+        double q,
+        double mu,
+        double * result,
+        ErrorMsg errmsg);
+
 
 #ifdef __cplusplus
 }

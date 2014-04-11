@@ -1392,6 +1392,25 @@ int spectra_init(
     }
   }
 
+
+  // =========================================================================================
+  // =                                   kSZ power spectra                                   =
+  // =========================================================================================
+  
+  if (ppt->has_pk_ksz == _TRUE_) {
+
+    class_call(spectra_pk_ksz_sampling(pba,ppt,psp),
+               psp->error_message,
+               psp->error_message);
+
+
+    class_call(spectra_pk_ksz(pba,ppt,ppm,pnl,psp),
+               psp->error_message,
+               psp->error_message);
+
+  }
+
+
   return _SUCCESS_;
 }
 
@@ -1448,6 +1467,24 @@ int spectra_free(
           if (psp->ln_tau_size > 1) {
             free(psp->ddln_pk_nl);
           }
+        }
+      }
+
+      if (psp->ln_pk_ksz_parallel != NULL) {
+
+        free(psp->ln_pk_ksz_parallel);
+
+        if (psp->ln_tau_size > 1) {
+          free(psp->ddln_pk_ksz_parallel);
+        }
+      }
+
+      if (psp->ln_pk_ksz_perpendicular != NULL) {
+
+        free(psp->ln_pk_ksz_perpendicular);
+
+        if (psp->ln_tau_size > 1) {
+          free(psp->ddln_pk_ksz_perpendicular);
         }
       }
 
@@ -2740,6 +2777,209 @@ int spectra_pk(
 
   return _SUCCESS_;
 }
+
+
+
+/**
+ * Compute the sampling in k and time for the kSZ power spectrum computed in spectra_pk_ksz. 
+ * Also, compute the integration grid in mu. This is obtained ass routine computes a table of values for the parallel and perpendicular power spectra
+ * for the kSZ effect. These are computed according to Eq. 7 of Ma & Fry 2002, or Eq. 2.13
+ * of Vishniac 1987.
+ *
+ * We solve the integral assuming that \vec{k} is aligned with the polar axis, so that the
+ * volume element reduces to 
+ *
+ * \int d\vec{k}' = 4\pi \int_{0}^{\infty} dk' k'^2 \int_{-1}^{1} d\mu
+ *
+ * @param pba Input : pointer to background structure (will provide H, Omega_m at redshift of interest)
+ * @param ppt Input : pointer to perturbation structure (contain source functions)
+ * @param ppm Input : pointer to primordial structure
+ * @param psp Input/Output: pointer to spectra structure
+ * @return the error status
+ */
+
+int spectra_pk_ksz_sampling (
+               struct background * pba,
+               struct perturbs * ppt,
+               struct spectra * psp
+               )
+{
+
+  
+
+  return _SUCCESS_;
+
+}
+
+
+
+/**
+ * This routine computes a table of values for the parallel and perpendicular power spectra
+ * for the kSZ effect. These are computed according to Eq. 7 of Ma & Fry 2002, or Eq. 2.13
+ * of Vishniac 1987.
+ *
+ * We solve the integral assuming that \vec{k} is aligned with the polar axis, so that the
+ * volume element reduces to 
+ *
+ * \int d\vec{k}' = 4\pi \int_{0}^{\infty} dk' k'^2 \int_{-1}^{1} d\mu
+ *
+ * @param pba Input : pointer to background structure (will provide H, Omega_m at redshift of interest)
+ * @param ppt Input : pointer to perturbation structure (contain source functions)
+ * @param ppm Input : pointer to primordial structure
+ * @param psp Input/Output: pointer to spectra structure
+ * @return the error status
+ */
+
+int spectra_pk_ksz (
+               struct background * pba,
+               struct perturbs * ppt,
+               struct primordial * ppm,
+               struct nonlinear *pnl,
+               struct spectra * psp
+               )
+{
+
+  // =====================================================================================
+  // =                                   Checks & memory                                 =
+  // =====================================================================================
+
+  class_test((ppt->has_scalars == _FALSE_),
+    psp->error_message,
+    "you cannot ask for matter power spectrum since you turned off scalar modes");
+
+  /* For the time being, we only support adiabatic initial conditions */
+  int ic_ic_size = psp->ic_ic_size[ppt->index_md_scalars];
+  
+  class_test ((ic_ic_size != 1) || (ppt->has_ad == _FALSE_),
+    psp->error_message,
+    "for the time being, the kSZ power spectra can be computed only for adiabiatic initial conditions.");
+
+  /* Allocate the kSZ power spectrum arrays */
+  class_calloc(psp->ln_pk_ksz_parallel,
+    psp->ln_tau_size*psp->ln_k_size*ic_ic_size,
+    sizeof(double),
+    psp->error_message);
+
+  class_calloc(psp->ln_pk_ksz_perpendicular,
+    psp->ln_tau_size*psp->ln_k_size*ic_ic_size,
+    sizeof(double),
+    psp->error_message);
+
+  
+  // =====================================================================================
+  // =                                    Compute P_KSZ(K)                               =
+  // =====================================================================================
+
+  for (int index_tau=0; index_tau < psp->ln_tau_size; ++index_tau) {
+    for (int index_k=0; index_k < psp->ln_k_size; ++index_k) {
+      
+      
+
+    } // end of for(ln_k)
+  } // end of for(ln_tau)
+  
+  
+  // =====================================================================================
+  // =                                    Spline P_KSZ(K)                                =
+  // =====================================================================================
+  
+  /* If interpolation of P_ksz(k,tau) will be needed (as a function of tau),
+  compute array of second derivatives in view of spline interpolation */
+  if (psp->ln_tau_size > 1) {
+
+    /* Parallel */
+    class_alloc(psp->ddln_pk_ksz_parallel,
+      sizeof(double)*psp->ln_tau_size*psp->ln_k_size*ic_ic_size,
+      psp->error_message);
+
+    class_call(array_spline_table_lines(psp->ln_tau,
+                                        psp->ln_tau_size,
+                                        psp->ln_pk_ksz_parallel,
+                                        ic_ic_size*psp->ln_k_size,
+                                        psp->ddln_pk_ksz_parallel,
+                                        _SPLINE_EST_DERIV_,
+                                        psp->error_message),
+               psp->error_message,
+               psp->error_message);
+
+    /* Perpendicular */
+    class_alloc(psp->ddln_pk_ksz_perpendicular,
+      sizeof(double)*psp->ln_tau_size*psp->ln_k_size*ic_ic_size,
+      psp->error_message);
+
+    class_call(array_spline_table_lines(psp->ln_tau,
+                                        psp->ln_tau_size,
+                                        psp->ln_pk_ksz_perpendicular,
+                                        ic_ic_size*psp->ln_k_size,
+                                        psp->ddln_pk_ksz_perpendicular,
+                                        _SPLINE_EST_DERIV_,
+                                        psp->error_message),
+               psp->error_message,
+               psp->error_message);
+  }
+
+  return _SUCCESS_;
+
+}
+
+
+/**
+ * Kernel of the perpendicular power spectrum of the kinetic Sunyaev-Zeldovich effect,
+ * as in the first line of Eq. 7 in http://arxiv.org/abs/astro-ph/0106342.
+ *
+ */
+int kernel_ksz_perpendicular (
+      double k,
+      double q,
+      double mu,
+      double * result,
+      ErrorMsg errmsg)
+{
+  
+  double mu_sq = mu*mu;
+  double k_sq = k*k;
+  double q_sq = q*q;
+  
+  double num = k*(k-2*q*mu) * (1-mu_sq);
+  double den = q_sq*(k_sq+q_sq-2*k*q*mu);
+  
+  class_test (den != 0,
+    errmsg,
+    "stopping for division by zero");
+  
+  return num/den;
+  
+}
+
+/**
+ * Kernel of the parallel power spectrum of the kinetic Sunyaev-Zeldovich effect,
+ * as in the second line of Eq. 7 in http://arxiv.org/abs/astro-ph/0106342.
+ *
+ */
+int kernel_ksz_parallel (
+      double k,
+      double q,
+      double mu,
+      double * result,
+      ErrorMsg errmsg)
+{
+  
+  double mu_sq = mu*mu;
+  double k_sq = k*k;
+  double q_sq = q*q;
+  
+  double num = k*mu*(k*mu-2*q*mu_sq+q);
+  double den = q_sq*(k_sq+q_sq-2*k*q*mu);
+  
+  class_test (den != 0,
+    errmsg,
+    "stopping for division by zero");
+  
+  return num/den;
+  
+}
+
+
 
 /**
  * This routine computes sigma(R) given P(k) (does not check that k_max is large

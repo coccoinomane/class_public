@@ -691,6 +691,13 @@ int input_init(
       ppt->has_perturbations = _TRUE_;
     }
 
+    if ((strstr(string1,"kPk") != NULL) || (strstr(string1,"KPk") != NULL) || (strstr(string1,"KPK") != NULL)) {
+      ppt->has_pk_ksz=_TRUE_;
+      ppt->has_pk_matter=_TRUE_;
+      ppt->has_perturbations = _TRUE_;
+    }
+
+
   }
 
   if (ppt->has_cl_cmb_temperature == _TRUE_) {
@@ -840,6 +847,10 @@ int input_init(
       class_test(ppt->has_pk_matter == _TRUE_,
                  errmsg,
                  "Inconsistency: you want P(k) of matter, but no scalar modes\n");
+
+      class_test(ppt->has_pk_ksz == _TRUE_,
+                 errmsg,
+                 "Inconsistency: you want P(k) of kSZ, but no scalar modes\n");
 
     }
 
@@ -1984,6 +1995,7 @@ int input_default_params(
   ppt->has_cl_number_count = _FALSE_;
   ppt->has_cl_lensing_potential = _FALSE_;
   ppt->has_pk_matter = _FALSE_;
+  ppt->has_pk_ksz = _FALSE_;
   ppt->has_density_transfers = _FALSE_;
   ppt->has_velocity_transfers = _FALSE_;
 

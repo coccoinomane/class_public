@@ -1,7 +1,8 @@
 #Some Makefile for CLASS.
 #Julien Lesgourgues, 28.11.2011
 
-MDIR := $(shell pwd)
+# MDIR := $(shell pwd)
+MDIR := .
 WRKDIR = $(MDIR)/build
 
 .base:
@@ -17,7 +18,7 @@ vpath .base build
 ########################################################
 
 # your C compiler:
-CC       = gcc -Wall #-g -pg -E#-ggdb
+CC       = gcc -std=c99 #-Wall #-g -pg -E#-ggdb
 #CC       = icc #-ggdb
 #CC       = pgcc
 
@@ -25,7 +26,7 @@ CC       = gcc -Wall #-g -pg -E#-ggdb
 AR        = ar rv
 
 # your optimization flag
-OPTFLAG = -O4 -ffast-math #-march=native
+OPTFLAG = -O # -O4 -ffast-math #-march=native
 #OPTFLAG = -Ofast -ffast-math #-march=native
 #OPTFLAG = -fast
 
