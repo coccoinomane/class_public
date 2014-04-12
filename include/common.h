@@ -53,6 +53,10 @@ typedef char FileName[_FILENAMESIZE_];
 
 #define _COLUMNWIDTH_ 24 /**< Must be at least _OUTPUTPRECISION_+8 for guaranteed fixed width columns */
 
+#define _MAX_NUM_SPECTRA_ 24
+
+#define _MAX_LENGTH_LABEL_ 256
+
 #ifndef __CLASSDIR__
 #define __CLASSDIR__ "." /**< The directory of CLASS. This is set to the absolute path to the CLASS directory so this is just a failsafe. */
 #endif

@@ -149,9 +149,11 @@ struct spectra {
   int ln_tau_size;  /**< number ln(tau) values (only one if z_max_pk = 0) */
   double * ln_tau;  /**< list of ln(tau) values ln_tau[index_tau] */
 
-  double * ln_pk;   /**< Matter power spectrum.
-                       depends on indices index_md, index_ic1, index_ic2, index_k, index_tau as:
-                       ln_pk[(index_tau * psp->k_size + index_k)* psp->ic_ic_size[index_md] + index_ic1_ic2]
+  double sigma8;    /**< sigma8 parameter */
+  
+  double ** ln_pk;   /**< Matter power spectrum.
+                       depends on indices index_pk, index_md, index_ic1, index_ic2, index_k, index_tau as:
+                       ln_pk[index_pk][(index_tau * psp->k_size + index_k)* psp->ic_ic_size[index_md] + index_ic1_ic2]
                        where index_ic1_ic2 labels ordered pairs (index_ic1, index_ic2) (since
                        the primordial spectrum is symmetric in (index_ic1, index_ic2)).
                        - for diagonal elements (index_ic1 = index_ic2) this arrays contains
@@ -164,7 +166,7 @@ struct spectra {
                        this non-diagonal element is independent on k, and equal to +1 or -1.
                     */
 
-  double * ddln_pk; /**< second derivative of above array with respect to log(tau), for spline interpolation. So:
+  double ** ddln_pk; /**< second derivative of above array with respect to log(tau), for spline interpolation. So:
                        - for index_ic1 = index_ic, we spline ln[P(k)] vs. ln(k), which is
                        good since this function is usually smooth.
                        - for non-diagonal coefficients, we spline
@@ -174,32 +176,35 @@ struct spectra {
                        or nearly constant, and with arbitrary sign.
                     */
 
-  double * ln_pk_ksz_parallel;   /**< Matter power spectrum for the parallel component of the 
-                       kinetic Sunyaev-Zeldovich effect, computed using the first line of Eq. 7
-                       in http://arxiv.org/abs/astro-ph/0106342. Indexed as ln_pk, but without the
-                       complications associated to the initial conditions indices (we always
-                       set index_ic1_ic2=psp->ic_ic_size=0).
-                    */
+  short has_pk_matter; /**< Total power spetrum of the matter components */
+  int index_pk_matter; 
 
-  double * ddln_pk_ksz_parallel; /**< second derivative of above array with respect to log(tau), for spline interpolation. */
+  short has_pk_ksz_parallel;
+  int index_pk_ksz_parallel; /**< Matter power spectrum for the parallel component of the 
+                               kinetic Sunyaev-Zeldovich effect, computed using the first line of Eq. 7
+                               in http://arxiv.org/abs/astro-ph/0106342. Indexed as ln_pk, but without the
+                               complications associated to the initial conditions indices (we always
+                               set index_ic1_ic2=psp->ic_ic_size=0).
+                             */
 
-  double * ln_pk_ksz_perpendicular;   /**< Matter power spectrum for the perpendicular component of the 
-                       kinetic Sunyaev-Zeldovich effect, computed using the second line of Eq. 7
-                       in http://arxiv.org/abs/astro-ph/0106342. Indexed as ln_pk, but without the
-                       complications associated to the initial conditions indices (we always
-                       set index_ic1_ic2=psp->ic_ic_size=0).
-                    */
+  short has_pk_ksz_perpendicular;
+  int index_pk_ksz_perpendicular; /**< Matter power spectrum for the perpendicular component of the 
+                                     kinetic Sunyaev-Zeldovich effect, computed using the second line of Eq. 7
+                                     in http://arxiv.org/abs/astro-ph/0106342. Indexed as ln_pk, but without the
+                                     complications associated to the initial conditions indices (we always
+                                     set index_ic1_ic2=psp->ic_ic_size=0).
+                                  */
 
-  double * ddln_pk_ksz_perpendicular; /**< second derivative of above array with respect to log(tau), for spline interpolation. */
+  int pk_size; /**< Number of Fourier space power spectra to compute */
 
+  char pk_labels[_MAX_NUM_SPECTRA_][_MAX_LENGTH_LABEL_];
 
-  double sigma8;    /**< sigma8 parameter */
-
-  double * ln_pk_nl;   /**< Non-linear matter power spectrum.
+  double ** ln_pk_nl;   /**< Non-linear matter power spectrum.
                           depends on indices index_k, index_tau as:
                           ln_pk_nl[index_tau * psp->k_size + index_k]
                     */
-  double * ddln_pk_nl; /**< second derivative of above array with respect to log(tau), for spline interpolation. */
+
+  double ** ddln_pk_nl; /**< second derivative of above array with respect to log(tau), for spline interpolation. */
 
   int index_tr_delta_g;        /**< index of gamma density transfer function */
   int index_tr_delta_b;        /**< index of baryon density transfer function */
@@ -266,6 +271,46 @@ extern "C" {
                       double ** cl_md_ic
                       );
 
+  int spectra_any_pk_at_z(
+                      struct background * pba,
+                      struct spectra * psp,
+                      enum linear_or_logarithmic mode,
+                      double z,
+                      double * output_tot,
+                      double * output_ic,
+                      int index_pk
+                      );
+
+  int spectra_any_pk_at_k_and_z(
+                            struct background * pba,
+                            struct primordial * ppm,
+                            struct spectra * psp,
+                            double k,
+                            double z,
+                            double * pk,
+                            double * pk_ic,
+                            int index_pk
+                            );
+
+  int spectra_any_pk_nl_at_z(
+                         struct background * pba,
+                         struct spectra * psp,
+                         enum linear_or_logarithmic mode,
+                         double z,
+                         double * output_tot,
+                         int index_pk
+                         );
+
+  int spectra_any_pk_nl_at_k_and_z(
+                               struct background * pba,
+                               struct primordial * ppm,
+                               struct spectra * psp,
+                               double k,
+                               double z,
+                               double * pk_tot,
+                               int index_pk
+                               );
+
   int spectra_pk_at_z(
                       struct background * pba,
                       struct spectra * psp,
@@ -301,6 +346,7 @@ extern "C" {
                                double z,
                                double * pk_tot
                                );
+
 
   int spectra_tk_at_z(
                       struct background * pba,
@@ -378,6 +424,29 @@ extern "C" {
                  struct spectra * psp
                  );
 
+  int spectra_pk_matter(
+                 struct background * pba,
+                 struct perturbs * ppt,
+                 struct primordial * ppm,
+                 struct nonlinear *pnl,
+                 struct spectra * psp
+                 );
+
+  int spectra_pk_ksz_sampling(
+        struct background * pba,
+        struct perturbs * ppt,
+        struct spectra * psp
+        );
+
+  int spectra_pk_ksz(
+        struct background * pba,
+        struct perturbs * ppt,
+        struct primordial * ppm,
+        struct nonlinear *pnl,
+        struct spectra * psp
+        );
+
+
 
   int spectra_sigma(
                     struct background * pba,
@@ -393,20 +462,6 @@ extern "C" {
                                struct perturbs * ppt,
                                struct spectra * psp
                                );
-
-  int spectra_pk_ksz_sampling(
-        struct background * pba,
-        struct perturbs * ppt,
-        struct spectra * psp
-        );
-
-  int spectra_pk_ksz(
-        struct background * pba,
-        struct perturbs * ppt,
-        struct primordial * ppm,
-        struct nonlinear *pnl,
-        struct spectra * psp
-        );
 
   int kernel_ksz_perpendicular (
         double k,
