@@ -2778,7 +2778,6 @@ int spectra_pk(
     psp->ddln_pk_nl = NULL;
   }
   
-  
   /** - main loop on the kind of power spectrum */
 
   for (int index_pk=0; index_pk < psp->pk_size; ++index_pk) {
@@ -2809,7 +2808,7 @@ int spectra_pk(
     else if (((psp->has_pk_ksz_parallel == _TRUE_) && (index_pk == psp->index_pk_ksz_parallel))
     || ((psp->has_pk_ksz_perpendicular == _TRUE_) && (index_pk == psp->index_pk_ksz_perpendicular))) {
 
-      class_call(spectra_pk_ksz(pba,ppt,ppm,pnl,psp),
+      class_call(spectra_pk_ksz(pba,ppt,ppm,pnl,psp,index_pk),
                  psp->error_message,
                  psp->error_message);
                  
@@ -2993,14 +2992,7 @@ int spectra_pk_matter(
 
 /**
  * Compute the sampling in k and time for the kSZ power spectrum computed in spectra_pk_ksz. 
- * Also, compute the integration grid in mu. This is obtained ass routine computes a table of values for the parallel and perpendicular power spectra
- * for the kSZ effect. These are computed according to Eq. 7 of Ma & Fry 2002, or Eq. 2.13
- * of Vishniac 1987.
- *
- * We solve the integral assuming that \vec{k} is aligned with the polar axis, so that the
- * volume element reduces to 
- *
- * \int d\vec{k}' = 4\pi \int_{0}^{\infty} dk' k'^2 \int_{-1}^{1} d\mu
+ * Also, compute the integration grid in mu. This is obtained as ...
  *
  * @param pba Input : pointer to background structure (will provide H, Omega_m at redshift of interest)
  * @param ppt Input : pointer to perturbation structure (contain source functions)
@@ -3046,7 +3038,8 @@ int spectra_pk_ksz (
                struct perturbs * ppt,
                struct primordial * ppm,
                struct nonlinear *pnl,
-               struct spectra * psp
+               struct spectra * psp,
+               int index_pk
                )
 {
 
@@ -3068,12 +3061,65 @@ int spectra_pk_ksz (
   // =====================================================================================
 
   for (int index_tau=0; index_tau < psp->ln_tau_size; ++index_tau) {
-    for (int index_k=0; index_k < psp->ln_k_size; ++index_k) {
-      
-      
+    
+    /* Find redshift corresponding to tau */
+    double tau = ppt->tau_sampling[(ppt->tau_size-psp->ln_tau_size) + index_tau];
 
-    } // end of for(ln_k)
-  } // end of for(ln_tau)
+    double * pvecback;
+    class_alloc(pvecback, pba->bg_size*sizeof(double), psp->error_message);
+    int dump;
+
+    class_call(background_at_tau(pba,
+                                 tau,
+                                 pba->short_info,
+                                 pba->inter_normal,
+                                 &dump,
+                                 pvecback),
+               pba->error_message,
+               psp->error_message);
+
+    double z = 1./pvecback[pba->index_bg_a]-1.;
+
+    printf ("z = %g\n", z);
+
+    // for (int index_k=0; index_k < psp->ln_k_size; ++index_k) {
+    // 
+    //   double k = exp(psp->ln_k[index_k]);
+    //   int k_tau_ic_index = (index_tau * psp->ln_k_size + index_k)* ic_ic_size + 0;
+    // 
+    //   for (int index_k1=0; index_k1 < psp->ln_k_size; ++index_k1) {
+    // 
+    //     double k1 = exp(psp->ln_k[index_k1]);
+    // 
+    //     /* Exclude k's where we haven't computed the power spectrum */
+    //     double k_minus_k1 = fabs(k-k1);
+    //     if (k_minus_k1 > exp(psp->ln_k[psp->ln_k_size-1]))
+    //       continue;
+    // 
+    //     double P_k_minus_k1;
+    //     
+    //     class_call(spectra_pk_at_k_and_z(pba,
+    //                                ppm,
+    //                                psp,
+    //                                k_minus_k1,
+    //                                z,
+    //                                &P_k_minus_k1,
+    //                                NULL),
+    //                psp->error_message,
+    //                psp->error_message);
+    //     
+    //     for (int index_k2=0; index_k2 < psp->ln_k_size; ++index_k2) {
+    // 
+    //       // psp->ln_pk[index_pk][k_tau_ic_index]
+    //       //   = psp->ln_pk[psp->index_pk_matter][(index_tau * psp->ln_k_size + index_k)* ic_ic_size + 0];
+    //   
+    //     } // end of for(k2)
+    //   } // end of for(k1)
+    // } // end of for(k)
+    
+    free (pvecback);
+    
+  } // end of for(tau)
   
 
 

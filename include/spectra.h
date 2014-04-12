@@ -443,7 +443,8 @@ extern "C" {
         struct perturbs * ppt,
         struct primordial * ppm,
         struct nonlinear *pnl,
-        struct spectra * psp
+        struct spectra * psp,
+        int index_pk
         );
 
 
