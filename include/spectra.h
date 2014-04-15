@@ -477,6 +477,13 @@ extern "C" {
         double * result,
         ErrorMsg errmsg);
 
+  int kernel_ksz_difference (
+        double k,
+        double q,
+        double mu,
+        double * result,
+        ErrorMsg errmsg);
+
 
 #ifdef __cplusplus
 }

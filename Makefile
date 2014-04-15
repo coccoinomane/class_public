@@ -18,7 +18,7 @@ vpath .base build
 ########################################################
 
 # your C compiler:
-CC       = gcc -std=c99 -g #-Wall #-g -pg -E#-ggdb
+CC       = gcc #-Wall #-g -pg -E#-ggdb
 #CC       = icc #-ggdb
 #CC       = pgcc
 
@@ -36,7 +36,7 @@ OMPFLAG   = -fopenmp
 #OMPFLAG   = -openmp
 
 # all other compilation flags
-CCFLAG = -g -fPIC
+CCFLAG = -g -fPIC -std=c99
 LDFLAG = -g -fPIC
 
 # leave blank to compile without HyRec, or put path to HyRec directory

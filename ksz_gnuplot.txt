@@ -1,0 +1,2 @@
+set title "P_q(k) parallel"; set log; plot [0.001:20] for [i=1:21] "z".i."_pk_ksz_parallel.dat" w li t "z=".(i-1) 
+set title "P_q(k) perpendicular"; set log; plot [0.001:20] for [i=1:21] "z".i."_pk_ksz_perpendicular.dat" w li t "z=".(i-1) 

@@ -3100,13 +3100,28 @@ int spectra_pk_ksz (
     psp->error_message,
     "for the time being, the kSZ power spectra can be computed only for adiabiatic initial conditions.");
 
+  /* Temporary arrays */
+  double * junk;
+  class_alloc (junk, ic_ic_size*sizeof(double), psp->error_message);
+  
+  // =====================================================================================
+  // =                                 Integration weights                               =
+  // =====================================================================================
+    
+  /* Determine trapezoidal weights for the k1 integration (the factor 1/2 is included later) */
+  double * delta_k1;
+  class_alloc (delta_k1, ppt->k_size*sizeof(double), psp->error_message);
+
+  delta_k1[0] = ppt->k[1] - ppt->k[0];
+  
+  for (int index_k1=1; index_k1<(ppt->k_size-1); ++index_k1)
+    delta_k1[index_k1] = ppt->k[index_k1 + 1] - ppt->k[index_k1 - 1];
+  
+  delta_k1[ppt->k_size-1] = ppt->k[ppt->k_size-1] - ppt->k[ppt->k_size-2];
   
   // =====================================================================================
   // =                                    Compute P_KSZ(K)                               =
   // =====================================================================================
-
-  /* Parallelization variables */
-  int abort = _FALSE_;
 
   /* Loop over the redshift slices where we need P(k) */
   for (int index_tau=0; index_tau < psp->ln_tau_size; ++index_tau) {
@@ -3136,13 +3151,22 @@ int spectra_pk_ksz (
 
     long int counter = 0;
 
-    #pragma omp parallel for schedule(dynamic)
+    /* Parallelization variables */
+    int abort = _FALSE_;
+
+    #pragma omp parallel for schedule(dynamic) shared(abort)
     for (int index_k=0; index_k < psp->ln_k_size; ++index_k) {
 
-      double integral_parallel = 0, integral_perpendicular = 0;
       double k = ppt->k[index_k];
       double k_sq = k*k;
       int index_k_tau_ic = (index_tau * psp->ln_k_size + index_k)* ic_ic_size + 0;
+
+      if (psp->spectra_verbose > 1)
+        printf ("     \\ considering k=%g (%d/%d)\n", k, index_k+1, psp->ln_k_size);
+
+      /* Initialise the integral for this k-value to zero */
+      double integral_parallel = 0;
+      double integral_perpendicular = 0;
 
       for (int index_k1=0; index_k1 < psp->ln_k_size; ++index_k1) {
     
@@ -3150,8 +3174,19 @@ int spectra_pk_ksz (
         double k1_sq = k1*k1;
         double k_times_k1 = k*k1;
         double k1_over_k = k1/k;
-            
-        /* Find minimum k2 allowed by the triangular condition */
+
+        /* Uncomment to restrict to squeezed configurations */
+        // if (k < 10*k1)
+        //   continue;
+
+        /* Find power spectrum in k1 */
+        int index_k1_tau_ic = (index_tau * psp->ln_k_size + index_k1)* ic_ic_size + 0;
+        double ln_P_k1 = psp->ln_pk[psp->index_pk_matter][index_k1_tau_ic];
+
+        if (psp->spectra_verbose > 2)
+          printf ("      \\ considering k1=%g (%d/%d)\n", k1, index_k1+1, psp->ln_k_size);
+                        
+        /* Find minimum k2 in ppt->k allowed by the triangular condition */
         double k2_min = fabs(k-k1);
         int index_k2_min = 0;
         while ((ppt->k[index_k2_min] < k2_min) && (index_k2_min<ppt->k_size))
@@ -3160,7 +3195,7 @@ int spectra_pk_ksz (
           psp->error_message,
           "it should not happen that k2 is always smaller than |k-k1|");
 
-        /* Find maximum k2 allowed by the triangular condition */                
+        /* Find maximum k2 in ppt->k allowed by the triangular condition */                
         double k2_max = k+k1;
         int index_k2_max = ppt->k_size-1;
         while ((ppt->k[index_k2_max] > k2_max) && (index_k2_max>=0))
@@ -3171,36 +3206,42 @@ int spectra_pk_ksz (
         
         /* Number of k2-points in the integration grid for (k,k1) */
         int k2_size = index_k2_max - index_k2_min + 1;
+        
         class_test_parallel (k2_size <= 0,
           psp->error_message,
           "triangular condition should allow at least one value, given by the largest k");
                 
-        /* The edges of the k2-interval extend all the way to the triangular condition limit, but
-        still need to be in the bounds determined by ppt->k */
-        // double k2_min_integration = MAX (k2_min, ppt->k[0]);
-        // double k2_max_integration = MIN (k2_max, ppt->k[ppt->k_size-1]);
+        /* Let the edges of the k2-interval to extend all the way to the triangular condition limit
+        (given by k2_min and k2_max), making sure it is still within the bounds determined by ppt->k */
+        double k2_min_integration = MIN (ppt->k[index_k2_min], MAX (k2_min, ppt->k[0]));
+        double k2_max_integration = MAX (ppt->k[index_k2_max], MIN (k2_max, ppt->k[ppt->k_size-1]));
 
-        /* Determine trapezoidal integration weights for the k2 integration */
+        /* Uncomment to use grid points as boundaries of the integration grid */
+        // double k2_min_integration = ppt->k[index_k2_min];
+        // double k2_max_integration = ppt->k[index_k2_max];
+
+        /* Determine integration weights for the k2 integration */
         double * delta_k2;
         class_alloc_parallel (delta_k2, k2_size*sizeof(double), psp->error_message);
 
-        if (k2_size == 1) {
-          delta_k2[0] = 0;
-          // delta_k2[0] = k2_max_integration - k2_min_integration;
+        /* By default, use trapezoidal integration. The factor 1/2 is included later. */
+        if (k2_size > 1) {
+
+          delta_k2[0] = ppt->k[index_k2_min+1] - k2_min_integration;
+
+          /* Make sure that the first and last interval are extended all the way to the triangular
+          condition limit */
+          for (int index_k2=index_k2_min+1; index_k2<=(index_k2_max-1); ++index_k2)
+            delta_k2[index_k2-index_k2_min] =
+                  (((index_k2+1)==index_k2_max)?k2_max_integration:ppt->k[index_k2+1])
+                - (((index_k2-1)==index_k2_min)?k2_min_integration:ppt->k[index_k2-1]);
+          
+          delta_k2[index_k2_max-index_k2_min] = k2_max_integration - ppt->k[index_k2_max-1];
         }
-        else {
-          delta_k2[0] = ppt->k[index_k2_min+1] - ppt->k[index_k2_min];
-          
-          for (int index_k2=index_k2_min+1; index_k2<=index_k2_max-1; ++index_k2)
-            delta_k2[index_k2-index_k2_min] = ppt->k[index_k2 + 1] - ppt->k[index_k2 - 1];
-          
-          delta_k2[index_k2_max-index_k2_min] = ppt->k[index_k2_max] - ppt->k[index_k2_max-1];
-          // delta_k2[0] = ppt->k[index_k2_min+1] - k2_min_integration;
-          // 
-          // for (int index_k2=index_k2_min+1; index_k2<=index_k2_max-1; ++index_k2)
-          //   delta_k2[index_k2-index_k2_min] = ppt->k[index_k2 + 1] - ppt->k[index_k2 - 1];
-          // 
-          // delta_k2[index_k2_max-index_k2_min] = k2_max_integration - ppt->k[index_k2_max-1];
+        /* With only one point in the integration grid, use the rectangular rule. The
+        factor 2 compensates the factor 1/2 which is added later for the trapezoidal rule */
+        else if (k2_size == 1) {
+          delta_k2[0] = 2*(k2_max_integration - k2_min_integration);
         }
         
         /* Debug - print k2-list for a given k and k1 */
@@ -3211,12 +3252,12 @@ int spectra_pk_ksz (
         //     printf ("%4d %13.7g %13.7g\n", index_k2, ppt->k[index_k2], delta_k2[index_k2-index_k2_min]);
         //   }
         // }
-        
-        /* Find power spectrum in k1 */
-        int index_k1_tau_ic = (index_tau * psp->ln_k_size + index_k1)* ic_ic_size + 0;
-        double ln_P_k1 = psp->ln_pk[psp->index_pk_matter][index_k1_tau_ic];
-        
-        /* Perform integration over k2 (same as integration over mu1 in Ma & Fry 2002) */
+                
+        /* Perform integration over k2 (same as integration over mu1 in Ma & Fry 2002).
+        The factors that appear in our formula are:
+         * k1_sq volume factor 
+         * k2/(k*k1) from the change of variable d_mu1 -> d_k2
+         * k/(k1_sq*k2_sq) which we factored out from the kernel */
         for (int index_k2=index_k2_min; index_k2<=index_k2_max; ++index_k2) {
           
           /* Find power spectrum in k2 */
@@ -3224,51 +3265,62 @@ int spectra_pk_ksz (
           int index_k2_tau_ic = (index_tau * psp->ln_k_size + index_k2)* ic_ic_size + 0;
           double ln_P_k2 = psp->ln_pk[psp->index_pk_matter][index_k2_tau_ic];
           double Pk1_Pk2 = exp (ln_P_k1 + ln_P_k2);
-                    
-          /* Compute parallel and perpendicular kernels */
+
+          if (psp->spectra_verbose > 3)
+            printf ("       \\ considering k2=%g (%d/%d)\n", k2, index_k2-index_k2_min+1, k2_size);
+
+          /* Check that the cosine of the angle between k and k1 is within bounds */
           double mu1 = (k_sq + k1_sq - k2*k2)/(2*k_times_k1);
-          class_test_parallel (fabs(mu1)>=1, psp->error_message, "triangular condition violated!");
-          double kernel_parallel, kernel_perpendicular;
+          class_test_parallel (fabs(mu1)>1,
+            psp->error_message,
+            "triangular condition violated for k=%g, k1=%g, k2=%g, mu1=%.20g\n",
+            k, k1, k2, mu1);
+
+          /* Compute parallel and perpendicular kernels */
+          double kernel_parallel=1, kernel_perpendicular=1;
           class_call_parallel (kernel_ksz_parallel (k, k1, mu1, &kernel_parallel, psp->error_message),
             psp->error_message, psp->error_message);
           class_call_parallel (kernel_ksz_perpendicular (k, k1, mu1, &kernel_perpendicular, psp->error_message),
             psp->error_message, psp->error_message);
 
+          // class_call_parallel (kernel_ksz_sum (k, k1, mu1, &kernel_parallel, psp->error_message),
+          //   psp->error_message, psp->error_message);
+
           /* Compute integrand functions */
-          double integrand_parallel = k1_over_k * k2 * Pk1_Pk2 * kernel_parallel;
-          double integrand_perpendicular = k1_over_k * k2 * Pk1_Pk2 * kernel_perpendicular;
+          double integrand_parallel = 1/(k1*k2) * Pk1_Pk2 * kernel_parallel;
+          double integrand_perpendicular = 1/(k1*k2) * Pk1_Pk2 * kernel_perpendicular;
           
-          /* Increment the integral */
-          integral_parallel += integrand_parallel * delta_k2[index_k2-index_k2_min];
-          integral_perpendicular += integrand_perpendicular * delta_k2[index_k2-index_k2_min];
+          /* Increment the integral, including the interpolation weights */
+          integral_parallel += integrand_parallel * delta_k1[index_k1] * delta_k2[index_k2-index_k2_min];
+          integral_perpendicular += integrand_perpendicular * delta_k1[index_k1] * delta_k2[index_k2-index_k2_min];
           
           #pragma omp atomic
           counter++;
     
           /* Debug - print the contribution to the integral */
-          if ((index_k==0) && (index_k1==560)) {
-            if (index_k2==index_k2_min)
-              fprintf (stderr, "# ~~~ k=%g, k1=%g, k2_size=%d~~~\n", k, k1, k2_size);
-            fprintf (stderr, "%4d %12.4g %12.4g %12.4g %12.4g %12.4g %12.4g %12.4g %12.4g %12.4g %12.4g\n",
-              index_k2, ppt->k[index_k2], delta_k2[index_k2-index_k2_min], mu1, exp(ln_P_k2),
-              kernel_parallel, kernel_perpendicular,
-              integrand_parallel*delta_k2[index_k2-index_k2_min], integrand_perpendicular*delta_k2[index_k2-index_k2_min],
-              integral_parallel, integral_perpendicular
-            );
-          }
-      
+          // if ((index_k==0) && (index_k1==560)) {
+          //   if (index_k2==index_k2_min)
+          //     fprintf (stderr, "# ~~~ k=%g, k1=%g, k2_size=%d~~~\n", k, k1, k2_size);
+          //   fprintf (stderr, "%4d %12.4g %12.4g %12.4g %12.4g %12.4g %12.4g %12.4g %12.4g %12.4g %12.4g\n",
+          //     index_k2, ppt->k[index_k2], delta_k2[index_k2-index_k2_min], mu1, exp(ln_P_k2),
+          //     kernel_parallel, kernel_perpendicular,
+          //     integrand_parallel*delta_k2[index_k2-index_k2_min], integrand_perpendicular*delta_k2[index_k2-index_k2_min],
+          //     integral_parallel, integral_perpendicular
+          //   );
+          // }
+                
         } // end of for(k2)
         
         free (delta_k2);
-        
+                
       } // end of for(k1)
-      
+
       /* Include factors:
-       * 0.5 from trapezoidal rule
+       * 0.5*0.5=0.25 from trapezoidal rules
        * 1/(2*pi)^3 from integral measure
        * 2*pi from azimuthal integration
        * a_dot^2 * f^2 from formula (Eq. 7 of Ma & Fry 2002) */
-      double factor = 0.5 * pow(a_prime*f,2) / pow(2*_PI_,2);
+      double factor = 0.25 * pow(a_prime*f,2) / pow(2*_PI_,2);
       integral_parallel *= factor;
       integral_perpendicular *= factor;
 
@@ -3277,18 +3329,20 @@ int spectra_pk_ksz (
       psp->ln_pk[psp->index_pk_ksz_perpendicular][index_k_tau_ic] = log (integral_perpendicular);
       
       /* Debug - show final integral */
-      if (index_k==2) {
-        printf ("k=%g, integral_parallel=%g, integral_perpendicular=%g, factor=%g\n",
-          k, integral_parallel, integral_perpendicular, factor
-        );
-      }
+      // if (index_k==2) {
+      //   printf ("k=%g, integral_parallel=%g, integral_perpendicular=%g, factor=%g\n",
+      //     k, integral_parallel, integral_perpendicular, factor
+      //   );
+      // }
       
-    } // end of for(k) and of parallel region
-    if (abort == _TRUE_) return _FAILURE_;
+    } if (abort == _TRUE_) break; // end of for(k) and of parallel region
     
     free (pvecback);
     
   } // end of for(tau)
+
+  free (delta_k1);
+  free (junk);
 
   return _SUCCESS_;
 
@@ -3297,8 +3351,9 @@ int spectra_pk_ksz (
 
 /**
  * Kernel of the perpendicular power spectrum of the kinetic Sunyaev-Zeldovich effect,
- * as in the first line of Eq. 7 in http://arxiv.org/abs/astro-ph/0106342.
- *
+ * as in the first line of Eq. 7 in http://arxiv.org/abs/astro-ph/0106342. For numerical
+ * reason, we factor out the denominator and a factor k, so that the kernel in the paper
+ * is equal to k/(k1_sq * k2_sq) times this function. 
  */
 int kernel_ksz_perpendicular (
       double k,
@@ -3311,23 +3366,25 @@ int kernel_ksz_perpendicular (
   double mu1_sq = mu1*mu1;
   double k_sq = k*k;
   double k1_sq = k1*k1;
-  
-  double num = k*(k-2*k1*mu1) * (1-mu1_sq);
-  double den = k1_sq*(k_sq+k1_sq-2*k*k1*mu1);
 
-  /* Debug */
-  // printf ("k = %g\n", k);
-  // printf ("k1 = %g\n", k1);
-  // printf ("mu1 = %g\n", mu1);
-  // printf ("k_sq+k1_sq-2*k*k1*mu1 = %g\n", k_sq+k1_sq-2*k*k1*mu1);
-  // printf ("num = %g\n", num);
-  // printf ("den = %g\n", den);
+  *result = (k-2*k1*mu1)*(1-mu1_sq);
   
-  class_test (den == 0,
-    errmsg,
-    "stopping for division by zero");
-  
-  *result = num/den;
+  // double num = k*(k-2*k1*mu1) * (1-mu1_sq);
+  // double den = k1_sq*(k_sq+k1_sq-2*k*k1*mu1);
+  // 
+  // /* Debug */
+  // // printf ("k = %g\n", k);
+  // // printf ("k1 = %g\n", k1);
+  // // printf ("mu1 = %g\n", mu1);
+  // // printf ("k_sq+k1_sq-2*k*k1*mu1 = %g\n", k_sq+k1_sq-2*k*k1*mu1);
+  // // printf ("num = %g\n", num);
+  // // printf ("den = %g\n", den);
+  // 
+  // class_test (den == 0,
+  //   errmsg,
+  //   "stopping for division by zero");
+  // 
+  // *result = num/den;
   
   return _SUCCESS_;
   
@@ -3335,8 +3392,9 @@ int kernel_ksz_perpendicular (
 
 /**
  * Kernel of the parallel power spectrum of the kinetic Sunyaev-Zeldovich effect,
- * as in the second line of Eq. 7 in http://arxiv.org/abs/astro-ph/0106342.
- *
+ * as in the second line of Eq. 7 in http://arxiv.org/abs/astro-ph/0106342. For numerical
+ * reason, we factor out the denominator and a factor k, so that the kernel in the paper
+ * is equal to k/(k1_sq * k2_sq) times this function. 
  */
 int kernel_ksz_parallel (
       double k,
@@ -3350,22 +3408,64 @@ int kernel_ksz_parallel (
   double k_sq = k*k;
   double k1_sq = k1*k1;
   
-  double num = k*mu1*(k*mu1-2*k1*mu1_sq+k1);
-  double den = k1_sq*(k_sq+k1_sq-2*k*k1*mu1);
+  *result = mu1*(k*mu1-2*k1*mu1_sq+k1);
 
-  /* Debug */
-  // printf ("k = %g\n", k);
-  // printf ("k1 = %g\n", k1);
-  // printf ("mu1 = %g\n", mu1);
-  // printf ("k_sq+k1_sq-2*k*k1*mu1 = %g\n", k_sq+k1_sq-2*k*k1*mu1);
-  // printf ("num = %g\n", num);
-  // printf ("den = %g\n", den);
+  // double num = k*mu1*(k*mu1-2*k1*mu1_sq+k1);
+  // double den = k1_sq*(k_sq+k1_sq-2*k*k1*mu1);
+  // 
+  // /* Debug */
+  // // printf ("k = %g\n", k);
+  // // printf ("k1 = %g\n", k1);
+  // // printf ("mu1 = %g\n", mu1);
+  // // printf ("k_sq+k1_sq-2*k*k1*mu1 = %g\n", k_sq+k1_sq-2*k*k1*mu1);
+  // // printf ("num = %g\n", num);
+  // // printf ("den = %g\n", den);
+  // 
+  // class_test (den == 0,
+  //   errmsg,
+  //   "stopping for division by zero");
+  // 
+  // *result = num/den;
   
-  class_test (den == 0,
-    errmsg,
-    "stopping for division by zero");
+  return _SUCCESS_;
   
-  *result = num/den;
+}
+
+
+/**
+ * Kernel of the sum between the perpendicular and parallel P(k)'s when k >> k1
+ *
+ */
+int kernel_ksz_sum (
+      double k,
+      double k1,
+      double mu1,
+      double * result,
+      ErrorMsg errmsg)
+{
+  
+  *result = k;
+
+  // double mu1_sq = mu1*mu1;
+  // double k_sq = k*k;
+  // double k1_sq = k1*k1;
+  // 
+  // double num = k_sq;
+  // double den = k1_sq*(k_sq+k1_sq-2*k*k1*mu1);
+  // 
+  // /* Debug */
+  // // printf ("k = %g\n", k);
+  // // printf ("k1 = %g\n", k1);
+  // // printf ("mu1 = %g\n", mu1);
+  // // printf ("k_sq+k1_sq-2*k*k1*mu1 = %g\n", k_sq+k1_sq-2*k*k1*mu1);
+  // // printf ("num = %g\n", num);
+  // // printf ("den = %g\n", den);
+  // 
+  // class_test (den == 0,
+  //   errmsg,
+  //   "stopping for division by zero");
+  // 
+  // *result = num/den;
   
   return _SUCCESS_;
   
