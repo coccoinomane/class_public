@@ -213,7 +213,7 @@ struct spectra {
   int index_tr_delta_ur;       /**< index of ultra-relativistic neutrinos/relics density transfer function */
   int index_tr_delta_ncdm1;    /**< index of first species of non-cold dark matter (massive neutrinos, ...) density transfer function */
   int index_tr_delta_tot;      /**< index of total matter density transfer function */
-  int index_tr_theta_g;        /**< index of gamma velocity transfer function */
+  int index_tr_theta_g;        /**< index of photon velocity transfer function */
   int index_tr_theta_b;        /**< index of baryon velocity transfer function */
   int index_tr_theta_cdm;      /**< index of cold dark matter velocity transfer function */
   int index_tr_theta_fld;      /**< index of dark energy fluid velocity transfer function */
@@ -477,7 +477,7 @@ extern "C" {
         double * result,
         ErrorMsg errmsg);
 
-  int kernel_ksz_difference (
+  int kernel_ksz_sum_squeezed (
         double k,
         double q,
         double mu,

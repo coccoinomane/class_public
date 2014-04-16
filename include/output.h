@@ -109,16 +109,14 @@ extern "C" {
                 struct background * pba,
                 struct perturbs * ppt,
                 struct spectra * psp,
-                struct output * pop,
-                int index_pk
+                struct output * pop
                 );
 
   int output_pk_nl(
                    struct background * pba,
                    struct perturbs * ppt,
                    struct spectra * psp,
-                   struct output * pop,
-                   int index_pk
+                   struct output * pop
                    );
 
   int output_tk(
@@ -175,9 +173,11 @@ extern "C" {
                           );
 
   int output_one_line_of_pk(
-                            FILE * tkfile,
-                            double one_k,
-                            double one_pk
+                            struct background * pba,
+                            struct spectra * psp,
+                            FILE * pkfile,
+                            double k,
+                            double * pk
                             );
 
   int output_open_pk_nl_file(

@@ -3283,7 +3283,9 @@ int spectra_pk_ksz (
           class_call_parallel (kernel_ksz_perpendicular (k, k1, mu1, &kernel_perpendicular, psp->error_message),
             psp->error_message, psp->error_message);
 
-          // class_call_parallel (kernel_ksz_sum (k, k1, mu1, &kernel_parallel, psp->error_message),
+          /* Uncomment to overwrite the parallel power spectrum with the sum of the two power spectra
+          in the squeezed limit, where k >> k1 */
+          // class_call_parallel (kernel_ksz_sum_squeezed (k, k1, mu1, &kernel_parallel, psp->error_message),
           //   psp->error_message, psp->error_message);
 
           /* Compute integrand functions */
@@ -3436,7 +3438,7 @@ int kernel_ksz_parallel (
  * Kernel of the sum between the perpendicular and parallel P(k)'s when k >> k1
  *
  */
-int kernel_ksz_sum (
+int kernel_ksz_sum_squeezed (
       double k,
       double k1,
       double mu1,
