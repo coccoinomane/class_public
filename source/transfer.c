@@ -2797,7 +2797,7 @@ int transfer_selection_function(
 
         class_test((z<ptr->nz_z[0]) || (z>ptr->nz_z[ptr->nz_size-1]),
                    ptr->error_message,
-                   "Your input file for the selection function only covers the redhsift range [%f : %f]. However, your input for the selection function requires z=%f",
+                   "Your input file for the selection function only covers the redshift range [%f : %f]. However, your input for the selection function requires z=%f",
                    ptr->nz_z[0],
                    ptr->nz_z[ptr->nz_size-1],
                    z);

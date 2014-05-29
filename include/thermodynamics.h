@@ -70,9 +70,11 @@ struct thermo
 
   enum reionization_z_or_tau reio_z_or_tau; /**< is the input parameter the reionization redshift or optical depth? */
 
-  double tau_reio; /**< if above set to tau, input value of reionization optical depth */
+  double tau_reio; /**< if above set to tau, input value of reionization-peak optical depth */
 
-  double z_reio;   /**< if above set to z,   input value of reionization redshift */
+  double z_reio;   /**< if above set to z,   input value of reionization-peak redshift */
+  
+  double z_reio_start;   /**< redshift when reionization starts to be computed */
 
   short compute_cb2_derivatives; /**< do we want to include in computation derivatives of baryon sound speed? */
 
