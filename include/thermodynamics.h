@@ -25,7 +25,8 @@ enum reionization_parametrization {
   reio_none, /**< no reionization */
   reio_camb,  /**< reionization parameterized like in CAMB */
   reio_bins_tanh,  /**< binned reionization history with tanh inteprolation between bins */
-  reio_half_tanh  /**< half a tanh, intead of the full tanh */
+  reio_half_tanh,  /**< half a tanh, intead of the full tanh */
+  reio_custom  /**< load ionization history from a two-column z,xe */
 };
 
 /**
@@ -87,13 +88,25 @@ struct thermo
 
   /** parameters for reio_bins_tanh */
 
-  int binned_reio_num; /**< with how many bins de we want to describe reionization? */
+  int binned_reio_num; /**< with how many bins do we want to describe reionization? */
 
   double * binned_reio_z; /**< central z value for each bin */
 
   double * binned_reio_xe; /**< imposed x_e(z) value at center of each bin */
 
   double binned_reio_step_sharpness; /**< sharpness of tanh() step interpolating between binned values */
+
+  /** parameters for reio_custom */
+  
+  FileName reio_custom_filename; /**< file containing z vs x_e for custom reionization history */
+
+  int custom_reio_num; /**< how many points in custom x_e file? */
+
+  double * custom_reio_z; /**< list of redshifts for custom x_e */
+
+  double * custom_reio_xe; /**< x_e value at the redshifts in pth->custom_reio_z */
+
+  double * custom_reio_ddxe; /**< second derivative of x_e in view of spline interpolation */
 
   /** parameters for energy injection */
 

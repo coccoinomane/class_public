@@ -993,6 +993,10 @@ int input_read_parameters(
       pth->reio_parametrization=reio_half_tanh;
       flag2=_TRUE_;
     }
+    if (strcmp(string1,"reio_custom") == 0) {
+      pth->reio_parametrization=reio_custom;
+      flag2=_TRUE_;
+    }
 
     class_test(flag2==_FALSE_,
                errmsg,
@@ -1032,6 +1036,11 @@ int input_read_parameters(
     class_read_list_of_doubles("binned_reio_z",pth->binned_reio_z,pth->binned_reio_num);
     class_read_list_of_doubles("binned_reio_xe",pth->binned_reio_xe,pth->binned_reio_num);
     class_read_double("binned_reio_step_sharpness",pth->binned_reio_step_sharpness);
+  }
+
+  /* reionization parameters if reio_parametrization=reio_custom */
+  if (pth->reio_parametrization == reio_custom) {
+    class_read_string("reio_custom_file", pth->reio_custom_filename);
   }
 
   /* energy injection parameters from CDM annihilation/decay */

@@ -744,6 +744,16 @@ int thermodynamics_free(
   free(pth->z_table);
   free(pth->thermodynamics_table);
   free(pth->d2thermodynamics_dz2_table);
+  
+  if (pth->reio_parametrization == reio_bins_tanh) {
+    free(pth->binned_reio_z);
+    free(pth->binned_reio_xe);
+  }
+  else if (pth->reio_parametrization == reio_custom) {
+    free(pth->custom_reio_z);
+    free(pth->custom_reio_xe);
+    free(pth->custom_reio_ddxe);
+  }
 
   return _SUCCESS_;
 }
@@ -1639,6 +1649,8 @@ int thermodynamics_reionization(
 
   }
 
+  /** (b) if reionization history interpolated from bins  */
+
   if (pth->reio_parametrization == reio_bins_tanh) {
 
     /* this algorithm requires at least two bin centers (i.e. at least
@@ -1649,7 +1661,7 @@ int thermodynamics_reionization(
 
     /* check that this input can be interpreted by the code */
     for (bin=1; bin<pth->binned_reio_num; bin++) {
-      class_test(pth->binned_reio_z[bin]<pth->binned_reio_z[bin],
+      class_test(pth->binned_reio_z[bin-1]>=pth->binned_reio_z[bin],
                  pth->error_message,
                  "value of reionization bin centers z_i expected to be passed in growing order");
     }
@@ -1715,6 +1727,141 @@ int thermodynamics_reionization(
                pth->error_message);
 
     pth->tau_reio=preio->reionization_optical_depth;
+
+    return _SUCCESS_;
+
+  }
+
+  /** (c) if reionization history interpolated from file  */
+
+  if (pth->reio_parametrization == reio_custom) {
+    
+    // ----------------------------------------------------------------------------
+    // -                    Read ionization history from file                     -
+    // ----------------------------------------------------------------------------
+    
+    FILE * input_file;
+    int row,status;
+    double tmp1,tmp2;
+
+    pth->custom_reio_num = 0;
+
+    input_file = fopen(pth->reio_custom_filename,"r");
+    class_test(input_file == NULL,
+               pth->error_message,
+               "Could not open file %s!",pth->reio_custom_filename);
+
+    /* Find size of table */
+    for (row=0,status=2; status==2; row++){
+      status = fscanf(input_file,"%lf %lf",&tmp1,&tmp2);
+    }
+    rewind(input_file);
+    pth->custom_reio_num = row-1;
+
+    /* Allocate room for interpolation table */
+    class_alloc(pth->custom_reio_z,sizeof(double)*pth->custom_reio_num,pth->error_message);
+    class_alloc(pth->custom_reio_xe,sizeof(double)*pth->custom_reio_num,pth->error_message);
+    class_alloc(pth->custom_reio_ddxe,sizeof(double)*pth->custom_reio_num,pth->error_message);
+
+    for (row=0; row<pth->custom_reio_num; row++){
+      status = fscanf(input_file,"%lf %lf",
+                      &pth->custom_reio_z[row],&pth->custom_reio_xe[row]);
+      // fprintf(stderr, "%16.7g %16.7g\n", pth->custom_reio_z[row], pth->custom_reio_xe[row]);
+    }
+    fclose(input_file);
+
+    /* Call spline interpolation: */
+    class_call(array_spline_table_lines(pth->custom_reio_z,
+                                        pth->custom_reio_num,
+                                        pth->custom_reio_xe,
+                                        1,
+                                        pth->custom_reio_ddxe,
+                                        _SPLINE_EST_DERIV_,
+                                        pth->error_message),
+               pth->error_message,
+               pth->error_message);
+
+    class_stop (pth->error_message, "stopped");
+
+    // 
+    // 
+    // 
+    // 
+    // 
+    // /* this algorithm requires at least two bin centers (i.e. at least
+    //    4 values in the (z,xe) array, counting the edges). */
+    // class_test(pth->binned_reio_num<2,
+    //            pth->error_message,
+    //            "current implementation of binned reio requires at least two bin centers");
+    // 
+    // /* check that this input can be interpreted by the code */
+    // for (bin=1; bin<pth->binned_reio_num; bin++) {
+    //   class_test(pth->binned_reio_z[bin-1]>=pth->binned_reio_z[bin],
+    //              pth->error_message,
+    //              "value of reionization bin centers z_i expected to be passed in growing order");
+    // }
+    // 
+    // /* the code will not only copy here the "bin centers" passed in
+    //    input. It will add an initial and final value for (z,xe).
+    //    First, fill all entries except the first and the last */
+    // 
+    // for (bin=1; bin<preio->reio_num_z-1; bin++) {
+    //   preio->reionization_parameters[preio->index_reio_first_z+bin] = pth->binned_reio_z[bin-1];
+    //   preio->reionization_parameters[preio->index_reio_first_xe+bin] = pth->binned_reio_xe[bin-1];
+    // }
+    // 
+    // 
+    // /* find largest value of z in the array. We choose to define it as
+    //    z_(i_max) + (the distance between z_(i_max) and z_(i_max-1)). E.g. if
+    //    the bins are in 10,12,14, the largest z will be 16. */
+    // preio->reionization_parameters[preio->index_reio_first_z+preio->reio_num_z-1] =
+    //   2.*preio->reionization_parameters[preio->index_reio_first_z+preio->reio_num_z-2]
+    //   -preio->reionization_parameters[preio->index_reio_first_z+preio->reio_num_z-3];
+    // 
+    // /* copy this value in reio_start */
+    // preio->reionization_parameters[preio->index_reio_start] = preio->reionization_parameters[preio->index_reio_first_z+preio->reio_num_z-1];
+    // 
+    // /* check it's not too big */
+    // class_test(preio->reionization_parameters[preio->index_reio_start] > ppr->reionization_z_start_max,
+    //            pth->error_message,
+    //            "starting redshift for reionization = %e, reionization_z_start_max = %e, you must change the binning or increase reionization_z_start_max",
+    //            preio->reionization_parameters[preio->index_reio_start],
+    //            ppr->reionization_z_start_max);
+    // 
+    // /* find smallest value of z in the array. We choose
+    //    to define it as z_0 - (the distance between z_1 and z_0). E.g. if
+    //    the bins are in 10,12,14, the stop redshift will be 8. */
+    // 
+    // preio->reionization_parameters[preio->index_reio_first_z] =
+    //   2.*preio->reionization_parameters[preio->index_reio_first_z+1]
+    //   -preio->reionization_parameters[preio->index_reio_first_z+2];
+    // 
+    // /* check it's not too small */
+    // class_test(preio->reionization_parameters[preio->index_reio_first_z] < 0,
+    //            pth->error_message,
+    //            "final redshift for reionization = %e, you must change the binning or redefine the way in which the code extrapolates below the first value of z_i",preio->reionization_parameters[preio->index_reio_first_z]);
+    // 
+    // /* infer xe before reio */
+    // class_call(thermodynamics_get_xe_before_reionization(ppr,
+    //                                                      pth,
+    //                                                      preco,
+    //                                                      preio->reionization_parameters[preio->index_reio_first_z+preio->reio_num_z-1],
+    //                                                      &(preio->reionization_parameters[preio->index_reio_first_xe+preio->reio_num_z-1])),
+    //            pth->error_message,
+    //            pth->error_message);
+    // 
+    // /* infer xe after reio */
+    // preio->reionization_parameters[preio->index_reio_first_xe] = 1. + pth->YHe/(_not4_*(1.-pth->YHe));    /* xe_after_reio: H + singly ionized He (note: segmentation fault impossible, checked before that denominator is non-zero) */
+    // 
+    // /* pass step sharpness parameter */
+    // preio->reionization_parameters[preio->index_reio_step_sharpness] = pth->binned_reio_step_sharpness;
+    // 
+    // /* fill reionization table */
+    // class_call(thermodynamics_reionization_sample(ppr,pba,pth,preco,preio,pvecback),
+    //            pth->error_message,
+    //            pth->error_message);
+    // 
+    // pth->tau_reio=preio->reionization_optical_depth;
 
     return _SUCCESS_;
 
