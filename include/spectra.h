@@ -176,28 +176,39 @@ struct spectra {
                        or nearly constant, and with arbitrary sign.
                     */
 
-  short has_pk_matter; /**< Total power spetrum of the matter components */
-  int index_pk_matter; 
-
-  short has_pk_ksz_parallel;
-  int index_pk_ksz_parallel; /**< Matter power spectrum for the parallel component of the 
+  short has_pk_delta_delta; /**< Total density-density power spectrum of the matter components */
+  short has_pk_theta_theta; /**< Total velocity-velocity power spectrum of the matter components */
+  short has_pk_delta_theta; /**< Total density-velocity power spectrum of the matter components */
+  short has_pk_ksz_parallel; /**< Matter power spectrum for the parallel component of the 
                                kinetic Sunyaev-Zeldovich effect, computed using the first line of Eq. 7
                                in http://arxiv.org/abs/astro-ph/0106342. Indexed as ln_pk, but without the
                                complications associated to the initial conditions indices (we always
                                set index_ic1_ic2=psp->ic_ic_size=0).
                              */
-
-  short has_pk_ksz_perpendicular;
-  int index_pk_ksz_perpendicular; /**< Matter power spectrum for the perpendicular component of the 
+  short has_pk_ksz_perpendicular; /**< Matter power spectrum for the perpendicular component of the 
                                      kinetic Sunyaev-Zeldovich effect, computed using the second line of Eq. 7
                                      in http://arxiv.org/abs/astro-ph/0106342. Indexed as ln_pk, but without the
                                      complications associated to the initial conditions indices (we always
                                      set index_ic1_ic2=psp->ic_ic_size=0).
                                   */
+    
+  int index_pk_delta_delta; 
+  int index_pk_delta_theta; 
+  int index_pk_theta_theta; 
+  int index_pk_ksz_parallel; 
+  int index_pk_ksz_perpendicular; 
 
   int pk_size; /**< Number of Fourier space power spectra to compute */
 
-  char pk_labels[_MAX_NUM_SPECTRA_][_MAX_LENGTH_LABEL_];
+  char pk_labels[_MAX_NUM_SPECTRA_][_MAX_LENGTH_LABEL_]; /**< String labels for the pk spectra */
+  
+  int is_simple_pk[_MAX_NUM_SPECTRA_]; /**< If 'is_simple_pk[index_pk]==_TRUE_', then the considered P(k)
+                                          can be computed using the standard procedure, that is
+                                          P(k)=integral(primordial*transfer*transfer). */
+  int is_cross_pk[_MAX_NUM_SPECTRA_];  /**< If 'is_cross_pk[index_pk]==_TRUE_', then the considered P(k)
+                                          is a cross-correlation betweent two quantities, e.g. P_delta_v.
+                                          These P(k) can be negative and are therefore stored as they are,
+                                          that is, without taking their logarithm. */
 
   double ** ln_pk_nl;   /**< Non-linear matter power spectrum.
                           depends on indices index_k, index_tau as:
@@ -424,7 +435,7 @@ extern "C" {
                  struct spectra * psp
                  );
 
-  int spectra_pk_matter(
+  int spectra_pk_simple(
                  struct background * pba,
                  struct perturbs * ppt,
                  struct primordial * ppm,

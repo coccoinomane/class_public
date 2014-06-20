@@ -676,7 +676,19 @@ int input_init(
     }
 
     if ((strstr(string1,"mPk") != NULL) || (strstr(string1,"MPk") != NULL) || (strstr(string1,"MPK") != NULL)) {
-      ppt->has_pk_matter=_TRUE_;
+      ppt->has_pk_delta=_TRUE_;
+      ppt->has_perturbations = _TRUE_;
+    }
+
+    if ((strstr(string1,"vPk") != NULL) || (strstr(string1,"VPk") != NULL) || (strstr(string1,"VPK") != NULL)) {
+      ppt->has_pk_theta=_TRUE_;
+      ppt->has_perturbations = _TRUE_;
+    }
+
+    if ((strstr(string1,"kPk") != NULL) || (strstr(string1,"KPk") != NULL) || (strstr(string1,"KPK") != NULL)) {
+      ppt->has_pk_ksz=_TRUE_;
+      ppt->has_pk_delta=_TRUE_;
+      ppt->has_pk_theta=_TRUE_;
       ppt->has_perturbations = _TRUE_;
     }
 
@@ -688,12 +700,6 @@ int input_init(
 
     if ((strstr(string1,"vTk") != NULL) || (strstr(string1,"VTk") != NULL) || (strstr(string1,"VTK") != NULL)) {
       ppt->has_velocity_transfers=_TRUE_;
-      ppt->has_perturbations = _TRUE_;
-    }
-
-    if ((strstr(string1,"kPk") != NULL) || (strstr(string1,"KPk") != NULL) || (strstr(string1,"KPK") != NULL)) {
-      ppt->has_pk_ksz=_TRUE_;
-      ppt->has_pk_matter=_TRUE_;
       ppt->has_perturbations = _TRUE_;
     }
 
@@ -844,7 +850,7 @@ int input_init(
                  errmsg,
                  "Inconsistency: you want C_l's for cmb lensing potential, but no scalar modes\n");
 
-      class_test(ppt->has_pk_matter == _TRUE_,
+      class_test((ppt->has_pk_delta == _TRUE_) || (ppt->has_pk_theta),
                  errmsg,
                  "Inconsistency: you want P(k) of matter, but no scalar modes\n");
 
@@ -1296,7 +1302,8 @@ int input_init(
 
   }
 
-  if ((ppt->has_pk_matter == _TRUE_) || (ppt->has_density_transfers == _TRUE_) || (ppt->has_velocity_transfers == _TRUE_)) {
+  if ((ppt->has_pk_delta == _TRUE_) || (ppt->has_pk_theta == _TRUE_)
+  || (ppt->has_density_transfers == _TRUE_) || (ppt->has_velocity_transfers == _TRUE_)) {
 
     class_call(parser_read_double(pfc,"P_k_max_h/Mpc",&param1,&flag1,errmsg),
                errmsg,
@@ -1994,7 +2001,8 @@ int input_default_params(
   ppt->has_cl_cmb_lensing_potential = _FALSE_;
   ppt->has_cl_number_count = _FALSE_;
   ppt->has_cl_lensing_potential = _FALSE_;
-  ppt->has_pk_matter = _FALSE_;
+  ppt->has_pk_delta = _FALSE_;
+  ppt->has_pk_theta = _FALSE_;
   ppt->has_pk_ksz = _FALSE_;
   ppt->has_density_transfers = _FALSE_;
   ppt->has_velocity_transfers = _FALSE_;

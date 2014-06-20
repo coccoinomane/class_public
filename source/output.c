@@ -813,13 +813,23 @@ int output_pk(
         for (index_k=0; index_k<psp->ln_k_size; index_k++) {
 
           if (psp->ic_size[index_md] == 1) {
-            pk_tot[index_pk][index_k] = exp(psp->ln_pk[index_pk][(psp->ln_tau_size-1) * psp->ln_k_size + index_k]);
+            if (psp->is_cross_pk[index_pk] == _FALSE_)
+              pk_tot[index_pk][index_k] = exp(psp->ln_pk[index_pk][(psp->ln_tau_size-1) * psp->ln_k_size + index_k]);
+            else
+              pk_tot[index_pk][index_k] = psp->ln_pk[index_pk][(psp->ln_tau_size-1) * psp->ln_k_size + index_k];
           }
           else {
             pk_tot[index_pk][index_k] = 0.;
             for (index_ic1=0; index_ic1 < psp->ic_size[index_md]; index_ic1++) {
               index_ic1_ic2 = index_symmetric_matrix(index_ic1,index_ic1,psp->ic_size[index_md]);
-              pk_ic[index_pk][index_k * psp->ic_ic_size[index_md] + index_ic1_ic2] = exp(psp->ln_pk[index_pk][((psp->ln_tau_size-1) * psp->ln_k_size + index_k) * psp->ic_ic_size[index_md] + index_ic1_ic2]);
+              if (psp->is_cross_pk[index_pk] == _FALSE_)
+                pk_ic[index_pk][index_k * psp->ic_ic_size[index_md] + index_ic1_ic2] =
+                  exp(psp->ln_pk[index_pk][((psp->ln_tau_size-1) * psp->ln_k_size + index_k)
+                  * psp->ic_ic_size[index_md] + index_ic1_ic2]);
+              else
+                pk_ic[index_pk][index_k * psp->ic_ic_size[index_md] + index_ic1_ic2] =
+                  psp->ln_pk[index_pk][((psp->ln_tau_size-1) * psp->ln_k_size + index_k)
+                  * psp->ic_ic_size[index_md] + index_ic1_ic2];
               pk_tot[index_pk][index_k] += pk_ic[index_pk][index_k * psp->ic_ic_size[index_md] + index_ic1_ic2];
             }
             for (index_ic1=0; index_ic1 < psp->ic_size[index_md]; index_ic1++) {
@@ -1007,7 +1017,10 @@ int output_pk_nl(
 
         for (index_k=0; index_k<psp->ln_k_size; index_k++) {
 
-          pk_tot[index_pk][index_k] = exp(psp->ln_pk_nl[index_pk][(psp->ln_tau_size-1) * psp->ln_k_size + index_k]);
+          if (psp->is_cross_pk[index_pk] == _FALSE_)
+            pk_tot[index_pk][index_k] = exp(psp->ln_pk_nl[index_pk][(psp->ln_tau_size-1) * psp->ln_k_size + index_k]);
+          else
+            pk_tot[index_pk][index_k] = psp->ln_pk_nl[index_pk][(psp->ln_tau_size-1) * psp->ln_k_size + index_k];
 
         }
       }
@@ -1648,6 +1661,11 @@ int output_open_pk_file(
             exp(psp->ln_k[psp->ln_k_size-1])/pba->h);
     fprintf(*pkfile,"# number of wavenumbers equal to %d\n",psp->ln_k_size);
     fprintf(*pkfile,"# k (h/Mpc)  P (Mpc/h)^3:\n");
+    fprintf(*pkfile, "%22s ", "k");
+    for (int index_pk=0; index_pk < psp->pk_size; ++index_pk) {
+      fprintf(*pkfile, "%22s ", psp->pk_labels[index_pk]);
+    }
+    fprintf(*pkfile, "\n");
   }
 
   return _SUCCESS_;
@@ -1670,10 +1688,11 @@ int output_one_line_of_pk(
                           double * pk
                           ) {
   
-  fprintf(pkfile, "%e ", k/pba->h);
+  fprintf(pkfile, "%22.10g ", k/pba->h);
 
-  for (int index_pk=0; index_pk < psp->pk_size; ++index_pk)
-    fprintf(pkfile,"%16.10e ", pk[index_pk] * pow(pba->h,3));
+  for (int index_pk=0; index_pk < psp->pk_size; ++index_pk) {
+    fprintf(pkfile,"%22.10g ", pk[index_pk] * pow(pba->h,3));
+  }
   
   fprintf(pkfile, "\n");
 

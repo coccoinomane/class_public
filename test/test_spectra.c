@@ -92,7 +92,7 @@ main(int argc, char **argv) {
   double pk;
   double junk;
 
-  if (pt.has_pk_matter == _TRUE_) {
+  if (pt.has_pk_delta == _TRUE_) {
     
     output=fopen("output/testing_pks.dat","w");
     
