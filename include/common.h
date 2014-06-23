@@ -49,6 +49,8 @@ typedef char FileName[_FILENAMESIZE_];
 
 #define _HUGE_ 1.e99
 
+#define _MINUSCULE_ 1.e-99
+
 #define _OUTPUTPRECISION_ 12 /**< Number of significant digits in some output files */
 
 #define _COLUMNWIDTH_ 24 /**< Must be at least _OUTPUTPRECISION_+8 for guaranteed fixed width columns */
@@ -199,6 +201,16 @@ void* class_protect_memcpy(void* dest, void* from, size_t sz);
     class_test_message(error_message_output,#condition, args);                                                   \
     return _FAILURE_;                                                                                            \
   }                                                                                                              \
+}
+
+#define class_test_permissive(condition, error_message_output, args...) {                                        \
+  if (condition) {                                                                                               \
+    class_test_message(error_message_output,#condition, args);                                                   \
+  }                                                                                                              \
+}
+
+#define class_test_lazy(condition, error_message_output, args...) {                                              \
+  class_test_message(error_message_output,#condition, args);                                                     \
 }
 
 #define class_test_parallel(condition, error_message_output, args...) {                                          \

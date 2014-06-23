@@ -1691,7 +1691,20 @@ int output_one_line_of_pk(
   fprintf(pkfile, "%22.10g ", k/pba->h);
 
   for (int index_pk=0; index_pk < psp->pk_size; ++index_pk) {
-    fprintf(pkfile,"%22.10g ", pk[index_pk] * pow(pba->h,3));
+    
+    double pk_value = pk[index_pk];
+    
+    /* Rescale the velocity power spectra if requested */
+    int use_velocity = _TRUE_;
+
+    if (use_velocity == _TRUE_) {
+      if ((psp->has_pk_theta_theta == _TRUE_) && (index_pk == psp->index_pk_theta_theta))
+        pk_value /= k*k;
+      else if ((psp->has_pk_delta_theta == _TRUE_) && (index_pk == psp->index_pk_delta_theta))
+        pk_value /= k;
+    }
+    
+    fprintf(pkfile,"%22.10g ", pk_value * pow(pba->h,3));
   }
   
   fprintf(pkfile, "\n");

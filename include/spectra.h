@@ -210,6 +210,9 @@ struct spectra {
                                           These P(k) can be negative and are therefore stored as they are,
                                           that is, without taking their logarithm. */
 
+  int use_linear_velocity_in_ksz; /**< If _TRUE_, obtain the velocity power spectrum for the kSZ computation by using
+                                   the linear relation v=delta*(a_prime*f/k) */
+
   double ** ln_pk_nl;   /**< Non-linear matter power spectrum.
                           depends on indices index_k, index_tau as:
                           ln_pk_nl[index_tau * psp->k_size + index_k]
@@ -454,7 +457,8 @@ extern "C" {
         struct perturbs * ppt,
         struct primordial * ppm,
         struct nonlinear *pnl,
-        struct spectra * psp
+        struct spectra * psp,
+        int non_linear
         );
 
 

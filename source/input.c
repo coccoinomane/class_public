@@ -692,6 +692,15 @@ int input_init(
       ppt->has_perturbations = _TRUE_;
     }
 
+    if ((strstr(string1,"kPkLin") != NULL) || (strstr(string1,"KPkLin") != NULL) || (strstr(string1,"KPKLIN") != NULL)
+    || (strstr(string1,"kPkLinear") != NULL) || (strstr(string1,"KPkLinear") != NULL) || (strstr(string1,"KPKLINEAR") != NULL)) {
+      ppt->has_pk_ksz=_TRUE_;
+      ppt->has_pk_delta=_TRUE_;
+      ppt->has_pk_theta=_TRUE_;
+      ppt->has_perturbations = _TRUE_;
+      psp->use_linear_velocity_in_ksz=_TRUE_;
+    }
+
     if ((strstr(string1,"mTk") != NULL) || (strstr(string1,"MTk") != NULL) || (strstr(string1,"MTK") != NULL) ||
         (strstr(string1,"dTk") != NULL) || (strstr(string1,"DTk") != NULL) || (strstr(string1,"DTK") != NULL)) {
       ppt->has_density_transfers=_TRUE_;
@@ -1546,6 +1555,14 @@ int input_init(
 
   }
 
+  /* CLASS can only compute nonlinear corrections for density. The kSZ power spectrum,
+  however, is obtained from both density and velocity power spectra. Therefore, when
+  nonlinear corrections are requested, the non-linear velocity power spectrum is derived
+  from the non-linear density power spectrum using the linear relation v=delta*a'*f/k. */
+  if ((pnl->method != nl_none) && (ppt->has_pk_ksz == _TRUE_)) {
+    psp->use_linear_velocity_in_ksz = _TRUE_;
+  }
+
   /** (g) amount of information sent to standard output (none if all set to zero) */
 
   class_read_int("background_verbose",
@@ -2145,6 +2162,7 @@ int input_default_params(
 
   psp->z_max_pk = pop->z_pk[0];
   psp->non_diag=0;
+  psp->use_linear_velocity_in_ksz=_FALSE_;
 
   /** - nonlinear structure */
 
