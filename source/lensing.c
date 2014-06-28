@@ -231,6 +231,11 @@ int lensing_init(
       w8[index_mu] = sin(theta)*delta_theta; /* We integrate on mu */
     }
   }
+  
+  /* Debug - print out the node values */
+  // for (int index_mu=0; index_mu < num_mu; ++index_mu) {
+  //   fprintf (stderr, "%17d %17g\n", index_mu, mu[index_mu]);
+  // }
 
   /** - compute d^l_mm'(mu) */
 

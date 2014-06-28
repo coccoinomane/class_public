@@ -206,11 +206,13 @@ void* class_protect_memcpy(void* dest, void* from, size_t sz);
 #define class_test_permissive(condition, error_message_output, args...) {                                        \
   if (condition) {                                                                                               \
     class_test_message(error_message_output,#condition, args);                                                   \
+    printf ("%s", error_message_output);                                                                         \
   }                                                                                                              \
 }
 
 #define class_test_lazy(condition, error_message_output, args...) {                                              \
   class_test_message(error_message_output,#condition, args);                                                     \
+  printf ("%s", error_message_output);                                                                           \
 }
 
 #define class_test_parallel(condition, error_message_output, args...) {                                          \

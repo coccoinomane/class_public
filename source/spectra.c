@@ -606,12 +606,14 @@ int spectra_any_pk_at_k_and_z(
                     sizeof(double)*psp->ic_ic_size[index_md]*psp->ln_k_size,
                     psp->error_message);
       }
-      class_call(spectra_pk_at_z(pba,
+      
+      class_call(spectra_any_pk_at_z(pba,
                                  psp,
                                  linear,
                                  z,
                                  spectrum_at_z,
-                                 spectrum_at_z_ic),
+                                 spectrum_at_z_ic,
+                                 index_pk),
                  psp->error_message,
                  psp->error_message);
 
@@ -677,12 +679,13 @@ int spectra_any_pk_at_k_and_z(
                   sizeof(double)*psp->ic_ic_size[index_md]*psp->ln_k_size,
                   psp->error_message);
     }
-    class_call(spectra_pk_at_z(pba,
+    class_call(spectra_any_pk_at_z(pba,
                                psp,
                                logarithmic,
                                z,
                                spectrum_at_z,
-                               spectrum_at_z_ic),
+                               spectrum_at_z_ic,
+                               index_pk),
                psp->error_message,
                psp->error_message);
 
@@ -961,11 +964,12 @@ int spectra_any_pk_nl_at_k_and_z(
               psp->ln_k_size*sizeof(double),
               psp->error_message);
 
-  class_call(spectra_pk_nl_at_z(pba,
-                                psp,
-                                logarithmic,
-                                z,
-                                spectrum_at_z),
+  class_call(spectra_any_pk_nl_at_z(pba,
+                                    psp,
+                                    logarithmic,
+                                    z,
+                                    spectrum_at_z,
+                                    index_pk),
              psp->error_message,
              psp->error_message);
 
@@ -1409,7 +1413,7 @@ int spectra_init(
 
     if (psp->pk_size > 0) {
 
-      class_call(spectra_pk(pba,ppt,ppm,pnl,psp),
+      class_call(spectra_pk(ppr,pba,ppt,ppm,pnl,psp),
                  psp->error_message,
                  psp->error_message);
 
@@ -2770,6 +2774,7 @@ int spectra_k_and_tau(
  */
 
 int spectra_pk(
+               struct precision * ppr,
                struct background * pba,
                struct perturbs * ppt,
                struct primordial * ppm,
@@ -2845,13 +2850,13 @@ int spectra_pk(
   
   if ((psp->has_pk_ksz_parallel == _TRUE_) || (psp->has_pk_ksz_perpendicular == _TRUE_)) {
 
-    class_call(spectra_pk_ksz(pba,ppt,ppm,pnl,psp,_FALSE_),
+    class_call(spectra_pk_ksz(ppr,pba,ppt,ppm,pnl,psp,_FALSE_),
                psp->error_message,
                psp->error_message);
                
     if (pnl->method != nl_none) {
 
-      class_call(spectra_pk_ksz(pba,ppt,ppm,pnl,psp,_TRUE_),
+      class_call(spectra_pk_ksz(ppr,pba,ppt,ppm,pnl,psp,_TRUE_),
                  psp->error_message,
                  psp->error_message);
     }
@@ -3175,7 +3180,211 @@ int spectra_pk_ksz_sampling (
  * @return the error status
  */
 
+// int spectra_pk_ksz (
+//                struct precision * ppr,
+//                struct background * pba,
+//                struct perturbs * ppt,
+//                struct primordial * ppm,
+//                struct nonlinear * pnl,
+//                struct spectra * psp,
+//                int non_linear
+//                )
+// {
+//
+//   /* Are we computing the linear or non-linear power spectrum? */
+//
+//   double ** pk_array;
+//
+//   if (non_linear == _FALSE_) {
+//
+//     pk_array = psp->ln_pk;
+//
+//     if (psp->spectra_verbose > 0) {
+//       printf (" -> computing linear kSZ power spectra ");
+//       if (psp->use_linear_velocity_in_ksz == _TRUE_)
+//         printf ("using linear velocities");
+//       printf ("\n");
+//     }
+//   }
+//   else {
+//
+//     pk_array = psp->ln_pk_nl;
+//
+//     if (psp->spectra_verbose > 0) {
+//       printf (" -> computing non-linear kSZ power spectra ");
+//       if (psp->use_linear_velocity_in_ksz == _TRUE_)
+//         printf ("using linear velocities");
+//       printf ("\n");
+//     }
+//   }
+//
+//   // =====================================================================================
+//   // =                                   Checks & memory                                 =
+//   // =====================================================================================
+//
+//   /* For the time being, we only support adiabatic initial conditions */
+//   int ic_ic_size = psp->ic_ic_size[ppt->index_md_scalars];
+//
+//   class_test ((ic_ic_size != 1) || (ppt->has_ad == _FALSE_),
+//     psp->error_message,
+//     "for the time being, the kSZ power spectra can be computed only for adiabiatic initial conditions.");
+//
+//   /* Temporary arrays */
+//   double * junk;
+//   class_alloc (junk, ic_ic_size*sizeof(double), psp->error_message);
+//
+//   // =====================================================================================
+//   // =                                 Integration weights                               =
+//   // =====================================================================================
+//
+//   /* Determine trapezoidal weights for the k1 integration (the factor 1/2 is included later) */
+//   double * delta_k1;
+//   class_alloc (delta_k1, ppt->k_size*sizeof(double), psp->error_message);
+//
+//   delta_k1[0] = ppt->k[1] - ppt->k[0];
+//
+//   for (int index_k1=1; index_k1<(ppt->k_size-1); ++index_k1)
+//     delta_k1[index_k1] = ppt->k[index_k1 + 1] - ppt->k[index_k1 - 1];
+//
+//   delta_k1[ppt->k_size-1] = ppt->k[ppt->k_size-1] - ppt->k[ppt->k_size-2];
+//
+//   // =====================================================================================
+//   // =                                    Compute P_KSZ(K)                               =
+//   // =====================================================================================
+//
+//   /* Loop over the redshift slices where we need P(k) */
+//   for (int index_tau=0; index_tau < psp->ln_tau_size; ++index_tau) {
+//
+//     /* Extract background values for this time */
+//     double tau = ppt->tau_sampling[(ppt->tau_size-psp->ln_tau_size) + index_tau];
+//
+//     double * pvecback;
+//     class_alloc(pvecback, pba->bg_size*sizeof(double), psp->error_message);
+//     int dump;
+//
+//     class_call(background_at_tau(pba,
+//                                  tau,
+//                                  pba->long_info,
+//                                  pba->inter_normal,
+//                                  &dump,
+//                                  pvecback),
+//                pba->error_message,
+//                psp->error_message);
+//
+//     double a_prime = pvecback[pba->index_bg_a] * pvecback[pba->index_bg_H];
+//     double f = pvecback[pba->index_bg_f];
+//     double z = 1/pvecback[pba->index_bg_a]-1;
+//
+//     /* Show considered redshift and the factor that converts P_vv into P_delta_delta */
+//     if (psp->spectra_verbose > 0)
+//       printf ("     * considering z = %g, (a_prime*f)^2 = %g\n", z, pow(a_prime*f,2));
+//
+//     /* Parallelization variables */
+//     long int counter = 0;
+//     int abort = _FALSE_;
+//
+//     #pragma omp parallel for schedule(dynamic) shared(abort)
+//     for (int index_k=0; index_k < psp->ln_k_size; ++index_k) {
+//
+//       double k = ppt->k[index_k];
+//       double k_sq = k*k;
+//       int index_k_tau_ic = (index_tau * psp->ln_k_size + index_k)*ic_ic_size + 0;
+//
+//       if (psp->spectra_verbose > 1)
+//         printf ("     \\ considering k=%g (%d/%d)\n", k, index_k+1, psp->ln_k_size);
+//
+//       /* Initialise the integral for this k-value to zero */
+//       double integral_parallel = 0;
+//       double integral_perpendicular = 0;
+//
+//       /* As an internal check, we shall compute the support of the integral */
+//       double volume = 0;
+//
+//       for (int index_k1=0; index_k1 < psp->ln_k_size; ++index_k1) {
+//
+//         double k1 = ppt->k[index_k1];
+//         double k1_sq = k1*k1;
+//         double k_times_k1 = k*k1;
+//         double k1_over_k = k1/k;
+//
+//         /* Uncomment to restrict to squeezed configurations */
+//         // if (k < 10*k1)
+//         //   continue;
+//
+//         /* Find power spectra in k1, taking into account that the auto-spectra density-density
+//         and velocity-velocity are stored logarithmically */
+//         int index_k1_tau_ic = (index_tau * psp->ln_k_size + index_k1)* ic_ic_size + 0;
+//         double P_k1_dd = exp(pk_array[psp->index_pk_delta_delta][index_k1_tau_ic]);
+//         double P_k1_dv = fabs(pk_array[psp->index_pk_delta_theta][index_k1_tau_ic])/k1;
+//         double P_k1_vv = exp(pk_array[psp->index_pk_theta_theta][index_k1_tau_ic])/(k1*k1);
+//
+//         if (psp->spectra_verbose > 2)
+//           printf ("      \\ considering k1=%g (%d/%d)\n", k1, index_k1+1, psp->ln_k_size);
+//
+//
+//
+//
+//       } // end of for(k1)
+//
+//       /* Include factors:
+//        * 1/(2*pi)^3 from integral measure
+//        * 2*pi from azimuthal integration.
+//       If using the linear approximation for the velocity, include also the
+//       'a_dot^2 * f^2' factor from formula (Eq. 7 of Ma & Fry 2002). */
+//       double factor = 1/pow(2*_PI_,2);
+//       if (psp->use_linear_velocity_in_ksz == _TRUE_)
+//         factor *= pow(a_prime*f,2);
+//       integral_parallel *= factor;
+//       integral_perpendicular *= factor;
+//
+//       /* Take the logarithm of the power spectrum */
+//       pk_array[psp->index_pk_ksz_parallel][index_k_tau_ic] = log (integral_parallel);
+//       pk_array[psp->index_pk_ksz_perpendicular][index_k_tau_ic] = log (integral_perpendicular);
+//
+//       /* Debug - show final integral */
+//       // if (index_k==2) {
+//       //   printf ("k=%g, integral_parallel=%g, integral_perpendicular=%g, factor=%g\n",
+//       //     k, integral_parallel, integral_perpendicular, factor
+//       //   );
+//       // }
+//
+//       /* Check that the volume weight is equal to the support of the integral.
+//       Ideally, the ratio between the actual and numerical volume should match well until
+//       k<<k_max. After that, the numerical volume curve should decrese until it reaches
+//       half the value of the actual volume for k=k_max. This happens because we integrate
+//       over a cube rather than over the triangular domain, such as the one determined
+//       by k,k1,k2. */
+//       double k_min = ppt->k[0];
+//       double k_max = ppt->k[ppt->k_size-1];
+//       double expected_volume = -k*k + 2*k*k_max - k_min*k_min;
+//       double ratio = volume/expected_volume;
+//       double diff = 1-ratio;
+//       class_test_permissive (fabs(diff)>=0.55,
+//         psp->error_message,
+//         "did not recover expected volume for k=%6g: volume=%g, expected=%g, diff=%g, ratio=%g\n",
+//         k, expected_volume, volume, diff, volume/expected_volume
+//       );
+//
+//       /* Debug - print the volume factors. To check that everything is ok, plot with
+//       set log x; set log y; plot "volume_ratio.txt" u 1:3 w li, "" u 1:4 w li
+//       The two curves should match well until k~k_max/2 (see comment above). */
+//       fprintf (stderr, "%17g %17g %17g %17g %17g\n", k, volume/expected_volume, volume, expected_volume, diff);
+//
+//     } if (abort == _TRUE_) return _FAILURE_; // end of for(k) and of parallel region
+//
+//     free (pvecback);
+//
+//   } // end of for(tau)
+//
+//   free (delta_k1);
+//   free (junk);
+//
+//   return _SUCCESS_;
+//
+// }
+
 int spectra_pk_ksz (
+               struct precision * ppr,
                struct background * pba,
                struct perturbs * ppt,
                struct primordial * ppm,
@@ -3184,7 +3393,7 @@ int spectra_pk_ksz (
                int non_linear
                )
 {
-    
+
   /* Are we computing the linear or non-linear power spectrum? */
 
   double ** pk_array;
@@ -3210,15 +3419,15 @@ int spectra_pk_ksz (
         printf ("using linear velocities");
       printf ("\n");
     }
-  }  
-    
+  }
+
   // =====================================================================================
   // =                                   Checks & memory                                 =
   // =====================================================================================
 
   /* For the time being, we only support adiabatic initial conditions */
   int ic_ic_size = psp->ic_ic_size[ppt->index_md_scalars];
-  
+
   class_test ((ic_ic_size != 1) || (ppt->has_ad == _FALSE_),
     psp->error_message,
     "for the time being, the kSZ power spectra can be computed only for adiabiatic initial conditions.");
@@ -3226,29 +3435,29 @@ int spectra_pk_ksz (
   /* Temporary arrays */
   double * junk;
   class_alloc (junk, ic_ic_size*sizeof(double), psp->error_message);
-  
+
   // =====================================================================================
   // =                                 Integration weights                               =
   // =====================================================================================
-    
+
   /* Determine trapezoidal weights for the k1 integration (the factor 1/2 is included later) */
   double * delta_k1;
   class_alloc (delta_k1, ppt->k_size*sizeof(double), psp->error_message);
 
   delta_k1[0] = ppt->k[1] - ppt->k[0];
-  
+
   for (int index_k1=1; index_k1<(ppt->k_size-1); ++index_k1)
     delta_k1[index_k1] = ppt->k[index_k1 + 1] - ppt->k[index_k1 - 1];
-  
+
   delta_k1[ppt->k_size-1] = ppt->k[ppt->k_size-1] - ppt->k[ppt->k_size-2];
-  
+
   // =====================================================================================
   // =                                    Compute P_KSZ(K)                               =
   // =====================================================================================
 
   /* Loop over the redshift slices where we need P(k) */
   for (int index_tau=0; index_tau < psp->ln_tau_size; ++index_tau) {
-    
+
     /* Extract background values for this time */
     double tau = ppt->tau_sampling[(ppt->tau_size-psp->ln_tau_size) + index_tau];
 
@@ -3265,7 +3474,7 @@ int spectra_pk_ksz (
                pba->error_message,
                psp->error_message);
 
-    double a_prime = pvecback[pba->index_bg_a] * pvecback[pba->index_bg_H]; 
+    double a_prime = pvecback[pba->index_bg_a] * pvecback[pba->index_bg_H];
     double f = pvecback[pba->index_bg_f];
     double z = 1/pvecback[pba->index_bg_a]-1;
 
@@ -3295,7 +3504,7 @@ int spectra_pk_ksz (
       double volume = 0;
 
       for (int index_k1=0; index_k1 < psp->ln_k_size; ++index_k1) {
-    
+
         double k1 = ppt->k[index_k1];
         double k1_sq = k1*k1;
         double k_times_k1 = k*k1;
@@ -3314,87 +3523,221 @@ int spectra_pk_ksz (
 
         if (psp->spectra_verbose > 2)
           printf ("      \\ considering k1=%g (%d/%d)\n", k1, index_k1+1, psp->ln_k_size);
-                        
-        /* Find minimum k2 in ppt->k allowed by the triangular condition */
-        double k2_min = fabs(k-k1);
-        int index_k2_min = 0;
-        while ((ppt->k[index_k2_min] < k2_min) && (index_k2_min<ppt->k_size))
-          index_k2_min++;
-        class_test_parallel (index_k2_min >= ppt->k_size,
-          psp->error_message,
-          "it should not happen that k2 is always smaller than |k-k1|");
 
-        /* Find maximum k2 in ppt->k allowed by the triangular condition */                
-        double k2_max = k+k1;
+        /* Find minimum k2 in ppt->k allowed by the triangular condition */
+        double k2_min = MAX (fabs(k-k1), ppt->k[0]);
+        int index_k2_min = 0;
+        while (ppt->k[index_k2_min] < k2_min) index_k2_min++;
+
+        /* Find maximum k2 in ppt->k allowed by the triangular condition */
+        double k2_max = MIN (k + k1, ppt->k[ppt->k_size-1]);
         int index_k2_max = ppt->k_size-1;
-        while ((ppt->k[index_k2_max] > k2_max) && (index_k2_max>=0))
-          index_k2_max--;
-        class_test_parallel (index_k2_max < 0,
-          psp->error_message,
-          "it should not happen that k2 is always bigger than k+k1");
-        
-        /* Number of k2-points in the integration grid for (k,k1) */
-        int k2_size = index_k2_max - index_k2_min + 1;
-        
-        class_test_parallel (k2_size <= 0,
+        while (ppt->k[index_k2_max] > k2_max) index_k2_max--;
+
+        /* Number of k2-points in the grid for this (k,k1) */
+        int n_triangular = index_k2_max - index_k2_min + 1;
+
+        class_test_parallel (n_triangular <= 0,
           psp->error_message,
           "triangular condition should allow at least one value, given by the largest k");
-                
-        /* Let the edges of the k2-interval to extend all the way to the triangular condition limit
-        (given by k2_min and k2_max), making sure it is still within the bounds determined by ppt->k */
-        double k2_min_integration = MIN (ppt->k[index_k2_min], MAX (k2_min, ppt->k[0]));
-        double k2_max_integration = MAX (ppt->k[index_k2_max], MIN (k2_max, ppt->k[ppt->k_size-1]));
 
-        // fprintf ("%16g %16g %16g %16g\n",
-        //   ppt->k[index_k2_min], MAX (k2_min, ppt->k[0]), );
+        /* Make sure that our integration grid includes k2_min and k2_max */
+        double P_k2min_dd, P_k2min_dv, P_k2min_vv;
+        double P_k2max_dd, P_k2max_dv, P_k2max_vv;
 
-        /* Uncomment to use grid points as boundaries of the integration grid */
-        // double k2_min_integration = ppt->k[index_k2_min];
-        // double k2_max_integration = ppt->k[index_k2_max];
+        /* We add two points by hand corresponding to k2_min and k2_max, because they are most
+        probably not part of ppt->k */
+        int k2_size = n_triangular + 2;
+
+        /* Allocate the memory for the k2-grid array */
+        double * k2_extended;
+        class_alloc_parallel (k2_extended, k2_size*sizeof(double), psp->error_message);
+
+        /* Fill the k2-grid making sure to include k2_min and k2_max */
+        k2_extended[0] = k2_min;
+
+        for (int index_k2=0; index_k2 < n_triangular; ++index_k2)
+          k2_extended[index_k2+1] = ppt->k[index_k2_min+index_k2];
+
+        k2_extended[k2_size-1] = k2_max;
+
+        /* Shift the starting point of the array if we included k2_min twice */
+        if (k2_extended[0] == k2_extended[1]) {
+          for (int index_k2=0; index_k2 < (k2_size-1); ++index_k2)
+            k2_extended[index_k2] = k2_extended[index_k2+1];
+          k2_size--;
+        }
+
+        /* Decrease the size of the array if we included k2_max twice */
+        if (k2_extended[k2_size-1] == k2_extended[k2_size-2])
+          k2_size--;
+
+        /* Check that k2 has at least two points */
+        class_test_parallel (k2_size<2,
+          psp->error_message,
+          "the k2 integration grid must have at least two values (k=%g,k1=%g,index_k=%d,index_k1=%d,n_values=%d)",
+          k, k1, index_k, index_k1, k2_size);
+
+        /* Check that k2 is strictly ascending */
+        for (int index_k2=0; index_k2<(k2_size-1); ++index_k2)
+          class_test_parallel (k2_extended[index_k2]>=k2_extended[index_k2+1],
+            psp->error_message,
+            "k2 array must be strictly ascending");
 
         /* Determine integration weights for the k2 integration */
         double * delta_k2;
         class_alloc_parallel (delta_k2, k2_size*sizeof(double), psp->error_message);
 
         /* By default, use trapezoidal integration. The factor 1/2 is included later. */
-        if (k2_size > 1) {
+        delta_k2[0] = k2_extended[1] - k2_extended[0];
 
-          delta_k2[0] = ppt->k[index_k2_min+1] - k2_min_integration;
+        /* Make sure that the first and last intervals are extended all the way to the triangular
+        condition limit */
+        for (int index_k2=1; index_k2<=(k2_size-2); ++index_k2)
+          delta_k2[index_k2] = k2_extended[index_k2+1] - k2_extended[index_k2-1];
 
-          /* Make sure that the first and last intervals are extended all the way to the triangular
-          condition limit */
-          for (int index_k2=index_k2_min+1; index_k2<=(index_k2_max-1); ++index_k2)
-            delta_k2[index_k2-index_k2_min] =
-                  (((index_k2+1)==index_k2_max)?k2_max_integration:ppt->k[index_k2+1])
-                - (((index_k2-1)==index_k2_min)?k2_min_integration:ppt->k[index_k2-1]);
-          
-          delta_k2[index_k2_max-index_k2_min] = k2_max_integration - ppt->k[index_k2_max-1];
-        }
-        /* With only one point in the integration grid, use the rectangular rule. This happens
-        when either k>>k1 or k1>>k. Commenting out this check would give a disproportionate weight
-        to these points, so keep it or just set the weight to zero. After all, these are
-        configurations with very small volume associated. The factor 2 compensates the factor 1/2
-        which is added later for the trapezoidal rule */
-        else if (k2_size == 1) {
-          delta_k2[0] = 2*(k2_max_integration - k2_min_integration);
-        }
-        
+        delta_k2[k2_size-1] = k2_extended[k2_size-1] - k2_extended[k2_size-2];
+
+        /* Check that the weights are always positive */
+        for (int index_k2=0; index_k2<k2_size; ++index_k2)
+          class_test_parallel (delta_k2[index_k2]<=0,
+            psp->error_message,
+            "delta_k2 should be strictly positive");
+
         /* Debug - print k2-list for a given k and k1 */
-        // if ((index_k==560) && (index_k1==560)) {
-        //   printf ("~~~ k2-integration grid for (index_k=%d,k=%g,index_k1=%d,k1=%g), size=%d\n",
+        // if ((index_k==500) && (index_k1==500)) {
+        //   printf ("~~~ k2-integration grid for (index_k=%d,k=%g,index_k1=%d,k1=%g), k2_size=%d\n",
         //     index_k, k, index_k1, k1, k2_size);
-        //   for (int index_k2=index_k2_min; index_k2 <= index_k2_max; ++index_k2) {
-        //     printf ("%4d %13.7g %13.7g\n", index_k2, ppt->k[index_k2], delta_k2[index_k2-index_k2_min]);
+        //   for (int index_k2=0; index_k2 < k2_size; ++index_k2) {
+        //     printf ("%4d %13.7g %13.7g\n", index_k2, k2_extended[index_k2], delta_k2[index_k2]);
         //   }
         // }
-                
-        /* Perform integration over k2 (same as integration over mu1 in Ma & Fry 2002).
-        The factors that appear in our formula are:
-         * k1_sq volume factor 
-         * k2/(k*k1) from the change of variable d_mu1 -> d_k2 */
-        for (int index_k2=index_k2_min; index_k2<=index_k2_max; ++index_k2) {
 
-          double k2 = ppt->k[index_k2];
+        /* Determine the value of P(k) at k2 boundaries, using interpolation if needed */
+        if (ppt->k[index_k2_min] == k2_min) {
+
+          /* If we have already computed P(k2_min), take its value from the pre-computed table */
+          int index_k2min_tau_ic = (index_tau * psp->ln_k_size + index_k2_min)* ic_ic_size + 0;
+          P_k2min_dd = exp(pk_array[psp->index_pk_delta_delta][index_k2min_tau_ic]);
+          P_k2min_dv = fabs(pk_array[psp->index_pk_delta_theta][index_k2min_tau_ic])/k2_min;
+          P_k2min_vv = exp(pk_array[psp->index_pk_theta_theta][index_k2min_tau_ic])/(k2_min*k2_min);
+        }
+        else {
+
+          double * dump;
+
+          class_call_parallel(spectra_any_pk_at_k_and_z(pba,
+                                     ppm,
+                                     psp,
+                                     k2_min,
+                                     z,
+                                     &(P_k2min_dd),
+                                     dump,
+                                     psp->index_pk_delta_delta),
+                     psp->error_message,
+                     psp->error_message);
+
+          class_call_parallel(spectra_any_pk_at_k_and_z(pba,
+                                     ppm,
+                                     psp,
+                                     k2_min,
+                                     z,
+                                     &(P_k2min_dv),
+                                     dump,
+                                     psp->index_pk_delta_theta),
+                     psp->error_message,
+                     psp->error_message);
+
+          class_call_parallel(spectra_any_pk_at_k_and_z(pba,
+                                     ppm,
+                                     psp,
+                                     k2_min,
+                                     z,
+                                     &(P_k2min_vv),
+                                     dump,
+                                     psp->index_pk_theta_theta),
+                     psp->error_message,
+                     psp->error_message);
+
+          /* We will need to access the power spectrum at the node values. We shall do so by
+          indexing the power spectrum array as pk_array[index_k2_min+index_k2]. The index
+          'index_k2_min' however needs to be updated to reflect the fact that we have
+          prependend a point to the k2 integration grid (k2_extended).
+          Since we have prependend such point, index_k2=0 does not correspond to a values stored in
+          pk_array. The first value stored in pk_array corresponds to index_k2=1. Therefore, we need to
+          decrement the offset index_k2_min. */
+          index_k2_min--;
+
+          /* Debug - show how wrong it would be to assume P(k) does not vary */
+          // int index_k2min_tau_ic = (index_tau * psp->ln_k_size + index_k2_min)* ic_ic_size + 0;
+          // double P_k2min_dd_in_pptk = exp(pk_array[psp->index_pk_delta_delta][index_k2min_tau_ic]);
+          // printf ("(k,k1)=(%7.3g,%7.3g): P_k2min_dd=%g, P_k2min_dd_in_pptk=%g, diff=%g\n",
+          //   k, k1, P_k2min_dd, P_k2min_dd_in_pptk, 1-P_k2min_dd/P_k2min_dd_in_pptk);
+
+        }
+
+        if (ppt->k[index_k2_max] == k2_max) {
+
+          int index_k2max_tau_ic = (index_tau * psp->ln_k_size + index_k2_max)* ic_ic_size + 0;
+          P_k2max_dd = exp(pk_array[psp->index_pk_delta_delta][index_k2max_tau_ic]);
+          P_k2max_dv = fabs(pk_array[psp->index_pk_delta_theta][index_k2max_tau_ic])/k2_max;
+          P_k2max_vv = exp(pk_array[psp->index_pk_theta_theta][index_k2max_tau_ic])/(k2_max*k2_max);
+        }
+        else {
+
+          double * dump;
+
+          class_call_parallel(spectra_any_pk_at_k_and_z(pba,
+                                     ppm,
+                                     psp,
+                                     k2_max,
+                                     z,
+                                     &(P_k2max_dd),
+                                     dump,
+                                     psp->index_pk_delta_delta),
+                     psp->error_message,
+                     psp->error_message);
+
+          class_call_parallel(spectra_any_pk_at_k_and_z(pba,
+                                     ppm,
+                                     psp,
+                                     k2_max,
+                                     z,
+                                     &(P_k2max_dv),
+                                     dump,
+                                     psp->index_pk_delta_theta),
+                     psp->error_message,
+                     psp->error_message);
+
+          class_call_parallel(spectra_any_pk_at_k_and_z(pba,
+                                     ppm,
+                                     psp,
+                                     k2_max,
+                                     z,
+                                     &(P_k2max_vv),
+                                     dump,
+                                     psp->index_pk_theta_theta),
+                     psp->error_message,
+                     psp->error_message);
+
+        }
+
+        /* Check there is no monkey business going on */
+        class_test_parallel (
+          isnan(P_k2min_dd)||isnan(P_k2min_dv)||isnan(P_k2min_vv)
+          ||isnan(P_k2max_dd)||isnan(P_k2max_dv)||isnan(P_k2max_vv),
+          psp->error_message,
+          "found nan");
+
+        class_test_parallel (
+          (P_k2min_dd<0) || (P_k2min_vv<0) ||(P_k2max_dd<0) || (P_k2max_vv<0),
+          psp->error_message,
+          "found a negative auto-correlation power spectrum");
+
+        /* Perform integration over k2 (same as integration over mu1 in Ma & Fry 2002) */
+        for (int index_k2=0; index_k2<k2_size; ++index_k2) {
+
+          double k2 = k2_extended[index_k2];
           double k2_sq = k2*k2;
           double k_times_k2 = k*k2;
           double mu1 = (k_sq + k1_sq - k2*k2)/(2*k_times_k1);
@@ -3402,29 +3745,56 @@ int spectra_pk_ksz (
           double mu1_sq = mu1*mu1;
           double mu2_sq = mu2*mu2;
 
-          /* Measure of the integral */
+          /* Measure of the integral. This comes form the k1_sq volume factor
+          and from the k2/(k*k1) factor from the change of variable d_mu1 -> d_k2 */
           double measure = (k1*k2)/k;
 
           if (psp->spectra_verbose > 3)
-            printf ("       \\ considering k2=%g (%d/%d)\n", k2, index_k2-index_k2_min+1, k2_size);
+            printf ("       \\ considering k2=%g (%d/%d)\n", k2, index_k2, k2_size-1);
 
-          /* Check that the cosine of the angle between k and k1 is within bounds */
-          class_test_parallel ((fabs(mu1)>1) || (fabs(mu2)>1),
+          /* Check that the cosine of the angle between k and k1 is within bounds. Round-up error
+          might trigger this check, therefore we define a high tolerance */
+          double tolerance = 0.1;
+          class_test_parallel (((fabs(mu1)-1)>tolerance) || ((fabs(mu2)-1)>tolerance),
             psp->error_message,
-            "triangular condition violated for k=%g, k1=%g, k2=%g, mu1=%.20g\n",
-            k, k1, k2, mu1);
+            "triangular condition violated for k=%g, k1=%g, k2=%g, mu1=%.20g, mu2=%.20g\n",
+            k, k1, k2, mu1, mu2);
 
-          /* Find power spectra in k2, taking into account that the auto-spectra density-density
-          and velocity-velocity are stored logarithmically */
-          int index_k2_tau_ic = (index_tau * psp->ln_k_size + index_k2)* ic_ic_size + 0;
-          double P_k2_dd = exp(pk_array[psp->index_pk_delta_delta][index_k2_tau_ic]);
-          double P_k2_dv = fabs(pk_array[psp->index_pk_delta_theta][index_k2_tau_ic])/k2;
-          double P_k2_vv = exp(pk_array[psp->index_pk_theta_theta][index_k2_tau_ic])/(k2*k2);
+          /* Value of the power spectra in k2 */
+          double P_k2_dd, P_k2_dv, P_k2_vv;
+
+          /* The first and last values of k2 are already known from above */
+          if (index_k2 == 0) {
+
+            P_k2_dd = P_k2min_dd;
+            P_k2_dv = P_k2min_dv;
+            P_k2_vv = P_k2min_vv;
+          }
+          else if (index_k2 == (k2_size-1)) {
+
+            P_k2_dd = P_k2max_dd;
+            P_k2_dv = P_k2max_dv;
+            P_k2_vv = P_k2max_vv;
+          }
+          /* The power spectrum for the middle points of k2 can be directly extracted from the
+          precomputed table of P(k). Note that P_dd and P_vv are stored logarithmically */
+          else {
+
+            int index_k2_tau_ic = (index_tau * psp->ln_k_size + (index_k2_min+index_k2))* ic_ic_size + 0;
+            P_k2_dd = exp(pk_array[psp->index_pk_delta_delta][index_k2_tau_ic]);
+            P_k2_dv = fabs(pk_array[psp->index_pk_delta_theta][index_k2_tau_ic])/k2;
+            P_k2_vv = exp(pk_array[psp->index_pk_theta_theta][index_k2_tau_ic])/(k2*k2);
+          }
+
+          /* Debug - print value of power spectra */
+          // if ((index_k==500) && (index_k1==500))
+          //   printf ("%10d %17g %17g %17g\n", index_k2, k2, delta_k2[index_k2], P_k2_dd);
+
 
           // --------------------------------------------------------------------------------
           // -                              Build the integrand                             -
           // --------------------------------------------------------------------------------
-          
+
           double Pk1_Pk2_direct=0, Pk1_Pk2_cross=0;
           double integrand_parallel=0, integrand_perpendicular=0;
 
@@ -3461,12 +3831,12 @@ int spectra_pk_ksz (
 
             /* We obtain the convolution kernels is a slightly different way than eq. 7
             of Ma & Fry, because we explicitly use k2. The result should not change. */
-            // kernel_parallel = (mu1_sq * (k2_sq-k1_sq) + k*k1*mu1) / (k1_sq*k2_sq);
-            // kernel_perpendicular = (1-mu1_sq) * (k2_sq-k1_sq) / (k1_sq*k2_sq);
+            kernel_parallel = (mu1_sq * (k2_sq-k1_sq) + k*k1*mu1) / (k1_sq*k2_sq);
+            kernel_perpendicular = (1-mu1_sq) * (k2_sq-k1_sq) / (k1_sq*k2_sq);
 
             /* Uncomment to use Ma & Fry eq. 7, instead. */
-            kernel_parallel = (k*mu1*(k*mu1-2*k1*mu1_sq+k1)) / (k1_sq*k2_sq);
-            kernel_perpendicular = ((1-mu1_sq) * (k*(k-2*k1*mu1))) / (k1_sq*k2_sq);
+            // kernel_parallel = (k*mu1*(k*mu1-2*k1*mu1_sq+k1)) / (k1_sq*k2_sq);
+            // kernel_perpendicular = ((1-mu1_sq) * (k*(k-2*k1*mu1))) / (k1_sq*k2_sq);
 
             /* Uncomment to call the functions instead. Slightly slower, but performs various checks */
             // class_call_parallel (kernel_ksz_parallel (k, k1, mu1, &kernel_parallel, psp->error_message),
@@ -3480,9 +3850,9 @@ int spectra_pk_ksz (
             integrand_perpendicular = measure * Pk1_Pk2_direct * kernel_perpendicular;
 
           } // end of if(use_linear_velocity_in_ksz)
-          
+
           /* Increment the integral, including the interpolation weights */
-          double volume_weight = 0.25 * delta_k1[index_k1] * delta_k2[index_k2-index_k2_min];
+          double volume_weight = 0.25 * delta_k1[index_k1] * delta_k2[index_k2];
 
           #pragma omp atomic
           integral_parallel += integrand_parallel * volume_weight;
@@ -3496,7 +3866,15 @@ int spectra_pk_ksz (
           /* Increment the total volume weight, for debugging purpose */
           #pragma omp atomic
           volume += volume_weight;
-    
+
+          class_test_parallel (isnan(integrand_parallel) || isnan(integrand_perpendicular),
+            psp->error_message,
+            "found nan in integrand function");
+
+          class_test_parallel (isnan(volume_weight),
+            psp->error_message,
+            "found nan in volume weight");
+
           /* Debug - print the contribution to the integral */
           // if ((index_k==0) && (index_k1==560)) {
           //   if (index_k2==index_k2_min)
@@ -3508,11 +3886,12 @@ int spectra_pk_ksz (
           //     integral_parallel, integral_perpendicular
           //   );
           // }
-          
+
         } // end of for(k2)
-        
+
+        free (k2_extended);
         free (delta_k2);
-                
+
       } // end of for(k1)
 
       /* Include factors:
@@ -3529,32 +3908,40 @@ int spectra_pk_ksz (
       /* Take the logarithm of the power spectrum */
       pk_array[psp->index_pk_ksz_parallel][index_k_tau_ic] = log (integral_parallel);
       pk_array[psp->index_pk_ksz_perpendicular][index_k_tau_ic] = log (integral_perpendicular);
-      
+
       /* Debug - show final integral */
       // if (index_k==2) {
       //   printf ("k=%g, integral_parallel=%g, integral_perpendicular=%g, factor=%g\n",
       //     k, integral_parallel, integral_perpendicular, factor
       //   );
       // }
-      
-      /* Check that the volume weight is equal to the support of the integral */
+
+      /* Check that the volume weight is equal to the support of the integral.
+      Ideally, the ratio between the actual and numerical volume should match well until
+      k<<k_max. After that, the numerical volume curve should decrese until it reaches
+      half the value of the actual volume for k=k_max. This happens because we integrate
+      over a cube rather than over the triangular domain, such as the one determined
+      by k,k1,k2. */
       double k_min = ppt->k[0];
       double k_max = ppt->k[ppt->k_size-1];
       double expected_volume = -k*k + 2*k*k_max - k_min*k_min;
-      double diff = 1-volume/expected_volume;
-      // class_test_lazy (fabs(diff)<0.01,
-      //   psp->error_message,
-      //   "did not recover expected volume for k=%6g: volume=%g, expected=%g, diff=%g\n",
-      //   k, expected_volume, volume, diff
-      // );
-      // printf ("k=%17g: volume=%17g, expected=%17g, frac=%17g, diff=%17g\n",
-      //   k, volume, expected_volume, volume/expected_volume, diff);
+      double ratio = volume/expected_volume;
+      double diff = 1-ratio;
+      class_test_permissive (fabs(diff)>=0.55,
+        psp->error_message,
+        "did not recover expected volume for k=%6g: volume=%g, expected=%g, diff=%g, ratio=%g\n",
+        k, expected_volume, volume, diff, volume/expected_volume
+      );
+
+      /* Debug - print the volume factors. To check that everything is ok, plot with
+      set log x; set log y; plot "volume_ratio.txt" u 1:3 w li, "" u 1:4 w li
+      The two curves should match well until k~k_max/2 (see comment above). */
       fprintf (stderr, "%17g %17g %17g %17g %17g\n", k, volume/expected_volume, volume, expected_volume, diff);
-      
-    } if (abort == _TRUE_) break; // end of for(k) and of parallel region
-    
+
+    } if (abort == _TRUE_) return _FAILURE_; // end of for(k) and of parallel region
+
     free (pvecback);
-    
+
   } // end of for(tau)
 
   free (delta_k1);

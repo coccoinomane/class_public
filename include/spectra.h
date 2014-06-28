@@ -5,6 +5,15 @@
 
 #include "transfer.h"
 
+/* The kSZ power spectra are obtained as a convolution over three wavemodes
+(k,k1,k2) whereby k2 has to be in the range |k-k1|<=k2<=k+k1. When k2 is too close
+to the boundaries, numerical instabilities might arise such as nan's or larger than one
+sines and cosines. In order to avoid that, we define here a safety distance between
+k2 and the bounds. This safety distance is going to correspond to the largest scale
+probed by CLASS. For a very conservative value of k_scalar_min_tau0=1e-3, this corresponds
+to k_min=1e-7. */
+#define _MIN_K_DISTANCE_ 1e-8
+
 /**
  * Structure containing everything about anisotropy and Fourier power spectra that other modules need to know.
  *
@@ -431,6 +440,7 @@ extern "C" {
                         );
 
   int spectra_pk(
+                 struct precision * ppr,
                  struct background * pba,
                  struct perturbs * ppt,
                  struct primordial * ppm,
@@ -453,6 +463,7 @@ extern "C" {
         );
 
   int spectra_pk_ksz(
+        struct precision * ppr,
         struct background * pba,
         struct perturbs * ppt,
         struct primordial * ppm,
