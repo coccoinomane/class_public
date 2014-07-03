@@ -8,6 +8,13 @@
 
 typedef char FileArg[_ARGUMENT_LENGTH_MAX_];
 
+/* Option for the function 'parser_add_entry' */
+enum entry_operation {
+  REPLACE = 0,
+  APPEND = 1,
+  RAISE = 2
+};
+
 /* after reading a given file, all relevant information stored in this structure, in view of being processed later*/
 struct file_content {
   char * filename;
@@ -15,6 +22,7 @@ struct file_content {
   FileArg * name;  /**< list of (size) names */
   FileArg * value; /**< list of (size) values */
   short * read;    /**< set to _TRUE_ if this parameter is effectively read */
+  short * overwritten;    /**< set to _TRUE_ if this parameter has been overwritten  */
 };
 
 /**************************************************************/
@@ -117,6 +125,50 @@ int parser_cat(
 	       struct file_content * pfc3,
 	       ErrorMsg errmsg
 	       );
+         
+int parser_add_entry (
+        struct file_content * pfc,
+        char * name,
+        char * value,
+        enum entry_operation what_to_do,
+        int * index,
+        ErrorMsg errmsg
+        );
+         
+int parser_create_or_replace_entry (
+        struct file_content * pfc,
+        char * name,
+        char * value,
+        int * found,
+        ErrorMsg errmsg
+        );
+        
+int parser_create_or_append_to_entry (
+        struct file_content * pfc,
+        char * name,
+        char * value,
+        int * found,
+        ErrorMsg errmsg
+        );
+                 
+int parser_overwrite_entry (
+		    struct file_content * pfc,
+		    char * name,
+		    char * new_value,
+        int * found,
+		    ErrorMsg errmsg
+		    );
+
+int parser_remove_entry (
+        struct file_content * pfc,
+        char * name,
+        int * found,
+        ErrorMsg errmsg
+        );
+
+int parser_print (
+        struct file_content * pfc
+        );
 
 #ifdef __cplusplus
 }

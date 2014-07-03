@@ -50,7 +50,7 @@ int parser_read_file(
 int parser_init(
 		struct file_content * pfc,
 		int size,
-        char * filename,
+    char * filename,
 		ErrorMsg errmsg
 		) {
 
@@ -61,6 +61,7 @@ int parser_init(
     class_alloc(pfc->name,size*sizeof(FileArg),errmsg);
     class_alloc(pfc->value,size*sizeof(FileArg),errmsg);
     class_alloc(pfc->read,size*sizeof(short),errmsg);
+    class_alloc(pfc->overwritten,size*sizeof(short),errmsg);
   }
 
   return _SUCCESS_;
@@ -74,6 +75,7 @@ int parser_free(
     free(pfc->name);
     free(pfc->value);
     free(pfc->read);
+    free(pfc->overwritten);
     free(pfc->filename);
   }
 
@@ -675,3 +677,396 @@ int parser_cat(
   return _SUCCESS_;
 
 }
+
+/**
+ * Add one entry to the input file_content structure. 
+ *
+ * If the entry already exists, store its index in 'index' and act
+ * accordingly to the option 'what_to_do', which can be one of the
+ * following:
+ * - REPLACE: overwrite entry with the provided value.
+ * - APPEND: append to the existing value the provided one.
+ * - RAISE: returns _FAILURE_ with an error message
+ *
+ * If the entry does not exist, the entry will be created, pfc->size
+ * will be incremented by one, and 'index' will refer to the position
+ * of the new entry.
+ */
+
+int parser_add_entry (
+        struct file_content * pfc,
+        char * name,
+        char * value,
+        enum entry_operation what_to_do,
+        int * index,
+        ErrorMsg errmsg
+        )
+{
+
+  /* Make sure the input string is not too long */
+  class_test (strlen(value)>_ARGUMENT_LENGTH_MAX_, errmsg, "string is too long");
+
+  /* Search for the parameter */
+  *index=0;
+  while ((*index < pfc->size) && (strcmp(pfc->name[*index],name) != 0))
+    (*index)++;
+  int found = (*index < pfc->size);
+
+  if (!found) {
+
+    /* If the entry is NOT found, create it and increment the number of entries */      
+    strcpy (pfc->name[pfc->size], name);
+    strcpy (pfc->value[pfc->size], value);
+    pfc->size++;
+    return _SUCCESS_;
+  }
+  else {
+
+    /* If the entry is found, act according to the variable 'what_to_do' */      
+    switch (what_to_do) {
+      
+      case REPLACE:
+        strcpy (pfc->value[*index], value);
+        pfc->overwritten[*index] = _TRUE_;
+        return _SUCCESS_;
+        
+      case APPEND:
+        class_test ((strlen(value)+strlen(pfc->value[*index]))>_ARGUMENT_LENGTH_MAX_, errmsg,
+          "string for name='%s' is too long: original=%d, append=%d, max_length=%d",
+          name, strlen(pfc->value[*index]), strlen(value), _ARGUMENT_LENGTH_MAX_);
+        strcat (pfc->value[*index], value);
+        pfc->overwritten[*index] = _TRUE_;
+        return _SUCCESS_;
+
+      case RAISE:
+        class_stop (errmsg, "parameter '%s' already present in input file structure", name);
+        
+      default:
+        class_stop (errmsg, "option '%d' not contemplated", name);
+    }
+  }
+
+  class_stop (errmsg, "should not be here");
+
+}
+
+
+/**
+ * OBSOLETE, USE 'parser_add_entry' INSTEAD!
+ *
+ * Add one entry to the input file_content structure.
+ *
+ * This function has two behaviours according to the value passed for 'found'.
+ * If 'found' is a NULL pointer and the entry corresponding to 'name' already exists,
+ * print an error message and return _FAILURE_. 
+ * If 'found' is a valid pointer to 'int', overwrite it with either _TRUE_ or _FALSE_
+ * whether the entry was found or not. If the entry is found, overwrite it with
+ * 'value'.
+ */
+int parser_create_or_replace_entry (
+        struct file_content * pfc,
+        char * name,
+        char * value,
+        int * found,
+        ErrorMsg errmsg
+        )
+{
+
+  /* make sure the input string is not too long */
+  class_test (strlen(value)>_ARGUMENT_LENGTH_MAX_, errmsg, "string is too long");
+
+  /* search parameter */
+
+  int index=0;
+  while ((index < pfc->size) && (strcmp(pfc->name[index],name) != 0))
+    index++;
+
+  if (found == NULL) {
+
+    /* if the entry exists and found==NULL, return error */
+    class_test (index < pfc->size,
+      errmsg,
+      "parameter '%s' already present in input file structure", name);
+
+  }
+  else {
+
+    if (index < pfc->size) {
+
+      /* if the entry exists and found!=NULL, overwrite parameter value */
+      *found = _TRUE_;
+      strcpy (pfc->value[index], value);
+      pfc->overwritten[index] = _TRUE_;
+      return _SUCCESS_;
+    }
+    else {
+      *found = _FALSE_;
+    }
+  }
+    
+  /* at this point, we must have index==pfc->size */
+  class_test (index!=pfc->size, errmsg, "should not happen");
+      
+  /* create the new entry and increment the number of parameters */      
+  strcpy (pfc->name[pfc->size], name);
+  strcpy (pfc->value[pfc->size], value);
+  pfc->size++;
+
+  /* if everything proceeded normally, return _SUCCESS_ */
+  return _SUCCESS_;
+
+}
+
+/**
+ * OBSOLETE, USE 'parser_add_entry' INSTEAD!
+ *
+ * Add one entry to the input file_content structure.
+ *
+ * This function has two behaviours according to the value passed for 'found'.
+ * If 'found' is a NULL pointer and the entry corresponding to 'name' already exists,
+ * print an error message and return _FAILURE_. 
+ * If 'found' is a valid pointer to 'int', overwrite it with either _TRUE_ or _FALSE_
+ * whether the entry was found or not. If the entry is found, append the string 'value'
+ * to it.
+ */
+int parser_create_or_append_to_entry (
+        struct file_content * pfc,
+        char * name,
+        char * value,
+        int * found,
+        ErrorMsg errmsg
+        )
+{
+
+  /* make sure the input string is not too long */
+  class_test (strlen(value)>_ARGUMENT_LENGTH_MAX_, errmsg, "string is too long");
+
+  /* search parameter */
+  int index=0;
+  while ((index < pfc->size) && (strcmp(pfc->name[index],name) != 0))
+    index++;
+
+  if (found == NULL) {
+
+    /* if the entry exists and found==NULL, return error */
+    class_test (index < pfc->size,
+      errmsg,
+      "parameter '%s' already present in input file structure", name);
+
+  }
+  else {
+
+    if (index < pfc->size) {
+
+      /* if the entry exists and found!=NULL, append to the current parameter value */
+      *found = _TRUE_;
+      class_test ((strlen(value)+strlen(pfc->value[index]))>_ARGUMENT_LENGTH_MAX_, errmsg,
+        "string for name='%s' is too long: original=%d, append=%d, max_length=%d",
+        name, strlen(pfc->value[index]), strlen(value), _ARGUMENT_LENGTH_MAX_);
+      strcat (pfc->value[index], value);
+      pfc->overwritten[index] = _TRUE_;
+      return _SUCCESS_;
+    }
+    else {
+      *found = _FALSE_;
+    }
+  }
+    
+  /* at this point, we must have index==pfc->size */
+  class_test (index!=pfc->size, errmsg, "should not happen");
+      
+  /* create the new entry and increment the number of parameters */      
+  strcpy (pfc->name[pfc->size], name);
+  strcpy (pfc->value[pfc->size], value);
+  pfc->size++;
+
+  /* if everything proceeded normally, return _SUCCESS_ */
+  return _SUCCESS_;
+
+}
+
+// /**
+//  * Add text to a parameter entry in the input file_content structure.
+//  *
+//  * If 'found' is a NULL pointer and the entry corresponding to 'name' does not exist,
+//  * print an error message. Otherwise, overwrite 'found' with either _TRUE_ or _FALSE_
+//  * whether the entry was found or not, with no error messages. If it is found, append
+//  * 'append_value' to the entry's value, otherwise create it from scratch.
+//  *
+//  */
+// int parser_create_or_append_entry (
+//         struct file_content * pfc,
+//         char * name,
+//         char * append_value,
+//         int * found,
+//         ErrorMsg errmsg
+//         )
+// {
+//
+//   /* search parameter */
+//
+//   int index=0;
+//   while ((index < pfc->size) && (strcmp(pfc->name[index],name) != 0))
+//     index++;
+//
+//   if (found == NULL) {
+//
+//     /* if the entry does not exist and found==NULL, return error */
+//     class_test (index == pfc->size,
+//       errmsg,
+//       "parameter '%s' not present in input file structure", name);
+//
+//   }
+//   else {
+//
+//     if (index == pfc->size) {
+//
+//       /* if the entry does not exist, create it */
+//       *found = _FALSE_;
+//       strcpy (pfc->name[pfc->size], name);
+//       strcpy (pfc->value[pfc->size], append_value);
+//       pfc->size++;
+//       return _SUCCESS_;
+//     }
+//     else {
+//
+//       *found = _TRUE_;
+//     }
+//   }
+//
+//   /* at this point, the entry must exist */
+//   class_test (index >= pfc->size, errmsg, "should not happen");
+//
+//   /* append 'append_value' to the entry */
+//   strcat (pfc->value[pfc->size], append_value);
+//
+//   /* if everything proceeded normally, return _SUCCESS_ */
+//
+//   return _SUCCESS_;
+//
+// }
+
+
+/**
+ * Modify one entry of the input file_content structure.
+ *
+ * This function has two behaviours according to the value passed for 'found'.
+ * If 'found' is a NULL pointer and the entry corresponding to 'name' does no exist,
+ * print an error message and return _FAILURE_. 
+ * If 'found' is a valid pointer to 'int', overwrite it with either _TRUE_ or _FALSE_
+ * whether the entry was found or not. If the entry is found, overwrite it with
+ * 'value'.
+ */
+int parser_overwrite_entry (
+        struct file_content * pfc,
+        char * name,
+        char * new_value,
+        int * found,
+        ErrorMsg errmsg
+        )
+{
+
+  /* make sure the input string is not too long */
+  class_test (strlen(new_value)>_ARGUMENT_LENGTH_MAX_, errmsg, "string is too long");
+
+  /* search parameter */
+  int index=0;
+  while ((index < pfc->size) && (strcmp(pfc->name[index],name) != 0))
+    index++;
+
+  if (found == NULL) {
+    class_test (index == pfc->size,
+      errmsg,
+      "parameter '%s' not found in input file structure", name);
+  }
+  else {
+    if (index < pfc->size) {
+      *found = _TRUE_;
+    }
+    else {
+      *found = _FALSE_;
+      return _SUCCESS_;
+    }
+  }
+
+  /* overwrite parameter value if found. */
+  strcpy (pfc->value[index], new_value);
+
+  /* if parameter overwritten correctly, set the flag 
+  associated with this parameter in the file_content structure */ 
+  pfc->overwritten[index] = _TRUE_;
+
+  /* if everything proceeded normally, return _SUCCESS_ */
+  return _SUCCESS_;
+
+}
+
+
+/**
+ * Remove an entry from the file_content structure.
+ *
+ * This function has two behaviours according to the value passed for 'found'.
+ * If 'found' is a NULL pointer and the entry corresponding to 'name' does not exist,
+ * print an error message and return _FAILURE_. 
+ * If 'found' is a valid pointer to 'int', overwrite it with either _TRUE_ or _FALSE_
+ * whether the entry was found or not. If the entry is found, replace its name with an
+ * empty string, so that it cannot be found by any of the parser functions.
+ */
+int parser_remove_entry (
+        struct file_content * pfc,
+        char * name,
+        int * found,
+        ErrorMsg errmsg
+        )
+{
+
+  /* search parameter */
+  int index=0;
+  while ((index < pfc->size) && (strcmp(pfc->name[index],name) != 0))
+    index++;
+  
+  if (found == NULL) {
+    class_test (index == pfc->size,
+      errmsg,
+      "parameter '%s' not found in input file structure", name);
+  }
+  else {
+    if (index < pfc->size) {
+      *found = _TRUE_;
+    }
+    else {
+      *found = _FALSE_;
+      return _SUCCESS_;
+    }
+  }
+
+  /* removing the entry is equivalent to setting its name to an empty string,
+  so that it will never be found. */
+  strcpy (pfc->name[index], "");
+
+  /* if parameter overwritten correctly, set the flag 
+  associated with this parameter in the file_content structure */ 
+  pfc->overwritten[index] = _TRUE_;
+
+  /* if everything proceeded normally, return _SUCCESS_ */
+  return _SUCCESS_;
+
+}
+
+/** 
+ * Print the content of the parameter structure
+ */
+
+int parser_print (
+        struct file_content * pfc
+        )
+{
+
+  for (int i=0; i < pfc->size; ++i) {
+    printf ("parameter[%25s] = %s\n", pfc->name[i], pfc->value[i]);
+  }
+  
+  return _SUCCESS_;
+
+}
+
