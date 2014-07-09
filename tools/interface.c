@@ -243,7 +243,7 @@ int class_interface_set_param (
     pcr->error_message,
     pcr->error_message);
     
-  if (pcr->class_verbose > 9) {
+  if (pcr->class_verbose > 5) {
     printf (" @  Entry #%d is now '%s = %s'\n",
       index, pcr->params->name[index], pcr->params->value[index]);
   }
@@ -438,10 +438,10 @@ int class_interface_get_cls (
   }
 
   if (pcr->class_verbose > 0)
-  class_test_permissive (l_max > l_max_computed,
-    pcr->error_message,
-    "you asked for C_l(%s) up to l_max=%d, but it was computed only up to l=%d; will set to zero.\n",
-    cl_name, l_max, l_max_computed);
+    class_test_permissive (l_max > l_max_computed,
+      pcr->error_message,
+      "you asked for C_l(%s) up to l_max=%d, but it was computed only up to l=%d; will set to zero.\n",
+      cl_name, l_max, l_max_computed);
   
 
 
@@ -449,7 +449,7 @@ int class_interface_get_cls (
   // =                            Interpolate unlensed C_l                               =
   // =====================================================================================
 
-  if (pcr->class_verbose > 6)
+  if (pcr->class_verbose > 1)
     printf (" @ Extracting C_l(%s) from CLASS\n", cl_name);
 
   /* Array that will contain the interpolated C_l as a function of type and multipole */
@@ -615,7 +615,7 @@ int class_interface_free_data (
   if (pcr->execution_stage < CLS_COMPUTED)
     goto update_and_return;
   
-  if (pcr->class_verbose > 2)
+  if (pcr->class_verbose > 1)
     printf (" @ Freeing CLASS structures\n");
   
   /* Empty substructures in pcr */
@@ -644,7 +644,7 @@ int class_interface_free (
        )
 {
   
-  if ((*ppcr)->class_verbose > 4)
+  if ((*ppcr)->class_verbose > 0)
     printf (" @ Freeing CLASS\n");
 
   /* Empty CLASS structure */
