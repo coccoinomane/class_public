@@ -727,7 +727,7 @@ int input_read_parameters(
       pba->Omega0_ur = param3/pba->h/pba->h;
     }
   }
-
+  
   Omega_tot += pba->Omega0_ur;
 
   /* Omega_0_cdm (CDM) */

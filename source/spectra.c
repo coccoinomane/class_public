@@ -2016,6 +2016,14 @@ int spectra_cls(
                psp->error_message,
                psp->error_message);
   }
+  
+  /* Debug - print first C_l in the list, usually TT */
+  // index_md = ppt->index_md_scalars;
+  // index_ct = psp->index_ct_tt;
+  // for (int index_l=0; index_l < psp->l_size[index_md]; ++index_l) {
+  //   int l = psp->l[index_l];
+  //   printf ("%4d %24.12g\n", l, psp->cl[index_md][index_l*psp->ct_size + index_ct]);
+  // }
 
   return _SUCCESS_;
 

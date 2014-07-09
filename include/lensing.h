@@ -37,6 +37,7 @@ struct lensing {
   int has_bb; /**< do we want C_l^BB ? (B = B-polarization) */
   int has_pp; /**< do we want C_l^phi-phi ? (phi = CMB lensing potential) */
   int has_tp; /**< do we want C_l^T-phi ? */
+  int has_ep; /**< do we want C_l^E-phi ? */
   int has_dd; /**< do we want C_l^d-d ? (d = matter density) */
   int has_td; /**< do we want C_l^T-d ? */
   int has_ll; /**< do we want C_l^l-l ? (l = lensing potential) */
@@ -48,6 +49,7 @@ struct lensing {
   int index_lt_bb; /**< index for type C_l^BB */
   int index_lt_pp; /**< index for type C_l^phi-phi */
   int index_lt_tp; /**< index for type C_l^T-phi */
+  int index_lt_ep; /**< index for type C_l^E-phi */
   int index_lt_dd; /**< index for type C_l^d-d */
   int index_lt_td; /**< index for type C_l^T-d */
   int index_lt_ll; /**< index for type C_l^d-d */

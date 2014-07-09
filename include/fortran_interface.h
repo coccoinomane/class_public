@@ -1,6 +1,8 @@
 #ifndef _FORTRAN_INTERFACE_
 #define _FORTRAN_INTERFACE_
 
+#define _QUADRATURE_RELTOL_BASE_ (1e-5)
+
 #include "class.h"
 
 /* This library is meant to be called by a third party code, possibly written in
@@ -42,16 +44,39 @@ struct class_run {
 
   int structs_are_allocated; /* have CLASS structures been initialised correctly? */
   int params_are_set; /* have the parameters been set to their default values? */
+  int cls_are_ready; /* have the C_l's been computed? */
 
+
+  // ========================================================================
+  // =                       Precision parameters                           =
+  // ========================================================================
+
+  double accuracy_level; /* overall precision of CLASS */
+  double quadrature_reltol; /* relative tolerance for numerical quadrature */
 
   // ========================================================================
   // =                       Technical parameters                           =
   // ========================================================================
 
   ErrorMsg error_message;        /* for error messages */
-  int class_verbose;             /* verbosity level */ 
+  int class_verbose;             /* verbosity level */
 
 };
+
+
+/**************************************************************/
+
+/*
+ * Boilerplate for C++
+ */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// ==========================================================================================
+// =                                      Main functions                                    =
+// ==========================================================================================
+
 
 int class_interface_init (
        struct class_run ** pcr
@@ -61,7 +86,16 @@ int class_interface_free (
        struct class_run * pcr
        );
 
-int class_interface_compute (
+
+// =======================================================================================
+// =                                    Input/output                                     =
+// =======================================================================================
+
+int class_interface_set_precision (
+       struct class_run * pcr
+       );
+
+int class_interface_compute_cls (
        struct class_run * pcr
        );
 
@@ -84,6 +118,14 @@ int class_interface_set_param (
        enum entry_operation what_to_do
        );
 
+int class_interface_get_cls (
+      struct class_run * pcr,
+      char * cl_name,
+      int l_min,
+      int l_max,
+      double * out
+      );
+
 int class_interface_load_params (
        struct class_run * pcr
        );
@@ -95,7 +137,81 @@ int class_interface_print_error (
 int class_interface_set_verbose (
        struct class_run * pcr,
        int class_verbose,
-       int module_verbose
+       int module_verbose,
+       int output_verbose
        );
+
+
+// =========================================================================================
+// =                              Compute specific stuff                                   =
+// =========================================================================================
+
+int class_interface_derived_at_z (
+       struct class_run * pcr,
+       double z,
+       double * result
+       );
+
+int class_interface_derived (
+       struct class_run * pcr,
+       double * result
+       );
+       
+int class_interface_damping_scale (
+       struct class_run * pcr,
+       double * k_d
+       );
+
+double damping_scale_integrand (
+         double a,
+         void * pcr_void
+         );
+
+
+// =========================================================================================
+// =                                  Numerical functions                                  =
+// =========================================================================================
+
+int qromb (double (*func)(double, void *),
+      double * func_params,
+      double a,
+      double b,
+      double EPS,
+      double * result,
+      ErrorMsg errmsg
+      );
+      
+int trapzd (double (*func)(double, void *),
+      double * func_params,
+      double a,
+      double b,
+      int n,
+      double * result,
+      ErrorMsg errmsg
+      );
+      
+int polint (
+      double xa[],
+      double ya[],
+      int n,
+      double x,
+      double *y,
+      double *dy,
+      ErrorMsg errmsg
+      );
+
+int qtrap (double (*func)(double, void *),
+      double * func_params,
+      double a,
+      double b,
+      double EPS,
+      double * result,
+      ErrorMsg errmsg
+      );
+          
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

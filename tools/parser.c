@@ -400,7 +400,7 @@ int parser_read_list_of_doubles(
 
   /* count number of comas and compute size = number of comas + 1 */
   i = 0;
-  string = pfc->value[index];
+  string = trim (pfc->value[index], ',');   /* Remove leading and trailing commas that would otherwise mess with the parsing */ 
   do {
     i ++;
     substring = strchr(string,',');
@@ -415,7 +415,7 @@ int parser_read_list_of_doubles(
 
   /* read one double between each comas */
   i = 0;
-  string = pfc->value[index];
+  string = trim (pfc->value[index], ',');   /* Remove leading and trailing commas that would otherwise mess with the parsing */ 
   do {
     i ++;
     substring = strchr(string,',');
@@ -490,7 +490,7 @@ int parser_read_list_of_integers(
 
   /* count number of comas and compute size = number of comas + 1 */
   i = 0;
-  string = pfc->value[index];
+  string = trim (pfc->value[index], ',');   /* Remove leading and trailing commas that would otherwise mess with the parsing */ 
   do {
     i ++;
     substring = strchr(string,',');
@@ -505,7 +505,7 @@ int parser_read_list_of_integers(
 
   /* read one integer between each comas */
   i = 0;
-  string = pfc->value[index];
+  string = trim (pfc->value[index], ',');   /* Remove leading and trailing commas that would otherwise mess with the parsing */ 
   do {
     i ++;
     substring = strchr(string,',');
@@ -580,7 +580,7 @@ int parser_read_list_of_strings(
 
   /* count number of comas and compute size = number of comas + 1 */
   i = 0;
-  string = pfc->value[index];
+  string = trim (pfc->value[index], ',');   /* Remove leading and trailing commas that would otherwise mess with the parsing */ 
   do {
     i ++;
     substring = strchr(string,',');
@@ -595,7 +595,7 @@ int parser_read_list_of_strings(
 
   /* read one string between each comas */
   i = 0;
-  string = pfc->value[index];
+  string = trim (pfc->value[index], ',');   /* Remove leading and trailing commas that would otherwise mess with the parsing */ 
   do {
     i ++;
     substring = strchr(string,',');
@@ -1056,7 +1056,6 @@ int parser_remove_entry (
 /** 
  * Print the content of the parameter structure
  */
-
 int parser_print (
         struct file_content * pfc
         )
@@ -1070,3 +1069,66 @@ int parser_print (
 
 }
 
+/** 
+ * Remove leading and trailing commmas from the parser values.
+ */
+int parser_remove_extra_commas (
+        struct file_content * pfc
+        )
+{
+
+  for (int i=0; i < pfc->size; ++i)
+    strcpy (pfc->value[i], trim(((&(pfc->value[i])[0])), ','));
+  
+  return _SUCCESS_;
+
+}
+
+/** 
+ * Remove from a string the leading and trailing characters 'c', if it is there.
+ * Copied from http://stackoverflow.com/a/122974/2972183, credits to user indiv.
+ */
+char * trim(char *str, char c)
+{
+    size_t len = 0;
+    char *frontp = str - 1;
+    char *endp = NULL;
+
+    if( str == NULL )
+            return NULL;
+
+    if( str[0] == '\0' )
+            return str;
+
+    len = strlen(str);
+    endp = str + len;
+
+    /* Move the front and back pointers to address
+     * the first non-whitespace characters from
+     * each end.
+     */
+    while( (*(++frontp)) == c );
+    while( ((*(--endp)) == c) && endp != frontp );
+    // while( isspace(*(++frontp)) );
+    // while( isspace(*(--endp)) && endp != frontp );
+
+    if( str + len - 1 != endp )
+            *(endp + 1) = '\0';
+    else if( frontp != str &&  endp == frontp )
+            *str = '\0';
+
+    /* Shift the string so that it starts at str so
+     * that if it's dynamically allocated, we can
+     * still free it on the returned pointer.  Note
+     * the reuse of endp to mean the front of the
+     * string buffer now.
+     */
+    endp = str;
+    if( frontp != str )
+    {
+            while( *frontp ) *endp++ = *frontp++;
+            *endp = '\0';
+    }
+
+    return str;
+}

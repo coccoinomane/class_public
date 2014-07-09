@@ -116,6 +116,8 @@ TEST_SIGMA = test_sigma.o
 
 TEST_STEPHANE = test_stephane.o
 
+TEST_INTERFACE = test_interface.o
+
 C_TOOLS =  $(addprefix tools/, $(addsuffix .c,$(basename $(TOOLS))))
 C_SOURCE = $(addprefix source/, $(addsuffix .c,$(basename $(SOURCE) $(OUTPUT))))
 C_TEST = $(addprefix test/, $(addsuffix .c,$(basename $(TEST_DEGENERACY) $(TEST_LOOPS) $(TEST_TRANSFER) $(TEST_NONLINEAR) $(TEST_PERTURBATIONS) $(TEST_THERMODYNAMICS))))
@@ -132,8 +134,8 @@ PYTHON_FILES = python/classy.pyx python/setup.py python/cclassy.pxd python/test_
 
 all: class libclass.a classy
 
-libclass.a: $(TOOLS) $(SOURCE) $(EXTERNAL)
-	$(AR)  $@ $(addprefix build/, $(TOOLS) $(SOURCE) $(EXTERNAL))
+libclass.a: $(TOOLS) $(SOURCE) $(EXTERNAL) $(OUTPUT)
+	$(AR)  $@ $(addprefix build/, $(TOOLS) $(SOURCE) $(EXTERNAL) $(OUTPUT))
 
 class: $(TOOLS) $(SOURCE) $(EXTERNAL) $(OUTPUT) $(CLASS)
 	$(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o class $(addprefix build/,$(notdir $^)) -lm
@@ -163,6 +165,9 @@ test_thermodynamics: $(TOOLS) $(INPUT) $(BACKGROUND) $(THERMO) $(EXTERNAL) $(TES
 	$(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
 
 test_background: $(TOOLS) $(INPUT) $(BACKGROUND) $(TEST_BACKGROUND)
+	$(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
+
+test_interface: $(TOOLS) $(SOURCE) $(EXTERNAL) $(OUTPUT) $(TEST_INTERFACE)
 	$(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
 
 tar: $(C_ALL) $(C_TEST) $(H_ALL) $(PRE_ALL) $(INI_ALL) $(MISC_FILES) $(HYREC) $(PYTHON_FILES)

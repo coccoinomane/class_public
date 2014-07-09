@@ -892,6 +892,14 @@ int lensing_indices(
     ple->has_tp = _FALSE_;
   }
 
+  if (psp->has_ep == _TRUE_) {
+    ple->has_ep = _TRUE_;
+    ple->index_lt_ep=psp->index_ct_ep;
+  }
+  else {
+    ple->has_ep = _FALSE_;
+  }
+
   if (psp->has_dd == _TRUE_) {
     ple->has_dd = _TRUE_;
     ple->index_lt_dd=psp->index_ct_dd;

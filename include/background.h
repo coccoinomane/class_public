@@ -117,7 +117,8 @@ struct background
   double Neff; /**< so-called "effective neutrino number", computed at earliest time in interpolation table */
   double Omega0_dcdm; /**< \f$ \Omega_{0 dcdm} \f$ : decaying cold dark matter */
   double Omega0_dr; /**< \f$ \Omega_{0 dr} \f$ : decay radiation */
-
+  double a_eq;  /**< Scale factor at matter-radiation equality */
+  double k_eq;  /**< Mode that enters the horizon at equality */
 
   //@}
 
@@ -424,6 +425,11 @@ extern "C" {
 			 void * parameters_and_workspace,
 			 ErrorMsg error_message
 			 );
+
+  int background_epoch_of_equality (
+      struct background * pba,
+      double tol_tau_approx
+      );
 
 #ifdef __cplusplus
 }

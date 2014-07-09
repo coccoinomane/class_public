@@ -170,6 +170,15 @@ int parser_print (
         struct file_content * pfc
         );
 
+int parser_remove_extra_commas (
+        struct file_content * pfc
+        );
+
+char * trim (
+         char * str,
+         char c
+         );
+
 #ifdef __cplusplus
 }
 #endif

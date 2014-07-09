@@ -552,6 +552,13 @@ int background_init(
              pba->error_message,
              pba->error_message);
 
+  /* Compute and store the value of the scale factor at matter-radiation equality */
+  class_call (background_epoch_of_equality(
+               pba,
+               ppr->tol_tau_approx),
+    pba->error_message,
+    pba->error_message);
+
   return _SUCCESS_;
 
 }
@@ -1158,7 +1165,7 @@ int background_ncdm_init(
 }
 
 /**
- * For a given ncdm sepcies: given the quadrature weights, the mass
+ * For a given ncdm species: given the quadrature weights, the mass
  * and the redshift, find background quantities by a quick weighted
  * sum over.  Input parameters passed as NULL pointers are not
  * evaluated for speed-up
@@ -1819,6 +1826,69 @@ int background_derivs(
       y[pba->index_bi_a]*pba->Gamma_dcdm*y[pba->index_bi_rho_dcdm];
   }
 
+  return _SUCCESS_;
+
+}
+
+
+/**
+ * Compute the epoch of matter-radiation equality using bisection and store it
+ * in pba->a_eq. Also store the Fourier scale at equality as 1/tau_eq and store
+ * it in pba->k_eq.
+ *
+ * @param pba Input/Output: background structure
+ * @param tol_tau_approx            Input : precision for the bisection
+ */
+int background_epoch_of_equality (
+               struct background * pba,
+               double tol_tau_approx
+               )
+{
+
+  /* The lower limit for the bisection will be the first time in the background table. */
+  double tau_lower = pba->tau_table[0];
+  double tau_upper = pba->tau_table[pba->bt_size-1];
+  double tau_mid = 0.5*(tau_lower + tau_upper);
+  
+  /* Array that will contain the temporary background quantities */
+  double * pvecback;
+  class_alloc(pvecback, pba->bg_size*sizeof(double), pba->error_message);
+  
+  /* Start bisection */
+  while ((tau_upper - tau_lower)/tau_lower > tol_tau_approx) {
+    
+    int dump;
+    
+    class_call(background_at_tau(pba,
+                 tau_mid, 
+                 pba->long_info,
+                 pba->inter_normal, 
+                 &dump,
+                 pvecback),
+      pba->error_message,
+      pba->error_message);
+    
+    if (pvecback[pba->index_bg_Omega_r] > pvecback[pba->index_bg_Omega_m])
+      tau_lower = tau_mid;
+    else
+      tau_upper = tau_mid;
+    
+    tau_mid = 0.5*(tau_lower + tau_upper);
+    
+  } // end of bisection
+    
+  /* Store age of equality */
+  pba->a_eq = pvecback[pba->index_bg_a];
+  pba->k_eq = 1/tau_mid;
+  
+  /* Test that the a_equality we just found makes sense */
+  class_test(((pba->a_eq<=0) || (pba->a_eq>pba->a_today)),
+    pba->error_message,
+    "Found an invalid value of a_equality (%g)", pba->a_eq);
+  
+  /* Free memory */
+  free (pvecback);
+  
   return _SUCCESS_;
 
 }
