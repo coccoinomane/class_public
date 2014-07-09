@@ -1,36 +1,57 @@
-#include "fortran_interface.h"
+/** @file fortra_inteface.c Documented interface module
+ *
+ * Guido Pettinari, 09.07.2014
+ *
+ * This library is meant to be used by a third party code, possibly written in
+ * another language, which does not have (or does not bother) access the complicated
+ * internal structure of CLASS.
+ * 
+ * A CLASS session is started with the function 'class_interface_init'.
+ * The parameters for a CLASS run are set via the 'class_interface_set_param' function.
+ * They are then loaded into CLASS using 'class_interface_load_params'.
+ * CLASS is run with functiosn like 'class_interface_compute_cls'.
+ * Data is accessed via 'class_interface_get_cls', which just require simple information
+ * to extract the required quantity.
+ *
+ */
+
+#include "interface.h"
 
 
-// ==========================================================================================
-// =                                      Main functions                                    =
-// ==========================================================================================
+// =================================================================================
+// =                                Main functions                                 =
+// =================================================================================
+
 
 /**
- * Initialise the CLASS superstructure. First allocate memory, then fill the substructures
- * with default values for the cosmological and precision parameters.
+ * Initialise the CLASS superstructure by:
+ * - Allocating memory for the structure itself.
+ * - Allocating memory for its params substructure.
+ * - Allocating memory for CLASS internal substructures (background, thermo, pertubs ...)
+ * - Setting the overall precision parameters.
  */
 int class_interface_init (
        struct class_run ** ppcr
        )
 {
+
+  /* Check that the structure has not alreaby been allocated */
+  if (*ppcr != NULL) {
+    printf ("ERROR in %s(%d): input CLASS super-structure is already allocated", __func__, __LINE__);
+    return _FAILURE_;
+  }
   
   /* Initialise the superstructure for this CLASS run */
-  class_alloc ((*ppcr), sizeof(struct class_run), (*ppcr)->error_message);
-  (*ppcr)->structs_are_allocated = _FALSE_;
-  (*ppcr)->params_are_set = _FALSE_;
-  (*ppcr)->cls_are_ready = _FALSE_;
+  *ppcr = malloc (sizeof (struct class_run));
 
-  /* Allocate memory for the substructures in cr */
-  class_alloc ((*ppcr)->ppr, sizeof(struct precision), (*ppcr)->error_message);   /* precision parameters */
-  class_alloc ((*ppcr)->pba, sizeof(struct background), (*ppcr)->error_message);  /* cosmological background */
-  class_alloc ((*ppcr)->pth, sizeof(struct thermo), (*ppcr)->error_message);      /* thermodynamics */
-  class_alloc ((*ppcr)->ppt, sizeof(struct perturbs), (*ppcr)->error_message);    /* source functions */
-  class_alloc ((*ppcr)->ptr, sizeof(struct transfers), (*ppcr)->error_message);   /* transfer functions */
-  class_alloc ((*ppcr)->ppm, sizeof(struct primordial), (*ppcr)->error_message);  /* primordial spectra */
-  class_alloc ((*ppcr)->psp, sizeof(struct spectra), (*ppcr)->error_message);     /* output spectra */
-  class_alloc ((*ppcr)->pnl, sizeof(struct nonlinear), (*ppcr)->error_message);   /* non-linear spectra */
-  class_alloc ((*ppcr)->ple, sizeof(struct lensing), (*ppcr)->error_message);     /* lensed spectra */
-  class_alloc ((*ppcr)->pop, sizeof(struct output), (*ppcr)->error_message);      /* output files */
+  /* Check that the memory allocation went fine */
+  if (*ppcr == NULL) {
+    printf ("ERROR in %s(%d): could not allocate CLASS super-structure", __func__, __LINE__);
+    return _FAILURE_;
+  }
+
+  /* The structure is ready to be filled */
+  (*ppcr)->execution_stage = CLASS_ALLOCATED;
 
   /* Initialise the parameter structure */
   class_alloc ((*ppcr)->params, sizeof(struct file_content), (*ppcr)->error_message);
@@ -38,8 +59,9 @@ int class_interface_init (
     (*ppcr)->error_message, (*ppcr)->error_message);
   (*ppcr)->params->size = 0;
 
-  /* CLASS structures are ready to be filled */
-  (*ppcr)->structs_are_allocated = _TRUE_;
+  /* Allocate memory for CLASS structures */
+  class_call (class_interface_allocate_data (*ppcr),
+    (*ppcr)->error_message, (*ppcr)->error_message);
 
   /* Set the overall numerical accuracy of CLASS */
   class_call (class_interface_set_precision (*ppcr), (*ppcr)->error_message, (*ppcr)->error_message);
@@ -48,53 +70,6 @@ int class_interface_init (
 
 }
 
-
-/**
- * Empty and deallocate the CLASS superstructure by sequentially calling the xxx_free
- * functions in each module.
- */
-int class_interface_free (
-       struct class_run * pcr
-       )
-{
-  
-  if (pcr->class_verbose > 1)
-    printf (" @ Freeing CLASS structures\n");
-  
-  /* Empty substructures in pcr */
-  class_call (lensing_free(pcr->ple), pcr->ple->error_message, pcr->error_message);
-  class_call (spectra_free(pcr->psp), pcr->psp->error_message, pcr->error_message);
-  class_call (transfer_free(pcr->ptr), pcr->ptr->error_message, pcr->error_message);
-  class_call (nonlinear_free(pcr->pnl), pcr->pnl->error_message, pcr->error_message);
-  class_call (primordial_free(pcr->ppm), pcr->ppm->error_message, pcr->error_message);
-  class_call (perturb_free(pcr->ppt), pcr->ppt->error_message, pcr->error_message);
-  class_call (thermodynamics_free(pcr->pth), pcr->pth->error_message, pcr->error_message);
-  class_call (background_free(pcr->pba), pcr->pba->error_message, pcr->error_message);
-  
-  /* Free substructures in pcr */
-  free (pcr->ppr);
-  free (pcr->pba);
-  free (pcr->pth);
-  free (pcr->ppt);
-  free (pcr->ptr);
-  free (pcr->ppm);
-  free (pcr->psp);
-  free (pcr->pnl);
-  free (pcr->ple);
-  free (pcr->pop);
-
-  /* Free parameter structure */
-  pcr->params->size = _MAX_NUM_PARAMETERS_;
-  parser_free(pcr->params);
-  free (pcr->params);
-
-  /* CLASS cannot be run after its memory has been freed */
-  pcr->structs_are_allocated = _FALSE_;
-  pcr->params_are_set = _FALSE_;
-
-  return _SUCCESS_;
-    
-}
 
 
 /**
@@ -109,11 +84,7 @@ int class_interface_compute_cls (
   if (pcr->class_verbose > 0)
     printf (" @ Running CLASS\n");
     
-  class_test (pcr->structs_are_allocated == _FALSE_,
-    pcr->error_message,
-    "cannot run CLASS: memory was not allocated");
-    
-  class_test (pcr->params_are_set == _FALSE_,
+  class_test (pcr->execution_stage < PARAMS_SET,
     pcr->error_message,
     "cannot run CLASS: parameters have not been set");
     
@@ -137,15 +108,16 @@ int class_interface_compute_cls (
     pcr->ple->error_message, pcr->error_message);
     
   /* C_l's are ready to be extracted */
-  pcr->cls_are_ready = _TRUE_;
+  pcr->execution_stage = CLS_COMPUTED;
 
   return _SUCCESS_;
     
 }
 
 
+
 // =======================================================================================
-// =                                    Input/output                                     =
+// =                                       Input                                         =
 // =======================================================================================
 
 /**
@@ -179,7 +151,7 @@ int class_interface_reset_cosmology_params (
        )
 {
 
-  if ((pcr->class_verbose > 2) && (pcr->params_are_set == _TRUE_))
+  if ((pcr->class_verbose > 2) && (pcr->execution_stage >= PARAMS_SET))
     printf (" @ Reset CLASS cosmology parameters\n");
 
   input_default_params(pcr->pba,
@@ -206,7 +178,7 @@ int class_interface_reset_precision_params (
        )
 {
 
-  if ((pcr->class_verbose > 2) && (pcr->params_are_set == _TRUE_))
+  if ((pcr->class_verbose > 2) && (pcr->execution_stage >= PARAMS_SET))
     printf (" @ Reset CLASS precision parameters\n");
 
   input_default_precision(pcr->ppr);
@@ -217,18 +189,16 @@ int class_interface_reset_precision_params (
 
 
 /**
- * Reset all parameters in the CLASS superstructure to their default values,
- * while mantaining the same verbosity level.
+ * Reset all parameters in CLASS to their default values, while mantaining the
+ * general settings in the superstructure untouched.
  */
-int class_interface_reset (
+int class_interface_reset_params (
        struct class_run * pcr
        )
 {
 
-  /* Store previous verbosity parameters */
-  int old_class_verbose = pcr->class_verbose;
-  int old_module_verbose = pcr->pba->background_verbose;
-  int old_output_verbose = pcr->pop->output_verbose;
+  if (pcr->class_verbose > 1)
+    printf (" @ Reset CLASS parameters\n");
 
   /* Reset all parameters */
   class_call (class_interface_reset_precision_params (pcr),
@@ -237,15 +207,8 @@ int class_interface_reset (
   class_call (class_interface_reset_cosmology_params (pcr),
     pcr->error_message, pcr->error_message);
 
-  /* Re-establish the verbosity parameters */
-  class_call (class_interface_set_verbose (pcr, old_class_verbose, old_module_verbose, old_output_verbose),
-    pcr->error_message, pcr->error_message);
-
   /* CLASS is ready to be run */
-  pcr->params_are_set = _TRUE_;
-
-  if (pcr->class_verbose > 1)
-    printf (" @ Reset CLASS parameters\n");
+  pcr->execution_stage = PARAMS_SET;
 
   return _SUCCESS_;
     
@@ -264,7 +227,7 @@ int class_interface_set_param (
        )
 {
   
-  class_test (pcr->structs_are_allocated == _FALSE_,
+  class_test (pcr->execution_stage < CLASS_ALLOCATED,
     pcr->error_message,
     "cannot write CLASS parameters, memory not allocated");
   
@@ -300,7 +263,7 @@ int class_interface_load_params (
        )
 {
   
-  class_test (pcr->structs_are_allocated == _FALSE_,
+  class_test (pcr->execution_stage < DATA_ALLOCATED,
     pcr->error_message,
     "cannot load CLASS parameters, memory not allocated");
   
@@ -330,11 +293,50 @@ int class_interface_load_params (
     pcr->error_message);
     
   /* CLASS is now ready to run */
-  pcr->params_are_set = _TRUE_;
+  pcr->execution_stage = PARAMS_SET;
     
   return _SUCCESS_;
   
 }
+
+
+/**
+ * Set the level of information displayed on screen by CLASS.
+ * - 'class_verbose' controls the level of information relative to the
+ *   operations performed in this module on the superstructure.
+ * - 'modules_verbose' controls the info printed by CLASS internal
+ *   modules.
+ * - 'output_verbose', if larger than zero, prints to file CLASS
+ *   outputs (C_l, P(K)...).
+ */
+int class_interface_set_verbose (
+       struct class_run * pcr,
+       int class_verbose,
+       int modules_verbose,
+       int output_verbose
+       )
+{
+
+  pcr->class_verbose = class_verbose;
+  pcr->pba->background_verbose = modules_verbose;
+  pcr->pth->thermodynamics_verbose = modules_verbose;
+  pcr->ppt->perturbations_verbose = modules_verbose;
+  pcr->ptr->transfer_verbose = modules_verbose;
+  pcr->ppm->primordial_verbose = modules_verbose;
+  pcr->psp->spectra_verbose = modules_verbose;
+  pcr->pnl->nonlinear_verbose = modules_verbose;
+  pcr->ple->lensing_verbose = modules_verbose;
+  pcr->pop->output_verbose = output_verbose;
+  
+  return _SUCCESS_;
+    
+}
+
+
+
+// =======================================================================================
+// =                                      Output                                         =
+// =======================================================================================
 
 /**
  * Extract the angular power spectrum C_l corresponding to 'cl_name' from the CLASS run.
@@ -367,7 +369,7 @@ int class_interface_get_cls (
   int want_tensor = (strstr (cl_name, "tensor") != NULL);
 
   /* Checks */
-  class_test ((pcr->structs_are_allocated == _FALSE_) || (pcr->cls_are_ready == _FALSE_),
+  class_test (pcr->execution_stage < CLS_COMPUTED,
     pcr->error_message,
     "cannot load CLASS C_l, they have not been computed yet!");
 
@@ -420,6 +422,27 @@ int class_interface_get_cls (
   else if (strstr (cl_name, "TP") != NULL) index_cl = want_lensing?ple->index_lt_tp:psp->index_ct_tp;
   else if (strstr (cl_name, "EP") != NULL) index_cl = want_lensing?ple->index_lt_ep:psp->index_ct_ep;
   else class_stop (pcr->error_message, "requested C_l(%s) does not exist", cl_name);
+  
+  /* Check that the required l_max is within bounds */
+  int l_max_computed = 0;
+
+  if (!want_lensing) {
+    if (index_mode !=-1) 
+      l_max_computed = psp->l_max_ct[index_mode][index_cl];
+    else 
+      for (int index_md=0; index_md < ppt->md_size; ++index_md)
+        l_max_computed = MAX(l_max_computed, psp->l_max_ct[index_md][index_cl]);
+  } 
+  else {
+    l_max_computed = ple->l_max_lt[index_cl];
+  }
+
+  if (pcr->class_verbose > 0)
+  class_test_permissive (l_max > l_max_computed,
+    pcr->error_message,
+    "you asked for C_l(%s) up to l_max=%d, but it was computed only up to l=%d; will set to zero.\n",
+    cl_name, l_max, l_max_computed);
+  
 
 
   // =====================================================================================
@@ -538,37 +561,121 @@ int class_interface_print_error (
 }
 
 
+
+// =====================================================================================
+// =                              Memory management                                    =
+// =====================================================================================
+
 /**
- * Set the level of information displayed on screen by CLASS.
- * - 'class_verbose' controls the level of information relative to the
- *   operations performed in this module on the superstructure.
- * - 'modules_verbose' controls the info printed by CLASS internal
- *   modules.
- * - 'output_verbose', if larger than zero, prints to file CLASS
- *   outputs (C_l, P(K)...).
+ * Allocate memory for the internal structures of CLASS.
  */
-int class_interface_set_verbose (
-       struct class_run * pcr,
-       int class_verbose,
-       int modules_verbose,
-       int output_verbose
+int class_interface_allocate_data (
+       struct class_run * pcr
        )
 {
-
-  pcr->class_verbose = class_verbose;
-  pcr->pba->background_verbose = modules_verbose;
-  pcr->pth->thermodynamics_verbose = modules_verbose;
-  pcr->ppt->perturbations_verbose = modules_verbose;
-  pcr->ptr->transfer_verbose = modules_verbose;
-  pcr->ppm->primordial_verbose = modules_verbose;
-  pcr->psp->spectra_verbose = modules_verbose;
-  pcr->pnl->nonlinear_verbose = modules_verbose;
-  pcr->ple->lensing_verbose = modules_verbose;
-  pcr->pop->output_verbose = output_verbose;
   
+  /* Check that the structures are not already allocated */
+  class_test (pcr->execution_stage >= DATA_ALLOCATED,
+    pcr->error_message,
+    "stopping to avoid memory leakage");
+
+  /* Allocate memory for the substructures in cr */
+  class_alloc (pcr->ppr, sizeof(struct precision), pcr->error_message);   /* precision parameters */
+  class_alloc (pcr->pba, sizeof(struct background), pcr->error_message);  /* cosmological background */
+  class_alloc (pcr->pth, sizeof(struct thermo), pcr->error_message);      /* thermodynamics */
+  class_alloc (pcr->ppt, sizeof(struct perturbs), pcr->error_message);    /* source functions */
+  class_alloc (pcr->ptr, sizeof(struct transfers), pcr->error_message);   /* transfer functions */
+  class_alloc (pcr->ppm, sizeof(struct primordial), pcr->error_message);  /* primordial spectra */
+  class_alloc (pcr->psp, sizeof(struct spectra), pcr->error_message);     /* output spectra */
+  class_alloc (pcr->pnl, sizeof(struct nonlinear), pcr->error_message);   /* non-linear spectra */
+  class_alloc (pcr->ple, sizeof(struct lensing), pcr->error_message);     /* lensed spectra */
+  class_alloc (pcr->pop, sizeof(struct output), pcr->error_message);      /* output files */
+
+  /* CLASS structures are ready to be filled */
+  pcr->execution_stage = DATA_ALLOCATED;
+
+  return _SUCCESS_;
+
+}
+
+
+/**
+ * Deallocate CLASS internal structures by sequentially calling the xxx_free
+ * functions in each module, while leaving unchanged the information in the
+ * top level of the CLASS superstructure, such as verbosity levels and parameters.
+ * This function must be called between successive calls to functions that compute
+ * stuff, like 'class_interface_compute_cls', in order to avoid memory leakage.
+ */
+int class_interface_free_data (
+       struct class_run * pcr
+       )
+{
+  
+  /* Do not free data if not needed */
+  if (pcr->execution_stage < CLS_COMPUTED)
+    goto update_and_return;
+  
+  if (pcr->class_verbose > 2)
+    printf (" @ Freeing CLASS structures\n");
+  
+  /* Empty substructures in pcr */
+  class_call (lensing_free(pcr->ple), pcr->ple->error_message, pcr->error_message);
+  class_call (spectra_free(pcr->psp), pcr->psp->error_message, pcr->error_message);
+  class_call (transfer_free(pcr->ptr), pcr->ptr->error_message, pcr->error_message);
+  class_call (nonlinear_free(pcr->pnl), pcr->pnl->error_message, pcr->error_message);
+  class_call (primordial_free(pcr->ppm), pcr->ppm->error_message, pcr->error_message);
+  class_call (perturb_free(pcr->ppt), pcr->ppt->error_message, pcr->error_message);
+  class_call (thermodynamics_free(pcr->pth), pcr->pth->error_message, pcr->error_message);
+  class_call (background_free(pcr->pba), pcr->pba->error_message, pcr->error_message);
+  
+  update_and_return:
+  pcr->execution_stage = DATA_ALLOCATED;
+
   return _SUCCESS_;
     
 }
+
+
+/**
+ * Free the CLASS superstructure and all the data therein.
+ */
+int class_interface_free (
+       struct class_run ** ppcr
+       )
+{
+  
+  if ((*ppcr)->class_verbose > 4)
+    printf (" @ Freeing CLASS\n");
+
+  /* Empty CLASS structure */
+  if ((*ppcr)->execution_stage >= CLS_COMPUTED)
+    class_call (class_interface_free_data (*ppcr),
+      (*ppcr)->error_message, (*ppcr)->error_message);
+      
+  /* Free CLASS actual structures */
+  free ((*ppcr)->ppr);
+  free ((*ppcr)->pba);
+  free ((*ppcr)->pth);
+  free ((*ppcr)->ppt);
+  free ((*ppcr)->ptr);
+  free ((*ppcr)->ppm);
+  free ((*ppcr)->psp);
+  free ((*ppcr)->pnl);
+  free ((*ppcr)->ple);
+  free ((*ppcr)->pop);
+
+  /* Free parameter structure */
+  (*ppcr)->params->size = _MAX_NUM_PARAMETERS_;
+  parser_free((*ppcr)->params);
+  free ((*ppcr)->params);
+
+  /* Free super structure */
+  free (*ppcr);
+
+  return _SUCCESS_;
+    
+}
+
 
 
 // =========================================================================================
@@ -590,6 +697,10 @@ int class_interface_derived_at_z (
        double * result
        )
 {
+  
+  class_test (pcr->execution_stage < THERMODYNAMICS_COMPUTED,
+    pcr->error_message,
+    "needs thermodynamics");
   
   struct background * pba = pcr->pba;
   struct thermo * pth = pcr->pth;
@@ -657,6 +768,10 @@ int class_interface_derived (
        )
 {
   
+  class_test (pcr->execution_stage < THERMODYNAMICS_COMPUTED,
+    pcr->error_message,
+    "needs thermodynamics");
+
   struct background * pba = pcr->pba;
   struct thermo * pth = pcr->pth;
 
@@ -690,7 +805,11 @@ int class_interface_damping_scale (
        )
 {
  
-  /* Here we use 'qromb' on the interpolated integrand function. I think this is not
+  class_test (pcr->execution_stage < THERMODYNAMICS_COMPUTED,
+    pcr->error_message,
+    "needs thermodynamics");
+ 
+   /* Here we use 'qromb' on the interpolated integrand function. I think this is not
   ideal: if we use interpolation, we could just sum over the node points rather than
   treating the interpolated function like an analytical one! */
   

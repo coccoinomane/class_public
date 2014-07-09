@@ -1,17 +1,25 @@
-#ifndef _FORTRAN_INTERFACE_
-#define _FORTRAN_INTERFACE_
+#ifndef _INTERFACE_
+#define _INTERFACE_
 
-#define _QUADRATURE_RELTOL_BASE_ (1e-5)
 
 #include "class.h"
 
-/* This library is meant to be called by a third party code, possibly written in
-another language, which does not have (or does not bother) access the complicated
-internal structure of CLASS. The parameters for a CLASS run are set either
-directly via the 'class_interface_set' function or indirectly by filling
-a 'file_content' structure. The latter method is preferred. The below number
-is the maximum number of parameters that can be stored in such structure. */
-#define _MAX_NUM_PARAMETERS_ 4096
+/* Maximum number of parameters that can be stored in the parameter structure. */
+#define _MAX_NUM_PARAMETERS_ (4096)
+
+/* Baseline values for setting precision parameters in CLASS */
+#define _QUADRATURE_RELTOL_BASE_ (1e-5)
+
+/* Flags that represent a certain stage in the execution workflow of CLASS */
+enum execution_stages {
+  CLASS_ALLOCATED = 0,
+  DATA_ALLOCATED = 1,
+  PARAMS_SET = 2,
+  BACKGROUND_COMPUTED = 3,
+  THERMODYNAMICS_COMPUTED = 4,
+  TRANSFERS_COMPUTED = 5,
+  CLS_COMPUTED = 6
+};
 
 struct class_run {
   
@@ -42,9 +50,7 @@ struct class_run {
   // =                            Status flags                              =
   // ========================================================================
 
-  int structs_are_allocated; /* have CLASS structures been initialised correctly? */
-  int params_are_set; /* have the parameters been set to their default values? */
-  int cls_are_ready; /* have the C_l's been computed? */
+  enum execution_stages execution_stage; /* keep track of the status of execution */
 
 
   // ========================================================================
@@ -59,9 +65,13 @@ struct class_run {
   // ========================================================================
 
   ErrorMsg error_message;        /* for error messages */
-  int class_verbose;             /* verbosity level */
+  int class_verbose;             /* CLASS super-structure verbosity level */
+  int modules_verbose;           /* Internal modules verbosity level */ /* TODO */
+  int output_verbose;            /* File production verbosity level */  /* TODO */
 
 };
+
+
 
 
 /**************************************************************/
@@ -73,18 +83,38 @@ struct class_run {
 extern "C" {
 #endif
 
-// ==========================================================================================
-// =                                      Main functions                                    =
-// ==========================================================================================
+// =================================================================================
+// =                                Main functions                                 =
+// =================================================================================
 
 
 int class_interface_init (
        struct class_run ** pcr
        );
 
-int class_interface_free (
+
+int class_interface_compute_cls (
        struct class_run * pcr
        );
+
+
+// =====================================================================================
+// =                              Memory management                                    =
+// =====================================================================================
+
+
+int class_interface_allocate_data (
+       struct class_run * pcr
+       );
+
+int class_interface_free_data (
+       struct class_run * pcr
+       );
+
+int class_interface_free (
+       struct class_run ** ppcr
+       );
+
 
 
 // =======================================================================================
@@ -92,10 +122,6 @@ int class_interface_free (
 // =======================================================================================
 
 int class_interface_set_precision (
-       struct class_run * pcr
-       );
-
-int class_interface_compute_cls (
        struct class_run * pcr
        );
 
