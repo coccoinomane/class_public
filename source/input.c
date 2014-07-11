@@ -2400,8 +2400,10 @@ int input_default_precision ( struct precision * ppr ) {
    * - parameters related to spectra module
    */
 
-  /* nothing */
-
+  ppr->threshold_size_k2 = 5;
+  ppr->min_size_k2 = 20;
+  
+  
   /**
    * - parameters related to nonlinear module
    */

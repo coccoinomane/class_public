@@ -423,6 +423,18 @@ int array_integrate_all_trapzd_or_spline(
                                     double * __restrict__ I,
                                     ErrorMsg errmsg);
 
+  int log_space (
+        double * xx,
+        double x_min,
+        double x_max,
+        int n_points);
+
+  int lin_space (
+        double * xx,
+        double x_min,
+        double x_max,
+        int n_points);
+
 #ifdef __cplusplus
 }
 #endif

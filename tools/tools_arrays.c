@@ -2614,3 +2614,44 @@ int array_smooth(double * array,
   return _SUCCESS_;
 
 }
+
+
+/**
+ * Fill an array with logarithmically spaced points. The array should already be
+ * allocated with 'n_points' doubles
+ */
+int log_space (double * x, double x_min, double x_max, int n_points) {
+
+	int j;
+
+	x[0] = x_min;
+  x[n_points-1]=x_max; 
+	double step = pow (x_max/x_min, 1.0/(n_points-1));	
+
+  for (j=1; j<n_points-1; ++j)  
+    x[j] = x[j-1]*step;    
+
+	return _SUCCESS_;
+	
+}
+
+
+
+/**
+ * Fill an array with linearly spaced points. The array should already be
+ * allocated with 'n_points' doubles
+ */
+int lin_space (double * x, double x_min, double x_max, int n_points) {
+
+	int j;
+
+	x[0]=x_min;
+  x[n_points-1]=x_max;
+	double step = (x_max-x_min)/(n_points-1);
+
+	for (j=1; j<n_points-1; ++j)
+	    x[j] = x_min + j*step;
+	    
+	return _SUCCESS_;
+		
+}

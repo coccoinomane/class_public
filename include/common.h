@@ -696,6 +696,14 @@ struct precision
 
   //@}
 
+  /** @name - parameters related to spectra computation */
+
+  //@{
+
+  int threshold_size_k2; /**< in convolution integrals, add extra points to the k2 integration grid if natural sampling has less points than threshold_size_k2 */
+  int min_size_k2; /**< in convolution integrals, number of extra points to be added to the k2 integration grid if natural sampling has less points than threshold_size_k2 */
+  //@}
+
   /** @name - parameters related to lensing */
 
   //@{
