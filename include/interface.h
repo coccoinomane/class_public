@@ -66,8 +66,8 @@ struct class_run {
 
   ErrorMsg error_message;        /* for error messages */
   int class_verbose;             /* CLASS super-structure verbosity level */
-  int modules_verbose;           /* Internal modules verbosity level */ /* TODO */
-  int output_verbose;            /* File production verbosity level */  /* TODO */
+  int modules_verbose;           /* Internal modules verbosity level */
+  int file_verbose;              /* File production verbosity level */
 
 };
 

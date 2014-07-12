@@ -87,7 +87,8 @@ int class_interface_compute_cls (
   class_test (pcr->execution_stage < PARAMS_SET,
     pcr->error_message,
     "cannot run CLASS: parameters have not been set");
-    
+  
+  /* Call CLASS modules sequentially */
   class_call (background_init(pcr->ppr,pcr->pba),
     pcr->pba->error_message, pcr->error_message);
   class_call (thermodynamics_init(pcr->ppr,pcr->pba,pcr->pth),
@@ -104,8 +105,11 @@ int class_interface_compute_cls (
     pcr->psp->error_message, pcr->error_message);
   class_call (lensing_init(pcr->ppr,pcr->ppt,pcr->psp,pcr->pnl,pcr->ple),
     pcr->ple->error_message, pcr->error_message);
-  class_call (output_init(pcr->pba,pcr->pth,pcr->ppt,pcr->ppm,pcr->ptr,pcr->psp,pcr->pnl,pcr->ple,pcr->pop),
-    pcr->ple->error_message, pcr->error_message);
+    
+  /* Call the output module (which writes CLASS output files) only if explicitly requested */
+  if (pcr->file_verbose > 0)
+    class_call (output_init(pcr->pba,pcr->pth,pcr->ppt,pcr->ppm,pcr->ptr,pcr->psp,pcr->pnl,pcr->ple,pcr->pop),
+      pcr->pop->error_message, pcr->error_message);
     
   /* C_l's are ready to be extracted */
   pcr->execution_stage = CLS_COMPUTED;
@@ -313,11 +317,16 @@ int class_interface_set_verbose (
        struct class_run * pcr,
        int class_verbose,
        int modules_verbose,
-       int output_verbose
+       int file_verbose
        )
 {
 
+  /* Store verbosity values in the CLASS super structure */
   pcr->class_verbose = class_verbose;
+  pcr->modules_verbose = modules_verbose;
+  pcr->file_verbose = file_verbose;
+
+  /* Apply the chosen verbosity level to CLASS inner structures */
   pcr->pba->background_verbose = modules_verbose;
   pcr->pth->thermodynamics_verbose = modules_verbose;
   pcr->ppt->perturbations_verbose = modules_verbose;
@@ -326,7 +335,7 @@ int class_interface_set_verbose (
   pcr->psp->spectra_verbose = modules_verbose;
   pcr->pnl->nonlinear_verbose = modules_verbose;
   pcr->ple->lensing_verbose = modules_verbose;
-  pcr->pop->output_verbose = output_verbose;
+  pcr->pop->output_verbose = modules_verbose;
   
   return _SUCCESS_;
     
