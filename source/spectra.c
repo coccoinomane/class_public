@@ -3503,12 +3503,13 @@ int spectra_pk_ksz (
       /* As an internal check, we shall compute the support of the integral */
       double volume = 0;
 
+      /* For interpolation purposes */
+      int last_index = 0;
+
       for (int index_k1=0; index_k1 < psp->ln_k_size; ++index_k1) {
 
         double k1 = ppt->k[index_k1];
         double k1_sq = k1*k1;
-        double k_times_k1 = k*k1;
-        double k1_over_k = k1/k;
 
         /* Uncomment to restrict to squeezed configurations */
         // if (k < 10*k1)
@@ -3541,19 +3542,11 @@ int spectra_pk_ksz (
           psp->error_message,
           "triangular condition should allow at least one value, given by the largest k");
 
-        // ===============================================================================
-        // =                                New approach                                 =
-        // ===============================================================================
-          
-        /* Take at least N points in each (k,k1) slice for the k2-integration. These are
-        important to sample the kernel which, for squeezed configurations, varies much more
-        rapidly than P(k2). For these extra points, the power spectrum could be interpolated,
-        but for now we just take it to be constant and equal to the nearest k-value to the left */
-          
         /* We choose the grid to have at least 'ppr->threshold_size_k2' values for every (k,k1)
-        slice. If this is not possible using the standard grid (that is, ppt->k), just include 'ppr->min_size_k2'
-        linearly sampled points between 'k2_min' and 'k2_max'. When this happens, we set
-        the flag 'has_extra_points'. */
+        slice.  These are important to sample the kernel which, for squeezed configurations,
+        varies much more rapidly than P(k2). If this is not possible using the standard grid
+        (that is, ppt->k), we include 'ppr->min_size_k2' linearly sampled points between
+        'k2_min' and 'k2_max' */
         int k2_size = 0;
         double * k2_grid;
         int has_extra_points = (n_triangular < ppr->threshold_size_k2);
@@ -3585,9 +3578,9 @@ int spectra_pk_ksz (
           delta_k2[k2_size-1] = k2_grid[k2_size-1] - k2_grid[k2_size-2];
         }
         else {
-          /* With one point, multiply estimate the integral as (b-a)*f(a). This is a rectangular
-          rule rather than trapezoidal, but ciccia! In any case we should never enter here if we
-          set a reasonable value for 'ppr->min_size_k2'. */
+          /* With one point, estimate the integral as (b-a)*f(a). This is a rectangular
+          rule rather than trapezoidal, but ciccia! In any case we should never enter
+          here if we set a reasonable value for 'ppr->min_size_k2'. */
           delta_k2[0] = k2_max - k2_min;
         }
 
@@ -3603,216 +3596,13 @@ int spectra_pk_ksz (
         //   fprintf (stderr, "\n\n");
         // }
 
-        // ===============================================================================
-        // =                              Previous approach                              =
-        // ===============================================================================
-          
-        /* Always take the two limits of the triangular region (abs(k-k1) and k+k1) and
-        interpolate P(K) there */
-          
-        // /* Make sure that our integration grid includes k2_min and k2_max */
-        // double P_k2min_dd, P_k2min_dv, P_k2min_vv;
-        // double P_k2max_dd, P_k2max_dv, P_k2max_vv;
-        //
-        // /* We add two points by hand corresponding to k2_min and k2_max, because they are most
-        // probably not part of ppt->k */
-        // int k2_size = n_triangular + 2;
-        //
-        // /* Allocate the memory for the k2-grid array */
-        // double * k2_extended;
-        // class_alloc_parallel (k2_extended, k2_size*sizeof(double), psp->error_message);
-        //
-        // /* Fill the k2-grid making sure to include k2_min and k2_max */
-        // k2_extended[0] = k2_min;
-        //
-        // for (int index_k2=0; index_k2 < n_triangular; ++index_k2)
-        //   k2_extended[index_k2+1] = ppt->k[index_k2_min+index_k2];
-        //
-        // k2_extended[k2_size-1] = k2_max;
-        //
-        // /* Shift the starting point of the array if we included k2_min twice */
-        // if (k2_extended[0] == k2_extended[1]) {
-        //   for (int index_k2=0; index_k2 < (k2_size-1); ++index_k2)
-        //     k2_extended[index_k2] = k2_extended[index_k2+1];
-        //   k2_size--;
-        // }
-        //
-        // /* Decrease the size of the array if we included k2_max twice */
-        // if (k2_extended[k2_size-1] == k2_extended[k2_size-2])
-        //   k2_size--;
-        //
-        // /* Check that k2 has at least two points */
-        // class_test_parallel (k2_size<2,
-        //   psp->error_message,
-        //   "the k2 integration grid must have at least two values (k=%g,k1=%g,index_k=%d,index_k1=%d,n_values=%d)",
-        //   k, k1, index_k, index_k1, k2_size);
-        //
-        // /* Check that k2 is strictly ascending */
-        // for (int index_k2=0; index_k2<(k2_size-1); ++index_k2)
-        //   class_test_parallel (k2_extended[index_k2]>=k2_extended[index_k2+1],
-        //     psp->error_message,
-        //     "k2 array must be strictly ascending");
-        //
-        // /* Determine integration weights for the k2 integration */
-        // double * delta_k2;
-        // class_alloc_parallel (delta_k2, k2_size*sizeof(double), psp->error_message);
-        //
-        // /* By default, use trapezoidal integration. The factor 1/2 is included later. */
-        // delta_k2[0] = k2_extended[1] - k2_extended[0];
-        //
-        // /* Make sure that the first and last intervals are extended all the way to the triangular
-        // condition limit */
-        // for (int index_k2=1; index_k2<=(k2_size-2); ++index_k2)
-        //   delta_k2[index_k2] = k2_extended[index_k2+1] - k2_extended[index_k2-1];
-        //
-        // delta_k2[k2_size-1] = k2_extended[k2_size-1] - k2_extended[k2_size-2];
-        //
-        // /* Check that the weights are always positive */
-        // for (int index_k2=0; index_k2<k2_size; ++index_k2)
-        //   class_test_parallel (delta_k2[index_k2]<=0,
-        //     psp->error_message,
-        //     "delta_k2 should be strictly positive");
-        //
-        // /* Debug - print k2-list for a given k and k1 */
-        // // if ((index_k==500) && (index_k1==500)) {
-        // //   printf ("~~~ k2-integration grid for (index_k=%d,k=%g,index_k1=%d,k1=%g), k2_size=%d\n",
-        // //     index_k, k, index_k1, k1, k2_size);
-        // //   for (int index_k2=0; index_k2 < k2_size; ++index_k2) {
-        // //     printf ("%4d %13.7g %13.7g\n", index_k2, k2_extended[index_k2], delta_k2[index_k2]);
-        // //   }
-        // // }
-        //
-        // /* Determine the value of P(k) at k2 boundaries, using interpolation if needed */
-        // if (ppt->k[index_k2_min] == k2_min) {
-        //
-        //   /* If we have already computed P(k2_min), take its value from the pre-computed table */
-        //   int index_k2min_tau_ic = (index_tau * psp->ln_k_size + index_k2_min)* ic_ic_size + 0;
-        //   P_k2min_dd = exp(pk_array[psp->index_pk_delta_delta][index_k2min_tau_ic]);
-        //   P_k2min_dv = fabs(pk_array[psp->index_pk_delta_theta][index_k2min_tau_ic])/k2_min;
-        //   P_k2min_vv = exp(pk_array[psp->index_pk_theta_theta][index_k2min_tau_ic])/(k2_min*k2_min);
-        // }
-        // else {
-        //
-        //   double * dump;
-        //
-        //   class_call_parallel(spectra_any_pk_at_k_and_z(pba,
-        //                              ppm,
-        //                              psp,
-        //                              k2_min,
-        //                              z,
-        //                              &(P_k2min_dd),
-        //                              dump,
-        //                              psp->index_pk_delta_delta),
-        //              psp->error_message,
-        //              psp->error_message);
-        //
-        //   class_call_parallel(spectra_any_pk_at_k_and_z(pba,
-        //                              ppm,
-        //                              psp,
-        //                              k2_min,
-        //                              z,
-        //                              &(P_k2min_dv),
-        //                              dump,
-        //                              psp->index_pk_delta_theta),
-        //              psp->error_message,
-        //              psp->error_message);
-        //
-        //   class_call_parallel(spectra_any_pk_at_k_and_z(pba,
-        //                              ppm,
-        //                              psp,
-        //                              k2_min,
-        //                              z,
-        //                              &(P_k2min_vv),
-        //                              dump,
-        //                              psp->index_pk_theta_theta),
-        //              psp->error_message,
-        //              psp->error_message);
-        //
-        //   /* We will need to access the power spectrum at the node values. We shall do so by
-        //   indexing the power spectrum array as pk_array[index_k2_min+index_k2]. The index
-        //   'index_k2_min' however needs to be updated to reflect the fact that we have
-        //   prependend a point to the k2 integration grid (k2_extended).
-        //   Since we have prependend such point, index_k2=0 does not correspond to a values stored in
-        //   pk_array. The first value stored in pk_array corresponds to index_k2=1. Therefore, we need to
-        //   decrement the offset index_k2_min. */
-        //   index_k2_min--;
-        //
-        //   /* Debug - show how wrong it would be to assume P(k) does not vary */
-        //   // int index_k2min_tau_ic = (index_tau * psp->ln_k_size + index_k2_min)* ic_ic_size + 0;
-        //   // double P_k2min_dd_in_pptk = exp(pk_array[psp->index_pk_delta_delta][index_k2min_tau_ic]);
-        //   // printf ("(k,k1)=(%7.3g,%7.3g): P_k2min_dd=%g, P_k2min_dd_in_pptk=%g, diff=%g\n",
-        //   //   k, k1, P_k2min_dd, P_k2min_dd_in_pptk, 1-P_k2min_dd/P_k2min_dd_in_pptk);
-        //
-        // }
-        //
-        // if (ppt->k[index_k2_max] == k2_max) {
-        //
-        //   int index_k2max_tau_ic = (index_tau * psp->ln_k_size + index_k2_max)* ic_ic_size + 0;
-        //   P_k2max_dd = exp(pk_array[psp->index_pk_delta_delta][index_k2max_tau_ic]);
-        //   P_k2max_dv = fabs(pk_array[psp->index_pk_delta_theta][index_k2max_tau_ic])/k2_max;
-        //   P_k2max_vv = exp(pk_array[psp->index_pk_theta_theta][index_k2max_tau_ic])/(k2_max*k2_max);
-        // }
-        // else {
-        //
-        //   double * dump;
-        //
-        //   class_call_parallel(spectra_any_pk_at_k_and_z(pba,
-        //                              ppm,
-        //                              psp,
-        //                              k2_max,
-        //                              z,
-        //                              &(P_k2max_dd),
-        //                              dump,
-        //                              psp->index_pk_delta_delta),
-        //              psp->error_message,
-        //              psp->error_message);
-        //
-        //   class_call_parallel(spectra_any_pk_at_k_and_z(pba,
-        //                              ppm,
-        //                              psp,
-        //                              k2_max,
-        //                              z,
-        //                              &(P_k2max_dv),
-        //                              dump,
-        //                              psp->index_pk_delta_theta),
-        //              psp->error_message,
-        //              psp->error_message);
-        //
-        //   class_call_parallel(spectra_any_pk_at_k_and_z(pba,
-        //                              ppm,
-        //                              psp,
-        //                              k2_max,
-        //                              z,
-        //                              &(P_k2max_vv),
-        //                              dump,
-        //                              psp->index_pk_theta_theta),
-        //              psp->error_message,
-        //              psp->error_message);
-        //
-        // }
-        //
-        // /* Check there is no monkey business going on */
-        // class_test_parallel (
-        //   isnan(P_k2min_dd)||isnan(P_k2min_dv)||isnan(P_k2min_vv)
-        //   ||isnan(P_k2max_dd)||isnan(P_k2max_dv)||isnan(P_k2max_vv),
-        //   psp->error_message,
-        //   "found nan");
-        //
-        // class_test_parallel (
-        //   (P_k2min_dd<0) || (P_k2min_vv<0) ||(P_k2max_dd<0) || (P_k2max_vv<0),
-        //   psp->error_message,
-        //   "found a negative auto-correlation power spectrum");
-
         /* Perform integration over k2 (same as integration over mu1 in Ma & Fry 2002) */
         for (int index_k2=0; index_k2<k2_size; ++index_k2) {
 
           double k2 = k2_grid[index_k2];
           double k2_sq = k2*k2;
-          double k_times_k2 = k*k2;
-          double mu1 = (k_sq + k1_sq - k2*k2)/(2*k_times_k1);
-          double mu2 = (k_sq + k2_sq - k1*k1)/(2*k_times_k2);
+          double mu1 = (k_sq + k1_sq - k2_sq)/(2*k*k1);
           double mu1_sq = mu1*mu1;
-          double mu2_sq = mu2*mu2;
 
           /* Measure of the integral. This comes from the k1_sq volume factor, and
           from the k2/(k*k1) factor due to the change of variable d_mu1 -> d_k2 */
@@ -3824,53 +3614,92 @@ int spectra_pk_ksz (
           /* Check that the cosine of the angle between k and k1 is within bounds. Round-up error
           might trigger this check, therefore we define a high tolerance */
           double tolerance = 0.1;
-          class_test_parallel (((fabs(mu1)-1)>tolerance) || ((fabs(mu2)-1)>tolerance),
+          class_test_parallel ((fabs(mu1)-1)>tolerance,
             psp->error_message,
-            "triangular condition violated for k=%g, k1=%g, k2=%g, mu1=%.20g, mu2=%.20g\n",
-            k, k1, k2, mu1, mu2);
+            "triangular condition violated for k=%g, k1=%g, k2=%g, mu1=%.20g\n",
+            k, k1, k2, mu1);
 
           /* Value of the power spectra in k2 */
-          int index_k2_tau_ic;
           double P_k2_dd, P_k2_dv, P_k2_vv;
 
           /* If the grid is composed of points belonging to the original k-sampling in ppt->k,
-          just take the power spectra from the precomputed table. Otherwise, take its value
-          in the extra points to be equal to the closest computed P(k) to the left of the
-          region. This is a good approximation because, for a reasonable P(k) sampling, the
-          power spectrum varies little in the region with extra points. */ 
-          if (has_extra_points)
-            index_k2_tau_ic = (index_tau * psp->ln_k_size + (index_k2_min))* ic_ic_size + 0;
-          else
-            index_k2_tau_ic = (index_tau * psp->ln_k_size + (index_k2_min+index_k2))* ic_ic_size + 0;
-          
-          P_k2_dd = exp(pk_array[psp->index_pk_delta_delta][index_k2_tau_ic]);
-          P_k2_dv = fabs(pk_array[psp->index_pk_delta_theta][index_k2_tau_ic])/k2;
-          P_k2_vv = exp(pk_array[psp->index_pk_theta_theta][index_k2_tau_ic])/(k2*k2);
+          just take the power spectra from the precomputed table. Otherwise, use linear
+          interpolation. */
+          if (has_extra_points) {
             
-          /* Previous approach */
-          // /* The first and last values of k2 are already known from above */
-          // if (index_k2 == 0) {
-          //
-          //   P_k2_dd = P_k2min_dd;
-          //   P_k2_dv = P_k2min_dv;
-          //   P_k2_vv = P_k2min_vv;
-          // }
-          // else if (index_k2 == (k2_size-1)) {
-          //
-          //   P_k2_dd = P_k2max_dd;
-          //   P_k2_dv = P_k2max_dv;
-          //   P_k2_vv = P_k2max_vv;
-          // }
-          // /* The power spectrum for the middle points of k2 can be directly extracted from the
-          // precomputed table of P(k). Note that P_dd and P_vv are stored logarithmically */
-          // else {
-          //
-          //   int index_k2_tau_ic = (index_tau * psp->ln_k_size + (index_k2_min+index_k2))* ic_ic_size + 0;
-          //   P_k2_dd = exp(pk_array[psp->index_pk_delta_delta][index_k2_tau_ic]);
-          //   P_k2_dv = fabs(pk_array[psp->index_pk_delta_theta][index_k2_tau_ic])/k2;
-          //   P_k2_vv = exp(pk_array[psp->index_pk_theta_theta][index_k2_tau_ic])/(k2*k2);
-          // }
+            /* Take some extra points around k2_min and k2_max */
+            int size = MIN(index_k2_max+1,ppt->k_size-1) - MAX(index_k2_min-1,0) + 1;
+            int index_k2_tau_start = index_tau*psp->ln_k_size + MAX(index_k2_min-1,0);
 
+            class_call_parallel (array_interpolate_linear (
+                          ppt->k + MAX(index_k2_min-1,0),
+                          size,
+                          &(pk_array[psp->index_pk_delta_delta][index_k2_tau_start]),
+                          ic_ic_size,
+                          k2,
+                          &last_index,
+                          &P_k2_dd,
+                          1,
+                          psp->error_message),
+              psp->error_message,
+              psp->error_message);
+
+            P_k2_dd = exp(P_k2_dd);
+            
+            if (psp->use_linear_velocity_in_ksz == _FALSE_) {
+
+              class_call_parallel (array_interpolate_linear (
+                            ppt->k + MAX(index_k2_min-1,0),
+                            size,
+                            &(pk_array[psp->index_pk_delta_theta][index_k2_tau_start]),
+                            ic_ic_size,
+                            k2,
+                            &last_index,
+                            &P_k2_dv,
+                            1,
+                            psp->error_message),
+                psp->error_message,
+                psp->error_message);
+                
+              P_k2_dv = fabs(P_k2_dv)/k2;
+
+              class_call_parallel (array_interpolate_linear (
+                            ppt->k + MAX(index_k2_min-1,0),
+                            size,
+                            &(pk_array[psp->index_pk_theta_theta][index_k2_tau_start]),
+                            ic_ic_size,
+                            k2,
+                            &last_index,
+                            &P_k2_vv,
+                            1,
+                            psp->error_message),
+                psp->error_message,
+                psp->error_message);
+                
+              P_k2_vv = exp(P_k2_dv)/k2_sq;
+              
+            }
+
+            /* Uncomment to use the closest point to the left instead of linear interpolation.
+            For low enough values of 'ppr->threshold_size_k2', we could use just approximate
+            the value in the extra points to be equal to the closest computed P(k) to the left
+            of the region. This is a good approximation because, for a reasonable P(k) sampling,
+            the power spectrum varies little in the region with extra points. */
+            // int index_k2_tau_ic = (index_tau * psp->ln_k_size + (index_k2_min))* ic_ic_size + 0;
+            // P_k2_dd = exp(pk_array[psp->index_pk_delta_delta][index_k2_tau_ic]);
+            // P_k2_dv = fabs(pk_array[psp->index_pk_delta_theta][index_k2_tau_ic])/k2;
+            // P_k2_vv = exp(pk_array[psp->index_pk_theta_theta][index_k2_tau_ic])/k2_sq;
+            
+          }
+          else {
+            int index_k2_tau_ic = (index_tau * psp->ln_k_size + (index_k2_min+index_k2))* ic_ic_size + 0;          
+            P_k2_dd = exp(pk_array[psp->index_pk_delta_delta][index_k2_tau_ic]);
+            if (psp->use_linear_velocity_in_ksz == _FALSE_) {
+              P_k2_dv = fabs(pk_array[psp->index_pk_delta_theta][index_k2_tau_ic])/k2;
+              P_k2_vv = exp(pk_array[psp->index_pk_theta_theta][index_k2_tau_ic])/(k2*k2);
+            }
+          }
+          
           /* Debug - print value of power spectra */
           // if ((index_k==500) && (index_k1==500))
           //   printf ("%10d %17g %17g %17g\n", index_k2, k2, delta_k2[index_k2], P_k2_dd);

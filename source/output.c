@@ -648,6 +648,10 @@ int output_pk(
                pop->error_message,
                pop->error_message);
 
+    class_alloc(pk_ic,
+                psp->pk_size*sizeof(double*),
+                pop->error_message);
+
     class_alloc(pk_tot,
                 psp->pk_size*sizeof(double*),
                 pop->error_message);

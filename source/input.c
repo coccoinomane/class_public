@@ -1349,6 +1349,11 @@ int input_init(
         pop->z_pk[i] = pointer1[i];
       }
       free(pointer1);
+
+      /* Debug - print redshift list */
+      // for (i=0; i<pop->z_pk_num; i++) {
+      //   printf ("pop->z_pk[i]  = %g\n", pop->z_pk[i] );;
+      // }      
     }
 
     class_call(parser_read_double(pfc,"z_max_pk",&param1,&flag1,errmsg),
@@ -1560,6 +1565,7 @@ int input_init(
   nonlinear corrections are requested, the non-linear velocity power spectrum is derived
   from the non-linear density power spectrum using the linear relation v=delta*a'*f/k. */
   if ((pnl->method != nl_none) && (ppt->has_pk_ksz == _TRUE_)) {
+    printf ("WARNING: nonlinear velocity power spectra not implemented - will use linear velocity for kSZ\n");
     psp->use_linear_velocity_in_ksz = _TRUE_;
   }
 
@@ -2400,8 +2406,8 @@ int input_default_precision ( struct precision * ppr ) {
    * - parameters related to spectra module
    */
 
-  ppr->threshold_size_k2 = 5;
-  ppr->min_size_k2 = 20;
+  ppr->threshold_size_k2 = 50;
+  ppr->min_size_k2 = 100;
   
   
   /**
