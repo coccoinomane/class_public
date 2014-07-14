@@ -10,16 +10,36 @@
 /* Baseline values for setting precision parameters in CLASS */
 #define _QUADRATURE_RELTOL_BASE_ (1e-5)
 
-/* Flags that represent a certain stage in the execution workflow of CLASS */
+/* Variables to represent a certain stage in the execution workflow of CLASS. 
+Used by functions like 'class_interface_compute' and 'class_interface_free'. */
 enum execution_stages {
-  CLASS_ALLOCATED = 0,
-  DATA_ALLOCATED = 1,
-  PARAMS_SET = 2,
-  BACKGROUND_COMPUTED = 3,
-  THERMODYNAMICS_COMPUTED = 4,
-  TRANSFERS_COMPUTED = 5,
-  CLS_COMPUTED = 6
+  CLASS_ALLOCATED,
+  DATA_ALLOCATED,
+  PARAMS_SET,
+  BACKGROUND,
+  THERMODYNAMICS,
+  SOURCES,
+  PRIMORDIAL,
+  NONLINEAR,
+  TRANSFERS,
+  SPECTRA,
+  LENSING,
+  OUTPUT,
+  NUMBER_OF_STAGES
 };
+
+/* Check that CLASS has enough data to proceed to the next stage */
+#define assert_stage_in(pcr, min_stage, max_stage, error_message) {          \
+  class_test (((pcr->current_stage < min_stage) || (pcr->current_stage > max_stage)),                 \
+    error_message,                                                                             \
+    "function '%s' cannot be run now: CLASS is at stage '%s' but should be at least at stage '%s'", \
+    __func__, pcr->current_stage_label, pcr->stage_labels[min_stage]);                              \
+ }
+
+/* Simplified form of the above */
+#define assert_stage(pcr, min_stage, error_message) {                                                 \
+  assert_stage_in(pcr, min_stage, NUMBER_OF_STAGES, error_message)\
+}
 
 struct class_run {
   
@@ -50,7 +70,11 @@ struct class_run {
   // =                            Status flags                              =
   // ========================================================================
 
-  enum execution_stages execution_stage; /* keep track of the status of execution */
+  enum execution_stages current_stage; /* keep track of the status of execution */
+  char current_stage_label[256]; /* label of the current stage */
+  char stage_labels[NUMBER_OF_STAGES][256]; /* labels of the various execution stages */
+  int n_called[NUMBER_OF_STAGES]; /* number of times each module is computed */
+  int n_freed[NUMBER_OF_STAGES]; /* number of times each module is freed */
 
 
   // ========================================================================
@@ -59,6 +83,7 @@ struct class_run {
 
   double accuracy_level; /* overall precision of CLASS */
   double quadrature_reltol; /* relative tolerance for numerical quadrature */
+
 
   // ========================================================================
   // =                       Technical parameters                           =
@@ -92,11 +117,16 @@ int class_interface_init (
        struct class_run ** pcr
        );
 
-
-int class_interface_compute_cls (
-       struct class_run * pcr
+int class_interface_compute (
+       struct class_run * pcr,
+       enum execution_stages stage_ini,
+       enum execution_stages stage_end
        );
 
+int class_interface_compute_stage (
+       struct class_run * pcr,
+       enum execution_stages stage
+       );
 
 // =====================================================================================
 // =                              Memory management                                    =
@@ -107,14 +137,21 @@ int class_interface_allocate_data (
        struct class_run * pcr
        );
 
-int class_interface_free_data (
-       struct class_run * pcr
+int class_interface_free (
+       struct class_run * pcr,
+       enum execution_stages stage_ini,
+       enum execution_stages stage_end
+       );
+       
+int class_interface_free_stage (
+       struct class_run * pcr,
+       enum execution_stages stage
        );
 
-int class_interface_free (
+
+int class_interface_free_self (
        struct class_run ** ppcr
        );
-
 
 
 // =======================================================================================
@@ -165,6 +202,18 @@ int class_interface_set_verbose (
        int class_verbose,
        int module_verbose,
        int output_verbose
+       );
+
+int class_interface_set_stage (
+       struct class_run * pcr,
+       enum execution_stages stage
+       );
+
+int class_interface_assert_stage (
+       struct class_run * pcr,
+       enum execution_stages min_stage,
+       enum execution_stages max_stage,
+       const char * func
        );
 
 

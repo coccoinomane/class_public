@@ -107,7 +107,10 @@ void* class_protect_memcpy(void* dest, void* from, size_t sz);
   }                                                                                                              \
 }
 
-
+/* Macro for calling CLASS functions from a 'int main' */
+#define call_class(function, error_message_from_function, error_message_output) {                                \
+  class_call_except(function,error_message_from_function,error_message_output,printf("%s",error_message_output)) \
+}
 
 
 // Alloc

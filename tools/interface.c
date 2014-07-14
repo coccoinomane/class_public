@@ -9,7 +9,7 @@
  * A CLASS session is started with the function 'class_interface_init'.
  * The parameters for a CLASS run are set via the 'class_interface_set_param' function.
  * They are then loaded into CLASS using 'class_interface_load_params'.
- * CLASS is run with functiosn like 'class_interface_compute_cls'.
+ * CLASS is run with functiosn like 'class_interface_compute_all'.
  * Data is accessed via 'class_interface_get_cls', which just require simple information
  * to extract the required quantity.
  *
@@ -35,12 +35,6 @@ int class_interface_init (
        )
 {
 
-  /* Check that the structure has not alreaby been allocated */
-  if (*ppcr != NULL) {
-    printf ("ERROR in %s(%d): input CLASS super-structure is already allocated", __func__, __LINE__);
-    return _FAILURE_;
-  }
-  
   /* Initialise the superstructure for this CLASS run */
   *ppcr = malloc (sizeof (struct class_run));
 
@@ -50,8 +44,28 @@ int class_interface_init (
     return _FAILURE_;
   }
 
+  /* Initialise labels for various parts of CLASS */
+  strcpy ((*ppcr)->stage_labels[CLASS_ALLOCATED], "CLASS_ALLOCATED");
+  strcpy ((*ppcr)->stage_labels[DATA_ALLOCATED], "DATA_ALLOCATED");
+  strcpy ((*ppcr)->stage_labels[PARAMS_SET], "PARAMS_SET");
+  strcpy ((*ppcr)->stage_labels[BACKGROUND], "BACKGROUND");
+  strcpy ((*ppcr)->stage_labels[THERMODYNAMICS], "THERMODYNAMICS");
+  strcpy ((*ppcr)->stage_labels[SOURCES], "SOURCES");
+  strcpy ((*ppcr)->stage_labels[PRIMORDIAL], "PRIMORDIAL");
+  strcpy ((*ppcr)->stage_labels[NONLINEAR], "NONLINEAR");
+  strcpy ((*ppcr)->stage_labels[TRANSFERS], "TRANSFERS");
+  strcpy ((*ppcr)->stage_labels[SPECTRA], "SPECTRA");
+  strcpy ((*ppcr)->stage_labels[LENSING], "LENSING");
+  strcpy ((*ppcr)->stage_labels[OUTPUT], "OUTPUT");
+
+  /* Initialise counters */
+  for (int stage=0; stage < NUMBER_OF_STAGES; ++stage) {
+    (*ppcr)->n_called[stage] = 0; 
+    (*ppcr)->n_freed[stage] = 0; 
+  }
+
   /* The structure is ready to be filled */
-  (*ppcr)->execution_stage = CLASS_ALLOCATED;
+  class_interface_set_stage (*ppcr, CLASS_ALLOCATED);
 
   /* Initialise the parameter structure */
   class_alloc ((*ppcr)->params, sizeof(struct file_content), (*ppcr)->error_message);
@@ -70,54 +84,172 @@ int class_interface_init (
 
 }
 
-
-
 /**
- * Run CLASS by calling its modules sequentially. The results will be stored in the CLASS
- * superstructure pointed by 'pcr'.
+ * Run the CLASS modules corresponding to the input 'stage'. The results will be stored
+ * in the CLASS superstructure pointed by 'pcr'. The available stages are:
+ *
+ * BACKGROUND
+ * THERMODYNAMICS
+ * SOURCES
+ * PRIMORDIAL
+ * NONLINEAR
+ * TRANSFERS
+ * SPECTRA
+ * LENSING
+ * OUTPUT
+ *
+ * This function is rarely used. You should probably use 'class_interface_compute' instead,
+ * because it allows more flexibility.
+ *
  */
-int class_interface_compute_cls (
-       struct class_run * pcr
+int class_interface_compute_stage (
+       struct class_run * pcr,
+       enum execution_stages stage
        )
 {
   
-  if (pcr->class_verbose > 0)
-    printf (" @ Running CLASS\n");
+  if (pcr->class_verbose > 2) {
+    printf (" @ Running CLASS module %s", pcr->stage_labels[stage]);
+    if (pcr->class_verbose > 3)
+      printf (" (n_called=%d, n_freed=%d)", pcr->n_called[stage]+1, pcr->n_freed[stage]);
+    printf ("\n");
+  }
+
+  if (pcr->n_called[stage] > pcr->n_freed[stage])
+    printf ("@ ~~~ WARNING: CLASS module '%s' called but not freed, expect memory leakage\n",
+      pcr->stage_labels[stage]);
+
+  /* Define shorcuts to CLASS internal structures */
+  struct precision * ppr = pcr->ppr;        /* for precision parameters */
+  struct background * pba = pcr->pba;       /* for cosmological background */
+  struct thermo * pth = pcr->pth;           /* for thermodynamics */
+  struct perturbs * ppt = pcr->ppt;         /* for source functions */
+  struct transfers * ptr = pcr->ptr;        /* for transfer functions */
+  struct primordial * ppm = pcr->ppm;       /* for primordial spectra */
+  struct spectra * psp = pcr->psp;          /* for output spectra */
+  struct nonlinear * pnl = pcr->pnl;        /* for non-linear spectra */
+  struct lensing * ple = pcr->ple;          /* for lensed spectra */
+  struct output * pop = pcr->pop;           /* for output files */
+
+  /* Call the desired CLASS module */
+  switch (stage) {
     
-  class_test (pcr->execution_stage < PARAMS_SET,
-    pcr->error_message,
-    "cannot run CLASS: parameters have not been set");
+    case BACKGROUND:
+      assert_stage (pcr, PARAMS_SET, pcr->error_message);
+      class_call (background_init(ppr,pba), pba->error_message, pcr->error_message);
+      class_interface_set_stage (pcr, BACKGROUND);
+      break;
+
+    case THERMODYNAMICS:
+      assert_stage (pcr, BACKGROUND, pcr->error_message);
+      class_call (thermodynamics_init(ppr,pba,pth), pth->error_message, pcr->error_message);
+      class_interface_set_stage (pcr, THERMODYNAMICS);
+      break;
+
+    case SOURCES:
+      assert_stage (pcr, THERMODYNAMICS, pcr->error_message);
+      class_call (perturb_init(ppr,pba,pth,ppt), ppt->error_message, pcr->error_message);
+      class_interface_set_stage (pcr, SOURCES);
+      break;
   
-  /* Call CLASS modules sequentially */
-  class_call (background_init(pcr->ppr,pcr->pba),
-    pcr->pba->error_message, pcr->error_message);
-  class_call (thermodynamics_init(pcr->ppr,pcr->pba,pcr->pth),
-    pcr->pth->error_message, pcr->error_message);
-  class_call (perturb_init(pcr->ppr,pcr->pba,pcr->pth,pcr->ppt),
-    pcr->ppt->error_message, pcr->error_message);
-  class_call (primordial_init(pcr->ppr,pcr->ppt,pcr->ppm),
-    pcr->pnl->error_message, pcr->error_message);
-  class_call (nonlinear_init(pcr->ppr,pcr->pba,pcr->pth,pcr->ppt,pcr->ppm,pcr->pnl),
-    pcr->pnl->error_message, pcr->error_message);
-  class_call (transfer_init(pcr->ppr,pcr->pba,pcr->pth,pcr->ppt,pcr->pnl,pcr->ptr),
-    pcr->ptr->error_message, pcr->error_message);
-  class_call (spectra_init(pcr->ppr,pcr->pba,pcr->ppt,pcr->ppm,pcr->pnl,pcr->ptr,pcr->psp),
-    pcr->psp->error_message, pcr->error_message);
-  class_call (lensing_init(pcr->ppr,pcr->ppt,pcr->psp,pcr->pnl,pcr->ple),
-    pcr->ple->error_message, pcr->error_message);
-    
-  /* Call the output module (which writes CLASS output files) only if explicitly requested */
-  if (pcr->file_verbose > 0)
-    class_call (output_init(pcr->pba,pcr->pth,pcr->ppt,pcr->ppm,pcr->ptr,pcr->psp,pcr->pnl,pcr->ple,pcr->pop),
-      pcr->pop->error_message, pcr->error_message);
-    
-  /* C_l's are ready to be extracted */
-  pcr->execution_stage = CLS_COMPUTED;
+    case PRIMORDIAL:
+      assert_stage (pcr, SOURCES, pcr->error_message);
+      class_call (primordial_init(ppr,ppt,ppm), pnl->error_message, pcr->error_message);
+      class_interface_set_stage (pcr, PRIMORDIAL);
+      break;
+
+    case NONLINEAR:
+      assert_stage (pcr, PRIMORDIAL, pcr->error_message);
+      class_call (nonlinear_init(ppr,pba,pth,ppt,ppm,pnl), pnl->error_message, pcr->error_message);
+      class_interface_set_stage (pcr, NONLINEAR);
+      break;
+
+    case TRANSFERS:
+      assert_stage (pcr, NONLINEAR, pcr->error_message);
+      class_call (transfer_init(ppr,pba,pth,ppt,pnl,ptr), ptr->error_message, pcr->error_message)
+      class_interface_set_stage (pcr, TRANSFERS);
+      break;
+
+    case SPECTRA:
+      assert_stage (pcr, TRANSFERS, pcr->error_message);
+      class_call (spectra_init(ppr,pba,ppt,ppm,pnl,ptr,psp), psp->error_message, pcr->error_message);
+      class_interface_set_stage (pcr, SPECTRA);
+      break;
+
+    case LENSING:
+      assert_stage (pcr, SPECTRA, pcr->error_message);
+      class_call (lensing_init(ppr,ppt,psp,pnl,ple), ple->error_message, pcr->error_message);
+      class_interface_set_stage (pcr, LENSING);
+      break;
+
+    case OUTPUT:
+      assert_stage (pcr, LENSING, pcr->error_message);
+      /* Call the output module (which writes CLASS output files) only if explicitly requested */
+      if (pcr->file_verbose > 0) {
+        class_call (output_init(pba,pth,ppt,ppm,ptr,psp,pnl,ple,pop), pop->error_message, pcr->error_message);
+        class_interface_set_stage (pcr, OUTPUT);
+      }
+      break;
+      
+    default:
+      class_stop (pcr->error_message, "stage #%d cannot be run!", stage);
+
+  } // end of switch(stage)
+  
+  /* Increment the number of calls for the input stage */
+  pcr->n_called[stage]++;
+  
+  /* Double check that we reached the desired stage */
+  assert_stage_in (pcr, stage, stage, pcr->error_message);
 
   return _SUCCESS_;
     
 }
 
+
+
+/**
+ * Run CLASS modules sequentially from 'stage_ini' to 'stage_end'. The results will be stored
+ * in the CLASS superstructure pointed by 'pcr'. The available stages are set in the enum
+ * structure 'execution_stages', defined in the header file.
+ */
+int class_interface_compute (
+       struct class_run * pcr,
+       enum execution_stages stage_ini,
+       enum execution_stages stage_end
+       )
+{
+
+  /* Number of modules to load in CLASS */
+  int n_stages = stage_end - stage_ini + 1;
+  
+  class_test (n_stages<1,
+    pcr->error_message,
+    "wrong choice of initial and final stage for CLASS computation");
+  
+  if (pcr->class_verbose > 1) {
+    if (n_stages>1)
+      printf (" @ Running CLASS modules (%s to %s)\n", pcr->stage_labels[stage_ini], pcr->stage_labels[stage_end]);
+    else
+      printf (" @ Running CLASS module %s\n", pcr->stage_labels[stage_end]);
+  }
+
+  /* Free CLASS modules sequentially */
+  for (int stage=stage_ini; stage <= stage_end; ++stage) {
+
+    class_call (class_interface_compute_stage (
+                  pcr,
+                  stage),
+      pcr->error_message,
+      pcr->error_message);
+  }
+  
+  /* Double check that we reached the desired stage */
+  assert_stage_in (pcr, stage_end, stage_end, pcr->error_message);
+
+  return _SUCCESS_;
+    
+}
 
 
 // =======================================================================================
@@ -155,7 +287,7 @@ int class_interface_reset_cosmology_params (
        )
 {
 
-  if ((pcr->class_verbose > 2) && (pcr->execution_stage >= PARAMS_SET))
+  if ((pcr->class_verbose > 2) && (pcr->current_stage >= PARAMS_SET))
     printf (" @ Reset CLASS cosmology parameters\n");
 
   input_default_params(pcr->pba,
@@ -182,7 +314,7 @@ int class_interface_reset_precision_params (
        )
 {
 
-  if ((pcr->class_verbose > 2) && (pcr->execution_stage >= PARAMS_SET))
+  if ((pcr->class_verbose > 2) && (pcr->current_stage >= PARAMS_SET))
     printf (" @ Reset CLASS precision parameters\n");
 
   input_default_precision(pcr->ppr);
@@ -212,7 +344,7 @@ int class_interface_reset_params (
     pcr->error_message, pcr->error_message);
 
   /* CLASS is ready to be run */
-  pcr->execution_stage = PARAMS_SET;
+  class_interface_set_stage (pcr, PARAMS_SET);
 
   return _SUCCESS_;
     
@@ -230,10 +362,8 @@ int class_interface_set_param (
        enum entry_operation what_to_do
        )
 {
-  
-  class_test (pcr->execution_stage < CLASS_ALLOCATED,
-    pcr->error_message,
-    "cannot write CLASS parameters, memory not allocated");
+
+  assert_stage (pcr, CLASS_ALLOCATED, pcr->error_message);  
   
   int index = 0;
   
@@ -267,10 +397,8 @@ int class_interface_load_params (
        )
 {
   
-  class_test (pcr->execution_stage < DATA_ALLOCATED,
-    pcr->error_message,
-    "cannot load CLASS parameters, memory not allocated");
-  
+  assert_stage (pcr, DATA_ALLOCATED, pcr->error_message);
+    
   if (pcr->class_verbose > 4) {
     printf (" @ Setting up CLASS with %d parameters:\n", pcr->params->size);
     parser_print (pcr->params);
@@ -297,7 +425,7 @@ int class_interface_load_params (
     pcr->error_message);
     
   /* CLASS is now ready to run */
-  pcr->execution_stage = PARAMS_SET;
+  class_interface_set_stage (pcr, MAX (pcr->current_stage, PARAMS_SET));
     
   return _SUCCESS_;
   
@@ -378,9 +506,7 @@ int class_interface_get_cls (
   int want_tensor = (strstr (cl_name, "tensor") != NULL);
 
   /* Checks */
-  class_test (pcr->execution_stage < CLS_COMPUTED,
-    pcr->error_message,
-    "cannot load CLASS C_l, they have not been computed yet!");
+  assert_stage (pcr, SPECTRA, pcr->error_message);
 
   class_test ((l_min < 2) || (l_max > psp->l_max_tot) || (l_min >= l_max),
     pcr->error_message,
@@ -569,7 +695,26 @@ int class_interface_print_error (
     
 }
 
+// =================================================================================
+// =                              Stage management                                 =
+// =================================================================================
 
+
+/**
+ * Set CLASS internal execution stage to a certain value.
+ */
+int class_interface_set_stage (
+       struct class_run * pcr,
+       enum execution_stages stage
+       )
+{
+
+  pcr->current_stage = stage;
+  strcpy (pcr->current_stage_label, pcr->stage_labels[pcr->current_stage]);
+  
+  return _SUCCESS_;
+    
+}
 
 // =====================================================================================
 // =                              Memory management                                    =
@@ -584,9 +729,7 @@ int class_interface_allocate_data (
 {
   
   /* Check that the structures are not already allocated */
-  class_test (pcr->execution_stage >= DATA_ALLOCATED,
-    pcr->error_message,
-    "stopping to avoid memory leakage");
+  assert_stage_in (pcr, 0, DATA_ALLOCATED-1, pcr->error_message);
 
   /* Allocate memory for the substructures in cr */
   class_alloc (pcr->ppr, sizeof(struct precision), pcr->error_message);   /* precision parameters */
@@ -601,7 +744,7 @@ int class_interface_allocate_data (
   class_alloc (pcr->pop, sizeof(struct output), pcr->error_message);      /* output files */
 
   /* CLASS structures are ready to be filled */
-  pcr->execution_stage = DATA_ALLOCATED;
+  class_interface_set_stage (pcr, DATA_ALLOCATED);
 
   return _SUCCESS_;
 
@@ -609,36 +752,50 @@ int class_interface_allocate_data (
 
 
 /**
- * Deallocate CLASS internal structures by sequentially calling the xxx_free
- * functions in each module, while leaving unchanged the information in the
+ * Empty CLASS internal structures from 'stage_ini' to 'stage_end' by sequentially calling the
+ * xxx_free functions in each module, while leaving unchanged the information in the
  * top level of the CLASS superstructure, such as verbosity levels and parameters.
  * This function must be called between successive calls to functions that compute
- * stuff, like 'class_interface_compute_cls', in order to avoid memory leakage.
+ * stuff, like 'class_interface_compute', in order to avoid memory leakage.
+ * The available stages are set in the enum structure 'execution_stages', defined
+ * in the header file.
  */
-int class_interface_free_data (
-       struct class_run * pcr
+int class_interface_free (
+       struct class_run * pcr,
+       enum execution_stages stage_ini,
+       enum execution_stages stage_end
        )
 {
-  
-  /* Do not free data if not needed */
-  if (pcr->execution_stage < CLS_COMPUTED)
-    goto update_and_return;
-  
-  if (pcr->class_verbose > 1)
-    printf (" @ Freeing CLASS structures\n");
-  
-  /* Empty substructures in pcr */
-  class_call (lensing_free(pcr->ple), pcr->ple->error_message, pcr->error_message);
-  class_call (spectra_free(pcr->psp), pcr->psp->error_message, pcr->error_message);
-  class_call (transfer_free(pcr->ptr), pcr->ptr->error_message, pcr->error_message);
-  class_call (nonlinear_free(pcr->pnl), pcr->pnl->error_message, pcr->error_message);
-  class_call (primordial_free(pcr->ppm), pcr->ppm->error_message, pcr->error_message);
-  class_call (perturb_free(pcr->ppt), pcr->ppt->error_message, pcr->error_message);
-  class_call (thermodynamics_free(pcr->pth), pcr->pth->error_message, pcr->error_message);
-  class_call (background_free(pcr->pba), pcr->pba->error_message, pcr->error_message);
-  
-  update_and_return:
-  pcr->execution_stage = DATA_ALLOCATED;
+
+  class_test (stage_end < stage_ini,
+    pcr->error_message,
+    "wrong choice of initial and final stage for freeing CLASS");
+
+  /* Make sure not to free a module that is already free. If 'stage_end'
+  is larger than 'stage_ini', nothing will be freed */
+  stage_end = MIN (stage_end, pcr->current_stage);
+  if (stage_ini > stage_end)
+    return _SUCCESS_;
+
+  if (pcr->class_verbose > 1) {
+    if (stage_ini==stage_end)
+      printf (" @ Freeing CLASS module %s\n", pcr->stage_labels[stage_end]);
+    else
+      printf (" @ Freeing CLASS modules (%s to %s)\n", pcr->stage_labels[stage_ini], pcr->stage_labels[stage_end]);
+  }
+
+  /* Free CLASS modules sequentially */
+  for (int stage=stage_end; stage >= stage_ini; --stage) {
+
+    class_call (class_interface_free_stage (
+                  pcr,
+                  stage),
+      pcr->error_message,
+      pcr->error_message);
+  }
+
+  /* Double check that we reached the desired stage */
+  assert_stage_in (pcr, stage_ini-1, stage_ini-1, pcr->error_message);
 
   return _SUCCESS_;
     
@@ -646,9 +803,109 @@ int class_interface_free_data (
 
 
 /**
- * Free the CLASS superstructure and all the data therein.
+ * Free the CLASS module corresponding to the input 'stage'. The available stages are:
+ *
+ * BACKGROUND
+ * THERMODYNAMICS
+ * SOURCES
+ * PRIMORDIAL
+ * NONLINEAR
+ * TRANSFERS
+ * SPECTRA
+ * LENSING
+ * OUTPUT
+ *
+ * This function is rarely used. You should probably use 'class_interface_free' instead,
+ * because it allows more flexibility.
+ *
  */
-int class_interface_free (
+int class_interface_free_stage (
+       struct class_run * pcr,
+       enum execution_stages stage
+       )
+{
+
+  if (pcr->class_verbose > 2) {
+    printf (" @ Freeing CLASS module %s", pcr->stage_labels[stage]);
+    if (pcr->class_verbose > 3)
+      printf (" (n_called=%d, n_freed=%d)", pcr->n_called[stage], pcr->n_freed[stage]+1);
+    printf ("\n");
+  }
+  
+  /* Free CLASS modules based on the value 'stage' */
+  switch (stage) {
+    
+    case LENSING:
+      assert_stage (pcr, LENSING, pcr->error_message);
+      class_call (lensing_free(pcr->ple), pcr->ple->error_message, pcr->error_message);
+      class_interface_set_stage (pcr, SPECTRA);
+      break;
+
+    case SPECTRA:
+      assert_stage (pcr, SPECTRA, pcr->error_message);
+      class_call (spectra_free(pcr->psp), pcr->psp->error_message, pcr->error_message);
+      class_interface_set_stage (pcr, TRANSFERS);
+      break;
+
+    case TRANSFERS:
+      assert_stage (pcr, TRANSFERS, pcr->error_message);
+      class_call (transfer_free(pcr->ptr), pcr->ptr->error_message, pcr->error_message);
+      class_interface_set_stage (pcr, NONLINEAR);
+      break;
+
+    case NONLINEAR:
+      assert_stage (pcr, NONLINEAR, pcr->error_message);
+      class_call (nonlinear_free(pcr->pnl), pcr->pnl->error_message, pcr->error_message);
+      class_interface_set_stage (pcr, PRIMORDIAL);
+      break;
+  
+    case PRIMORDIAL:
+      assert_stage (pcr, PRIMORDIAL, pcr->error_message);
+      class_call (primordial_free(pcr->ppm), pcr->ppm->error_message, pcr->error_message);
+      class_interface_set_stage (pcr, SOURCES);
+      break;
+
+    case SOURCES:
+      assert_stage (pcr, SOURCES, pcr->error_message);
+      class_call (perturb_free(pcr->ppt), pcr->ppt->error_message, pcr->error_message);
+      class_interface_set_stage (pcr, THERMODYNAMICS);
+      break;
+
+    case THERMODYNAMICS:
+      assert_stage (pcr, THERMODYNAMICS, pcr->error_message);
+      class_call (thermodynamics_free(pcr->pth), pcr->pth->error_message, pcr->error_message);
+      class_interface_set_stage (pcr, BACKGROUND);
+      break;
+   
+    case BACKGROUND:
+      assert_stage (pcr, BACKGROUND, pcr->error_message);
+      class_call (background_free(pcr->pba), pcr->pba->error_message, pcr->error_message);
+      class_interface_set_stage (pcr, PARAMS_SET);
+      break;
+
+    default:
+      class_stop (pcr->error_message, "stage #%d cannot be freed!", stage);
+
+  } // end of switch(stage)
+
+  /* Increment the number of calls for the input stage */
+  pcr->n_freed[stage]++;
+
+  /* Double check that we reached the desired stage */
+  assert_stage_in (pcr, stage-1, stage-1, pcr->error_message);
+
+  return _SUCCESS_;
+    
+}
+
+
+
+/**
+ * Free the CLASS superstructure and all the data therein, assuming they
+ * CLASS has been run all the way to the last structure. This function calls
+ * 'class_interface_free_all'.
+ */
+int class_interface_free_self (
        struct class_run ** ppcr
        )
 {
@@ -657,9 +914,8 @@ int class_interface_free (
     printf (" @ Freeing CLASS\n");
 
   /* Empty CLASS structure */
-  if ((*ppcr)->execution_stage >= CLS_COMPUTED)
-    class_call (class_interface_free_data (*ppcr),
-      (*ppcr)->error_message, (*ppcr)->error_message);
+  class_call (class_interface_free (*ppcr, BACKGROUND, LENSING),
+    (*ppcr)->error_message, (*ppcr)->error_message);
       
   /* Free CLASS actual structures */
   free ((*ppcr)->ppr);
@@ -707,7 +963,7 @@ int class_interface_derived_at_z (
        )
 {
   
-  class_test (pcr->execution_stage < THERMODYNAMICS_COMPUTED,
+  class_test (pcr->current_stage < THERMODYNAMICS,
     pcr->error_message,
     "needs thermodynamics");
   
@@ -777,7 +1033,7 @@ int class_interface_derived (
        )
 {
   
-  class_test (pcr->execution_stage < THERMODYNAMICS_COMPUTED,
+  class_test (pcr->current_stage < THERMODYNAMICS,
     pcr->error_message,
     "needs thermodynamics");
 
@@ -814,7 +1070,7 @@ int class_interface_damping_scale (
        )
 {
  
-  class_test (pcr->execution_stage < THERMODYNAMICS_COMPUTED,
+  class_test (pcr->current_stage < THERMODYNAMICS,
     pcr->error_message,
     "needs thermodynamics");
  
