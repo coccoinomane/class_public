@@ -1552,8 +1552,19 @@ int spectra_init(
 
 /**
  * Compute angular power spectrum for perpendicular kinetic Sunyaev-Zeldovic,
- * using eq. 25 of Munshi, Pettinari, Dixon, Iliev & Coles.
+ * using eq. 25 of Munshi, Pettinari, Dixon, Iliev, Coles (to be published in
+ * 2014), which is equivalent to Eq. 4 of Ma & Fry (2002).
+ *
  * To be called after 'spectra_init'.
+ *
+ * @param ppr Input : pointer to precision structure
+ * @param pba Input : pointer to background structure (will provide H, Omega_m at redshift of interest)
+ * @param pth Input : pointer to thermodynamics structure
+ * @param ppt Input : pointer to perturbation structure
+ * @param ppm Input : pointer to primordial structure
+ * @param psp Output: pointer to initialized spectra structure
+ * @param C_l Output: array containing the computed kSZ C_l, must be preallocated with size ptr->l_size[ppt->index_md_scalars].
+ * @return the error status
  */
 int spectra_compute_cl_ksz(
                  struct precision * ppr,
@@ -1563,7 +1574,8 @@ int spectra_compute_cl_ksz(
                  struct primordial * ppm,
                  struct nonlinear *pnl,
                  struct transfers * ptr,
-                 struct spectra * psp
+                 struct spectra * psp,
+                 double * C_l
                  ) {
 
   if (psp->spectra_verbose > 0)
@@ -1612,10 +1624,6 @@ int spectra_compute_cl_ksz(
   for (int index_tau=1; index_tau < (grid_size-1); ++index_tau)
     weight[index_tau] = grid[index_tau+1] - grid[index_tau-1];
   weight[grid_size-1] = grid[grid_size-1] - grid[grid_size-2];
-
-  /* Result array */
-  double * C_l;
-  class_calloc (C_l, ptr->l_size[ppt->index_md_scalars], sizeof(double), psp->error_message);
 
   /* Perform the integral in Eq. 25 of Munshi et al. by looping over conformal time tau.
   The integration variable is r=tau_0-tau. The grid in tau is taken from the sampling
@@ -1731,11 +1739,11 @@ int spectra_compute_cl_ksz(
 
   } // end of for(index_tau)
 
-  /* Print C_l's to file */
-  for (int index_l=0; index_l < ptr->l_size[ppt->index_md_scalars]; ++index_l) {
-    int l = ptr->l[index_l];
-    fprintf (stderr, "%5d %17.7g\n", l, C_l[index_l]);
-  }
+  /* Print C_l's to stderr */
+  // for (int index_l=0; index_l < ptr->l_size[ppt->index_md_scalars]; ++index_l) {
+  //   int l = ptr->l[index_l];
+  //   fprintf (stderr, "%5d %17.7g\n", l, C_l[index_l]);
+  // }
 
   free (pvecback);
   free (pvecthermo);
@@ -3050,10 +3058,12 @@ int spectra_pk(
   
   if ((psp->has_pk_ksz_parallel == _TRUE_) || (psp->has_pk_ksz_perpendicular == _TRUE_)) {
 
+    /* use linear P(k) */
     class_call(spectra_pk_ksz(ppr,pba,ppt,ppm,pnl,psp,_FALSE_),
                psp->error_message,
                psp->error_message);
                
+    /* use non-linear P(k) */
     if (pnl->method != nl_none) {
 
       class_call(spectra_pk_ksz(ppr,pba,ppt,ppm,pnl,psp,_TRUE_),
@@ -3363,10 +3373,10 @@ int spectra_pk_simple(
 
 
 /**
- * This routine computes a table of values for the parallel and perpendicular power spectra
- * for the kSZ effect. These are computed according to Eq. 6 of Ma & Fry 2002 (see also
+ * This routine computes a table of values with the kSZ power spectra, both parallel and
+ * perpendicular parts. These are computed according to Eq. 6 of Ma & Fry 2002 (see also
  * Eq. 2.13 of Vishniac 1987). If the flag 'psp->use_linear_velocity_in_ksz' is set to 
- * _TRUE_, then Eq. 7 of the same paper is used, where the velocity is derived from
+ * _TRUE_, then the simpler Eq. 7 of the same paper is used, where the velocity is derived from
  * the density using the linear relation v=delta*a'*f/k.
  *
  * We solve the integral assuming that \vec{k} is aligned with the polar axis, so that the
@@ -3376,12 +3386,13 @@ int spectra_pk_simple(
  * This function can be easily generalised to deal with any convolution integral involving
  * two power spectra.
  *
+ * @param ppr In : pointer to precision structure
  * @param pba In : pointer to background structure (will provide H, Omega_m at redshift of interest)
  * @param ppt In : pointer to perturbation structure (contain source functions)
  * @param ppm In : pointer to primordial structure
- * @param ppm In : pointer to non-linear structure
+ * @param pnl In : pointer to non-linear structure
  * @param psp In/Out: pointer to spectra structure
- * @param pk_array In/Out: pointer to P(k) array: psp->ln_pk for linear, psp->ln_pk_nl for non-linear computation
+ * @param nonlinear In: flag that determines whether to use the linear or nonlinear matter P(k) in computing the kSZ power spectra
  * @return the error status
  */
 
@@ -3396,8 +3407,8 @@ int spectra_pk_ksz (
                )
 {
 
-  /* Are we computing the linear or non-linear power spectrum? */
 
+  /* Pointer to P(k) array: psp->ln_pk for linear, psp->ln_pk_nl for non-linear computation */
   double ** pk_array;
 
   if (non_linear == _FALSE_) {
@@ -3423,13 +3434,18 @@ int spectra_pk_ksz (
     }
   }
 
+  /* Debug - plot the standard power spectra */
+  // for (int index_k=0; index_k < psp->ln_k_size; ++index_k) {
+  //   fprintf (stderr, "%12.6g %12.6g\n", exp(psp->ln_k[index_k]), exp(psp->ln_pk[psp->index_pk_delta_delta][index_k]));
+  // }
+
   // =====================================================================================
   // =                                   Checks & memory                                 =
   // =====================================================================================
 
-  /* For the time being, we only support adiabatic initial conditions */
   int ic_ic_size = psp->ic_ic_size[ppt->index_md_scalars];
 
+  /* For the time being, we only support adiabatic initial conditions */
   class_test ((ic_ic_size != 1) || (ppt->has_ad == _FALSE_),
     psp->error_message,
     "for the time being, the kSZ power spectra can be computed only for adiabiatic initial conditions.");
@@ -3518,7 +3534,8 @@ int spectra_pk_ksz (
         //   continue;
 
         /* Find power spectra in k1, taking into account that the auto-spectra density-density
-        and velocity-velocity are stored logarithmically */
+        and velocity-velocity are stored logarithmically. The extra k1 factors relate the velocity
+        v to the velocity divergence theta. */
         int index_k1_tau_ic = (index_tau * psp->ln_k_size + index_k1)* ic_ic_size + 0;
         double P_k1_dd = exp(pk_array[psp->index_pk_delta_delta][index_k1_tau_ic]);
         double P_k1_dv = fabs(pk_array[psp->index_pk_delta_theta][index_k1_tau_ic])/k1;
@@ -3714,31 +3731,12 @@ int spectra_pk_ksz (
           double Pk1_Pk2_direct=0, Pk1_Pk2_cross=0;
           double integrand_parallel=0, integrand_perpendicular=0;
 
-          /* Compute the kSZ parallel and perpendicular kernels using the full formula in eq. 6
-          of Ma & Fry 2002. We ignore the fourth moment term P_ddvv because it's hard to
-          compute and it's negligible anyway, as proven in the same paper using simulations.
-          The expression is inaccurate for k>1 at redshift zero, as shown in Fig. 1 (ibidem) and in
-          Park, Shapiro et al. 2013. To make it more accurate, one should use non-linear power spectra. */
-          if (psp->use_linear_velocity_in_ksz == _FALSE_) {
-
-            Pk1_Pk2_direct = P_k2_dd * P_k1_vv;
-            Pk1_Pk2_cross = P_k2_dv * P_k1_dv;
-
-            /* Uncomment to use linear approximation instead. You'll obtain the same result as long
-            as P_dd, P_vv and P_dv are linear spectra. */
-            // Pk1_Pk2_direct = pow(a_prime*f/k1,2) * P_k2_dd * P_k1_dd;
-            // Pk1_Pk2_cross = (a_prime*f/k1)*(a_prime*f/k2) * P_k2_dd * P_k1_dd;
-
-            /* Compute integrand functions */
-            integrand_parallel = measure * Pk1_Pk2_direct*(mu1_sq) + Pk1_Pk2_cross*((k-k1*mu1)*mu1/k2);
-            integrand_perpendicular = measure * (1-mu1_sq) * (Pk1_Pk2_direct - Pk1_Pk2_cross*k1/k2);
-
-          }
-          /* Use the linear approximation where the velocity is taken to be equal
-          to delta*(a_prime*f/k). Here we only include the 1/k factors; the 'a_prime*f'
+          /* Compute the kSZ parallel and perpendicular kernels using Eq. 7
+          of Ma & Fry 2002, which assumes a linear relation between the velocity and the density
+          contrast: v=delta*(a_prime*f/k). Here we only include the 1/k factors; the 'a_prime*f'
           factors will be considered outside the innermost loop. When using linear spectra,
-          this approximation is as accurate as the full formula in eq. 7.*/
-          else {
+          this approximation is as accurate as the full formula in Eq. 6. */
+          if (psp->use_linear_velocity_in_ksz == _TRUE_) {
 
             Pk1_Pk2_direct = P_k2_dd * P_k1_dd;
             Pk1_Pk2_cross = 0;
@@ -3764,6 +3762,32 @@ int spectra_pk_ksz (
             /* Compute integrand functions */
             integrand_parallel = measure * Pk1_Pk2_direct * kernel_parallel;
             integrand_perpendicular = measure * Pk1_Pk2_direct * kernel_perpendicular;
+
+          }
+          /* EXPERIMENTAL! Compute the kSZ parallel and perpendicular kernels using the full formula in eq. 6
+          of Ma & Fry 2002. We ignore the fourth moment term P_ddvv because it's hard to
+          compute and it's negligible anyway, as proven in the same paper using simulations.
+          The expression is inaccurate for k>1 at redshift zero, as shown in Fig. 1 (ibidem) and in
+          Park, Shapiro et al. 2013. To make it more accurate, one should use non-linear power spectra.
+          TODO: the formula gives negative results which result in nans if we take the logarithm. 
+          Is it supposed to be negative? */
+          else {
+
+            Pk1_Pk2_direct = P_k2_dd * P_k1_vv;
+            Pk1_Pk2_cross = P_k2_dv * P_k1_dv;
+            
+            /* Uncomment to use linear approximation instead. You'll obtain the same result as long
+            as P_dd, P_vv and P_dv are linear spectra. */
+            // Pk1_Pk2_direct = pow(a_prime*f/k1,2) * P_k2_dd * P_k1_dd;
+            // Pk1_Pk2_cross = (a_prime*f/k1)*(a_prime*f/k2) * P_k2_dd * P_k1_dd;
+
+            /* Compute integrand functions */
+            integrand_parallel = measure * Pk1_Pk2_direct*(mu1_sq) + Pk1_Pk2_cross*((k-k1*mu1)*mu1/k2);
+            integrand_perpendicular = measure * (1-mu1_sq) * (Pk1_Pk2_direct - Pk1_Pk2_cross*k1/k2);
+            
+            /* Should we enforce P(k) to be positive? */
+            // integrand_parallel = fabs(integrand_parallel);
+            // integrand_perpendicular = fabs(integrand_perpendicular);
 
           } // end of if(use_linear_velocity_in_ksz)
 
@@ -3820,6 +3844,14 @@ int spectra_pk_ksz (
         factor *= pow(a_prime*f,2);
       integral_parallel *= factor;
       integral_perpendicular *= factor;
+
+      class_test_parallel ((integral_parallel<=0) || (integral_perpendicular<=0),
+        psp->error_message,
+        "found negative value in the integral, stopping to prevent nans");
+
+      class_test_parallel (isnan(log(integral_parallel)) || isnan(log(integral_perpendicular)),
+        psp->error_message,
+        "found nan in integral");
 
       /* Take the logarithm of the power spectrum */
       pk_array[psp->index_pk_ksz_parallel][index_k_tau_ic] = log (integral_parallel);

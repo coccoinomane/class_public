@@ -5039,6 +5039,19 @@ int perturb_sources(
       _set_source_(ppt->index_tp_p) = sqrt(6.) * pvecthermo[pth->index_th_g] * P;
     }
   }
+  
+  /* Debug - print the line-of-sight sources to file */
+  // if (index_k == 0) {
+  //
+  // if (index_tau == 0)
+  // fprintf (stderr, "%16s %16s %16s %16s %16s %16s\n",
+  // "z","x_e","tau_dot","abs(kappa)","exp_m_kappa","g");
+  //
+  // fprintf (stderr, "%16.7g %16.7g %16.7g %16.7g %16.7g %16.7g\n",
+  // z, pvecthermo[pth->index_th_xe], pvecthermo[pth->index_th_dkappa],
+  // -log(pvecthermo[pth->index_th_exp_m_kappa]), pvecthermo[pth->index_th_exp_m_kappa],
+  // pvecthermo[pth->index_th_g]);
+  // }
 
   return _SUCCESS_;
 

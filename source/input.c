@@ -567,10 +567,14 @@ int input_init(
       pth->reio_parametrization=reio_half_tanh;
       flag2=_TRUE_;
     }
-
+    if (strcmp(string1,"reio_custom") == 0) {
+      pth->reio_parametrization=reio_custom;
+      flag2=_TRUE_;
+    }
+    
     class_test(flag2==_FALSE_,
                errmsg,
-               "could not identify reionization_parametrization value, check that it is one of 'reio_none', 'reio_camb', 'reio_bins_tanh', ...");
+               "could not identify reionization_parametrization value, check that it is one of 'reio_none', 'reio_camb', 'reio_bins_tanh', 'reio_custom', ...");
   }
 
   /* reionization parameters if reio_parametrization=reio_camb */
@@ -607,6 +611,12 @@ int input_init(
     class_read_list_of_doubles("binned_reio_xe",pth->binned_reio_xe,pth->binned_reio_num);
     class_read_double("binned_reio_step_sharpness",pth->binned_reio_step_sharpness);
   }
+
+  /* reionization parameters if reio_parametrization=reio_custom */
+  if (pth->reio_parametrization == reio_custom) {
+    class_read_string("reio_custom_file", pth->reio_custom_filename);
+  }
+  
 
   /* energy injection parameters from CDM annihilation/decay */
   class_read_double("annihilation",pth->annihilation);
@@ -690,15 +700,11 @@ int input_init(
       ppt->has_pk_delta=_TRUE_;
       ppt->has_pk_theta=_TRUE_;
       ppt->has_perturbations = _TRUE_;
+      psp->use_linear_velocity_in_ksz = _TRUE_;
     }
 
-    if ((strstr(string1,"kPkLin") != NULL) || (strstr(string1,"KPkLin") != NULL) || (strstr(string1,"KPKLIN") != NULL)
-    || (strstr(string1,"kPkLinear") != NULL) || (strstr(string1,"KPkLinear") != NULL) || (strstr(string1,"KPKLINEAR") != NULL)) {
-      ppt->has_pk_ksz=_TRUE_;
-      ppt->has_pk_delta=_TRUE_;
-      ppt->has_pk_theta=_TRUE_;
-      ppt->has_perturbations = _TRUE_;
-      psp->use_linear_velocity_in_ksz=_TRUE_;
+    if ((strstr(string1,"kPkVel") != NULL) || (strstr(string1,"KPkVel") != NULL) || (strstr(string1,"KPKVEL") != NULL)) {
+      psp->use_linear_velocity_in_ksz = _FALSE_;
     }
 
     if ((strstr(string1,"mTk") != NULL) || (strstr(string1,"MTk") != NULL) || (strstr(string1,"MTK") != NULL) ||
@@ -1560,7 +1566,7 @@ int input_init(
 
   }
 
-  /* CLASS can only compute nonlinear corrections for density. The kSZ power spectrum,
+  /* CLASS can only compute nonlinear corrections for the density P(k). The kSZ power spectrum,
   however, is obtained from both density and velocity power spectra. Therefore, when
   nonlinear corrections are requested, the non-linear velocity power spectrum is derived
   from the non-linear density power spectrum using the linear relation v=delta*a'*f/k. */

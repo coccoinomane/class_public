@@ -192,13 +192,13 @@ struct spectra {
                                kinetic Sunyaev-Zeldovich effect, computed using the first line of Eq. 7
                                in http://arxiv.org/abs/astro-ph/0106342. Indexed as ln_pk, but without the
                                complications associated to the initial conditions indices (we always
-                               set index_ic1_ic2=psp->ic_ic_size=0).
+                               set psp->ic_ic_size=1).
                              */
   short has_pk_ksz_perpendicular; /**< Matter power spectrum for the perpendicular component of the 
                                      kinetic Sunyaev-Zeldovich effect, computed using the second line of Eq. 7
                                      in http://arxiv.org/abs/astro-ph/0106342. Indexed as ln_pk, but without the
                                      complications associated to the initial conditions indices (we always
-                                     set index_ic1_ic2=psp->ic_ic_size=0).
+                                     set psp->ic_ic_size=1).
                                   */
     
   int index_pk_delta_delta; 
@@ -404,7 +404,8 @@ extern "C" {
                    struct primordial * ppm,
                    struct nonlinear *pnl,
                    struct transfers * ptr,
-                   struct spectra * psp
+                   struct spectra * psp,
+                   double * C_l
                    );
 
   int spectra_free(

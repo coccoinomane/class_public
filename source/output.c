@@ -1698,7 +1698,7 @@ int output_one_line_of_pk(
     
     double pk_value = pk[index_pk];
     
-    /* Rescale the velocity power spectra if requested */
+    /* Should we output the velocity (_TRUE_) or velocity divergence theta (_FALSE_) power spectra? */
     int use_velocity = _TRUE_;
 
     if (use_velocity == _TRUE_) {
