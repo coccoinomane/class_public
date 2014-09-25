@@ -396,6 +396,17 @@ extern "C" {
                    struct spectra * psp
                    );
 
+  int spectra_compute_cl_ksz(
+                   struct precision * ppr,
+                   struct background * pba,
+                   struct thermo * pth,
+                   struct perturbs * ppt,
+                   struct primordial * ppm,
+                   struct nonlinear *pnl,
+                   struct transfers * ptr,
+                   struct spectra * psp
+                   );
+
   int spectra_free(
                    struct spectra * psp
                    );
@@ -455,12 +466,6 @@ extern "C" {
                  struct nonlinear *pnl,
                  struct spectra * psp
                  );
-
-  int spectra_pk_ksz_sampling(
-        struct background * pba,
-        struct perturbs * ppt,
-        struct spectra * psp
-        );
 
   int spectra_pk_ksz(
         struct precision * ppr,
