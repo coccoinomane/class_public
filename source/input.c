@@ -1376,6 +1376,11 @@ int input_init(
     }
   }
 
+  /* when is the kSZ effect active? */
+  class_read_double("z_start_ksz", psp->ksz_cl_redshift_start);
+  class_read_double("z_end_ksz", psp->ksz_cl_redshift_end);
+
+
   /* deal with selection functions */
   if ((ppt->has_cl_number_count == _TRUE_) || (ppt->has_cl_lensing_potential == _TRUE_)) {
 
@@ -2175,6 +2180,8 @@ int input_default_params(
   psp->z_max_pk = pop->z_pk[0];
   psp->non_diag=0;
   psp->use_linear_velocity_in_ksz=_FALSE_;
+  psp->ksz_cl_redshift_start=1e30;
+  psp->ksz_cl_redshift_end=0;
 
   /** - nonlinear structure */
 

@@ -41,6 +41,12 @@ struct spectra {
                    and number of bins minus one means all
                    correlations */
 
+  int use_linear_velocity_in_ksz; /**< If _TRUE_, obtain the velocity power spectrum for the kSZ computation by using
+                                   the linear relation v=delta*(a_prime*f/k) */
+    
+  double ksz_cl_redshift_start; /** at which redshift does the kSZ effect activates? */
+  double ksz_cl_redshift_end;  /** at which redshift does the kSZ effect end? */
+
   //@}
 
   /** @name - information on number of modes and pairs of initial conditions */
@@ -218,9 +224,6 @@ struct spectra {
                                           is a cross-correlation betweent two quantities, e.g. P_delta_v.
                                           These P(k) can be negative and are therefore stored as they are,
                                           that is, without taking their logarithm. */
-
-  int use_linear_velocity_in_ksz; /**< If _TRUE_, obtain the velocity power spectrum for the kSZ computation by using
-                                   the linear relation v=delta*(a_prime*f/k) */
 
   double ** ln_pk_nl;   /**< Non-linear matter power spectrum.
                           depends on indices index_k, index_tau as:
@@ -495,24 +498,23 @@ extern "C" {
                                struct spectra * psp
                                );
 
-  int kernel_ksz_perpendicular (
+  int spectra_kernel_ksz_perpendicular (
         double k,
         double q,
         double mu,
         double * result,
         ErrorMsg errmsg);
 
-  int kernel_ksz_parallel (
+  int spectra_kernel_ksz_parallel (
         double k,
         double q,
         double mu,
         double * result,
         ErrorMsg errmsg);
 
-  int kernel_ksz_sum_squeezed (
+  int spectra_baryon_filter_function (
+        double z,
         double k,
-        double q,
-        double mu,
         double * result,
         ErrorMsg errmsg);
 

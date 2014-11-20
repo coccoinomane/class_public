@@ -66,7 +66,7 @@ int main(int argc, char **argv) {
     (pt.has_cmb == _FALSE_) ||
     (pt.has_pk_ksz == _FALSE_) ||
     (pt.has_scalars == _FALSE_)) {
-    printf ("\nERROR: To compute kSZ C_l's, we need both CMB and kSZ!\n");
+    printf ("\nERROR: To compute kSZ C_l's, we need both CMB and kSZ! Set 'output=kPk,tCl' in input file.\n");
     return _FAILURE_;
   }
 
@@ -91,9 +91,11 @@ int main(int argc, char **argv) {
   }
   
   /* Print kSZ C_l's to stderr */
+  fprintf (stderr, "# %15s %17.7s %17.7s\n", "l", "C_l", "D_l");
   for (int index_l=0; index_l < tr.l_size[pt.index_md_scalars]; ++index_l) {
     int l = tr.l[index_l];
-    fprintf (stderr, "%5d %17.7g\n", l, C_l[index_l]);
+    double Cl = C_l[index_l];
+    fprintf (stderr, "%17d %17.7g %17.7g\n", l, Cl, l*(l+1)/(2*_PI_)*pow(ba.T_cmb*1e6,2)*Cl);
   }
   
   /* Resume the standard CLASS workflow */

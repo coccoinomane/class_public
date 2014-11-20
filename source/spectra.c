@@ -1551,9 +1551,10 @@ int spectra_init(
 
 
 /**
- * Compute angular power spectrum for perpendicular kinetic Sunyaev-Zeldovic,
- * using eq. 25 of Munshi, Pettinari, Dixon, Iliev, Coles (to be published in
- * 2014), which is equivalent to Eq. 4 of Ma & Fry (2002).
+ * Compute angular power spectrum for perpendicular kinetic Sunyaev-Zeldovic, using
+ * eq. 25 of Munshi, Pettinari, Dixon, Iliev, Coles (to be published in 2014), which
+ * is equivalent to Eq. 4 of Ma & Fry (2002, http://arxiv.org/abs/astro-ph/0106342).
+ * Make sure the output array, C_l, is already initialised to zeros.
  *
  * To be called after 'spectra_init'.
  *
@@ -1579,7 +1580,8 @@ int spectra_compute_cl_ksz(
                  ) {
 
   if (psp->spectra_verbose > 0)
-    printf (" -> computing kSZ angular power spectrum\n");
+    printf (" -> computing kSZ angular power spectrum in the redshift range [%g,%g]\n",
+    MAX(0,psp->ksz_cl_redshift_end), MIN(psp->z_max_pk, psp->ksz_cl_redshift_start));
 
   /* Stop if parameter files do not make sense. We need to compute
   the CMB because otherwise the time sampling of the power spectrum
@@ -1650,6 +1652,10 @@ int spectra_compute_cl_ksz(
 
     double a = pvecback[pba->index_bg_a];
     double z = 1/a-1;
+
+    /* Restrict the computation to a fixed redshift range */
+    if ((z>psp->ksz_cl_redshift_start) || (z<psp->ksz_cl_redshift_end))
+      continue;
 
     class_call(thermodynamics_at_z(pba,
                                    pth,
@@ -3374,10 +3380,11 @@ int spectra_pk_simple(
 
 /**
  * This routine computes a table of values with the kSZ power spectra, both parallel and
- * perpendicular parts. These are computed according to Eq. 6 of Ma & Fry 2002 (see also
- * Eq. 2.13 of Vishniac 1987). If the flag 'psp->use_linear_velocity_in_ksz' is set to 
- * _TRUE_, then the simpler Eq. 7 of the same paper is used, where the velocity is derived from
- * the density using the linear relation v=delta*a'*f/k.
+ * perpendicular parts. These are computed according to Eq. 6 of Ma & Fry 2002
+ * (http://arxiv.org/abs/astro-ph/0106342, see also Eq. 2.13 of Vishniac 1987). If the
+ * flag 'psp->use_linear_velocity_in_ksz' is set to  _TRUE_, then the simpler Eq. 7 of
+ * the same paper is used, where the velocity is derived from the density using the linear
+ * relation v=delta*a'*f/k.
  *
  * We solve the integral assuming that \vec{k} is aligned with the polar axis, so that the
  * volume element reduces to 
@@ -3514,6 +3521,25 @@ int spectra_pk_ksz (
       if (psp->spectra_verbose > 1)
         printf ("     \\ considering k=%g (%d/%d)\n", k, index_k+1, psp->ln_k_size);
 
+      /* Find the filter function that relates the DM power spectrum to the gas power
+      spectrum for the considered time and scale. More details in eqs. 16 and 20 of Shaw
+      et al. 2012, http://arxiv.org/abs/1109.0553v2. */
+      double W;
+      class_call_parallel (spectra_baryon_filter_function (z, k, &W, psp->error_message),
+        psp->error_message, psp->error_message);
+      double W_squared = W*W;
+
+      /* Uncomment to ignore the baryon feedback, that is, adopt the Dark Matter model
+      in Eq. 13 of Shaw et al. 2012 (http://arxiv.org/abs/1109.0553v2). This model is the
+      same used in Ma & Fry 2002, with the difference that P_dd(|k-k'|) is taken to be
+      nonlinear, using HALOFIT */
+      // W_squared = 1;
+    
+      /* Debug - print filter function */
+      // if ((z<1.03) && (z>1.01))
+      //   fprintf (stderr, "%17.7g %17.7g\n", k, W_squared);
+      // else continue;
+
       /* Initialise the integral for this k-value to zero */
       double integral_parallel = 0;
       double integral_perpendicular = 0;
@@ -3537,9 +3563,16 @@ int spectra_pk_ksz (
         and velocity-velocity are stored logarithmically. The extra k1 factors relate the velocity
         v to the velocity divergence theta. */
         int index_k1_tau_ic = (index_tau * psp->ln_k_size + index_k1)* ic_ic_size + 0;
-        double P_k1_dd = exp(pk_array[psp->index_pk_delta_delta][index_k1_tau_ic]);
+        double P_k1_dd = exp(pk_array[psp->index_pk_delta_delta][index_k1_tau_ic]); /* Consider including W_squared here */
         double P_k1_dv = fabs(pk_array[psp->index_pk_delta_theta][index_k1_tau_ic])/k1;
         double P_k1_vv = exp(pk_array[psp->index_pk_theta_theta][index_k1_tau_ic])/(k1*k1);
+
+        /* Uncomment to use the LINEAR power spectrum intead of the non-linear one for the
+        vv correlation, as in Eq. 13 of Shaw et al. 2012 (http://arxiv.org/abs/1109.0553v2);
+        this correction makes a difference only if use_linear_velocity_in_ksz==_TRUE_.
+        Zhang et al. (2004) and Shao et al. (2011) suggest to use the non-linear P(k) also
+        for k1; for more details, see comment below Eq. 13. */ 
+        P_k1_dd = exp(psp->ln_pk[psp->index_pk_delta_delta][index_k1_tau_ic]);
 
         if (psp->spectra_verbose > 2)
           printf ("      \\ considering k1=%g (%d/%d)\n", k1, index_k1+1, psp->ln_k_size);
@@ -3731,11 +3764,11 @@ int spectra_pk_ksz (
           double Pk1_Pk2_direct=0, Pk1_Pk2_cross=0;
           double integrand_parallel=0, integrand_perpendicular=0;
 
-          /* Compute the kSZ parallel and perpendicular kernels using Eq. 7
-          of Ma & Fry 2002, which assumes a linear relation between the velocity and the density
-          contrast: v=delta*(a_prime*f/k). Here we only include the 1/k factors; the 'a_prime*f'
-          factors will be considered outside the innermost loop. When using linear spectra,
-          this approximation is as accurate as the full formula in Eq. 6. */
+          /* Compute the kSZ parallel and perpendicular kernels using Eq. 7 of Ma & Fry 2002
+          (http://arxiv.org/abs/astro-ph/0106342), which assumes a linear relation between the
+          velocity and the density contrast: v=delta*(a_prime*f/k). Here we only include the 1/k
+          factors; the 'a_prime*f' factors will be considered outside the innermost loop. When
+          using linear spectra, this approximation is as accurate as the full formula in Eq. 6. */
           if (psp->use_linear_velocity_in_ksz == _TRUE_) {
 
             Pk1_Pk2_direct = P_k2_dd * P_k1_dd;
@@ -3753,10 +3786,10 @@ int spectra_pk_ksz (
             // kernel_perpendicular = ((1-mu1_sq) * (k*(k-2*k1*mu1))) / (k1_sq*k2_sq);
 
             /* Uncomment to call the functions instead. Slightly slower, but performs various checks */
-            // class_call_parallel (kernel_ksz_parallel (k, k1, mu1, &kernel_parallel, psp->error_message),
+            // class_call_parallel (spectra_kernel_ksz_parallel (k, k1, mu1, &kernel_parallel, psp->error_message),
             //   psp->error_message, psp->error_message);
             //
-            // class_call_parallel (kernel_ksz_perpendicular (k, k1, mu1, &kernel_perpendicular, psp->error_message),
+            // class_call_parallel (spectra_kernel_ksz_perpendicular (k, k1, mu1, &kernel_perpendicular, psp->error_message),
             //   psp->error_message, psp->error_message);
 
             /* Compute integrand functions */
@@ -3795,10 +3828,10 @@ int spectra_pk_ksz (
           double volume_weight = 0.25 * delta_k1[index_k1] * delta_k2[index_k2];
 
           #pragma omp atomic
-          integral_parallel += integrand_parallel * volume_weight;
+          integral_parallel += integrand_parallel * W_squared * volume_weight;
 
           #pragma omp atomic
-          integral_perpendicular += integrand_perpendicular * volume_weight;
+          integral_perpendicular += integrand_perpendicular * W_squared * volume_weight;
 
           #pragma omp atomic
           counter++;
@@ -3904,7 +3937,7 @@ int spectra_pk_ksz (
  * Kernel of the perpendicular power spectrum of the kinetic Sunyaev-Zeldovich effect,
  * as in the first line of Eq. 7 in http://arxiv.org/abs/astro-ph/0106342.
  */
-int kernel_ksz_perpendicular (
+int spectra_kernel_ksz_perpendicular (
       double k,
       double k1,
       double mu1,
@@ -3941,7 +3974,7 @@ int kernel_ksz_perpendicular (
  * Kernel of the parallel power spectrum of the kinetic Sunyaev-Zeldovich effect,
  * as in the second line of Eq. 7 in http://arxiv.org/abs/astro-ph/0106342.
  */
-int kernel_ksz_parallel (
+int spectra_kernel_ksz_parallel (
       double k,
       double k1,
       double mu1,
@@ -3973,6 +4006,48 @@ int kernel_ksz_parallel (
   return _SUCCESS_;
   
 }
+
+
+/**
+ * Ratio between the power spectrum of gas density fluctuations, and that of the dark matter:
+ *
+ * P^NL_gas (k,z) = W^2(k,z) P^NL_DM(k,z).
+ * 
+ * We use the formula in Eq. 21 of Shaw et al. 2012 (http://arxiv.org/abs/1109.0553v2), fitted
+ * to their non-radiative BolshoiNR hydrodynamical simulation. The simulation includes the gas
+ * thermal pressure (their NR model) but excludes the radiative corrections (their CSF model).
+ * Here is an excerpt from Shaw et al. 2012, below eq. 16:
+ *
+ *   "In the NR regime, the qualitative shape of W^2(k) is simple to imagine. At large scales,
+ *   and before the onset of gravitational collapse, we expect W^2(k) ~ 1. However, at small scales,
+ *   the gas thermal pressure force suppresses gas density perturbations and so W^2(k) will tend to
+ *   zero as k increases. Therefore, W^2(k) acts as a filter, smoothing the gas density at some
+ *   characteristic scale. As we shall demonstrate, the form of W^2(k) for our simulation including
+ *   radiative CSF [WHICH WE DO NOT IMPLEMENT IN CLASS] has a more complex dependence on k."
+ *
+ */
+int spectra_baryon_filter_function (
+      double z,
+      double k,
+      double * result,
+      ErrorMsg errmsg)
+{
+  
+  double a_inv = z+1;
+  double k_f = 12.6*a_inv + 6.3;
+  double g = 0.84*a_inv;
+  
+  class_test (fabs(k_f) < _MINUSCULE_,
+    errmsg,
+    "stopping for division by zero");
+  
+  *result = 0.5 * (exp(-k/k_f) + 1/(1+pow(g*k/k_f,3.5)));
+  
+  return _SUCCESS_;
+  
+}
+
+
 
 
 
