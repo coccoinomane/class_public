@@ -1,8 +1,8 @@
 /** @file ksz_cl.c
  * Guido W. Pettinari, 22.09.2014
  * Compute angular power spectrum for perpendicular kinetic Sunyaev-Zeldovic,
- * using eq. 25 of Munshi, Pettinari, Dixon, Iliev, Coles (to be published in
- * 2014), which is equivalent to Eq. 4 of Ma & Fry (2002). The result is output to
+ * using eq. 25 of Munshi, Dixon, Iliev, Coles (to be published in
+ * 2015), which is equivalent to Eq. 4 of Ma & Fry (2002). The result is output to
  * stderr. To dump to file, run the program as ./ksz_cl 2> output/ksz_cl.dat.
  */
 

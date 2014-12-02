@@ -695,8 +695,15 @@ int input_init(
       ppt->has_perturbations = _TRUE_;
     }
 
+    if ((strstr(string1,"ePk") != NULL) || (strstr(string1,"EPk") != NULL) || (strstr(string1,"EPK") != NULL)) {
+      ppt->has_pk_delta = _TRUE_; /* We compute the P(k) of the free electron density using the matter P(k) */
+      ppt->has_pk_delta_e = _TRUE_;
+      ppt->has_perturbations = _TRUE_;
+    }
+
     if ((strstr(string1,"kPk") != NULL) || (strstr(string1,"KPk") != NULL) || (strstr(string1,"KPK") != NULL)) {
       ppt->has_pk_ksz=_TRUE_;
+      ppt->has_pk_delta_e = _TRUE_;
       ppt->has_pk_delta=_TRUE_;
       ppt->has_pk_theta=_TRUE_;
       ppt->has_perturbations = _TRUE_;
@@ -1381,6 +1388,47 @@ int input_init(
   class_read_double("z_end_ksz", psp->ksz_cl_redshift_end);
 
 
+  /* what effects should be included in the kSZ power spectrum? */
+  class_call(parser_read_string(pfc,
+                                "baryon_thermal_pressure",
+                                &(string1),
+                                &(flag1),
+                                errmsg),
+             errmsg,
+             errmsg);
+
+  if ((flag1 == _TRUE_) && ((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL))) {
+    psp->has_baryon_thermal_pressure = _TRUE_;
+  }
+
+  class_call(parser_read_string(pfc,
+                                "dm_halo_contraction",
+                                &(string1),
+                                &(flag1),
+                                errmsg),
+             errmsg,
+             errmsg);
+
+  if ((flag1 == _TRUE_) && ((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL))) {
+    psp->has_dm_halo_contraction = _TRUE_;
+  }
+
+
+  class_call(parser_read_string(pfc,
+                                "patchy_reionization",
+                                &(string1),
+                                &(flag1),
+                                errmsg),
+             errmsg,
+             errmsg);
+
+  if ((flag1 == _TRUE_) && ((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL))) {
+    psp->has_patchy_reionization = _TRUE_;
+  }
+
+  class_read_double("patchy_reionization_bubble_size_mpc", psp->patchy_reionization_bubble_size);
+
+
   /* deal with selection functions */
   if ((ppt->has_cl_number_count == _TRUE_) || (ppt->has_cl_lensing_potential == _TRUE_)) {
 
@@ -2037,6 +2085,7 @@ int input_default_params(
   ppt->has_cl_lensing_potential = _FALSE_;
   ppt->has_pk_delta = _FALSE_;
   ppt->has_pk_theta = _FALSE_;
+  ppt->has_pk_delta_e = _FALSE_;
   ppt->has_pk_ksz = _FALSE_;
   ppt->has_density_transfers = _FALSE_;
   ppt->has_velocity_transfers = _FALSE_;
@@ -2182,6 +2231,10 @@ int input_default_params(
   psp->use_linear_velocity_in_ksz=_FALSE_;
   psp->ksz_cl_redshift_start=1e30;
   psp->ksz_cl_redshift_end=0;
+  psp->has_baryon_thermal_pressure=_FALSE_;
+  psp->has_dm_halo_contraction=_FALSE_;
+  psp->has_patchy_reionization=_FALSE_;
+  psp->patchy_reionization_bubble_size=0.8; /* from http://arxiv.org/abs/1006.2016 */
 
   /** - nonlinear structure */
 

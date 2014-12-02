@@ -124,7 +124,8 @@ struct perturbs
   short has_cl_lensing_potential;     /**< do we need Cl's for galaxy lensing potential? */
   short has_cl_number_count;          /**< do we need Cl's for density number count? */
   short has_pk_delta;                /**< do we need matter Fourier density spectrum? */
-  short has_pk_theta;              /**< do we need matter Fourier velocity spectrum? */
+  short has_pk_theta;                /**< do we need matter Fourier velocity spectrum? */
+  short has_pk_delta_e;              /**< do we need density power spectrum of the free electrons? */
   short has_pk_ksz;                   /**< do we need matter Fourier spectrum for the kSZ effect (see Vishniac 1987, eq 2.13)? */
   short has_density_transfers;        /**< do we need to output individual matter density transfer functions? */
   short has_velocity_transfers;       /**< do we need to output individual matter velocity transfer functions? */

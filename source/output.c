@@ -1702,9 +1702,9 @@ int output_one_line_of_pk(
     int use_velocity = _TRUE_;
 
     if (use_velocity == _TRUE_) {
-      if ((psp->has_pk_theta_theta == _TRUE_) && (index_pk == psp->index_pk_theta_theta))
+      if ((psp->has_pk_theta_theta_cdm == _TRUE_) && (index_pk == psp->index_pk_theta_theta_cdm))
         pk_value /= k*k;
-      else if ((psp->has_pk_delta_theta == _TRUE_) && (index_pk == psp->index_pk_delta_theta))
+      else if ((psp->has_pk_delta_theta_cdm == _TRUE_) && (index_pk == psp->index_pk_delta_theta_cdm))
         pk_value /= k;
     }
     

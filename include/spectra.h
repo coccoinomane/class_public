@@ -4,6 +4,7 @@
 #define __SPECTRA__
 
 #include "transfer.h"
+#include "cisi.h" /* Cosine and Sine integrals */
 
 /* The kSZ power spectra are obtained as a convolution over three wavemodes
 (k,k1,k2) whereby k2 has to be in the range |k-k1|<=k2<=k+k1. When k2 is too close
@@ -46,6 +47,11 @@ struct spectra {
     
   double ksz_cl_redshift_start; /** at which redshift does the kSZ effect activates? */
   double ksz_cl_redshift_end;  /** at which redshift does the kSZ effect end? */
+  
+  int has_baryon_thermal_pressure; /** include the effect of baryon thermal pressure to the free electron density P(k) */
+  int has_dm_halo_contraction;  /** include the effect of dm halo contraction to the cold dark matter density P(k) */
+  int has_patchy_reionization;  /** include the effect of inhomogeneous reionization assuming a fixed bubble size */
+  double patchy_reionization_bubble_size; /** size of a typical reionization bubble */
 
   //@}
 
@@ -191,9 +197,10 @@ struct spectra {
                        or nearly constant, and with arbitrary sign.
                     */
 
-  short has_pk_delta_delta; /**< Total density-density power spectrum of the matter components */
-  short has_pk_theta_theta; /**< Total velocity-velocity power spectrum of the matter components */
-  short has_pk_delta_theta; /**< Total density-velocity power spectrum of the matter components */
+  short has_pk_delta_delta_cdm; /**< Total density-density power spectrum of the matter components */
+  short has_pk_theta_theta_cdm; /**< Total velocity-velocity power spectrum of the matter components */
+  short has_pk_delta_theta_cdm; /**< Total density-velocity power spectrum of the matter components */
+  short has_pk_delta_delta_e; /**< Total density-density power spectrum of the free electrons */
   short has_pk_ksz_parallel; /**< Matter power spectrum for the parallel component of the 
                                kinetic Sunyaev-Zeldovich effect, computed using the first line of Eq. 7
                                in http://arxiv.org/abs/astro-ph/0106342. Indexed as ln_pk, but without the
@@ -207,9 +214,10 @@ struct spectra {
                                      set psp->ic_ic_size=1).
                                   */
     
-  int index_pk_delta_delta; 
-  int index_pk_delta_theta; 
-  int index_pk_theta_theta; 
+  int index_pk_delta_delta_cdm; 
+  int index_pk_delta_theta_cdm; 
+  int index_pk_theta_theta_cdm; 
+  int index_pk_delta_delta_e; 
   int index_pk_ksz_parallel; 
   int index_pk_ksz_perpendicular; 
 
@@ -217,7 +225,7 @@ struct spectra {
 
   char pk_labels[_MAX_NUM_SPECTRA_][_MAX_LENGTH_LABEL_]; /**< String labels for the pk spectra */
   
-  int is_simple_pk[_MAX_NUM_SPECTRA_]; /**< If 'is_simple_pk[index_pk]==_TRUE_', then the considered P(k)
+  int is_source_pk[_MAX_NUM_SPECTRA_]; /**< If 'is_source_pk[index_pk]==_TRUE_', then the considered P(k)
                                           can be computed using the standard procedure, that is
                                           P(k)=integral(primordial*transfer*transfer). */
   int is_cross_pk[_MAX_NUM_SPECTRA_];  /**< If 'is_cross_pk[index_pk]==_TRUE_', then the considered P(k)
@@ -463,13 +471,22 @@ extern "C" {
                  struct spectra * psp
                  );
 
-  int spectra_pk_simple(
-                 struct background * pba,
-                 struct perturbs * ppt,
-                 struct primordial * ppm,
-                 struct nonlinear *pnl,
-                 struct spectra * psp
-                 );
+  int spectra_pk_from_source(
+        struct background * pba,
+        struct perturbs * ppt,
+        struct primordial * ppm,
+        struct nonlinear *pnl,
+        struct spectra * psp
+        );
+
+
+  int spectra_pk_free_electron(
+        struct background * pba,
+        struct perturbs * ppt,
+        struct primordial * ppm,
+        struct nonlinear *pnl,
+        struct spectra * psp
+        );
 
   int spectra_pk_ksz(
         struct precision * ppr,
@@ -484,39 +501,61 @@ extern "C" {
 
 
   int spectra_sigma(
-                    struct background * pba,
-                    struct primordial * ppm,
-                    struct spectra * psp,
-                    double R,
-                    double z,
-                    double *sigma
-                    );
+        struct background * pba,
+        struct primordial * ppm,
+        struct spectra * psp,
+        double R,
+        double z,
+        double *sigma
+        );
 
   int spectra_matter_transfers(
-                               struct background * pba,
-                               struct perturbs * ppt,
-                               struct spectra * psp
-                               );
+        struct background * pba,
+        struct perturbs * ppt,
+        struct spectra * psp
+        );
 
   int spectra_kernel_ksz_perpendicular (
         double k,
         double q,
         double mu,
         double * result,
-        ErrorMsg errmsg);
+        ErrorMsg errmsg
+        );
 
   int spectra_kernel_ksz_parallel (
         double k,
         double q,
         double mu,
         double * result,
-        ErrorMsg errmsg);
+        ErrorMsg errmsg
+        );
 
   int spectra_baryon_filter_function (
         double z,
         double k,
         double * result,
+        ErrorMsg errms
+        );
+
+  int spectra_dm_halo_contraction (
+        double h,
+        double k,
+        double * result,
+        ErrorMsg errms
+        );
+
+  int spectra_nfw (
+        double eta,
+        double c,
+        double * result,
         ErrorMsg errmsg);
+
+  int spectra_pk_compute_derivatives(
+        int index_pk,
+        struct nonlinear *pnl,
+        struct spectra * psp
+        );
 
 
 #ifdef __cplusplus
