@@ -838,7 +838,7 @@ int fisher_create_interpolation_mesh(
       index_l++;
     pfi->l_turnover[0] = pbi->l[index_l-1];
   }
-
+  
 
   if (pfi->fisher_verbose > 1)
     printf ("     * l_turnover=%d, n_boxes=[%d,%d], linking lengths=[%g,%g], grouping lengths=[%g,%g]\n",
@@ -852,12 +852,6 @@ int fisher_create_interpolation_mesh(
   // ==================================================================================
   // =                                Create meshes                                   =
   // ==================================================================================
-
-
-
-  // ===============================================
-  // =                 Create meshes               =
-  // ===============================================
 
   /* TODO: parallelize the filling of values, it should improve speed when using a very
   fine l-grid */
