@@ -1,7 +1,7 @@
-/** @file class.c 
- * Julien Lesgourgues, 17.04.2011    
+/** @file class.c
+ * Julien Lesgourgues, 17.04.2011
  */
- 
+
 #include "class.h"
 
 int main(int argc, char **argv) {
@@ -22,7 +22,7 @@ int main(int argc, char **argv) {
   ErrorMsg errmsg;            /* for error messages */
 
   if (input_init_from_arguments(argc, argv,&pr,&ba,&th,&pt,&tr,&pm,&sp,&nl,&le,&bs,&bi,&fi,&op,errmsg) == _FAILURE_) {
-    printf("\n\nError running input_init_from_arguments \n=>%s\n",errmsg); 
+    printf("\n\nError running input_init_from_arguments \n=>%s\n",errmsg);
     return _FAILURE_;
   }
 
@@ -46,18 +46,18 @@ int main(int argc, char **argv) {
     return _FAILURE_;
   }
 
-  if (transfer_init(&pr,&ba,&th,&pt,&tr) == _FAILURE_) {
+  if (nonlinear_init(&pr,&ba,&th,&pt,&pm,&nl) == _FAILURE_) {
+    printf("\n\nError in nonlinear_init \n=>%s\n",nl.error_message);
+    return _FAILURE_;
+  }
+
+  if (transfer_init(&pr,&ba,&th,&pt,&nl,&tr) == _FAILURE_) {
     printf("\n\nError in transfer_init \n=>%s\n",tr.error_message);
     return _FAILURE_;
   }
 
-  if (spectra_init(&pr,&ba,&pt,&tr,&pm,&sp) == _FAILURE_) {
+  if (spectra_init(&pr,&ba,&pt,&pm,&nl,&tr,&sp) == _FAILURE_) {
     printf("\n\nError in spectra_init \n=>%s\n",sp.error_message);
-    return _FAILURE_;
-  }
-
-  if (nonlinear_init(&pr,&ba,&th,&pt,&tr,&pm,&sp,&nl) == _FAILURE_) {
-    printf("\n\nError in nonlinear_init \n=>%s\n",nl.error_message);
     return _FAILURE_;
   }
 
@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
     return _FAILURE_;
   }
 
-  if (output_init(&ba,&pt,&sp,&nl,&le,&bi,&fi,&op) == _FAILURE_) {
+  if (output_init(&ba,&th,&pt,&pm,&tr,&sp,&nl,&le,&bi,&fi,&op) == _FAILURE_) {
     printf("\n\nError in output_init \n=>%s\n",op.error_message);
     return _FAILURE_;
   }
@@ -108,11 +108,6 @@ int main(int argc, char **argv) {
     return _FAILURE_;
   }
 
-  if (nonlinear_free(&nl) == _FAILURE_) {
-    printf("\n\nError in nonlinear_free \n=>%s\n",nl.error_message);
-    return _FAILURE_;
-  }
-
   if (spectra_free(&sp) == _FAILURE_) {
     printf("\n\nError in spectra_free \n=>%s\n",sp.error_message);
     return _FAILURE_;
@@ -120,6 +115,11 @@ int main(int argc, char **argv) {
 
   if (transfer_free(&tr) == _FAILURE_) {
     printf("\n\nError in transfer_free \n=>%s\n",tr.error_message);
+    return _FAILURE_;
+  }
+
+  if (nonlinear_free(&nl) == _FAILURE_) {
+    printf("\n\nError in nonlinear_free \n=>%s\n",nl.error_message);
     return _FAILURE_;
   }
 

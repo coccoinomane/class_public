@@ -20,6 +20,9 @@
 #include <stdexcept>
 #include<sstream>
 #include<numeric>
+#include<cassert>
+
+//#define DBUG
 
 using namespace std;
 
@@ -67,13 +70,23 @@ ClassEngine::ClassEngine(const ClassParams& pars): cl(0),dofree(true){
   //prepare fp structure
   size_t n=pars.size();
   //
-  parser_init(&fc,n,_errmsg);
+  parser_init(&fc,n,"pipo",_errmsg);
   
   //config
   for (size_t i=0;i<pars.size();i++){
     strcpy(fc.name[i],pars.key(i).c_str());
     strcpy(fc.value[i],pars.value(i).c_str());
+    //store
+    parNames.push_back(pars.key(i));
+    //identify lmax
+    cout << pars.key(i) << "\t" << pars.value(i) <<endl;
+    if (pars.key(i)=="l_max_scalars") {
+      istringstream strstrm(pars.value(i));
+      strstrm >> _lmax;
+    }
   }
+  cout << __FILE__ << " : using lmax=" << _lmax <<endl;
+  assert(_lmax>0);
 
     //input
   if (input_init(&fc,&pr,&ba,&th,&pt,&tr,&pm,&sp,&nl,&le,&op,_errmsg) == _FAILURE_) 
@@ -107,15 +120,23 @@ ClassEngine::ClassEngine(const ClassParams& pars,const string & precision_file):
   //pars
   struct file_content fc_input;
   fc_input.size = 0;
-
+  fc_input.filename=new char[1];
  //prepare fc par structure
   size_t n=pars.size();
-  parser_init(&fc_input,n,_errmsg);
+  parser_init(&fc_input,n,"pipo",_errmsg);
   //config
   for (size_t i=0;i<pars.size();i++){
     strcpy(fc_input.name[i],pars.key(i).c_str());
     strcpy(fc_input.value[i],pars.value(i).c_str());
+    if (pars.key(i)=="l_max_scalars") {
+      istringstream strstrm(pars.value(i));
+      strstrm >> _lmax;
+    }
   }
+  cout << __FILE__ << " : using lmax=" << _lmax <<endl;
+  assert(_lmax>0);
+  
+
 
   //concatenate both
   if (parser_cat(&fc_input,&fc_precision,&fc,_errmsg) == _FAILURE_) throw invalid_argument(_errmsg);
@@ -161,13 +182,22 @@ ClassEngine::~ClassEngine()
 //-----------------
 // Member functions --
 //-----------------
-int ClassEngine::updateParValues(const std::vector<double>& par){
+bool ClassEngine::updateParValues(const std::vector<double>& par){
   dofree && freeStructs();
   for (size_t i=0;i<par.size();i++) {
     double val=par[i];
     strcpy(fc.value[i],str(val).c_str());
+    strcpy(fc.name[i],parNames[i].c_str());
+#ifdef DBUG
+    cout << "update par values #" << i << "\t" <<  val << "\t" << str(val).c_str() << endl;
+#endif
   }
-  return computeCls();
+  int status=computeCls();
+#ifdef DBUG
+  cout << "update par status=" << status << " succes=" << _SUCCESS_ << endl;
+#endif
+
+  return (status==_SUCCESS_);
 }
 
 //print content of file_content
@@ -177,24 +207,23 @@ void ClassEngine::printFC() {
 
 
 }
-int ClassEngine::class(
-                       struct file_content *pfc,
-                       struct precision * ppr,
-                       struct background * pba,
-                       struct thermo * pth,
-                       struct perturbs * ppt,
-                       struct transfers * ptr,
-                       struct primordial * ppm,
-                       struct spectra * psp,
-                       struct nonlinear * pnl,
-                       struct lensing * ple,
-                       struct output * pop,
-                       ErrorMsg errmsg) {
+int ClassEngine::class_main(
+			    struct file_content *pfc,
+			    struct precision * ppr,
+			    struct background * pba,
+			    struct thermo * pth,
+			    struct perturbs * ppt,
+			    struct transfers * ptr,
+			    struct primordial * ppm,
+			    struct spectra * psp,
+			    struct nonlinear * pnl,
+			    struct lensing * ple,
+			    struct output * pop,
+			    ErrorMsg errmsg) {
   
 
-
   if (input_init(pfc,ppr,pba,pth,ppt,ptr,ppm,psp,pnl,ple,pop,errmsg) == _FAILURE_) {
-    printf("\n\nError running input_init_from_arguments \n=>%s\n",errmsg); 
+    printf("\n\nError running input_init_from_arguments \n=>%s\n",errmsg);
     dofree=false;
     return _FAILURE_;
   }
@@ -204,7 +233,7 @@ int ClassEngine::class(
     dofree=false;
     return _FAILURE_;
   }
-    
+
   if (thermodynamics_init(ppr,pba,pth) == _FAILURE_) {
     printf("\n\nError in thermodynamics_init \n=>%s\n",pth->error_message);
     background_free(&ba);
@@ -220,18 +249,8 @@ int ClassEngine::class(
     return _FAILURE_;
   }
 
-  if (transfer_init(ppr,pba,pth,ppt,ptr) == _FAILURE_) {
-    printf("\n\nError in transfer_init \n=>%s\n",ptr->error_message);
-    perturb_free(&pt);
-    thermodynamics_free(&th);
-    background_free(&ba);
-    dofree=false;
-    return _FAILURE_;
-  }
-
   if (primordial_init(ppr,ppt,ppm) == _FAILURE_) {
     printf("\n\nError in primordial_init \n=>%s\n",ppm->error_message);
-    transfer_free(&tr);
     perturb_free(&pt);
     thermodynamics_free(&th);
     background_free(&ba);
@@ -239,22 +258,32 @@ int ClassEngine::class(
     return _FAILURE_;
   }
 
-  if (spectra_init(ppr,pba,ppt,ptr,ppm,psp) == _FAILURE_) {
-    printf("\n\nError in spectra_init \n=>%s\n",psp->error_message);
-    primordial_free(&pm);
-    transfer_free(&tr);
-    perturb_free(&pt);
-    thermodynamics_free(&th);
-    background_free(&ba);
-    dofree=false;
-    return _FAILURE_;
-  }
-
-  if (nonlinear_init(ppr,pba,pth,ppt,ptr,ppm,psp,pnl) == _FAILURE_)  {
+  if (nonlinear_init(ppr,pba,pth,ppt,ppm,pnl) == _FAILURE_)  {
     printf("\n\nError in nonlinear_init \n=>%s\n",pnl->error_message);
-    spectra_free(&sp);
     primordial_free(&pm);
+    perturb_free(&pt);
+    thermodynamics_free(&th);
+    background_free(&ba);
+    dofree=false;
+    return _FAILURE_;
+  }
+
+  if (transfer_init(ppr,pba,pth,ppt,pnl,ptr) == _FAILURE_) {
+    printf("\n\nError in transfer_init \n=>%s\n",ptr->error_message);
+    nonlinear_free(&nl);
+    primordial_free(&pm);
+    perturb_free(&pt);
+    thermodynamics_free(&th);
+    background_free(&ba);
+    dofree=false;
+    return _FAILURE_;
+  }
+
+  if (spectra_init(ppr,pba,ppt,ppm,pnl,ptr,psp) == _FAILURE_) {
+    printf("\n\nError in spectra_init \n=>%s\n",psp->error_message);
     transfer_free(&tr);
+    nonlinear_free(&nl);
+    primordial_free(&pm);
     perturb_free(&pt);
     thermodynamics_free(&th);
     background_free(&ba);
@@ -264,18 +293,17 @@ int ClassEngine::class(
 
   if (lensing_init(ppr,ppt,psp,pnl,ple) == _FAILURE_) {
     printf("\n\nError in lensing_init \n=>%s\n",ple->error_message);
-    nonlinear_free(&nl);
     spectra_free(&sp);
-    primordial_free(&pm);
     transfer_free(&tr);
+    nonlinear_free(&nl);
+    primordial_free(&pm);
     perturb_free(&pt);
     thermodynamics_free(&th);
     background_free(&ba);
     dofree=false;
     return _FAILURE_;
   }
-  
-  //fprintf(stderr,"%d %e %e %e\n",l,cl[l][0],cl[l][1],cl[l][2]);
+
 
   dofree=true;
   return _SUCCESS_;
@@ -284,9 +312,17 @@ int ClassEngine::class(
 
 int ClassEngine::computeCls(){
 
+#ifdef DBUG
+  cout <<"call computecls" << endl;
   //printFC();
-  //new call
-  return this->class_main(&fc,&pr,&ba,&th,&pt,&tr,&pm,&sp,&nl,&le,&op,_errmsg);
+#endif
+
+  int status=this->class_main(&fc,&pr,&ba,&th,&pt,&tr,&pm,&sp,&nl,&le,&op,_errmsg);
+#ifdef DBUG
+  cout <<"status=" << status << endl;
+#endif
+  return status;
+
 }
 
 int
@@ -335,39 +371,6 @@ ClassEngine::freeStructs(){
 
   return _SUCCESS_;
 }
-
-// int 
-// ClassEngine::l_size(Engine::cltype t){
-//   int lmax(-1);
-
-//   switch(t)
-//     {
-//     case TT:
-//       if (sp.has_tt==_TRUE_) lmax=sp.l_size[sp.index_ct_tt];
-//       break;
-//     case TE:
-//       if (sp.has_te==_TRUE_) lmax=sp.l_size[sp.index_ct_te] ;
-//       break; 
-//     case EE:
-//       if (sp.has_ee==_TRUE_) lmax=sp.l_size[sp.index_ct_ee] ;
-//       break;
-//     case BB:
-//       if (sp.has_bb==_TRUE_) lmax=sp.l_size[sp.index_ct_bb] ;
-//       break;
-//     case PP:
-//       if (sp.has_pp==_TRUE_) lmax=sp.l_size[sp.index_ct_pp] ;
-//       break;
-//     case TP:
-//       if (sp.has_tp==_TRUE_) lmax=sp.l_size[sp.index_ct_tp] ;
-//       break;
-//     case EP:
-//       if (sp.has_ep==_TRUE_) lmax=sp.l_size[sp.index_ct_ep] ;
-//       break;
-//     }
-//   return lmax;
-// }
-
-
 
 double
 ClassEngine::getCl(Engine::cltype t,const long &l){
@@ -437,7 +440,6 @@ ClassEngine::getCls(const std::vector<unsigned>& lvec, //input
   }
 
 }
-
  
 bool 
 ClassEngine::getLensing(const std::vector<unsigned>& lvec, //input 
@@ -466,36 +468,161 @@ ClassEngine::getLensing(const std::vector<unsigned>& lvec, //input
 }
 
 
-void 
-ClassEngine::writeCls(std::ostream &of,int ttmax){
+double ClassEngine::get_f(double z)
+{
+  double tau;
+  int index;
+  double *pvecback;
+  //transform redshift in conformal time
+  background_tau_of_z(&ba,z,&tau);
 
-  vector<unsigned> lvec(ttmax-1,1);
-  lvec[0]=2;
-  partial_sum(lvec.begin(),lvec.end(),lvec.begin());
-      
-  vector<double> cltt,clte,clee,clbb,clpp,cltp,clep;
-  bool hasLensing=false;
-  try{
-    getCls(lvec,cltt,clte,clee,clbb);
-    hasLensing=getLensing(lvec,clpp,cltp,clep); 
-  }
-  catch (std::exception &e){
-    cout << "GIOSH" << e.what() << endl;
-  }
-      
-  //cout.precision( 16 );
-  for (size_t i=0;i<lvec.size();i++) {
-    of << lvec[i] << "\t" 
-       << cltt[i] << "\t" 
-       << clte[i] << "\t" 
-       << clee[i] << "\t" 
-       << clbb[i];
-    if (hasLensing){
-      of << "\t" << clpp[i] << "\t" << cltp[i] << "\t" << clep[i];
-    }
-    of << "\n";
-  }
-  
+  //pvecback must be allocated 
+  pvecback=(double *)malloc(ba.bg_size*sizeof(double));
+
+  //call to fill pvecback
+  background_at_tau(&ba,tau,ba.long_info,ba.inter_normal, &index, pvecback);
 
 
+
+  double f_z=pvecback[ba.index_bg_f];
+#ifdef DBUG
+  cout << "f_of_z= "<< f_z <<endl;
+#endif
+  return f_z;
+}
+
+
+double ClassEngine::get_sigma8(double z)
+{
+  double tau;
+  int index;
+  double *pvecback;
+  double sigma8 = 0.;
+  //transform redshift in conformal time
+  background_tau_of_z(&ba,z,&tau);
+
+  //pvecback must be allocated 
+  pvecback=(double *)malloc(ba.bg_size*sizeof(double));
+
+  //call to fill pvecback
+  background_at_tau(&ba,tau,ba.long_info,ba.inter_normal, &index, pvecback);
+  //background_at_tau(pba,tau,pba->long_info,pba->inter_normal,&last_index,pvecback);
+  spectra_sigma(&ba,&pm,&sp,8./ba.h,z,&sigma8);
+
+#ifdef DBUG
+  cout << "sigma_8= "<< sigma8 <<endl;
+#endif
+  return sigma8;
+}
+
+// ATTENTION FONCTION BIDON - GET omegam ! -------------------
+double ClassEngine::get_Az(double z)
+{
+  double Dv = get_Dv(z);
+  // A(z)=100DV(z)sqrt(~mh2)/cz
+  double omega_bidon = 0.12 ;
+  double Az = 100.*Dv*sqrt(omega_bidon)/(3.e8*z); // is there speed of light somewhere ? 
+}
+//      --------------------------
+
+double ClassEngine::get_Dv(double z)
+{
+  double tau;
+  int index;
+  double *pvecback;
+  //transform redshift in conformal time
+  background_tau_of_z(&ba,z,&tau);
+
+  //pvecback must be allocated 
+  pvecback=(double *)malloc(ba.bg_size*sizeof(double));
+
+  //call to fill pvecback
+  background_at_tau(&ba,tau,ba.long_info,ba.inter_normal, &index, pvecback);
+
+
+  double H_z=pvecback[ba.index_bg_H];
+  double D_ang=pvecback[ba.index_bg_ang_distance];
+#ifdef DBUG
+  cout << "H_z= "<< H_z <<endl;
+  cout << "D_ang= "<< D_ang <<endl;
+#endif
+  double D_v;
+
+  D_v=pow(D_ang*(1+z),2)*z/H_z;
+  D_v=pow(D_v,1./3.);
+#ifdef DBUG
+  cout << D_v << endl;
+#endif
+  return D_v;
+}
+
+double ClassEngine::get_Fz(double z)
+{
+  double tau;
+  int index;
+  double *pvecback;
+  //transform redshift in conformal time
+  background_tau_of_z(&ba,z,&tau);
+
+  //pvecback must be allocated 
+  pvecback=(double *)malloc(ba.bg_size*sizeof(double));
+
+  //call to fill pvecback
+  background_at_tau(&ba,tau,ba.long_info,ba.inter_normal, &index, pvecback);
+
+
+  double H_z=pvecback[ba.index_bg_H];
+  double D_ang=pvecback[ba.index_bg_ang_distance];
+#ifdef DBUG
+  cout << "H_z= "<< H_z <<endl;
+  cout << "D_ang= "<< D_ang <<endl;
+#endif
+  double F_z = (1.+z) * D_ang * H_z /(3.e8) ; // is there speed of light somewhere ? 
+  return F_z;
+}
+
+double ClassEngine::get_Hz(double z)
+{
+  double tau;
+  int index;
+  double *pvecback;
+  //transform redshift in conformal time
+  background_tau_of_z(&ba,z,&tau);
+
+  //pvecback must be allocated 
+  pvecback=(double *)malloc(ba.bg_size*sizeof(double));
+
+  //call to fill pvecback
+  background_at_tau(&ba,tau,ba.long_info,ba.inter_normal, &index, pvecback);
+
+
+  double H_z=pvecback[ba.index_bg_H];
+
+  return(H_z);
+
+}
+
+
+double ClassEngine::get_Da(double z)
+{
+  double tau;
+  int index;
+  double *pvecback;
+  //transform redshift in conformal time
+  background_tau_of_z(&ba,z,&tau);
+
+  //pvecback must be allocated 
+  pvecback=(double *)malloc(ba.bg_size*sizeof(double));
+
+  //call to fill pvecback
+  background_at_tau(&ba,tau,ba.long_info,ba.inter_normal, &index, pvecback);
+
+
+  double H_z=pvecback[ba.index_bg_H];
+  double D_ang=pvecback[ba.index_bg_ang_distance];
+#ifdef DBUG
+  cout << "H_z= "<< H_z <<endl;
+  cout << "D_ang= "<< D_ang <<endl;
+#endif
+  return D_ang;
 }

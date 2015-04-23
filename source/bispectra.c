@@ -773,14 +773,14 @@ int bispectra_primordial_power_spectrum (
   
 
   /* Do the same, but with ppt->k */
-  int k_pt_size = ppt->k_size;
+  int k_pt_size = ppt->k_size[ppt->index_md_scalars];
   class_alloc (pbi->pk_pt, k_pt_size*sizeof(double), pbi->error_message);
   
   /* Fill pk with the values of the primordial power spectrum, as obtained in the ppm module */
 
   for (int index_k_pt=0; index_k_pt<k_pt_size; ++index_k_pt) {
     
-    double k_pt = ppt->k[index_k_pt];
+    double k_pt = ppt->k[ppt->index_md_scalars][index_k_pt];
 
     class_call (primordial_spectrum_at_k (
                   ppm,
@@ -2205,12 +2205,12 @@ int bispectra_non_separable_workspace_init (
   module, which are much sparsely sampled than those of the transfer functions. Hence, we are assuming
   that the shape function is a smooth function of (k1,k2,k3) */
   
-  pwb->k_smooth_size = ppt->k_size;
+  pwb->k_smooth_size = ppt->k_size[ppt->index_md_scalars];
   
   class_alloc (pwb->k_smooth_grid, pwb->k_smooth_size*sizeof(double), pbi->error_message);
   
   for (int index_k=0; index_k < pwb->k_smooth_size; ++index_k)
-    pwb->k_smooth_grid[index_k] = ppt->k[index_k];
+    pwb->k_smooth_grid[index_k] = ppt->k[ppt->index_md_scalars][index_k];
 
   
   // -----------------------------------------------------------------------

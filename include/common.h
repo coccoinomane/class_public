@@ -15,7 +15,7 @@
 #ifndef __COMMON__
 #define __COMMON__
 
-#define _VERSION_ "v2.0.3"
+#define _VERSION_ "v2.4.3"
 
 #define _TRUE_ 1 /**< integer associated to true statement */
 #define _FALSE_ 0 /**< integer associated to false statement */
@@ -29,6 +29,38 @@ typedef char ErrorMsg[_ERRORMSGSIZE_]; /**< Generic error messages (there is suc
 #define _FILENAMESIZE_ 256 /**< size of the string read in each line of the file (extra characters not taken into account) */
 typedef char FileName[_FILENAMESIZE_];
 
+#define _PI_ 3.1415926535897932384626433832795e0 /**< The number pi */
+
+#define _PIHALF_ 1.57079632679489661923132169164e0 /**< pi divided by 2 */
+
+#define _TWOPI_ 6.283185307179586476925286766559e0 /**< 2 times pi */
+
+#define _SQRT2_ 1.41421356237309504880168872421e0 /** < square root of 2. */
+
+#define _SQRT6_ 2.4494897427831780981972840747059e0 /**< square root of 6. */
+
+#define _SQRT_PI_ 1.77245385090551602729816748334e0 /**< square root of pi. */
+
+#define _ONE_THIRD_ 0.3333333333333333333333333333
+  
+#define _SQRT_PI_OVER_2_ 1.25331413731550025120788264241
+  
+#define _SQRT_2_ 1.414213562373095049
+  
+#define _SQRT_3_ 1.732050807568877294
+  
+#define _SQRT_5_ 2.236067977499789696
+  
+#define _SQRT_6_ 2.449489742783178098
+  
+#define _SQRT_7_ 2.645751311064590591
+  
+#define _SQRT_8_ 2.828427124746190098
+  
+#define _SQRT_10_ 3.162277660168379332
+  
+#define _FOUR_THIRDS_ 1.33333333333333333333333333
+
 #define _MAX_IT_ 10000/**< default maximum number of iterations in conditional loops (to avoid infinite loops) */
 
 #define _QUADRATURE_MAX_ 250 /**< maximum allowed number of abssices in quadrature integral estimation */
@@ -40,6 +72,16 @@ typedef char FileName[_FILENAMESIZE_];
 #define _HUGE_ 1.e99
 #define _MINUSCULE_ 1e-99
 #define _EPS_ 0.01 /**< Constant used to cast a float to an integer. Must be smaller than 0.5 */
+
+#define _OUTPUTPRECISION_ 12 /**< Number of significant digits in some output files */
+
+#define _COLUMNWIDTH_ 24 /**< Must be at least _OUTPUTPRECISION_+8 for guaranteed fixed width columns */
+
+#define _MAXTITLESTRINGLENGTH_ 8000 /**< Maximum number of characters in title strings */
+
+#define _DELIMITER_ "\t" /**< character used for delimiting titles in the title strings */
+
+
 
 #ifndef __CLASSDIR__
 #define __CLASSDIR__ "." /**< The directory of CLASS. This is set to the absolute path to the CLASS directory so this is just a failsafe. */
@@ -54,28 +96,12 @@ typedef char FileName[_FILENAMESIZE_];
 
 #define alternating_sign(m) ((m)%2 == 0 ? 1 : -1) /**< Return (-1)^m with integer m */
 
-/* Numerical constants */
-#define _PI_ 3.1415926535897932384626433832795e0 /**< The number pi */
-#define _PIHALF_ 1.57079632679489661923132169164e0 /**< pi divided by 2 */
-#define _TWOPI_ 6.283185307179586476925286766559e0 /**< 2 times pi */
-#define _SQRT6_ 2.4494897427831780981972840747059e0 /**< square root of 6. */
-#define _SQRT_PI_ 1.77245385090551602729816748334e0 /**< square root of pi. */
-#define _ONE_THIRD_ 0.3333333333333333333333333333
-#define _SQRT_PI_OVER_2_ 1.25331413731550025120788264241
-#define _SQRT_2_ 1.414213562373095049
-#define _SQRT_3_ 1.732050807568877294
-#define _SQRT_5_ 2.236067977499789696
-#define _SQRT_6_ 2.449489742783178098
-#define _SQRT_7_ 2.645751311064590591
-#define _SQRT_8_ 2.828427124746190098
-#define _SQRT_10_ 3.162277660168379332
-#define _FOUR_THIRDS_ 1.33333333333333333333333333
-
 // needed because of weird openmp bug on macosx lion...
 void class_protect_sprintf(char* dest, char* tpl,...);
 void class_protect_fprintf(FILE* dest, char* tpl,...);
 void* class_protect_memcpy(void* dest, void* from, size_t sz);
 
+int get_number_of_titles(char * titlestring);
 
 #define class_build_error_string(dest,tmpl,...) {                                                                \
   ErrorMsg FMsg;                                                                                                 \
@@ -85,7 +111,7 @@ void* class_protect_memcpy(void* dest, void* from, size_t sz);
 
 // Error reporting macros
 
-// Call 
+// Call
 #define class_call_message(err_out,extra,err_mess)   \
   class_build_error_string(err_out,"error in %s;\n=>%s",extra,err_mess);
 
@@ -115,7 +141,7 @@ void* class_protect_memcpy(void* dest, void* from, size_t sz);
 
 
 
-// Alloc 
+// Alloc
 #define class_alloc_message(err_out,extra,sz)                                                                    \
   class_build_error_string(err_out,"could not allocate %s with size %d",extra,sz);
 
@@ -128,7 +154,7 @@ void* class_protect_memcpy(void* dest, void* from, size_t sz);
     class_alloc_message(error_message_output,#pointer, size_int);                                                \
     return _FAILURE_;                                                                                            \
   }                                                                                                              \
-} 
+}
 
 /* same inside parallel structure */
 #define class_alloc_parallel(pointer, size, error_message_output)  {                                             \
@@ -142,7 +168,7 @@ void* class_protect_memcpy(void* dest, void* from, size_t sz);
       abort=_TRUE_;                                                                                              \
     }                                                                                                            \
   }                                                                                                              \
-} 
+}
 
 /* macro for allocating memory, initializing it with zeros/ and returning error if it failed */
 #define class_calloc(pointer, init,size, error_message_output)  {                                                \
@@ -153,7 +179,7 @@ void* class_protect_memcpy(void* dest, void* from, size_t sz);
     class_alloc_message(error_message_output,#pointer, size_int);                                                \
     return _FAILURE_;                                                                                            \
   }                                                                                                              \
-} 
+}
 
 /* same inside parallel structure */
 #define class_calloc_parallel(pointer, init,size, error_message_output)  {                                       \
@@ -178,7 +204,7 @@ void* class_protect_memcpy(void* dest, void* from, size_t sz);
     class_alloc_message(error_message_output,#pointer, size_int);                                                \
     return _FAILURE_;                                                                                            \
   }                                                                                                              \
-} 
+}
 
 // Testing
 
@@ -189,7 +215,7 @@ void* class_protect_memcpy(void* dest, void* from, size_t sz);
 }
 
 /* macro for testing condition and returning error if condition is true;
-   args is a variable list of optional arguments, e.g.: args="x=%d",x 
+   args is a variable list of optional arguments, e.g.: args="x=%d",x
    args cannot be empty, if there is nothing to pass use args="" */
 #define class_test_except(condition, error_message_output,list_of_commands, args...) {                           \
   if (condition) {                                                                                               \
@@ -219,11 +245,11 @@ void* class_protect_memcpy(void* dest, void* from, size_t sz);
       class_test_message(error_message_output,#condition, args);                                                 \
       abort=_TRUE_;                                                                                              \
     }                                                                                                            \
-  }                                                                                                              \
+  }                                                                     \
 }
 
 /* macro for returning error message;
-   args is a variable list of optional arguments, e.g.: args="x=%d",x 
+   args is a variable list of optional arguments, e.g.: args="x=%d",x
    args cannot be empty, if there is nothing to pass use args="" */
 #define class_stop(error_message_output,args...) {                                                               \
   ErrorMsg Optional_arguments;                                                                                   \
@@ -243,14 +269,80 @@ void* class_protect_memcpy(void* dest, void* from, size_t sz);
 }
 
 /* macro for defining indices (usually one, sometimes a block) */
-#define class_define_index(index,                                                                                \
-                           condition,                                                                            \
-                           running_index,                                                                        \
-                           number_of_indices) {                                                                  \
-  if (condition) {                                                                                               \
-    index = running_index;                                                                                       \
-    running_index += number_of_indices;                                                                          \
-  }                                                                                                              \
+#define class_define_index(index,                                       \
+                           condition,                                   \
+                           running_index,                               \
+                           number_of_indices) {                         \
+    if (condition) {                                                    \
+      index = running_index;                                            \
+      running_index += number_of_indices;                               \
+    }                                                                   \
+  }
+
+/* macros for writing formatted output */
+#define class_fprintf_double(file,                                      \
+                             output,                                    \
+                             condition){                                \
+    if (condition == _TRUE_)                                            \
+      fprintf(file,"%*.*e ",_COLUMNWIDTH_,_OUTPUTPRECISION_,output);    \
+  }
+
+#define class_fprintf_double_or_default(file,                           \
+                                        output,                         \
+                                        condition,                      \
+                                        defaultvalue){                  \
+    if (condition == _TRUE_)                                            \
+      fprintf(file,"%*.*e ",_COLUMNWIDTH_,_OUTPUTPRECISION_,output);    \
+    else                                                                \
+      fprintf(file,"%*.*e ",_COLUMNWIDTH_,_OUTPUTPRECISION_,defaultvalue);    \
+}
+
+#define class_fprintf_int(file,                                         \
+                          output,                                       \
+                          condition){                                   \
+    if (condition == _TRUE_)                                            \
+      fprintf(file,"%*d%*s ",                                           \
+              MAX(0,_COLUMNWIDTH_-_OUTPUTPRECISION_-5),                 \
+              output, _OUTPUTPRECISION_+5," ");                          \
+  }
+
+#define class_fprintf_columntitle(file,                                 \
+                                  title,                                \
+                                  condition,                            \
+                                  colnum){                              \
+    if (condition == _TRUE_)                                            \
+      fprintf(file,"%*s%2d:%-*s ",                                      \
+              MAX(0,MIN(_COLUMNWIDTH_-_OUTPUTPRECISION_-6-3,_COLUMNWIDTH_-((int) strlen(title))-3)), \
+              "",colnum++,_OUTPUTPRECISION_+6,title);                   \
+  }
+
+#define class_store_columntitle(titlestring,                            \
+				title,					\
+				condition){				\
+    if (condition == _TRUE_){                                           \
+      strcat(titlestring,title);                                        \
+      strcat(titlestring,_DELIMITER_);                                  \
+    }                                                                   \
+  }
+//,_MAXTITLESTRINGLENGTH_-strlen(titlestring)-1);
+
+#define class_store_double(storage,					\
+			   value,					\
+			   condition,                                   \
+                           dataindex){                                  \
+    if (condition == _TRUE_)                                            \
+      storage[dataindex++] = value;                                     \
+  }
+
+#define class_store_double_or_default(storage,                          \
+                                      value,                            \
+                                      condition,                        \
+                                      dataindex,                        \
+                                      defaultvalue){                    \
+    if (condition == _TRUE_)                                            \
+      storage[dataindex++] = value;                                     \
+    else                                                                \
+      storage[dataindex++] = defaultvalue;                              \
 }
 
 /** parameters related to the precision of the code and to the method of calculation */
@@ -263,11 +355,11 @@ enum evolver_type {
   ndf15 /* stiff integrator */
 };
 
-/** 
+/**
  * List of ways in which matter power spectrum P(k) can be defined.
  * The standard definition is the first one (delta_m_squared) but
  * alternative definitions can be usfeul in some projects.
- * 
+ *
  */
 enum pk_def {
   delta_m_squared, /**< normal definition (delta_m includes all non-relativistic species at late times) */
@@ -275,6 +367,11 @@ enum pk_def {
   delta_bc_squared, /**< delta_bc includes contribution of baryons and cdm only to (delta rho) and to rho */
   delta_tot_from_poisson_squared /**< use delta_tot inferred from gravitational potential through Poisson equation */
 };
+/**
+ * Different ways to present output files
+ */
+
+enum file_format {class_format,camb_format};
 
 
 /**
@@ -296,8 +393,8 @@ enum k3_extrapolation {
 
 
 /**
- * All precision parameters. 
- *  
+ * All precision parameters.
+ *
  * Includes integrations
  * steps, flags telling how the computation is to be performed, etc.
  */
@@ -310,14 +407,14 @@ struct precision
   /**
    * default initial value of scale factor in background integration, in
    * units of scale factor today
-   */ 
-  double a_ini_over_a_today_default; 
+   */
+  double a_ini_over_a_today_default;
 
-  /** 
-   * default step d tau in background integration, in units of 
+  /**
+   * default step d tau in background integration, in units of
    * conformal Hubble time (\f$ d tau \f$ = back_integration_stepsize / aH )
    */
-  double back_integration_stepsize; 
+  double back_integration_stepsize;
 
   /**
    * parameter controlling precision of background integration
@@ -342,6 +439,8 @@ struct precision
    * phase-space distribution during perturbation calculation
    */
   double tol_ncdm;
+  double tol_ncdm_newtonian;
+  double tol_ncdm_synchronous;
 
   /**
    * parameter controlling relative precision of integrals over ncdm
@@ -354,6 +453,11 @@ struct precision
    * initial time
    */
   double tol_ncdm_initial_w;
+
+  /**
+   * parameter controling the initial scalar field in background functions
+   */
+  double safe_phi_scf;
 
   //@}
 
@@ -372,7 +476,7 @@ struct precision
   double recfast_z_initial;      /**< initial redshift in recfast */
 
   /* parameters governing precision of integration */
-  
+
   int recfast_Nz0;               /**< number of integration steps */
   double tol_thermo_integration; /**< precision of each integration step */
 
@@ -398,25 +502,21 @@ struct precision
   double recfast_z_He_1;              /**< down to which redshift Helium fully ionized */
   double recfast_delta_z_He_1;        /**< z range over which transition is smoothed */
 
-  double recfast_z_He_2;              /**< down to which redshift first Helium recombination 
-					   not complete */
+  double recfast_z_He_2;              /**< down to which redshift first Helium recombination not complete */
   double recfast_delta_z_He_2;        /**< z range over which transition is smoothed */
 
   double recfast_z_He_3;              /**< down to which redshift Helium singly ionized */
   double recfast_delta_z_He_3;        /**< z range over which transition is smoothed */
 
-  double recfast_x_He0_trigger;       /**< below which Helium ionization fraction start using 
-                                           full equation for Helium */
+  double recfast_x_He0_trigger;       /**< value below which recfast uses the full equation for Helium */
   double recfast_x_He0_trigger2;      /**< a second threshold used in derivative routine */
   double recfast_x_He0_trigger_delta; /**< x_He range over which transition is smoothed */
 
-  double recfast_x_H0_trigger;        /**< below which Helium ionization fraction start using 
-                                           full equation for Helium */
+  double recfast_x_H0_trigger;        /**< value below which recfast uses the full equation for Hydrogen */
   double recfast_x_H0_trigger2;       /**< a second threshold used in derivative routine */
   double recfast_x_H0_trigger_delta;  /**< x_H range over which transition is smoothed */
 
-  double recfast_H_frac;              /**< governs time at which full equation of evolution 
-					   for Tmat is used */
+  double recfast_H_frac;              /**< governs time at which full equation of evolution for Tmat is used */
 
   FileName hyrec_Alpha_inf_file;
   FileName hyrec_R_inf_file;
@@ -428,7 +528,7 @@ struct precision
   double reionization_sampling; /**< control stepsize in z during reionization */
   double reionization_optical_depth_tol; /**< fractional error on optical_depth */
   double reionization_start_factor; /**< parameter for CAMB-like parametrization */
-   
+
   /** - general */
 
   int thermo_rate_smoothing_radius; /**< plays a minor (almost aesthetic) role in the definition of the variation rate of thermodynamical quantities */
@@ -441,8 +541,6 @@ struct precision
 
   enum evolver_type evolver; /* which type of evolver for integrating perturbations (Runge-Kutta? Stiff?...) */
 
-  enum pk_def pk_definition;
-
   double k_min_tau0; /**< number defining k_min for the computation of Cl's and P(k)'s (dimensionless): (k_min tau_0), usually chosen much smaller than one */
 
   double k_max_tau0_over_l_max; /**< number defining k_max for the computation of Cl's (dimensionless): (k_max tau_0)/l_max, usually chosen around two */
@@ -451,6 +549,7 @@ struct precision
   double k_step_super; /**< step in k space, in units of one period of acoustic oscillation at decoupling, for scales above sound horizon at decoupling */  
   double k_logstep_super; /**< logarithmic step in k space, used to best sample the largest k's */  
   double k_step_transition; /**< dimensionless number regulating the transition from 'sub' steps to 'super' steps. Decrease for more precision. */
+  double k_step_super_reduction; /**< the step k_step_super is reduced by this amount in the k-->0 limit (below scale of Hubble and/or curvature radius) */
 
   double k_per_decade_for_pk; /**< if values needed between kmax inferred from k_oscillations and k_kmax_for_pk, this gives the number of k per decade outside the BAO region*/
 
@@ -488,27 +587,28 @@ struct precision
 
   int l_max_g;     /**< number of momenta in Boltzmann hierarchy for photon temperature (scalar), at least 4 */
   int l_max_pol_g; /**< number of momenta in Boltzmann hierarchy for photon polarisation (scalar), at least 4 */
+  int l_max_dr;   /**< number of momenta in Boltzmann hierarchy for decay radiation, at least 4 */
   int l_max_ur;   /**< number of momenta in Boltzmann hierarchy for relativistic neutrino/relics (scalar), at least 4 */
   int l_max_ncdm;   /**< number of momenta in Boltzmann hierarchy for relativistic neutrino/relics (scalar), at least 4 */
   int l_max_g_ten;     /**< number of momenta in Boltzmann hierarchy for photon temperature (tensor), at least 4 */
   int l_max_pol_g_ten; /**< number of momenta in Boltzmann hierarchy for photon polarisation (tensor), at least 4 */
 
   double curvature_ini;     /**< initial condition for curvature for adiabatic */
-  double entropy_ini; /**< initial condition for entropy perturbation for isocurvature */ 
+  double entropy_ini; /**< initial condition for entropy perturbation for isocurvature */
   double gw_ini;      /**< initial condition for tensor metric perturbation h */
 
-  /** 
-   * default step \f$ d \tau \f$ in perturbation integration, in units of the timescale involved in the equations (usally, the min of \f$ 1/k \f$, \f$ 1/aH \f$, \f$ 1/\dot{\kappa} \f$) 
+  /**
+   * default step \f$ d \tau \f$ in perturbation integration, in units of the timescale involved in the equations (usally, the min of \f$ 1/k \f$, \f$ 1/aH \f$, \f$ 1/\dot{\kappa} \f$)
    */
   double perturb_integration_stepsize;
 
-  /** 
+  /**
    * default step \f$ d \tau \f$ for sampling the source function, in units of the timescale involved in the sources: \f$ (\dot{\kappa}- \ddot{\kappa}/\dot{\kappa})^{-1} \f$
    */
   double perturb_sampling_stepsize;
 
-  /** 
-   * control parameter for the precision of the perturbation integration 
+  /**
+   * control parameter for the precision of the perturbation integration
    */
   double tol_perturb_integration;
 
@@ -536,15 +636,15 @@ struct precision
    * when to switch off photon perturbations, ie when to switch
    * on photon free-streaming approximation (keep density and theta, set
    * shear and higher momenta to zero):
-   * second condition: 
-   */ 
+   * second condition:
+   */
   double radiation_streaming_trigger_tau_c_over_tau;
 
   int ur_fluid_approximation;
 
   /**
    * when to switch off ur (massless neutrinos / ultra-relativistic
-   * relics) fluid approximation 
+   * relics) fluid approximation
    */
   double ur_fluid_trigger_tau_over_tau_k;
 
@@ -552,7 +652,7 @@ struct precision
 
   /**
    * when to switch off ncdm (massive neutrinos / non-cold
-   * relics) fluid approximation 
+   * relics) fluid approximation
    */
   double ncdm_fluid_trigger_tau_over_tau_k;
 
@@ -577,6 +677,12 @@ struct precision
   int primordial_inflation_attractor_maxit;
   double primordial_inflation_jump_initial;
   double primordial_inflation_tol_curvature;
+  double primordial_inflation_aH_ini_target;
+  double primordial_inflation_end_dphi;
+  double primordial_inflation_end_logstep;
+  double primordial_inflation_small_epsilon;
+  double primordial_inflation_small_epsilon_tol;
+  double primordial_inflation_extra_efolds;
 
   //@}
 
@@ -598,17 +704,46 @@ struct precision
   double hyper_x_tol;
   double hyper_flat_approximation_nu;
 
-  double k_step_trans; /**< for q_list function: upper bound on linear sampling step in k space, in units of 2pi/tau0 (where tau0 is the conformal time today) */
+  /* parameters relevant for transfer function */
 
-  double q_linstep_trans; /**< for q_list2 function: upper bound on linear sampling step in q space, in units of 2pi/tau0 (where tau0 is the conformal time today) */
-  double q_logstep_trans; /**< for q_list2 function: logarithmic sampling step in q space, applies to small q values, until above linear step is reached */
+  double q_linstep;         /**< asymptotic linear sampling step in q
+                               space, in units of 2pi/r_a(tau_rec)
+                               (comoving angular diameter distance to
+                               recombination) */
+
+  double q_logstep_spline; /**< initial logarithmic sampling step in q
+                                space, in units of 2pi/r_a(tau_rec)
+                                (comoving angular diameter distance to
+                                recombination) */
+
+  double q_logstep_open;   /**< in open models, the value of
+                                q_logstep_spline must be decreased
+                                according to curvature. Increasing
+                                this number will make the calculation
+                                more accurate for large positive
+                                Omega_k */
+
+  double q_logstep_trapzd; /**< initial logarithmic sampling step in q
+                                space, in units of 2pi/r_a(tau_rec)
+                                (comoving angular diameter distance to
+                                recombination), in the case of small
+                                q's in the closed case, for which one
+                                must used trapezoidal integration
+                                instead of spline (the number of q's
+                                for which this is the case decreases
+                                with curvature and vanishes in the
+                                flat limit) */
+
+  double q_numstep_transition; /**< number of steps for the transition
+                                 from q_logstep_trapzd steps to
+                                 q_logstep_spline steps (transition
+                                 must be smooth for spline) */
 
   /** for each type, range of k values (in 1/Mpc) taken into account in transfer function: for l < (k-delta_k)*tau0, ie for k > (l/tau0 + delta_k), the transfer function is set to zero */
   double transfer_neglect_delta_k_S_t0;
   double transfer_neglect_delta_k_S_t1;
   double transfer_neglect_delta_k_S_t2;
   double transfer_neglect_delta_k_S_e;
-  double transfer_neglect_delta_k_S_lcmb;
   double transfer_neglect_delta_k_V_t1;
   double transfer_neglect_delta_k_V_t2;
   double transfer_neglect_delta_k_V_e;
@@ -627,9 +762,9 @@ struct precision
 
   /** in sigma units, where to cut gaussian selection functions */
   double selection_cut_at_sigma;
-  
+
   /** controls sampling of integral over time when selection functions vary quicker than Bessel functions. Increase for better sampling. */
-  double selection_sampling; 
+  double selection_sampling;
 
   /** controls sampling of integral over time when selection functions vary slower than Bessel functions. Increase for better sampling */
   double selection_sampling_bessel;
@@ -650,7 +785,7 @@ struct precision
 			values will be obtained by
 			interpolation. Decrease for more precise
 			interpolations, at the expense of increasing
-			time spent in nonlinear_init() */ 
+			time spent in nonlinear_init() */
 
   double halofit_min_k_nonlinear; /* value of k in 1/Mpc above
 				     which non-linear corrections will
@@ -662,39 +797,10 @@ struct precision
 				      at the expense of requiring a
 				      larger k_max */
 
-  /** parameters relevant for TRG computation */
-
-  int double_escape;      /* number of points to drop at every
-			     half-step of the computation (double
-			     espace mechanism) */
-  double z_ini;           /* starting redshift for computing the
-			     non-linear evolution */
-  int eta_size;           /* number of steps in the time-variable eta */
-  double k_L;             /* scale above which we consider linear
-			     theory to be true at any time of the
-			     computation. To be more explicit, for k's
-			     smaller than this one, the A's function
-			     are forced to 0. */
-  double k_min;           /* lower bound for computing non-linear
-			     matter power spectrum */
-  double logstepx_min;    /* precision parameter for computation of
-			     the As functions. */
-  double logstepk1;       /* various parameters used in the definition
-			     of steps in k space in the non-linear
-			     calculation */
-  double logstepk2;
-  double logstepk3;
-  double logstepk4;
-  double logstepk5;
-  double logstepk6;
-  double logstepk7;
-  double logstepk8;
-  double k_growth_factor; /* at which scale k in 1/Mpc units do we
-			     want to evaluate the LmabdaCDM growth
-			     factor? */
-
-  double k_scalar_max_for_pk_nl; /* max value of k in h/Mpc to be used
-				    in the trg module */
+  double halofit_min_k_max; /* when halofit is used, k_max must be at
+                               least equal to this value (otherwise
+                               halofit could not find the scale of
+                               non-linearity) */
 
   //@}
 
