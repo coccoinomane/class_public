@@ -34,7 +34,6 @@ int input_init_from_arguments(
 
   /** - define local variables */
 
-  struct file_content fc;             /**< the final structure with all parameters */
   struct file_content fc_input;       /**< a temporary structure with all input parameters */
   struct file_content fc_precision;   /**< a temporary structure with all precision parameters */
   struct file_content fc_root;        /**< a temporary structure with only the root name */
@@ -52,12 +51,16 @@ int input_init_from_arguments(
 
   pfc_input = &fc_input;
 
+  /** - allocate memory for the final structure with all parameters */
+
+  class_alloc(ppr->parameter_files_content, sizeof(struct file_content), errmsg);
+
   /** - Initialize the two file_content structures (for input
       parameters and precision parameters) to some null content. If no
       arguments are passed, they will remain null and inform
       init_params() that all parameters take default values. */
 
-  fc.size = 0;
+  ppr->parameter_files_content->size = 0;
   fc_input.size = 0;
   fc_precision.size = 0;
   input_file[0]='\0';
@@ -152,7 +155,7 @@ int input_init_from_arguments(
 
   if ((input_file[0]!='\0') || (precision_file[0]!='\0'))
 
-    class_call(parser_cat(pfc_input,&fc_precision,&fc,errmsg),
+    class_call(parser_cat(pfc_input,&fc_precision,ppr->parameter_files_content,errmsg),
                errmsg,
                errmsg);
 
@@ -163,7 +166,7 @@ int input_init_from_arguments(
       structure.  If its size is null, all parameters take their
       default values. */
 
-  class_call(input_init(&fc,
+  class_call(input_init(ppr->parameter_files_content,
                         ppr,
                         pba,
                         pth,
@@ -177,8 +180,6 @@ int input_init_from_arguments(
                         errmsg),
              errmsg,
              errmsg);
-
-  class_call(parser_free(&fc),errmsg,errmsg);
 
   return _SUCCESS_;
 }
@@ -542,6 +543,23 @@ int input_init(
   return _SUCCESS_;
 
 }
+
+/**
+ * Free the memory associated with the input file.
+ */
+
+int input_free(
+               struct precision * ppr,
+               ErrorMsg errmsg
+               ) {
+                 
+  parser_free(ppr->parameter_files_content);
+  free (ppr->parameter_files_content);
+ 
+  return _SUCCESS_;
+                 
+}
+
 
 int input_read_parameters(
                           struct file_content * pfc,

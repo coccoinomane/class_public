@@ -765,6 +765,11 @@ struct precision
 
   //@}
 
+  /**
+   *  File structure containing all input parameters
+   */
+  struct file_content * parameter_files_content;
+  
 };
 
 
