@@ -45,6 +45,7 @@ LDFLAG = -g -fPIC
 # (with no slash at the end: e.g. hyrec or ../hyrec)
 HYREC = hyrec
 
+
 ########################################################
 ###### IN PRINCIPLE THE REST SHOULD BE LEFT UNCHANGED ##
 ########################################################
@@ -76,6 +77,18 @@ CCFLAG += -DHYREC
 INCLUDES += -I../hyrec
 EXTERNAL += hyrectools.o helium.o hydrogen.o history.o
 endif
+
+# If the Fisher & bispectrum modules are required, define the preprocessor
+# macro WITH_BISPECTRA
+ifeq ($(WITH_BISPECTRA),1)
+	CCFLAG += -DWITH_BISPECTRA
+endif
+
+# If SONG is required, define the preprocessor macro WITH_SONG
+ifeq ($(WITH_SONG_SUPPORT),1)
+	CCFLAG += -DWITH_SONG_SUPPORT
+endif
+
 
 %.o:  %.c .base
 	cd $(WRKDIR);$(CC) $(OPTFLAG) $(OMPFLAG) $(CCFLAG) $(INCLUDES) -c ../$< -o $*.o
