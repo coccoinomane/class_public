@@ -1,0 +1,45 @@
+# Config file used by doxygen to generate CLASS documentation.
+#
+# To generate the documentation, run `make doxy` from the CLASS
+# folder; if you prefer to do it manually, run `doxygen doc/doxygen.txt`.
+# Doxygen will process CLASS source code and create a folder `doc/doxygen`
+# containing the documentation.
+#
+# To see the documentation in a browser, open `doc/doxygen/index.html`
+# or use the shortcut `doc/doc.html` (available only if you used make above).
+# To see it as a PDF, first compile it with `cd doc/doxygen/latex; make`,
+# then open the file `doc/doxygen/latex/refman.pdf`.
+#
+# By default, doxygen will call latex to typeset formulas. If latex stops
+# for an error, just press enter to skip that particular formula and go on.
+# To disable latex, either because it's too slow or because you don't have
+# it installed, modify the latex settings below.
+#
+# An explanation of the various configuration keys can be found
+# in the file doxygen_template.txt, which is created by running
+# `doxygen -g doxygen_template.txt`
+#
+# Make sure to have doxygen installed on your system. On a Mac
+# with a Macports installation, just run `sudo port install doxygen`.
+#
+# This file was tested with doxygen v1.8.9.1.
+
+# Project information
+PROJECT_NAME           = "CLASS"
+PROJECT_NUMBER         = "v2.4.3 with SONG support"
+PROJECT_BRIEF          = "Simulate the evolution of the Universe"
+
+# Files and directories
+INPUT                  = source tools include main test
+OUTPUT_DIRECTORY       = doc/doxygen/
+FILE_PATTERNS          = *.c *.h
+EXCLUDE                =
+
+# Make sure that the documentation includes the SONG bits
+PREDEFINED             = WITH_SONG_SUPPORT WITH_BISPECTRA
+
+# Uncomment to compile without latex (much quicker). Sometimes you need
+# also to give a non-existent latex executables to actually prevent doxygen 
+# to compile the latex parts of the documentation.
+# GENERATE_LATEX         = NO
+# LATEX_CMD_NAME         = whatever

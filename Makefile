@@ -59,6 +59,12 @@ INCLUDES = -I../include
 # automatically add external programs if needed. First, initialize to blank.
 EXTERNAL =
 
+# directory where to put the documentation; a doc.html file will be created there
+DOC_DIR = $(MDIR)/doc
+
+# configuration file to generate the documentation (using doxygen)
+DOXYGEN_FILE = $(DOC_DIR)/doxygen.txt
+
 # Try to automatically avoid an error 'error: can't combine user with ...'
 # which sometimes happens with brewed Python on OSX:
 CFGFILE=$(shell $(PYTHON) -c "import sys; print sys.prefix+'/lib/'+'python'+'.'.join(['%i' % e for e in sys.version_info[0:2]])+'/distutils/distutils.cfg'")
@@ -205,3 +211,11 @@ clean: .base
 	rm -f libclass.a
 	rm -f $(MDIR)/python/classy.c
 	rm -rf $(MDIR)/python/build
+
+doxy:
+	doxygen $(DOXYGEN_FILE)
+	rm -rf $(DOC_DIR)/doc.html
+	ln -s $(DOC_DIR)/doxygen/html/index.html $(DOC_DIR)/doc.html
+
+cleandoxy:
+	rm -rf $(DOXYGEN_DIR)
