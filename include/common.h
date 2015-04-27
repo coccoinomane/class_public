@@ -12,6 +12,12 @@
 #include "omp.h"
 #endif
 
+#ifdef WITH_SONG_SUPPORT
+#include "time.h"         /* Needed to append the current date to output files */
+#include "libgen.h"       /* dirname, basename */
+#include "sys/stat.h"     /* stat, mkdir */
+#endif
+
 #ifndef __COMMON__
 #define __COMMON__
 
@@ -59,11 +65,42 @@ typedef char FileName[_FILENAMESIZE_];
 
 #define _DELIMITER_ "\t" /**< character used for delimiting titles in the title strings */
 
-
-
 #ifndef __CLASSDIR__
 #define __CLASSDIR__ "." /**< The directory of CLASS. This is set to the absolute path to the CLASS directory so this is just a failsafe. */
 #endif
+
+
+#ifdef WITH_SONG_SUPPORT // SONG code begins ...
+
+#define _MINUSCULE_ 1.e-75 /**< Numbers smaller than this will be considered effectively zero */
+
+#define _MAX_LENGTH_LABEL_ 64 /**< Maximum length allowed for the label strings (e.g. for the perturbation variables such as 'phi', 'psi') */
+#define _MAX_NUM_BISPECTRA_ 32 /**< Maximum number of bispectra that can be computed */
+#define _MAX_NUM_FIELDS_ 16 /**< Maximum number of fields (T, E, B...) that can be computed */
+
+#define _ODD_ 1 /**< Value assigned to the ODD parity state */
+#define _EVEN_ 0 /**< Value assigned to the EVEN parity state */
+
+#define _SPECTRA_SCALE_ 1e-10 /**< Natural amplitude of power spectra (used only for debug) */
+#define _BISPECTRA_SCALE_ 1e-20 /**< Natural amplitude of bispectra (used only for debug) */
+
+/* Numerical constants */
+#define _PI_SQUARED_ 9.869604401089358618834491
+#define _PI_CUBE_ 31.006276680299820175
+#define _PI_FOURTH_ 97.40909103400243723644033
+#define sqrt_pi_over_2 1.25331413731550025120788264241
+#define sqrt_2 1.414213562373095049
+#define sqrt_3 1.732050807568877294
+#define sqrt_5 2.236067977499789696
+#define sqrt_6 2.449489742783178098
+#define sqrt_7 2.645751311064590591
+#define sqrt_8 2.828427124746190098
+#define sqrt_10 3.162277660168379332
+#define one_third 0.33333333333333333333333333
+#define four_thirds 1.33333333333333333333333333
+
+#endif // WITH_SONG_SUPPORT
+
 
 #define MIN(a,b) (((a)<(b)) ? (a) : (b) ) /**< the usual "min" function */
 #define MAX(a,b) (((a)<(b)) ? (b) : (a) ) /**< the usual "max" function */
@@ -113,8 +150,6 @@ int get_number_of_titles(char * titlestring);
     }                                                                                                            \
   }                                                                                                              \
 }
-
-
 
 
 // Alloc
@@ -300,6 +335,35 @@ int get_number_of_titles(char * titlestring);
       storage[dataindex++] = defaultvalue;                              \
 }
 
+
+#ifdef WITH_SONG_SUPPORT // SONG code begins ...
+
+#define ALTERNATING_SIGN(m) ((m)%2==0 ? 1 : -1) /**< Return 1 if the argument is even, odd otherwise */
+
+/** Modification of the class_test() macro that just prints the error message, without
+stopping the execution of the current function  */
+#define class_test_permissive(condition, error_message_output, args...) {                                        \
+  if (condition) {                                                                                               \
+    class_test_message(error_message_output,#condition, args);                                                   \
+  }                                                                                                              \
+}
+
+/** Modification of the class_test() macro that prints the error message
+regardless of the condition */
+#define class_test_lazy(condition, error_message_output, args...) {                                              \
+  if (1==1) {                                                                                                    \
+    class_test_message(error_message_output,#condition, args);                                                   \
+  }                                                                                                              \
+}
+
+/** Modification of the class_test() macro that can be used to to deactivate
+the test */
+#define class_test_nothing(condition, error_message_output, args...) {                                           \
+}
+
+#endif // WITH_SONG_SUPPORT
+
+
 /** parameters related to the precision of the code and to the method of calculation */
 
 /**
@@ -322,11 +386,33 @@ enum pk_def {
   delta_bc_squared, /**< delta_bc includes contribution of baryons and cdm only to (delta rho) and to rho */
   delta_tot_from_poisson_squared /**< use delta_tot inferred from gravitational potential through Poisson equation */
 };
+
 /**
  * Different ways to present output files
  */
 
 enum file_format {class_format,camb_format};
+
+
+#ifdef WITH_SONG_SUPPORT // SONG code begins ...
+
+/**
+  * Possible interpolation techniques.
+  */
+enum interpolation_methods {
+  linear_interpolation,      /**< Linear interpolation */
+  cubic_interpolation        /**< Cubic spline interpolation */
+};
+
+/**
+ * Which treatment to use for the integration over k3 in the bispectrum?
+ */
+enum k3_extrapolation {
+  no_k3_extrapolation,     /**< do not extrapolate the transfer functions */
+  flat_k3_extrapolation    /**< assume a constant value for the transfer functions */
+};
+
+#endif // WITH_SONG_SUPPORT
 
 /**
  * All precision parameters.
@@ -769,6 +855,93 @@ struct precision
    *  File structure containing all input parameters
    */
   struct file_content * parameter_files_content;
+  
+
+  #ifdef WITH_SONG_SUPPORT // SONG code begins ...
+
+  /** @name - flags needed for the computation of bispectra and of
+  second-order perturbations (specific to SONG) */
+
+  //@{
+
+  // --------------------------------------------------------------
+  // -                       Perturbations                        -
+  // --------------------------------------------------------------
+  
+  double k_scalar_logstep_super; /**< logarithmic step in k space, used to best sample the largest k's */
+  double perturb_sampling_stepsize_quadsources; /**< sampling frequency for the quadratic sources needed by the second-order system */
+  
+  
+  // --------------------------------------------------------------
+  // -                      Interpolation                         -
+  // --------------------------------------------------------------
+  
+  /** How to interpolate the quadratic sources that appear on the rhs of the differential system? */
+  enum interpolation_methods quadsources_time_interpolation;
+
+  /** How to interpolate the Bessel functions used in the line-of-sight and bispectrum integral? */
+  enum interpolation_methods bessels_interpolation;
+
+  /** How to interpolate the transfer functions in the bispectrum integral */
+  enum interpolation_methods transfers_k1_interpolation;
+  enum interpolation_methods transfers_k2_interpolation;
+
+
+  // --------------------------------------------------------------
+  // -                          C_l's                             -
+  // --------------------------------------------------------------
+  
+  /** Do we need to compute the lensed C_l's all the way to l_max? Default behaviour
+  is to compute them only up to l_max - ppr->delta_l_max */
+  short extend_lensed_cls;
+
+
+  // --------------------------------------------------------------
+  // -                       Bispectrum                           -
+  // --------------------------------------------------------------
+
+  /** Which integration scheme should we follow for k3 in the bispectrum integral?
+  The k3 range can be extended beyond the hard boundary imposed by the triangular
+  condition. This extrapolation has the purpose of stabilizing an integration otherwise problematic */
+  enum k3_extrapolation bispectra_k3_extrapolation;
+
+  /** How much to exted the k3 range in view of the bispectrum integration? */
+  double extra_k3_oscillations_left;
+  double extra_k3_oscillations_right;
+
+  /** Grid for even parity bispectra */
+  short compute_only_even_ls;
+
+  /** Grid for odd parity bispectra */
+  short compute_only_odd_ls;
+
+
+  // --------------------------------------------------------------
+  // -               Storage of intermediate results              -
+  // --------------------------------------------------------------
+  
+  /** Parameters used to determine which arrays to store to disk, and where to store them. */
+  short store_run;
+  short load_run;
+  short append_date_to_run;
+  char run_dir[_FILENAMESIZE_]; /**< Directory where parameters, data and results will be stored to and
+                                read from */ 
+  char data_dir[_FILENAMESIZE_]; /**< Directory containing the data to be read by the current run. This directory
+    must contain three subfolders 'sources', 'transfers' and 'bispectra', which were previously computed by SONG.
+    By default 'ppr->data_dir' is equal to 'ppr->run_dir'. A typical use of this variable is in a hierarchical
+    structure of folders, were ppr->data_dir points to the top directory which contains the data (sources, transfers,
+    bispectra) and 'ppr->run_dir' is used to create custom sub-folders with variations in the parameters. */
+  
+  /** Paths of the parameter & precision input files */
+  char ini_filename[_FILENAMESIZE_];
+  char pre_filename[_FILENAMESIZE_];
+
+  short store_bispectra_to_disk;  /**< Should we store the bispectra to disk? */
+  short load_bispectra_from_disk; /**< Should we load the bispectra from disk? */
+
+  //@}
+  
+  #endif // WITH_SONG_SUPPORT
   
 };
 
