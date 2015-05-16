@@ -105,10 +105,9 @@ int input_init_from_arguments(
 
     class_test (stat (precision_file, &st) != 0,
       errmsg,
-      "the run directory does not contain the parameter file '%s'", input_file);
+      "the run directory does not contain the parameter file '%s'", precision_file);
 
     printf("# We shall load the run contained in the folder '%s'.\n", ppr->run_dir);
-    
   }
 
 #endif // WITH_BISPECTRA
@@ -2798,32 +2797,27 @@ int input_read_parameters(
   /** i.1.1. First-order LOS effects */
 
   class_call(parser_read_string(pfc,"include_scattering_in_los_1st_order",&(string1),&(flag1),errmsg),errmsg,errmsg);
-
   if ((flag1 == _TRUE_) && (strstr(string1,"y") == NULL) && (strstr(string1,"Y") == NULL)) {
     ppt->has_scattering_in_los = _FALSE_;
   }
 
   class_call(parser_read_string(pfc,"include_photon_monopole_in_los_1st_order",&(string1),&(flag1),errmsg),errmsg,errmsg);
-
   if ((flag1 == _TRUE_) && (strstr(string1,"y") == NULL) && (strstr(string1,"Y") == NULL)) {
     ppt->has_photon_monopole_in_los = _FALSE_;
   }
 
   class_call(parser_read_string(pfc,"include_metric_in_los_1st_order",&(string1),&(flag1),errmsg),errmsg,errmsg);
-
   if ((flag1 == _TRUE_) && (strstr(string1,"y") == NULL) && (strstr(string1,"Y") == NULL)) {
     ppt->has_metric_in_los = _FALSE_;
   }
 
   class_call(parser_read_string(pfc,"include_sachs_wolfe_in_los_1st_order",&(string1),&(flag1),errmsg),errmsg,errmsg);
-
-  if ((flag1 == _TRUE_) && (strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL)) {
+  if ((flag1 == _TRUE_) && ((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL))) {
     ppt->has_sw = _TRUE_;
   }
   
   class_call(parser_read_string(pfc,"include_integrated_sachs_wolfe_in_los_1st_order",&(string1),&(flag1),errmsg),errmsg,errmsg);
-
-  if ((flag1 == _TRUE_) && (strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL)) {
+  if ((flag1 == _TRUE_) && ((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL))) {
     ppt->has_isw = _TRUE_;
   }
 
@@ -2972,6 +2966,18 @@ int input_read_parameters(
   }
 
   pbs->l_max = l_max;
+
+  /* Determine pbs->x_max, the upper limit of the x-domain of the Bessel functions j_l(x).
+  These appear in the bispectrum integral with argument x = k*(tau0-tau), therefore we set
+  pbs->x_max = k_max*tau0, where tau0 is the conformal age of the Universe */
+  pbs->x_max = ppr->k_max_tau0_over_l_max * pbs->l_max;
+
+  /* Copy the step size in x to the Bessel structure */
+  pbs->x_step = ppr->bessel_x_step;
+
+  /* Extend x_max to avoid potential out-of-bounds errors in the interpolation of j_l(x) */
+  pbs->x_max += pbs->x_step;
+  pbs->x_max *= 1.05;
 
 
   /** i.3. parameters in the bispectra module */
@@ -3369,7 +3375,7 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
   class_call(parser_read_string(pfc,"store_run",&(string1),&(flag1),errmsg),
       errmsg,
       errmsg);
-   
+
   if ((flag1 == _TRUE_) && ((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL)))
     ppr->store_run = _TRUE_;
 
@@ -3886,8 +3892,8 @@ int input_default_params(
   // ppt->has_zero_ic=_FALSE_;
 
   /* Compute curvature perturbation zeta? */
-  ppt->has_cl_cmb_zeta = _FALSE_; /* Compute zeta variable? */
-  ppt->recombination_only_zeta = _TRUE_; /* Is zeta evaluated exclusively at recombination? */
+  ppt->has_cl_cmb_zeta = _FALSE_;
+  ppt->recombination_only_zeta = _TRUE_;
   
 #endif // WITH_BISPECTRA
 
@@ -4021,7 +4027,7 @@ int input_default_params(
 
   /** - bessels structure */
 
-  pbs->l_max = MAX(ppt->l_scalar_max,ppt->l_vector_max,ppt->l_tensor_max);
+  pbs->l_max = MAX(ppt->l_scalar_max,MAX(ppt->l_vector_max,ppt->l_tensor_max));
   pbs->has_bispectra = _FALSE_;
 
   /** - bispectra structure */
@@ -4397,7 +4403,7 @@ int input_default_precision ( struct precision * ppr ) {
   ppr->r_size = 100;
 
   /* Storage of intermediate results */
-  ppr->store_run == _FALSE_;
+  ppr->store_run = _FALSE_;
   ppr->append_date_to_run = _FALSE_;
   ppr->store_bispectra_to_disk = _FALSE_;
   ppr->load_bispectra_from_disk = _FALSE_;

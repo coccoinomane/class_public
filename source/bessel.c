@@ -314,7 +314,23 @@ int bessel_convolution(
  * bessel_j_for_l(), and stored in the bessels
  * stucture pbs.
  *
- * @param ppr Input : pointer to precision strucutre
+ * Since version 2, CLASS computes the Bessel functions on the fly in the transfer module; therefore,
+ * CLASS does not have anymore a Bessel module. In SONG we chose to keep the Bessel module, and
+ * use its tables to interpolate the Bessel functions. The reason is that SONG calls the Bessel
+ * functions N^3 times as compared to the N times of CLASS. Computing j_l(x) that many times without
+ * interpolation would probably require too much time.
+ *
+ * We use the Bessel functions computed in this module for two purposes:
+ * 1) compute the bispectrum integral and
+ * 2) compute the line of sight integral at second order.
+ * On the other hand, the Bessel functions for the first-order line of sight integral
+ * are computed on the fly in the transfer.c module, as it is done in vanilla CLASS. The
+ * multipole list is also computed in transfer.c, and that's why the Bessel module requires
+ * ptr as an input.
+ * 
+ *
+ * @param ppr Input: pointer to precision strucutre
+ * @param ptr Input: pointer to background structure
  * @param pbs Output: initialized bessel structure 
  * @return the error status
  */
@@ -338,9 +354,18 @@ int bessel_init(
   if (pbs->bessels_verbose > 0)
     printf("Computing bessels\n");
 
+  /** - update the value of pbs->x_max of j_l(x) */
+  
+  /* In the bispectrum integral the upper limit in the time variable is r_max rather
+  than tau0. Here we scale the Bessels domain so that it includes the integration domain
+  of the bispectrum. */
+  pbs->tau0 = pba->conformal_age;
+  if (pbs->has_bispectra == _TRUE_)
+    pbs->x_max = MAX (pbs->x_max, pbs->x_max*ppr->r_max/pbs->tau0);
+
   /** - copy l values from the transfer module and set x_max */
 
-  class_call(bessel_get_l_list(ppr,pba,ptr,pbs),
+  class_call(bessel_get_l_list(ppr,ptr,pbs),
 	     pbs->error_message,
 	     pbs->error_message);
 
@@ -459,13 +484,10 @@ int bessel_free(
  * Define number and values of mutipoles l. This is just
  * copied from ptr->l, which in turn is set in 
  * 'transfer_get_l_list'.
- * Also set pbs->x_max, which determines the extent of the
- * x domain of the stored j_l(x).
  */
 
 int bessel_get_l_list(
 		      struct precision * ppr,
-          struct background * pba,
 		      struct transfers * ptr,
 		      struct bessels * pbs
 		      )
@@ -492,34 +514,6 @@ int bessel_get_l_list(
     pbs->l[index_l] = ptr->l[index_l];
 
   pbs->l_max = pbs->l[pbs->l_size-1];
-
-  // ===============================================================================
-  // =                                 Compute x_max                               =
-  // ===============================================================================
-
-  /* Determine x_max, the maximum sampling of the Bessel functions j_l(x). In the line-of-sight
-  integral, x = k*(tau0-tau), therefore we set x_max = k_max*tau0, where tau0 is the conformal
-  age of the Universe */
-  pbs->x_max = ppr->k_max_tau0_over_l_max * pbs->l_max;
-  double x_max_temp = pbs->x_max;
-
-  /* In the bispectrum integral the upper limit in the time variable r goes to k_max*r_max rather
-  than k_max*tau0. Here we scale the Bessels domain so that it includes the integration domain
-  of the bispectrum. */
-  if (pbs->has_bispectra == _TRUE_) {
-    double tau0 = pba->conformal_age;
-    pbs->x_max = MAX (pbs->x_max, pbs->x_max*ppr->r_max/pba->conformal_age);
-  }
-
-  /* Copy the step size in x to the Bessel structure */
-  pbs->x_step = ppr->bessel_x_step;
-
-  /* Extend x_max to avoid potential out-of-bounds errors in the interpolation of j_l(x) */
-  pbs->x_max += pbs->x_step;
-  pbs->x_max *= 1.05;
-
-  /* Debug - print x_max value */
-  printf("*** set pbs->x_max from %g to %g\n",  x_max_temp, pbs->x_max);
 
   return _SUCCESS_;
 

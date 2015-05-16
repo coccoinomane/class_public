@@ -69,6 +69,14 @@ struct bessels {
 
   //@}
 
+  /** @name - physical parameters */
+
+  //@{
+
+  double conformal_age; /**< conformal age in Mpc, from the background module */
+
+  //@}
+
   /** @name - technical parameters */
 
   //@{
@@ -131,7 +139,6 @@ extern "C" {
 
   int bessel_get_l_list(
 			struct precision * ppr,
-      struct background * pba,
 			struct transfers * ptr,
 			struct bessels * pbs
 			);
