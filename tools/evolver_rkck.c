@@ -31,6 +31,9 @@ int evolver_rk(int (*derivs)(double x,
 					   double dy[],
 					   void * parameters_and_workspace,
 					   ErrorMsg error_message),
+#ifdef WITH_BISPECTRA
+        int (*exit_strategy)(),
+#endif // WITH_BISPECTRA
 		    ErrorMsg error_message) {
 
   int next_index_x;

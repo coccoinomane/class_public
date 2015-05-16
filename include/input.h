@@ -16,6 +16,12 @@
 #include "lensing.h"
 #include "output.h"
 
+#ifdef WITH_BISPECTRA
+#include "bessel.h"
+#include "bispectra.h"
+#include "fisher.h"
+#endif // WITH_BISPECTRA
+
 /* macro for reading parameter values with routines from the parser */
 #define class_read_double(name,destination)				\
   do {									\
@@ -136,7 +142,8 @@
 
 enum target_names {theta_s, Omega_dcdmdr, omega_dcdmdr, Omega_scf, Omega_ini_dcdm, omega_ini_dcdm};
 enum computation_stage {cs_background, cs_thermodynamics, cs_perturbations,
-                        cs_primordial, cs_nonlinear, cs_transfer, cs_spectra};
+                        cs_primordial, cs_nonlinear, cs_transfer, cs_spectra,
+                        cs_bessels, cs_bispectra, cs_fisher};
 #define _NUM_TARGETS_ 6 //Keep this number as number of target_names
 
 struct input_pprpba {
@@ -175,6 +182,11 @@ extern "C" {
 		 struct spectra *psp,
 		 struct nonlinear *pnl,
 		 struct lensing *ple,
+#ifdef WITH_BISPECTRA
+     struct bessels * pbs,
+     struct bispectra *pbi,
+     struct fisher *pfi,
+#endif // WITH_BISPECTRA
 		 struct output *pop,
 		 ErrorMsg errmsg
 		 );
@@ -190,6 +202,11 @@ extern "C" {
 		 struct spectra *psp,
 		 struct nonlinear *pnl,
 		 struct lensing *ple,
+#ifdef WITH_BISPECTRA
+     struct bessels * pbs,
+     struct bispectra *pbi,
+     struct fisher *pfi,
+#endif // WITH_BISPECTRA
 		 struct output *pop,
 		 ErrorMsg errmsg
 		 );
@@ -210,6 +227,11 @@ extern "C" {
         struct spectra *psp,
         struct nonlinear *pnl,
         struct lensing *ple,
+#ifdef WITH_BISPECTRA
+        struct bessels * pbs,
+        struct bispectra *pbi,
+        struct fisher *pfi,
+#endif // WITH_BISPECTRA
         struct output *pop,
         ErrorMsg errmsg
         );
@@ -223,6 +245,11 @@ extern "C" {
 			   struct spectra *psp,
 			   struct nonlinear *pnl,
 			   struct lensing *ple,
+#ifdef WITH_BISPECTRA
+         struct bessels * pbs,
+         struct bispectra *pbi,
+         struct fisher *pfi,
+#endif // WITH_BISPECTRA
 			   struct output *pop
 			   );
 

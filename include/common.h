@@ -12,11 +12,12 @@
 #include "omp.h"
 #endif
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_BISPECTRA
 #include "time.h"         /* Needed to append the current date to output files */
 #include "libgen.h"       /* dirname, basename */
 #include "sys/stat.h"     /* stat, mkdir */
-#endif
+#include "wordexp.h"      /* expand environment variables and shell symbols */
+#endif // WITH_BISPECTRA
 
 #ifndef __COMMON__
 #define __COMMON__
@@ -70,9 +71,12 @@ typedef char FileName[_FILENAMESIZE_];
 #endif
 
 
-#ifdef WITH_SONG_SUPPORT // SONG code begins ...
+#ifdef WITH_BISPECTRA
 
+#define _HUGE_ 1.e99 /**< Numbers larger than this will be considere effectively infinite */
 #define _MINUSCULE_ 1.e-75 /**< Numbers smaller than this will be considered effectively zero */
+#define _EPS_ 0.01 /**< Constant used to cast a float to an integer. Must be smaller than 0.5 */
+#define _SMALL_ (ppr->smallest_allowed_variation*1e6) /**< Constant used for relative floating point comparisons (only debug) */
 
 #define _MAX_LENGTH_LABEL_ 64 /**< Maximum length allowed for the label strings (e.g. for the perturbation variables such as 'phi', 'psi') */
 #define _MAX_NUM_BISPECTRA_ 32 /**< Maximum number of bispectra that can be computed */
@@ -99,7 +103,7 @@ typedef char FileName[_FILENAMESIZE_];
 #define one_third 0.33333333333333333333333333
 #define four_thirds 1.33333333333333333333333333
 
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_BISPECTRA
 
 
 #define MIN(a,b) (((a)<(b)) ? (a) : (b) ) /**< the usual "min" function */
@@ -336,7 +340,7 @@ int get_number_of_titles(char * titlestring);
 }
 
 
-#ifdef WITH_SONG_SUPPORT // SONG code begins ...
+#ifdef WITH_BISPECTRA
 
 #define ALTERNATING_SIGN(m) ((m)%2==0 ? 1 : -1) /**< Return 1 if the argument is even, odd otherwise */
 
@@ -361,7 +365,7 @@ the test */
 #define class_test_nothing(condition, error_message_output, args...) {                                           \
 }
 
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_BISPECTRA
 
 
 /** parameters related to the precision of the code and to the method of calculation */
@@ -394,7 +398,7 @@ enum pk_def {
 enum file_format {class_format,camb_format};
 
 
-#ifdef WITH_SONG_SUPPORT // SONG code begins ...
+#ifdef WITH_BISPECTRA
 
 /**
   * Possible interpolation techniques.
@@ -412,7 +416,7 @@ enum k3_extrapolation {
   flat_k3_extrapolation    /**< assume a constant value for the transfer functions */
 };
 
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_BISPECTRA
 
 /**
  * All precision parameters.
@@ -857,10 +861,12 @@ struct precision
   struct file_content * parameter_files_content;
   
 
-  #ifdef WITH_SONG_SUPPORT // SONG code begins ...
+  #ifdef WITH_BISPECTRA
 
-  /** @name - flags needed for the computation of bispectra and of
-  second-order perturbations (specific to SONG) */
+  /* TODO: discriminate between WITH_BISPECTRA and WITH_SONG_SUPPORT */
+
+  /** @name - parameters related to bispectra, Fisher matrices and second-order
+  perturbations (specific to SONG) */
 
   //@{
 
@@ -869,23 +875,21 @@ struct precision
   // --------------------------------------------------------------
   
   double k_scalar_logstep_super; /**< logarithmic step in k space, used to best sample the largest k's */
-  double perturb_sampling_stepsize_quadsources; /**< sampling frequency for the quadratic sources needed by the second-order system */
+  double perturb_sampling_stepsize_quadsources; /**< sampling frequency for the quadratic sources (overridden if using a custom sampling) */
   
   
   // --------------------------------------------------------------
   // -                      Interpolation                         -
   // --------------------------------------------------------------
   
-  /** How to interpolate the quadratic sources that appear on the rhs of the differential system? */
-  enum interpolation_methods quadsources_time_interpolation;
-
-  /** How to interpolate the Bessel functions used in the line-of-sight and bispectrum integral? */
-  enum interpolation_methods bessels_interpolation;
-
-  /** How to interpolate the transfer functions in the bispectrum integral */
-  enum interpolation_methods transfers_k1_interpolation;
-  enum interpolation_methods transfers_k2_interpolation;
-
+  enum interpolation_methods quadsources_time_interpolation; /**< Interpolation method for the quadratic sources in
+                                                                  the 2nd-order system */
+  enum interpolation_methods bessels_interpolation; /**< Interpolation method of the Bessel functions used in the
+                                                         line-of-sight and bispectrum integrals */
+  enum interpolation_methods transfers_k1_interpolation; /**< Interpolation method of the transfer functions along the
+                                                              k1 direction in the bispectrum integral */
+  enum interpolation_methods transfers_k2_interpolation; /**< Interpolation method of the transfer functions along 
+                                                              k2 direction in the bispectrum integral */
 
   // --------------------------------------------------------------
   // -                          C_l's                             -
@@ -897,8 +901,23 @@ struct precision
 
 
   // --------------------------------------------------------------
+  // -                     Bessel functions                       -
+  // --------------------------------------------------------------
+
+  double bessel_x_step; /**< step dx for sampling Bessel functions \f$ j_l(x) \f$ */
+  double bessel_j_cut; /**< value of \f$ j_l \f$ below which it is approximated by zero (in the region \f$ x \ll l \f$) */
+  double bessel_tol_x_min;  /**< precision with which x_min such that j_l(x_min)=j_cut is found (order of magnitude set by k_min) */
+
+
+  // --------------------------------------------------------------
   // -                       Bispectrum                           -
   // --------------------------------------------------------------
+
+  /* Upper and lower limits on the integration variable r, appearing as argument
+  of the three Bessel functions in the bispectrum integral */
+  double r_min;
+  double r_max;
+  int r_size;
 
   /** Which integration scheme should we follow for k3 in the bispectrum integral?
   The k3 range can be extended beyond the hard boundary imposed by the triangular
@@ -924,10 +943,9 @@ struct precision
   short store_run;
   short load_run;
   short append_date_to_run;
-  char run_dir[_FILENAMESIZE_]; /**< Directory where parameters, data and results will be stored to and
-                                read from */ 
+  char run_dir[_FILENAMESIZE_]; /**< Directory where the parameter files will be read from (or written to) */ 
   char data_dir[_FILENAMESIZE_]; /**< Directory containing the data to be read by the current run. This directory
-    must contain three subfolders 'sources', 'transfers' and 'bispectra', which were previously computed by SONG.
+    must contain three subfolders 'sources', 'transfers' and 'bispectra' previously created by SONG.
     By default 'ppr->data_dir' is equal to 'ppr->run_dir'. A typical use of this variable is in a hierarchical
     structure of folders, were ppr->data_dir points to the top directory which contains the data (sources, transfers,
     bispectra) and 'ppr->run_dir' is used to create custom sub-folders with variations in the parameters. */
@@ -941,7 +959,7 @@ struct precision
 
   //@}
   
-  #endif // WITH_SONG_SUPPORT
+  #endif // WITH_BISPECTRA
   
 };
 

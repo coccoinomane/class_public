@@ -26,6 +26,11 @@ int input_init_from_arguments(
                               struct spectra *psp,
                               struct nonlinear * pnl,
                               struct lensing *ple,
+#ifdef WITH_BISPECTRA
+                              struct bessels * pbs,
+                              struct bispectra *pbi,
+                              struct fisher *pfi,
+#endif // WITH_BISPECTRA
                               struct output *pop,
                               ErrorMsg errmsg
                               ) {
@@ -66,8 +71,58 @@ int input_init_from_arguments(
   input_file[0]='\0';
   precision_file[0]='\0';
 
+
+#ifdef WITH_BISPECTRA
+
+  /** - Check wether the first argument is a directory, and if this is the case
+      load its content as if it was a previous run of SONG. */
+
+  /* Check that the first argument exists as a file or as a directory */
+  struct stat st;
+  class_test ((argc>1) && (stat (argv[1], &st) != 0),
+		errmsg,
+		"the specified argument does not exist ('%s')", argv[1]);
+
+  /* Check whether the first argument is a directory, and if this is the case use the parameter files
+  that are stored inside  */
+  ppr->load_run = (S_ISDIR (st.st_mode) != 0);
+
+  if ((argc == 2) && (ppr->load_run == _TRUE_)) {
+        
+    /* From now on, we shall assume that the specified directory contains a previously stored run */
+    strcpy(ppr->run_dir, argv[1]);
+
+    /* Store the paths of the parameter files into the strings 'input_file' and 'precision_file'. Later on
+    we shall also stored them into the structure fields ppr->ini_filename and ppr->pre_filename. */
+    sprintf (input_file, "%s/run_params.ini", ppr->run_dir);
+    sprintf (precision_file, "%s/run_params.pre", ppr->run_dir);
+
+    /* It is mandatory that the run directory contains a params.ini and a params.pre file.  We
+    now check that they exist */
+    class_test (stat (input_file, &st) != 0,
+      errmsg,
+      "the run directory does not contain the parameter file '%s'", input_file);
+
+    class_test (stat (precision_file, &st) != 0,
+      errmsg,
+      "the run directory does not contain the parameter file '%s'", input_file);
+
+    printf("# We shall load the run contained in the folder '%s'.\n", ppr->run_dir);
+    
+  }
+
+#endif // WITH_BISPECTRA
+
+
   /** If some arguments are passed, identify eventually some 'xxx.ini'
       and 'xxx.pre' files, and store their name. */
+
+#ifdef WITH_BISPECTRA
+  /* No need to read the parameter files from the command line if we are loading a
+  previous run */
+  if (ppr->load_run == _TRUE_)
+    goto read_input_files;
+#endif // WITH_BISPECTRA
 
   if (argc > 1) {
     for (i=1; i<argc; i++) {
@@ -91,6 +146,10 @@ int input_init_from_arguments(
     }
   }
 
+#ifdef WITH_BISPECTRA
+  read_input_files:
+#endif // WITH_BISPECTRA
+
   /** - if there is an 'xxx.ini' file, read it and store its content. */
 
   if (input_file[0] != '\0'){
@@ -98,6 +157,11 @@ int input_init_from_arguments(
     class_call(parser_read_file(input_file,&fc_input,errmsg),
                errmsg,
                errmsg);
+
+#ifdef WITH_BISPECTRA
+    /** - save the parameter filename into the ppr structure */
+    strcpy (ppr->ini_filename, input_file);
+#endif // WITH_BISPECTRA
 
     /** - check whether a root name has been set */
 
@@ -150,6 +214,11 @@ int input_init_from_arguments(
                errmsg,
                errmsg);
 
+#ifdef WITH_BISPECTRA
+  /** - save the parameter filename into the ppr structure */
+  strcpy (ppr->pre_filename, precision_file);
+#endif // WITH_BISPECTRA
+
   /** - if one or two files were read, merge their contents in a
       single 'file_content' structure. */
 
@@ -176,6 +245,11 @@ int input_init_from_arguments(
                         psp,
                         pnl,
                         ple,
+#ifdef WITH_BISPECTRA
+                        pbs,
+                        pbi,
+                        pfi,
+#endif // WITH_BISPECTRA
                         pop,
                         errmsg),
              errmsg,
@@ -202,6 +276,11 @@ int input_init(
                struct spectra *psp,
                struct nonlinear * pnl,
                struct lensing *ple,
+#ifdef WITH_BISPECTRA
+               struct bessels * pbs,
+               struct bispectra *pbi,
+               struct fisher *pfi,
+#endif // WITH_BISPECTRA
                struct output *pop,
                ErrorMsg errmsg
                ) {
@@ -450,6 +529,11 @@ int input_init(
                                      psp,
                                      pnl,
                                      ple,
+#ifdef WITH_BISPECTRA
+                                     pbs,
+                                     pbi,
+                                     pfi,
+#endif // WITH_BISPECTRA
                                      pop,
                                      errmsg),
                errmsg,
@@ -485,6 +569,11 @@ int input_init(
                                      psp,
                                      pnl,
                                      ple,
+#ifdef WITH_BISPECTRA
+                                     pbs,
+                                     pbi,
+                                     pfi,
+#endif // WITH_BISPECTRA
                                      pop,
                                      errmsg),
                errmsg,
@@ -572,6 +661,11 @@ int input_read_parameters(
                           struct spectra *psp,
                           struct nonlinear * pnl,
                           struct lensing *ple,
+#ifdef WITH_BISPECTRA
+                          struct bessels * pbs,
+                          struct bispectra *pbi,
+                          struct fisher *pfi,
+#endif // WITH_BISPECTRA
                           struct output *pop,
                           ErrorMsg errmsg
                           ) {
@@ -588,6 +682,10 @@ int input_read_parameters(
   double fnu_factor;
   double * pointer1;
   char string1[_ARGUMENT_LENGTH_MAX_];
+#ifdef WITH_BISPECTRA
+  char string[_ARGUMENT_LENGTH_MAX_];
+  char string2[_ARGUMENT_LENGTH_MAX_];
+#endif // WITH_BISPECTRA
   double k1=0.;
   double k2=0.;
   double prr1=0.;
@@ -624,6 +722,11 @@ int input_read_parameters(
                                   psp,
                                   pnl,
                                   ple,
+#ifdef WITH_BISPECTRA
+                                  pbs,
+                                  pbi,
+                                  pfi,
+#endif // WITH_BISPECTRA
                                   pop),
              errmsg,
              errmsg);
@@ -1280,7 +1383,170 @@ int input_read_parameters(
       ppt->has_perturbations = _TRUE_;
     }
 
+#ifdef WITH_BISPECTRA
+
+    if ((strstr(string1,"zCl") != NULL) || (strstr(string1,"ZCl") != NULL) || (strstr(string1,"ZCL") != NULL)) {
+      ppt->has_cl_cmb_zeta = _TRUE_;
+      ppt->has_perturbations = _TRUE_;  
+      ppt->has_cls = _TRUE_;
+    }
+
+    if ((strstr(string1,"tBisp") != NULL) || (strstr(string1,"TBISP") != NULL)) {
+      ppt->has_cl_cmb_temperature = _TRUE_;
+      ppt->has_bi_cmb_temperature = _TRUE_;  
+      ppt->has_perturbations = _TRUE_;  
+      ppt->has_cls = _TRUE_;
+      ppt->has_bispectra = _TRUE_;
+      pbs->has_bispectra = _TRUE_;
+      pbi->has_bispectra = _TRUE_;
+    }
+    
+    if ((strstr(string1,"pBisp") != NULL)|| (strstr(string1,"PBISP") != NULL)
+      ||(strstr(string1,"eBisp") != NULL)|| (strstr(string1,"EBISP") != NULL)) {
+      ppt->has_cl_cmb_polarization = _TRUE_;
+      ppt->has_bi_cmb_polarization = _TRUE_;  
+      ppt->has_perturbations = _TRUE_;  
+      ppt->has_cls = _TRUE_;
+      ppt->has_bispectra = _TRUE_;
+      pbs->has_bispectra = _TRUE_;
+      pbi->has_bispectra = _TRUE_;
+    }
+
+    if (strstr(string1,"fisher") != NULL) {
+      ppt->has_cl_cmb_lensing_potential = _TRUE_; /* The covariance matrix needs lensed C_l's */ 
+      pfi->has_fisher = _TRUE_;
+    }
+
+#ifdef WITH_SONG_SUPPORT
+
+    if (strstr(string1,"early_transfers1") != NULL) {
+      ppt->has_perturbations = _TRUE_;
+      ppt->has_perturbations2 = _TRUE_;
+    }
+    
+    if (strstr(string1,"early_transfers2") != NULL) {    
+      ppt->has_perturbations = _TRUE_;
+      ppt->has_perturbations2 = _TRUE_;
+      ppt->has_cls = _TRUE_;
+    }
+
+    if (strstr(string1,"transfers2") != NULL) {
+      ppt->has_perturbations = _TRUE_;
+      ppt->has_perturbations2 = _TRUE_;
+      ppt->has_cls = _TRUE_;
+    }
+
+    if (strstr(string1,"tCl2") != NULL) {
+      ppt->has_perturbations = _TRUE_;
+      ppt->has_perturbations2 = _TRUE_;
+      ppt->has_cl_cmb_temperature = _TRUE_;
+      ppt->has_cl_cmb_polarization = _TRUE_;
+      ppt->has_cls = _TRUE_;
+    }
+
+#endif // WITH_SONG_SUPPORT
+
+#endif // WITH_BISPECTRA
+    
   }
+
+#ifdef WITH_BISPECTRA
+
+  /* Parse the types of bispectra (intrinsic, primordial...) to compute */
+  
+  class_call (parser_read_string(pfc,"bispectrum_types",&string1,&flag1,errmsg),
+    errmsg,
+    errmsg);
+
+  if ((pbi->has_bispectra == _TRUE_) && (flag1 == _TRUE_)) {
+  
+    /* Compute primordial bispectrum with a local shape function */
+    if (strstr(string1,"local") != NULL) {
+      pbi->has_local_model = _TRUE_; 
+    }
+  
+    /* Compute primordial bispectrum with an equilateral shape function */
+    if (strstr(string1,"equilateral") != NULL) {
+      pbi->has_equilateral_model = _TRUE_;
+    }
+
+    /* Compute primordial bispectrum with an orthogonal shape function */
+    if (strstr(string1,"orthogonal") != NULL) {
+      pbi->has_orthogonal_model = _TRUE_;  
+    }
+
+    /* Compute primordial bispectrum with the two Galileon shapes in arXiv:1303.2125 */
+    if (strstr(string1,"galileon") != NULL) {
+      pbi->has_galileon_model = _TRUE_;  
+    }
+
+    /* Compute the approximation of the intrinsic bispectrum in the squeezed limit, the lensed version */
+    if ((strstr(string1,"intrinsic_squeezed") != NULL)
+    || (strstr(string1,"i_squeezed") != NULL) || (strstr(string1,"i-squeezed") != NULL)) {
+      pbi->has_intrinsic_squeezed = _TRUE_;
+      ppt->has_cl_cmb_zeta = _TRUE_;
+      psp->compute_cl_derivative = _TRUE_;
+    }
+
+    /* Compute the approximation of the intrinsic bispectrum in the squeezed limit, the unlensed version */
+    if ((strstr(string1,"unlensed_intrinsic_squeezed") != NULL)
+    || (strstr(string1,"i_u_squeezed") != NULL) || (strstr(string1,"i-u-squeezed") != NULL)) {
+      pbi->has_intrinsic_squeezed_unlensed = _TRUE_;
+      ppt->has_cl_cmb_zeta = _TRUE_;
+    }
+
+    /* Compute the approximation of the local bispectrum in the squeezed limit */
+    if ((strstr(string1,"local_squeezed") != NULL)
+    || (strstr(string1,"l_squeezed") != NULL) || (strstr(string1,"l-squeezed") != NULL)) {
+      pbi->has_local_squeezed = _TRUE_;
+      ppt->has_cl_cmb_zeta = _TRUE_;
+      psp->compute_cl_derivative = _TRUE_;
+    }
+
+    /* Compute a test oscillating bispectrum */
+    if ((strstr(string1,"cosine_shape") != NULL) || (strstr(string1,"cosine") != NULL)) {
+      pbi->has_cosine_shape = _TRUE_;
+    }
+
+    /* Compute the CMB-lensing bispectrum */
+    if ((strstr(string1,"cmb_lensing") != NULL) || (strstr(string1,"cmb-lensing") != NULL)
+    || (strstr(string1,"CMB_lensing") != NULL) || (strstr(string1,"CMB-lensing") != NULL)
+    || (strstr(string1,"isw_lensing") != NULL) || (strstr(string1,"isw-lensing") != NULL)) {
+      ppt->has_cl_cmb_lensing_potential = _TRUE_;
+      pbi->has_cmb_lensing = _TRUE_;
+    }
+
+    /* Compute the approximation of the CMB-lensing bispectrum in the squeezed limit */
+    if ((strstr(string1,"c_squeezed") != NULL) || (strstr(string1,"c-squeezed") != NULL)) {
+      ppt->has_cl_cmb_lensing_potential = _TRUE_;
+      pbi->has_cmb_lensing_squeezed = _TRUE_;
+    }
+
+    /* Compute the quadratic correction bispectrum (effectively the CMB four-point function) */
+    if (strstr(string1,"quadratic") != NULL) {
+      pbi->has_quadratic_correction = _TRUE_;
+    }
+
+#ifdef WITH_SONG_SUPPORT
+
+    /* Intrinsic bispectrum. This is induced by second-order effects in the evolution of the cosmological
+    perturbations. */
+    if (strstr(string1,"intrinsic") != NULL) {
+      pbi->has_intrinsic = _TRUE_;
+      pbi->has_quadratic_correction = _TRUE_;
+      ppt->has_perturbations2 = _TRUE_;
+      ppt->has_cls = _TRUE_;
+      /* We also require to be able to compute the analytical approximation in the squeezed limit,
+      which is used as a window function for the interpolation of the intrinsic bispectrum */
+      ppt->has_cl_cmb_zeta = _TRUE_;
+      psp->compute_cl_derivative = _TRUE_;
+    }
+
+#endif // WITH_SONG_SUPPORT
+    
+  } // end of bispectrum_types parsing
+
+#endif // WITH_BISPECTRA
 
   if (ppt->has_cl_cmb_temperature == _TRUE_) {
 
@@ -1957,6 +2223,7 @@ int input_read_parameters(
 
   /** (e) parameters for final spectra */
 
+  
   if (ppt->has_cls == _TRUE_) {
 
     if (ppt->has_scalars == _TRUE_) {
@@ -1977,7 +2244,7 @@ int input_read_parameters(
       class_read_double("l_max_tensors",ppt->l_tensor_max);
     }
   }
-
+  
   class_call(parser_read_string(pfc,
                                 "lensing",
                                 &(string1),
@@ -2434,7 +2701,7 @@ int input_read_parameters(
 
   class_read_double("neglect_CMB_sources_below_visibility",ppr->neglect_CMB_sources_below_visibility);
 
-  /** h.5. parameter related to the primordial spectra */
+  /** h.5. parameters related to the primordial spectra */
 
   class_read_double("k_per_decade_primordial",ppr->k_per_decade_primordial);
   class_read_double("primordial_inflation_ratio_min",ppr->primordial_inflation_ratio_min);
@@ -2455,7 +2722,7 @@ int input_read_parameters(
   class_read_double("primordial_inflation_small_epsilon_tol",ppr->primordial_inflation_small_epsilon_tol);
   class_read_double("primordial_inflation_extra_efolds",ppr->primordial_inflation_extra_efolds);
 
-  /** h.6. parameter related to the transfer functions */
+  /** h.6. parameters related to the transfer functions */
 
   class_read_double("l_logstep",ppr->l_logstep);
   class_read_int("l_linstep",ppr->l_linstep);
@@ -2508,7 +2775,7 @@ int input_read_parameters(
   class_read_double("halofit_min_k_nonlinear",ppr->halofit_min_k_nonlinear);
   class_read_double("halofit_sigma_precision",ppr->halofit_sigma_precision);
 
-  /** h.8. parameter related to lensing */
+  /** h.8. parameters related to lensing */
 
   class_read_int("accurate_lensing",ppr->accurate_lensing);
   class_read_int("delta_l_max",ppr->delta_l_max);
@@ -2519,7 +2786,831 @@ int input_read_parameters(
   if (ple->has_lensed_cls == _TRUE_)
     ppt->l_scalar_max+=ppr->delta_l_max;
 
-  /** (i.1) shall we write background quantitites in a file? */
+
+#ifdef WITH_BISPECTRA
+
+  /** (i) all kind of parameters related to bispectra, Fisher and SONG computations */
+
+  /** i.1. parameters in the perturbations module */
+  
+  class_read_double("k_scalar_logstep_super",ppr->k_scalar_logstep_super);
+
+  /** i.1.1. First-order LOS effects */
+
+  class_call(parser_read_string(pfc,"include_scattering_in_los_1st_order",&(string1),&(flag1),errmsg),errmsg,errmsg);
+
+  if ((flag1 == _TRUE_) && (strstr(string1,"y") == NULL) && (strstr(string1,"Y") == NULL)) {
+    ppt->has_scattering_in_los = _FALSE_;
+  }
+
+  class_call(parser_read_string(pfc,"include_photon_monopole_in_los_1st_order",&(string1),&(flag1),errmsg),errmsg,errmsg);
+
+  if ((flag1 == _TRUE_) && (strstr(string1,"y") == NULL) && (strstr(string1,"Y") == NULL)) {
+    ppt->has_photon_monopole_in_los = _FALSE_;
+  }
+
+  class_call(parser_read_string(pfc,"include_metric_in_los_1st_order",&(string1),&(flag1),errmsg),errmsg,errmsg);
+
+  if ((flag1 == _TRUE_) && (strstr(string1,"y") == NULL) && (strstr(string1,"Y") == NULL)) {
+    ppt->has_metric_in_los = _FALSE_;
+  }
+
+  class_call(parser_read_string(pfc,"include_sachs_wolfe_in_los_1st_order",&(string1),&(flag1),errmsg),errmsg,errmsg);
+
+  if ((flag1 == _TRUE_) && (strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL)) {
+    ppt->has_sw = _TRUE_;
+  }
+  
+  class_call(parser_read_string(pfc,"include_integrated_sachs_wolfe_in_los_1st_order",&(string1),&(flag1),errmsg),errmsg,errmsg);
+
+  if ((flag1 == _TRUE_) && (strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL)) {
+    ppt->has_isw = _TRUE_;
+  }
+
+  /* Avoid counting twice the same metric effect */
+  if ((ppt->has_sw == _TRUE_) || (ppt->has_isw == _TRUE_))
+    ppt->has_metric_in_los = _FALSE_;
+
+  /* If effects that are not peaked at recombination are included, we need to extend the integration range up to today */
+  // if ((ppt->has_metric_in_los == _FALSE_) && (ppt->has_isw == _FALSE_))
+  //   ppt->has_recombination_only = _TRUE_;
+
+  /* The zeta-T correlation is not implemented yet in synchronous gauge */
+  if (ppt->gauge == synchronous)
+    ppt->has_cl_cmb_zeta = _FALSE_;  
+
+  /* Should the curvature perturbation zeta only include contributions from recombination?
+  I.e. should we ignore reionisation when computing zeta? */
+  if ((ppt->has_cl_cmb_zeta == _TRUE_) && (pth->reio_parametrization!=reio_none)) {
+
+    class_call(parser_read_string(pfc,"recombination_only_zeta",&(string1),&(flag1),errmsg),
+        errmsg,
+        errmsg);
+ 
+    if ((flag1 == _TRUE_) && ((strstr(string1,"n") != NULL) || (strstr(string1,"N") != NULL)))
+      ppt->recombination_only_zeta = _FALSE_;
+  }
+  
+
+  /** i.1.2. Time sampling for quadratic sources */
+
+  class_read_double("perturb_sampling_stepsize_for_quadsources", ppr->perturb_sampling_stepsize_quadsources);
+  
+  class_call(parser_read_string(pfc,"custom_time_sampling_for_quadsources",&(string1),&(flag1),errmsg),
+      errmsg,
+      errmsg);
+   
+  if ((flag1 == _TRUE_) && ((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL)))
+    ppt->has_custom_timesampling_for_quadsources = _TRUE_;
+  
+  class_read_double("custom_tau_ini_quadsources", ppt->custom_tau_ini_quadsources);
+
+  class_test (ppt->custom_tau_ini_quadsources<=0, errmsg, "please choose 'custom_tau_ini_quadsources' greater than zero.");
+  ppt->custom_log_tau_ini_quadsources = log(ppt->custom_tau_ini_quadsources);
+
+  class_read_double("custom_tau_end_quadsources", ppt->custom_tau_end_quadsources);
+  
+  class_read_int("custom_tau_size_quadsources", ppt->custom_tau_size_quadsources);
+    
+  class_call(parser_read_string(pfc,"custom_tau_mode_quadsources",&string1,&flag1,errmsg),
+	     errmsg,
+	     errmsg);	
+
+  if (flag1 == _TRUE_) {
+
+    if (((strstr(string1,"lin") != NULL) || (strstr(string1,"LIN") != NULL)))
+      ppt->custom_tau_mode_quadsources = lin_tau_sampling;
+
+    else if (((strstr(string1,"log") != NULL) || (strstr(string1,"LOG") != NULL)))
+      ppt->custom_tau_mode_quadsources = log_tau_sampling;
+
+    else if (((strstr(string1,"class") != NULL) || (strstr(string1,"CLASS") != NULL)))
+      ppt->custom_tau_mode_quadsources = class_tau_sampling;
+    
+    else
+      class_test(1==1,
+    		errmsg,	       
+    		"custom_tau_mode_quadsources=%s not supported; choose between 'lin', 'log' or 'class'", string1);
+  }
+
+  /* Define time step, either linear or logarithmic (used only for interpolation purposes) */
+  if (ppt->custom_tau_mode_quadsources == lin_tau_sampling)
+    ppt->custom_tau_step_quadsources =
+      (ppt->custom_tau_end_quadsources - ppt->custom_tau_ini_quadsources)/(ppt->custom_tau_size_quadsources-1);
+
+  else if (ppt->custom_tau_mode_quadsources == log_tau_sampling)
+    ppt->custom_tau_step_quadsources =
+      log(ppt->custom_tau_end_quadsources/ppt->custom_tau_ini_quadsources)/(ppt->custom_tau_size_quadsources-1);
+
+
+  /** i.1.3. Time interpolation of quadratic sources */
+
+  class_call(parser_read_string(pfc,"quadsources_time_interpolation",&string1,&flag1,errmsg),
+	     errmsg,
+	     errmsg);	
+
+  if (flag1 == _TRUE_) {
+
+    if (((strstr(string1,"linear") != NULL) || (strstr(string1,"LINEAR") != NULL)))
+      ppr->quadsources_time_interpolation = linear_interpolation;
+
+    else if (((strstr(string1,"cubic") != NULL) || (strstr(string1,"CUBIC") != NULL)
+           || (strstr(string1,"spline") != NULL) || (strstr(string1,"SPLINE") != NULL)))
+      ppr->quadsources_time_interpolation = cubic_interpolation;
+    
+    else
+      class_test(1==1,
+    		 errmsg,	       
+    		 "quadsources_time_interpolation=%s not supported. Choose between 'linear' or 'cubic'", string1);
+  }
+
+
+  /** i.2 parameters in the bessels module */
+
+  class_read_double("bessel_x_step",ppr->bessel_x_step);
+  class_read_double("bessel_j_cut",ppr->bessel_j_cut);
+  class_read_double("bessel_tol_x_min",ppr->bessel_tol_x_min);
+  
+  class_call(parser_read_string(pfc,"bessels_interpolation",&string1,&flag1,errmsg),
+	     errmsg,
+	     errmsg);	
+
+  if (flag1 == _TRUE_) {
+
+    if (((strstr(string1,"linear") != NULL) || (strstr(string1,"LINEAR") != NULL)))
+      ppr->bessels_interpolation = linear_interpolation;
+
+    else if (((strstr(string1,"cubic") != NULL) || (strstr(string1,"CUBIC") != NULL)
+           || (strstr(string1,"spline") != NULL) || (strstr(string1,"SPLINE") != NULL)))
+      ppr->bessels_interpolation = cubic_interpolation;
+    
+    else
+      class_test(1==1, errmsg,	       
+        "bessels_interpolation=%s, not supported. Choose between 'linear' and 'cubic'",string1);
+  }
+
+  /* Compute pbs->l_max, the largest l we shall compute an observable for. The code below is
+  copied from transfer.c, make sure to update it if you update transfer.c. */
+  int l_max = 0;
+
+  if (ppt->has_cls == _TRUE_) {
+
+    if (ppt->has_scalars == _TRUE_) {
+
+      if ((ppt->has_cl_cmb_temperature == _TRUE_) ||
+          (ppt->has_cl_cmb_polarization == _TRUE_) ||
+          (ppt->has_cl_cmb_lensing_potential == _TRUE_))
+        l_max=MAX(ppt->l_scalar_max,l_max);
+
+      if ((ppt->has_cl_lensing_potential == _TRUE_) ||
+          (ppt->has_cl_number_count == _TRUE_))
+        l_max=MAX(ppt->l_lss_max,l_max);
+    }
+
+    if (ppt->has_tensors == _TRUE_)
+      l_max=MAX(ppt->l_tensor_max,l_max);
+  }
+
+  pbs->l_max = l_max;
+
+
+  /** i.3. parameters in the bispectra module */
+  
+  class_read_int("bispectra_verbose",
+    pbi->bispectra_verbose);
+
+
+  /** i.3.1. Interpolation of transfer functions */
+  
+  /* Which kind of technique should we use for the k1-integration of the bispectrum? */
+  class_call(parser_read_string(pfc,"transfers_k1_interpolation",&string1,&flag1,errmsg),
+	     errmsg,
+	     errmsg);	
+
+  if (flag1 == _TRUE_) {
+
+    if (((strstr(string1,"linear") != NULL) || (strstr(string1,"LINEAR") != NULL)))
+      ppr->transfers_k1_interpolation = linear_interpolation;
+
+    else if (((strstr(string1,"cubic") != NULL) || (strstr(string1,"CUBIC") != NULL) || (strstr(string1,"spline") != NULL) || (strstr(string1,"SPLINE") != NULL)))
+      ppr->transfers_k1_interpolation = cubic_interpolation;
+    
+    else
+      class_test(1==1,
+    		   errmsg,	       
+    		   "transfers_k1_interpolation=%s not supported. Choose between 'linear' and 'cubic'",string1);
+  }
+
+  /* Which kind of technique should we use for the k2-integration of the bispectrum? */
+  class_call(parser_read_string(pfc,"transfers_k2_interpolation",&string1,&flag1,errmsg),
+	     errmsg,
+	     errmsg);	
+
+  if (flag1 == _TRUE_) {
+
+    if (((strstr(string1,"linear") != NULL) || (strstr(string1,"LINEAR") != NULL)))
+      ppr->transfers_k2_interpolation = linear_interpolation;
+
+    else if (((strstr(string1,"cubic") != NULL) || (strstr(string1,"CUBIC") != NULL)
+           || (strstr(string1,"spline") != NULL) || (strstr(string1,"SPLINE") != NULL)))
+      ppr->transfers_k2_interpolation = cubic_interpolation;
+    
+    else
+      class_test(1==1, errmsg,	       
+    		"transfers_k2_interpolation=%s not supported. Choose between 'linear' and 'cubic'",string1);
+  }
+  
+
+  /** i.3.2. Extrapolation of transfer functions */
+
+  /* Which kind of technique should we use for the k3-integration of the bispectrum? */
+  class_call(parser_read_string(pfc,"bispectra_k3_extrapolation",&string1,&flag1,errmsg),
+       errmsg,
+       errmsg);
+
+  if (flag1 == _TRUE_) {
+
+    if ((strcmp(string1,"no_extrapolation") == 0) || (strcmp(string1,"no") == 0))
+      ppr->bispectra_k3_extrapolation = no_k3_extrapolation;
+
+    else if ((strcmp(string1,"flat_extrapolation") == 0) || (strcmp(string1,"flat") == 0))
+      ppr->bispectra_k3_extrapolation = flat_k3_extrapolation;
+
+    else
+      class_test(1==1, errmsg,	       
+        "bispectra_k3_extrapolation=%s' not supported. Choose between 'no' and 'flat'");
+  }
+
+  /* How much to extend the k3 range in view of the bispectrum integration? */
+  class_read_double("extra_k3_oscillations_right", ppr->extra_k3_oscillations_right);
+  class_read_double("extra_k3_oscillations_left", ppr->extra_k3_oscillations_left);
+
+
+  /** i.3.3. Integration of the bispectrum */
+
+  /* Parameters related to the r-integration in the bispectrum integral  */
+  if (pbi->has_bispectra == _TRUE_) {
+
+    class_read_double("r_min", ppr->r_min);
+    class_read_double("r_max", ppr->r_max);
+    class_read_int("r_size", ppr->r_size);
+    
+    /* TODO: update x_max to take into account the k3 extrapolation (use following piece of code)*/
+    // if (ppr->bispectra_k3_extrapolation != no_k3_extrapolation) {
+    // 
+    //   /* The physical range is the one dictated by the triangular condition: k1 + k2 = k3 */
+    //   double physical_k3_range = k_max_pt - k_min_pt;
+    //   
+    //   /* The extended range allows for the Bessel function j(k3*(tau0 - tau_rec)) to develop at least
+    //     ppr->extra_k3_oscillations oscillations in k3 in order to stabilize the bispectrum integral. */
+    //   double extended_k3_range = 2.*_PI_*ppr->extra_k3_oscillations/(ptr2->tau0 - ptr2->tau_rec);
+    //     
+    //   if (physical_k3_range < extended_k3_range)
+    //     k_max_tr += (extended_k3_range - physical_k3_range);    
+    // 
+    //   // printf("physical_k3_range=%g, extended_k3_range=%g\n", physical_k3_range, extended_k3_range);
+    //   // printf("PRE:  k_max_tr = %g\n", k_max_pt);
+    //   // printf("POST: k_max_tr = %g\n", k_max_tr);
+    // }
+
+    /* REMOVE: NOW DONE IN PBS */
+    // /* Determine the maximum k-value needed in the line of sight integration at first order. This is
+    // needed to determine x_max, the maximum sampling of the Bessel functions j_l(x). To determine
+    // k_max, in principle we also need the conformal age of the universe, tau_0. This, however, can only
+    // be accessed after running the  ened */
+    // double tau0_inf = 8000.;
+    // double k_max = ppr->k_max_tau0_over_l_max * ppt->l_scalar_max / tau0_inf;
+    //
+    // /* Maximum argument for the Bessel functions in the line of sight integration. For the time being, we do
+    // set x_max here, even if we shouldn't as tau0 cannot be accessed by this module.  This is why we define
+    // a superior limit for tau0. */
+    // double x_max = MAX (pbs->x_max, k_max * MAX(tau0_sup, ppr->r_max));
+    //
+    // // printf("# Temporary message: Setting pbs->x_max from %g to %g\n",
+    // //   ((int)(pbs->x_max * 1.1 / pbs->x_step)+1)*pbs->x_step,
+    // //   ((int)(x_max * 1.1 / pbs->x_step)+1)*pbs->x_step);
+    //
+    // pbs->x_max = ((int)(x_max * 1.1 / pbs->x_step)+1)*pbs->x_step;
+
+  } // end of if(has_bispectra)
+
+
+  /** i.3.4. Lensing effects on the bispectrum and on the Fisher matrix estimator */
+  
+  if (ple->has_lensed_cls == _TRUE_) { /* if lensing=yes... */
+    
+    if (pfi->has_fisher == _TRUE_) {
+      pfi->include_lensing_effects = _TRUE_;
+      pbi->has_cmb_lensing_kernel = _TRUE_;  /* needed to compute the effect of lensing variance */
+      ppr->extend_lensed_cls = _TRUE_;       /* needed to include the lensing noise in the covariance matrix */
+    }
+    
+    if (pbi->has_bispectra == _TRUE_) {
+
+      /* List of bispectra that can be lensed just by using the lensed C_l's */
+      short requires_lensed_cls = (
+        (pbi->has_cmb_lensing == _TRUE_) ||
+        (pbi->has_cmb_lensing_squeezed == _TRUE_) ||
+        (pbi->has_cmb_lensing_kernel == _TRUE_) ||
+        (pbi->has_intrinsic_squeezed == _TRUE_));
+    
+       if (requires_lensed_cls) {
+        pbi->include_lensing_effects = _TRUE_;
+        pbi->lensed_intrinsic = _TRUE_;
+        ppr->extend_lensed_cls = _TRUE_;
+      }
+    }
+  } // end of if lensing
+
+  /* If requested explicitly, do not include the lensed C_l's in the squeezed approximation for the intrinsic
+  bispectrum */
+  if (pbi->include_lensing_effects == _TRUE_) {
+
+    class_call(parser_read_string(pfc,"lensed_intrinsic",&(string1),&(flag1),errmsg),
+      errmsg,
+      errmsg);
+   
+    if ((flag1 == _TRUE_) && ((strstr(string1,"n") != NULL) || (strstr(string1,"N") != NULL)))
+      pbi->lensed_intrinsic = _FALSE_;
+  }
+
+  if (pfi->include_lensing_effects == _TRUE_) {
+    
+    class_call(parser_read_string(pfc,"fisher_lensvar_lmax",&(string1),&(flag1),errmsg),
+        errmsg,
+        errmsg);
+    class_call(parser_read_string(pfc,"compute_lensing_variance_lmax",&(string2),&(flag2),errmsg), /* obsolete */
+        errmsg,
+        errmsg);
+
+    /* string1 wins over string2 */
+    if (flag1 == _TRUE_)
+      strcpy (string, string1);
+    else if (flag2 == _TRUE_)
+      strcpy (string, string2);
+
+    if (((flag1 == _TRUE_)||(flag2 == _TRUE_))
+    &&((strstr(string,"y") != NULL) || (strstr(string,"Y") != NULL)))
+      pfi->compute_lensing_variance_lmax = _TRUE_; 
+  }
+
+
+  /** i.4. parameters in the Fisher module */
+
+  class_read_int("fisher_verbose",
+    pfi->fisher_verbose);
+
+  /** i.4.1. experiment parameters */
+    
+  /* Minimum and maximum multipole to consider in the Fisher sum */
+  class_read_int("fisher_l_min",pfi->l_min_estimator);
+  class_read_int("fisher_lmin",pfi->l_min_estimator);
+  class_read_int("fisher_l_max",pfi->l_max_estimator);
+  class_read_int("fisher_lmax",pfi->l_max_estimator);
+
+  /* Read the experiment sky coverage. */
+  class_read_double("experiment_f_sky", pfi->f_sky);
+
+  /* Read the experiment beam at FWHM in arcminutes and convert it to radians. */
+  class_call (parser_read_list_of_doubles (
+                pfc,
+                "experiment_beam_fwhm",
+                &(int1),
+                &(pointer1),
+                &flag1,
+                errmsg),
+    errmsg,
+    errmsg);
+    
+  if (flag1 == _TRUE_) {
+
+    class_test(int1 > _N_FREQUENCY_CHANNELS_MAX_,
+      errmsg,
+      "you specified too many frequency bands for the experiment, increase _N_FREQUENCY_CHANNELS_MAX_ in include/fisher.h or specify \
+less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
+
+    pfi->n_channels = int1;
+
+    for (i=0; i<int1; i++)
+      pfi->beam[i] = pointer1[i]/60. * _PI_/180.;
+    
+    free(pointer1);
+  }
+
+  /* Read the TEMPERATURE noise for the experiment in uK*arcminutes, and convert it to the actual noise */
+  if ((pfi->has_fisher == _TRUE_) && (ppt->has_bi_cmb_temperature == _TRUE_)) {
+
+    class_call (parser_read_list_of_doubles (pfc,
+                 "experiment_noise_t",
+                 &(int1),
+                 &(pointer1),
+                 &flag1,
+                 errmsg),
+      errmsg,
+      errmsg);
+    
+    if (flag1 == _TRUE_) {
+
+      class_test(int1 != pfi->n_channels,
+        errmsg,
+        "the number of entries for 'experiment_beam_fwhm' and 'experiment_noise_t' must be equal");
+
+      /* Compute the actual noise, as in astro-ph/0506396v2. A negative value implies infinite noise,
+      which is equivalent to ignoring the frequency channel for this field */
+      for (i=0; i<int1; i++) {
+        if (pointer1[i]>=0)
+          pfi->noise_t[i] = pow(pointer1[i]/1e6*pfi->beam[i]/pba->T_cmb,2);
+        else
+          pfi->noise_t[i] = _HUGE_;
+      }
+    
+      free(pointer1);
+    }
+  } // end of T noise
+
+  /* Read the POLARIZATION noise for the experiment in uK, and convert it to Kelvins^2 */
+  if ((pfi->has_fisher == _TRUE_) && (ppt->has_cl_cmb_polarization == _TRUE_)) {
+
+    class_call (parser_read_list_of_doubles (pfc,
+                 "experiment_noise_e",
+                 &(int1),
+                 &(pointer1),
+                 &flag1,
+                 errmsg),
+      errmsg,
+      errmsg);
+    
+    if (flag1 == _TRUE_) {
+
+      class_test(int1 != pfi->n_channels,
+        errmsg,
+        "the number of entries for 'experiment_beam_fwhm' and 'experiment_noise_e' must be equal");
+
+      /* Compute the actual noise, as in astro-ph/0506396v2. A negative value implies infinite noise,
+      which is equivalent to ignoring the frequency channel for this field */
+      for (i=0; i<int1; i++) {
+        if (pointer1[i]>=0)
+          pfi->noise_e[i] = pow(pointer1[i]/1e6*pfi->beam[i]/pba->T_cmb,2);
+        else
+          pfi->noise_e[i] = _HUGE_;
+      }
+    
+      free(pointer1);
+    }
+  } // end of E noise
+
+  class_read_double("fisher_squeezed_ratio",pfi->squeezed_ratio);
+  
+  
+  /** i.4.2. ignore fields in Fisher matrix? */
+  
+  class_call(parser_read_string(pfc,"fisher_ignore",&(string1),&(flag1),errmsg),
+      errmsg,
+      errmsg);  
+  class_call(parser_read_string(pfc,"ignored_fields_in_fisher",&(string2),&(flag2),errmsg), /* osbolete */
+      errmsg,
+      errmsg);
+
+  /* string1 wins over string2 */
+  if (flag1 == _TRUE_)
+    strcpy (string, string1);
+  else if (flag2 == _TRUE_)
+    strcpy (string, string2);
+
+  if ((flag1 == _TRUE_) || (flag2 == _TRUE_)) {
+  
+    if ((strstr(string,"t") != NULL) || (strstr(string,"T") != NULL))
+      pfi->ignore_t = _TRUE_;
+
+    if ((strstr(string,"e") != NULL) || (strstr(string,"E") != NULL))
+      pfi->ignore_e = _TRUE_;
+
+    if ((strstr(string,"b") != NULL) || (strstr(string,"B") != NULL))
+      pfi->ignore_b = _TRUE_;
+  }
+
+
+  /** i.4.3. interpolation of the bispectrum */
+
+  class_call(parser_read_string(pfc,"bispectra_interpolation",&string1,&flag1,errmsg),
+         errmsg,
+         errmsg);  
+  
+  class_call(parser_read_string(pfc,"bispectra_interpolation",&string1,&flag1,errmsg),
+         errmsg,
+         errmsg);  
+  
+  if (flag1 == _TRUE_) {
+
+    /* For trilinear interpolation, we need an all-even grid */
+    if ((strstr(string1,"trilinear") != NULL) || (strstr(string1,"tri") != NULL)) {
+      pfi->bispectra_interpolation = trilinear_interpolation;
+      ppr->compute_only_even_ls = _TRUE_;
+    }
+  
+    /* For trilinear interpolation, we need an all-even grid */
+    else if ((strstr(string1,"smart") != NULL) || (strstr(string1,"SMART") != NULL)) {
+      pfi->bispectra_interpolation = smart_interpolation;
+      ppr->compute_only_even_ls = _TRUE_;
+    }
+
+    else if (strstr(string1,"sum") != NULL) {
+      pfi->bispectra_interpolation = sum_over_all_multipoles;
+    }
+    else if ((strcmp(string1,"mesh_2d") == 0) || (strcmp(string1,"mesh_2D") == 0)
+          || (strcmp(string1,"mesh") == 0)
+          || (strcmp(string1,"mesh_3d") == 0)  /* obsolete */ 
+          || (strcmp(string1,"mesh_3D") == 0)) /* obsolete */ {
+      pfi->bispectra_interpolation = mesh_interpolation_2D;
+    }
+    else {
+      class_test(1==1, errmsg,
+        "bispectra_interpolation=%s not supported. Choose between 'trilinear', 'mesh', 'mesh_2d', 'sum'",
+        string1);
+    }
+  
+  }
+
+  if (pbi->has_bispectra == _TRUE_) {
+
+    /* Take all multipoles if requested */
+    if (pfi->bispectra_interpolation == sum_over_all_multipoles)
+      ppr->l_linstep = 1;
+
+    /* Check that l_max is even for trilinear interpolation */
+    if (pfi->bispectra_interpolation == trilinear_interpolation) {
+      class_test ((ppt->has_scalars==_TRUE_)&&((ppt->l_scalar_max%2)!=0), errmsg,
+        "For trilinear bispectra interpolation, choose an even 'l_max_scalars'");
+      class_test ((ppt->has_vectors==_TRUE_)&&((ppt->l_vector_max%2)!=0), errmsg,
+        "For trilinear bispectra interpolation, choose an even 'l_max_vectors'");
+      class_test ((ppt->has_tensors==_TRUE_)&&((ppt->l_tensor_max%2)!=0), errmsg,
+        "For trilinear bispectra interpolation, choose an even 'l_max_tensors'");
+    }
+  }
+
+  class_call(parser_read_string(pfc,"always_interpolate_bispectra",&(string1),&(flag1),errmsg),
+      errmsg,
+      errmsg);
+   
+  if ((flag1 == _TRUE_) && ((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL)))
+    pfi->always_interpolate_bispectra = _TRUE_;
+
+
+  /** (l) shall we store or load results from a directory? */
+  
+  // =======================================================================================
+  // =                               Create run directory                                  =
+  // =======================================================================================
+
+  /* The run directory 'ppr->run_dir' is the directory where the parameter files
+  (run_params.ini and run_params.pre), data folders (sources, transfers, bispectra) and
+  result files (cl.dat, fisher.dat, etc.) will be stored. */
+
+  class_call(parser_read_string(pfc,"store_run",&(string1),&(flag1),errmsg),
+      errmsg,
+      errmsg);
+   
+  if ((flag1 == _TRUE_) && ((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL)))
+    ppr->store_run = _TRUE_;
+
+  /* Create a run directory if asked (ppr->store_run == _TRUE_) and if it does not already exist
+  (ppr->load_run == _FALSE_). The latter case is always true unless we run SONG with a single
+  argument and that argument is the run directory. */
+  if ((ppr->store_run == _TRUE_) && (ppr->load_run == _FALSE_)) {
+
+    /* Read the name of the run directory from the parameter file */
+    class_call(parser_read_string(pfc,
+         "run_directory",
+         &(string1),
+         &(flag1),
+         errmsg),
+         errmsg,
+         errmsg);  
+  
+    if ((flag1 == _TRUE_) && (string1 != NULL)) {
+      
+      /* Expand shell symbols (such as ~ and ..) and environment variables in the path */
+      wordexp_t exp_result;
+      class_test (wordexp(string1, &exp_result, 0)!=0, errmsg, "error in word expansion");
+      strcpy(string1, exp_result.we_wordv[0]);
+      wordfree(&exp_result);
+
+      strcpy(ppr->run_dir, string1);
+
+      /* By default, we set the data_dir to be the same as the run_dir, that is, we
+      store/read the data to/from the same directory where we store/read the 
+      parameter files and the result files. */
+      strcpy(ppr->data_dir, string1);
+    }
+
+    /* Check that the directory does not exist */
+    struct stat st;
+    stat (ppr->run_dir, &st);
+    class_test (S_ISDIR (st.st_mode) != 0,
+      errmsg,
+      "target directory '%s' already exists, choose another one", ppr->run_dir);
+      
+    /* Should the date be appended to the run directory? */
+    class_call(parser_read_string(pfc,"append_date",&(string1),&(flag1),errmsg),
+        errmsg,
+        errmsg);
+   
+    if ((flag1 == _TRUE_) && ((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL)))
+      ppr->append_date_to_run = _TRUE_;
+
+    if (ppr->append_date_to_run == _TRUE_) {
+
+      time_t now;
+      struct tm *d;
+      char suffix[64];
+
+      time(&now);
+      d = localtime(&now);
+
+      strftime(suffix, 64, "%Y-%m-%d_%H-%M-%S", d);
+      sprintf(ppr->run_dir, "%s_%s", ppr->run_dir, suffix);
+    }
+
+    /* Create the directory for the run */
+    class_test (mkdir (ppr->run_dir, 0777)!=0,
+      errmsg,
+      "could not create run directory '%s'. Parent directory doesn't exist? Actual directory already exists?",
+      ppr->run_dir);
+
+    /* Print some information to screen */
+    printf("# We shall store the current run to the folder %s.\n", ppr->run_dir);
+  
+    /* Copy the parameter files to the run directory */
+    char new_ini_filepath[_FILENAMESIZE_], new_pre_filepath[_FILENAMESIZE_], command[3*_FILENAMESIZE_];
+
+    sprintf(new_ini_filepath, "%s/run_params.ini", ppr->run_dir);
+    sprintf(command, "cp %s %s", ppr->ini_filename, new_ini_filepath);
+    if (strcmp(ppr->ini_filename, new_ini_filepath) != 0) system(command);
+
+    sprintf(new_pre_filepath, "%s/run_params.pre", ppr->run_dir);
+    sprintf(command, "cp %s %s", ppr->pre_filename, new_pre_filepath);
+    if (strcmp(ppr->pre_filename, new_pre_filepath) != 0) system(command);
+    
+  } // end of if not load_run
+
+  /* In any case, store or load run, make the root coincide with the run directory, so that the output
+  files (cl.dat, fisher.dat, etc.) will be dumped there */
+  if ((ppr->store_run == _TRUE_) || (ppr->load_run == _TRUE_))
+    sprintf (pop->root, "%s/", ppr->run_dir);
+
+  /* Set an environment variable for the run directory, so that it can be used in the
+  parameter file by the user, for example to set the location of the data directory */
+  setenv ("SONG_RUN", ppr->run_dir, 1);
+  setenv ("SONG_RUN_PATH", ppr->run_dir, 1);
+  setenv ("SONG_RUN_DIR", ppr->run_dir, 1);
+  setenv ("SONG_RUN_FOLDER", ppr->run_dir, 1);
+  
+
+  // ============================================================================================
+  // =                                   Read data directory                                    =
+  // ============================================================================================
+  
+  /* The data directory 'ppr->data_dir' is the directory where the data folders (sources, transfers,
+  bispectra) will be read from. By default it coincides with the run directory 'ppr->data_dir' */
+  
+  class_call(parser_read_string(pfc,"data_directory",&(string1),&(flag1),errmsg),
+      errmsg,
+      errmsg);
+
+  if ((flag1 == _TRUE_) && (string1 != NULL)) {
+
+    /* Expand shell symbols (such as ~ and ..) and environment variables in the path */
+    wordexp_t exp_result;
+    class_test (wordexp(string1, &exp_result, 0)!=0, errmsg, "error in word expansion");
+    strcpy(string1, exp_result.we_wordv[0]);
+    wordfree(&exp_result);
+
+    /* Check that the data directory exists, but only if it is going to be needed */
+    struct stat st;
+    stat (string1, &st);
+    class_test (S_ISDIR (st.st_mode) == 0,
+  		errmsg,
+  		"the data directory does not exist, change the parameter 'data_dir' ('%s')", string1);
+
+    strcpy (ppr->data_dir, string1);
+  }
+
+
+
+  // =============================================================================================
+  // =                               Disk storage of bispectra                                   =
+  // =============================================================================================
+
+  /* Store to disk the bispectra? */
+  class_call(parser_read_string(pfc,"store_bispectra",&(string1),&(flag1),errmsg),
+      errmsg,
+      errmsg);
+   
+  if ((flag1 == _TRUE_) && ((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL)))
+    ppr->store_bispectra_to_disk = _TRUE_;
+
+  sprintf(pbi->bispectra_dir, "%s/bispectra", ppr->data_dir);
+
+  /* If we are not loading from disk, just create the bispectra directory */
+  if ((ppr->store_bispectra_to_disk == _TRUE_) && (ppr->load_run == _FALSE_)) {
+    
+    class_test (mkdir (pbi->bispectra_dir, 0777) != 0,
+      errmsg,
+      "could not create directory '%s', maybe it already exists?", pbi->bispectra_dir);
+  }
+  /* If we are in a run directory, checks if it already contains the bispectra */
+  else if (ppr->load_run == _TRUE_) {
+
+    struct stat st;
+    short bispectra_dir_exists = (stat(pbi->bispectra_dir, &st)==0);
+
+    /* If the bispectra directory exists, then we shall load the 2nd-order bispectra from it */
+    if (bispectra_dir_exists) {
+      ppr->store_bispectra_to_disk = _FALSE_;
+      ppr->load_bispectra_from_disk = _TRUE_;
+      if (pbi->bispectra_verbose > 1)
+        printf (" -> found bispectra folder in run directory.\n");
+    }
+    /* Otherwise, create it */
+    else if (ppr->store_bispectra_to_disk == _TRUE_) {
+              
+      if (pbi->bispectra_verbose > 1)
+        printf (" -> bispectra folder not found in run directory, will create it.\n");
+
+      class_test (mkdir (pbi->bispectra_dir, 0777)!=0,
+        errmsg,
+        "could not create directory '%s', maybe it already exists?", pbi->bispectra_dir);
+        
+      ppr->load_bispectra_from_disk = _FALSE_;
+    }
+  }
+
+  /* Create/open the status file. The 'a+' mode means that if the file does not exist it will be created,
+  but if it exist it won't be erased (append mode) */
+  if (ppr->store_bispectra_to_disk == _TRUE_) {
+    // sprintf(pbi->bispectra_status_path, "%s/bispectra_status_file.txt", ppr->data_dir);
+    // class_open(pbi->bispectra_status_file, pbi->bispectra_status_path, "a+", errmsg);
+  }
+
+  class_test ((ppr->store_bispectra_to_disk == _TRUE_) && (ppr->load_bispectra_from_disk == _TRUE_),
+    errmsg,
+    "cannot load and save bispectra at the same time!");
+
+
+  // =======================================================================================
+  // =                               Even or odd l-grid?                                   =
+  // =======================================================================================
+
+  /* For certain bispectrum types, the 3j-symbol (l1,l2,l3)(0,0,0) does not appear explicitly
+  in the bispectrum formula and therefore it cannot be pulled out analytically. This is the
+  case for the intrinsic bispectrum when m>0, or for the CMB-lensing and quadratic bispectra
+  in presence of polarisation. To circumvent this issue, we choose to have 
+  an l-grid where all the l's are even. This is not completely satisfactory because half of
+  the configurations (those with even l1+l2+l3 but two odd components, like 2,3,3 or 2,3,7)
+  will be always skipped. The alternative, however, is worse: if the 1D l-grid has both
+  even and odd l's, it can happen that all of the configurations are skipped! Think of
+  having a grid with step 2 starting from an odd value: you will always get odd l's, which
+  means that l1+l2+l3 is always odd too. (A potential solution is to have a step of delta_l=1
+  up to some even l and then carry on with an even linear step).
+
+  An exception to this rule is when ppr->l_linstep=1, that is, when we take all l's (even
+  and odd) in our 1D l-list. In this case, nothing can be skipped and the Fisher estimator
+  will give an exact result.
+  
+  If you are interested only in the Fisher matrix (with mesh interpolation) and only for
+  analytical bispectra, it is not necessary to set 'ppr->compute_only_even_ls = _TRUE_'.
+  In fact, in this case the Fisher module does not need the precomputed bispectrum in
+  pbi->bispectra, as it obtains the bispectrum from scratch using the closed formulas for
+  the analytical bispectrum, which are quick to evaluate. However, the computed bispectrum
+  in pbi->bispectra will still be subject to the pitfall described above (i.e. it
+  might have most zero entries if the 1D l-grid is chosen such that l1+l2+l3 is
+  mostly odd). Therefore, you might consider setting 'ppr->compute_only_even_ls = _TRUE_' by
+  hand in the functions that rely on pbi->bispectra, such as 'print_bispectra' */
+  // if ((ppr->l_linstep!=1)
+  // && (pfi->bispectra_interpolation != mesh_interpolation_2D)
+  // && (pfi->bispectra_interpolation != mesh_interpolation_3D)
+  // && (ppt->has_bi_cmb_polarization==_TRUE_) 
+  // && ((pbi->has_quadratic_correction==_TRUE_)
+  // || (pbi->has_cmb_lensing ==_TRUE_)
+  // || (pbi->has_cmb_lensing_squeezed ==_TRUE_)
+  // || (pbi->has_cmb_lensing_kernel ==_TRUE_))) {
+  //    
+  //   printf ("\n");
+  //   printf ("   *@^#?!?! FORCING THE COMPUTATION OF A GRID OF EVEN L'S\n");
+  //   printf ("\n");      
+  //   ppr->compute_only_even_ls = _TRUE_;
+  // 
+  //   // printf ("\n");
+  //   // printf ("   *@^#?!?! FORCING THE COMPUTATION OF A GRID OF ODD L'S\n");
+  //   // printf ("\n");
+  //   // ppr->compute_only_odd_ls = _TRUE_;
+  // 
+  // }
+  
+
+#endif // WITH_BISPECTRA
+
+  /** m.1. shall we write background quantitites in a file? */
 
   class_call(parser_read_string(pfc,"write background",&string1,&flag1,errmsg),
              errmsg,
@@ -2531,7 +3622,7 @@ int input_read_parameters(
 
   }
 
-  /** (i.2) shall we write thermodynamics quantitites in a file? */
+  /** m.2. shall we write thermodynamics quantitites in a file? */
 
   class_call(parser_read_string(pfc,"write thermodynamics",&string1,&flag1,errmsg),
              errmsg,
@@ -2543,7 +3634,7 @@ int input_read_parameters(
 
   }
 
-  /** (i.3) shall we write perturbation quantitites in files? */
+  /** m.3. shall we write perturbation quantitites in files? */
 
   class_call(parser_read_list_of_doubles(pfc,
                                          "k_output_values",
@@ -2573,7 +3664,7 @@ int input_read_parameters(
     pop->write_perturbations = _TRUE_;
   }
 
-  /** (i.4) shall we write primordial spectra in a file? */
+  /** m.4. shall we write primordial spectra in a file? */
 
   class_call(parser_read_string(pfc,"write primordial",&string1,&flag1,errmsg),
              errmsg,
@@ -2598,6 +3689,10 @@ int input_read_parameters(
  * @param ptr Input : pointer to transfer structure
  * @param ppm Input : pointer to primordial structure
  * @param psp Input : pointer to spectra structure
+ * @param ple Input : pointer to lensing structure
+ * @param pbs Input : (present only if WITH_BISPECTRA is defined) pointer to bessels structure
+ * @param pbi Input : (present only if WITH_BISPECTRA is defined) pointer to bispectra structure
+ * @param pfi Input : (present only if WITH_BISPECTRA is defined) pointer to fisher structure
  * @param pop Input : pointer to output structure
  * @return the error status
  */
@@ -2611,6 +3706,11 @@ int input_default_params(
                          struct spectra *psp,
                          struct nonlinear * pnl,
                          struct lensing *ple,
+#ifdef WITH_BISPECTRA
+                         struct bessels * pbs,
+                         struct bispectra *pbi,
+                         struct fisher *pfi,
+#endif // WITH_BISPECTRA
                          struct output *pop
                          ) {
 
@@ -2766,6 +3866,32 @@ int input_default_params(
   }
   ppt->index_k_output_values=NULL;
 
+
+#ifdef WITH_BISPECTRA
+  
+  /* Let the perturb module know whether we will need to compute bispectra */
+  ppt->has_bispectra = _FALSE_;
+  ppt->has_bi_cmb_temperature = _FALSE_;
+  ppt->has_bi_cmb_polarization = _FALSE_;
+  
+  /* What is in the line-of-sight integral at first order? */
+  ppt->has_scattering_in_los = _TRUE_;
+  ppt->has_photon_monopole_in_los = _TRUE_;
+  ppt->has_metric_in_los = _TRUE_;
+  ppt->has_sw = _FALSE_;
+  ppt->has_isw = _FALSE_;
+
+  /* Alternative initial conditions at 1st order */
+  // ppt->has_ad_maberty=_FALSE_;
+  // ppt->has_zero_ic=_FALSE_;
+
+  /* Compute curvature perturbation zeta? */
+  ppt->has_cl_cmb_zeta = _FALSE_; /* Compute zeta variable? */
+  ppt->recombination_only_zeta = _TRUE_; /* Is zeta evaluated exclusively at recombination? */
+  
+#endif // WITH_BISPECTRA
+
+
   /** - primordial structure */
 
   ppm->primordial_spec_type = analytic_Pk;
@@ -2876,6 +4002,9 @@ int input_default_params(
 
   psp->z_max_pk = pop->z_pk[0];
   psp->non_diag=0;
+#ifdef WITH_BISPECTRA
+  psp->compute_cl_derivative = _FALSE_;
+#endif // WITH_BISPECTRA
 
   /** - nonlinear structure */
 
@@ -2887,6 +4016,79 @@ int input_default_params(
 
   pnl->method = nl_none;
 
+
+#ifdef WITH_BISPECTRA
+
+  /** - bessels structure */
+
+  pbs->l_max = MAX(ppt->l_scalar_max,ppt->l_vector_max,ppt->l_tensor_max);
+  pbs->has_bispectra = _FALSE_;
+
+  /** - bispectra structure */
+
+  pbi->bispectra_verbose = 0;
+  pbi->has_bispectra = _FALSE_;
+  pbi->has_local_model = _FALSE_;
+  pbi->has_equilateral_model = _FALSE_;
+  pbi->has_orthogonal_model = _FALSE_;
+  pbi->has_galileon_model = _FALSE_;
+  pbi->has_intrinsic_squeezed = _FALSE_;
+  pbi->has_intrinsic_squeezed_unlensed = _FALSE_;
+  pbi->has_local_squeezed = _FALSE_;
+  pbi->has_cosine_shape = _FALSE_;
+  pbi->has_cmb_lensing = _FALSE_;
+  pbi->has_cmb_lensing_squeezed = _FALSE_;
+  pbi->has_cmb_lensing_kernel = _FALSE_;
+  pbi->has_quadratic_correction = _FALSE_;
+  pbi->include_lensing_effects = _FALSE_;
+  pbi->lensed_intrinsic = _FALSE_;
+
+  /** - fisher structure */
+
+  pfi->fisher_verbose = 0;
+  pfi->always_interpolate_bispectra = _FALSE_;
+  pfi->has_fisher = _FALSE_;
+  pfi->l_min_estimator = 2;
+  pfi->l_max_estimator = 10000000;
+  pfi->bispectra_interpolation = mesh_interpolation_2D;
+  pfi->f_sky = 1;
+  pfi->n_channels = 1;
+  pfi->beam[0] = 0;
+  pfi->noise_t[0] = 0;
+  pfi->noise_e[0] = 0;
+  pfi->noise_r[0] = 0;
+  pfi->ignore_t = _FALSE_;
+  pfi->ignore_e = _FALSE_;
+  pfi->ignore_b = _FALSE_;
+  pfi->ignore_r = _FALSE_;
+  pfi->include_lensing_effects = _FALSE_;
+  pfi->squeezed_ratio = 0;
+
+#ifdef WITH_SONG_SUPPORT
+
+  /** - Parameters specific to a second-order computation */
+
+  ppt->has_perturbations2 = _FALSE_;
+  ppt->has_polarization2  = _FALSE_;
+
+  ppt->has_custom_timesampling_for_quadsources = _FALSE_;
+  ppt->custom_tau_ini_quadsources  = 0.1;
+  ppt->custom_tau_end_quadsources  = 0;  
+  ppt->custom_tau_size_quadsources = 2000;
+  ppt->custom_tau_mode_quadsources = lin_tau_sampling;
+
+  pbi->has_intrinsic = _FALSE_;
+
+  /* Perturbed recombination */
+  ppt->has_perturbed_recombination_stz = _FALSE_;
+  pth->has_perturbed_recombination_stz = _FALSE_;
+  pth->compute_xe_derivatives = _FALSE_;
+  pth->perturbed_recombination_turnx = 36;
+
+#endif // WITH_SONG_SUPPORT
+
+#endif // WITH_BISPECTRA
+
   /** - all verbose parameters */
 
   pba->background_verbose = 0;
@@ -2897,6 +4099,11 @@ int input_default_params(
   psp->spectra_verbose = 0;
   pnl->nonlinear_verbose = 0;
   ple->lensing_verbose = 0;
+#ifdef WITH_BISPECTRA
+  pbs->bessels_verbose = 0;
+  pbi->bispectra_verbose = 0;
+  pfi->fisher_verbose = 0;
+#endif // WITH_BISPECTRA
   pop->output_verbose = 0;
 
   return _SUCCESS_;
@@ -3159,6 +4366,53 @@ int input_default_precision ( struct precision * ppr ) {
 
   ppr->tol_gauss_legendre = ppr->smallest_allowed_variation;
 
+
+#ifdef WITH_BISPECTRA
+
+  /**
+   * - parameters related to the computation of bispectra and Fisher matrices
+   */
+
+  /* k-sampling */
+  ppr->k_scalar_logstep_super=1.2;
+
+  /* l-sampling */
+  ppr->compute_only_even_ls = _FALSE_;
+  ppr->compute_only_odd_ls = _FALSE_;
+  ppr->extend_lensed_cls = _FALSE_;
+    
+  /* Quadsources time-sampling */
+  ppr->perturb_sampling_stepsize_quadsources = 0.03;
+
+  /* Interpolation and integration */
+  ppr->quadsources_time_interpolation = cubic_interpolation;
+  ppr->bessels_interpolation = linear_interpolation;
+  ppr->transfers_k1_interpolation = linear_interpolation;
+  ppr->transfers_k2_interpolation = linear_interpolation;
+  ppr->bispectra_k3_extrapolation = flat_k3_extrapolation;
+  ppr->extra_k3_oscillations_left = 50;
+  ppr->extra_k3_oscillations_right = 50;
+  ppr->r_min = 13000;
+  ppr->r_max = 15000;
+  ppr->r_size = 100;
+
+  /* Storage of intermediate results */
+  ppr->store_run == _FALSE_;
+  ppr->append_date_to_run = _FALSE_;
+  ppr->store_bispectra_to_disk = _FALSE_;
+  ppr->load_bispectra_from_disk = _FALSE_;
+
+  /* By default, assume that the data folders (sources, transfers, bispectra) are in the
+  run directory */
+  strcpy (ppr->data_dir, ppr->run_dir);
+
+  /* Note that here we do not specify default values for ppr->run_dir and
+  for ppr->load_run. These variables are not set in input_init() but in the
+  parent function, input_init_from_arguments() */  
+
+#endif // WITH_BISPECTRA
+
+
   return _SUCCESS_;
 
 }
@@ -3313,6 +4567,11 @@ int input_try_unknown_parameters(double * unknown_parameter,
   struct spectra sp;          /* for output spectra */
   struct nonlinear nl;        /* for non-linear spectra */
   struct lensing le;          /* for lensed spectra */
+#ifdef WITH_BISPECTRA
+  struct bessels bs;          /* for bessel functions */
+  struct bispectra bi;        /* for bispectra */  
+  struct fisher fi;           /* for fisher matrix */
+#endif // WITH_BISPECTRA
   struct output op;           /* for output files */
   int i;
   double rho_dcdm_today, rho_dr_today;
@@ -3338,6 +4597,11 @@ int input_try_unknown_parameters(double * unknown_parameter,
                                    &sp,
                                    &nl,
                                    &le,
+#ifdef WITH_BISPECTRA
+                                   &bs,
+                                   &bi,
+                                   &fi,
+#endif // WITH_BISPECTRA
                                    &op,
                                    errmsg),
              errmsg,
@@ -3371,41 +4635,67 @@ int input_try_unknown_parameters(double * unknown_parameter,
     class_call(thermodynamics_init(&pr,&ba,&th), th.error_message, errmsg);
   }
 
-  if (pfzw->required_computation_stage >= cs_perturbations){
-       if (input_verbose>2)
-         printf("Stage 3: perturbations\n");
-    pt.perturbations_verbose = 0;
-    class_call(perturb_init(&pr,&ba,&th,&pt), pt.error_message, errmsg);
-  }
+  /* TODO: uncomment once you have implemented these modules in SONG */
 
-  if (pfzw->required_computation_stage >= cs_primordial){
-    if (input_verbose>2)
-      printf("Stage 4: primordial\n");
-    pm.primordial_verbose = 0;
-    class_call(primordial_init(&pr,&pt,&pm), pm.error_message, errmsg);
-  }
-
-  if (pfzw->required_computation_stage >= cs_nonlinear){
-    if (input_verbose>2)
-      printf("Stage 5: nonlinear\n");
-    nl.nonlinear_verbose = 0;
-    class_call(nonlinear_init(&pr,&ba,&th,&pt,&pm,&nl), nl.error_message, errmsg);
-  }
-
-  if (pfzw->required_computation_stage >= cs_transfer){
-    if (input_verbose>2)
-      printf("Stage 6: transfer\n");
-    tr.transfer_verbose = 0;
-    class_call(transfer_init(&pr,&ba,&th,&pt,&nl,&tr), tr.error_message, errmsg);
-  }
-
-  if (pfzw->required_computation_stage >= cs_spectra){
-    if (input_verbose>2)
-      printf("Stage 7: spectra\n");
-    sp.spectra_verbose = 0;
-    class_call(spectra_init(&pr,&ba,&pt,&pm,&nl,&tr,&sp),sp.error_message, errmsg);
-  }
-
+//   if (pfzw->required_computation_stage >= cs_perturbations){
+//        if (input_verbose>2)
+//          printf("Stage 3: perturbations\n");
+//     pt.perturbations_verbose = 0;
+//     class_call(perturb_init(&pr,&ba,&th,&pt), pt.error_message, errmsg);
+//   }
+//
+//   if (pfzw->required_computation_stage >= cs_primordial){
+//     if (input_verbose>2)
+//       printf("Stage 4: primordial\n");
+//     pm.primordial_verbose = 0;
+//     class_call(primordial_init(&pr,&pt,&pm), pm.error_message, errmsg);
+//   }
+//
+//   if (pfzw->required_computation_stage >= cs_nonlinear){
+//     if (input_verbose>2)
+//       printf("Stage 5: nonlinear\n");
+//     nl.nonlinear_verbose = 0;
+//     class_call(nonlinear_init(&pr,&ba,&th,&pt,&pm,&nl), nl.error_message, errmsg);
+//   }
+//
+//   if (pfzw->required_computation_stage >= cs_transfer){
+//     if (input_verbose>2)
+//       printf("Stage 6: transfer\n");
+//     tr.transfer_verbose = 0;
+//     class_call(transfer_init(&pr,&ba,&th,&pt,&nl,&tr), tr.error_message, errmsg);
+//   }
+//
+//   if (pfzw->required_computation_stage >= cs_spectra){
+//     if (input_verbose>2)
+//       printf("Stage 7: spectra\n");
+//     sp.spectra_verbose = 0;
+//     class_call(spectra_init(&pr,&ba,&pt,&pm,&nl,&tr,&sp),sp.error_message, errmsg);
+//   }
+//
+// #ifdef WITH_BISPECTRA
+//
+//   if (pfzw->required_computation_stage >= cs_bessels){
+//     if (input_verbose>2)
+//       printf("Stage 8: Bessel functions\n");
+//     bs.bessels_verbose = 0;
+//     class_call(bessel_init(&pr,&ba,&tr,&bs),bs.error_message, errmsg);
+//   }
+//
+//   if (pfzw->required_computation_stage >= cs_bispectra){
+//     if (input_verbose>2)
+//       printf("Stage 9: bispectra\n");
+//     bi.bispectra_verbose = 0;
+//     class_call(bispectra_init(&pr,&ba,&th,&pt,&bs,&tr,&pm,&sp,&le,&bi),bi.error_message, errmsg);
+//   }
+//
+//   if (pfzw->required_computation_stage >= cs_fisher){
+//     if (input_verbose>2)
+//       printf("Stage 10: fisher matrix\n");
+//     fi.fisher_verbose = 0;
+//     class_call(fisher_init(&pr,&ba,&th,&pt,&bs,&tr,&pm,&sp,&le,&bi,&fi),fi.error_message, errmsg);
+//   }
+//
+// #endif // WITH_BISPECTRA
 
   for (i=0; i < pfzw->target_size; i++) {
     switch (pfzw->target_name[i]) {
@@ -3447,21 +4737,35 @@ int input_try_unknown_parameters(double * unknown_parameter,
 
 
   /** Free structures */
-  if (pfzw->required_computation_stage >= cs_spectra){
-    class_call(spectra_free(&sp), sp.error_message, errmsg);
-  }
-  if (pfzw->required_computation_stage >= cs_transfer){
-    class_call(transfer_free(&tr), tr.error_message, errmsg);
-  }
-  if (pfzw->required_computation_stage >= cs_nonlinear){
-    class_call(nonlinear_free(&nl), nl.error_message, errmsg);
-  }
-  if (pfzw->required_computation_stage >= cs_primordial){
-    class_call(primordial_free(&pm), pm.error_message, errmsg);
-  }
-  if (pfzw->required_computation_stage >= cs_perturbations){
-    class_call(perturb_free(&pt), pt.error_message, errmsg);
-  }
+
+  /* TODO: uncomment once you have implemented these modules in SONG */
+
+// #ifdef WITH_BISPECTRA
+//   if (pfzw->required_computation_stage >= cs_fisher){
+//     class_call(fisher_free(&bi,&fi), fi.error_message, errmsg);
+//   }
+//   if (pfzw->required_computation_stage >= cs_bispectra){
+//     class_call(bispectra_free(&pr,&pt,&sp,&le,&bi), bi.error_message, errmsg);
+//   }
+//   if (pfzw->required_computation_stage >= cs_bessels){
+//     class_call(bessel_free(&bs), bs.error_message, errmsg);
+//   }
+// #endif // WITH_BISPECTRA
+//   if (pfzw->required_computation_stage >= cs_spectra){
+//     class_call(spectra_free(&sp), sp.error_message, errmsg);
+//   }
+//   if (pfzw->required_computation_stage >= cs_transfer){
+//     class_call(transfer_free(&tr), tr.error_message, errmsg);
+//   }
+//   if (pfzw->required_computation_stage >= cs_nonlinear){
+//     class_call(nonlinear_free(&nl), nl.error_message, errmsg);
+//   }
+//   if (pfzw->required_computation_stage >= cs_primordial){
+//     class_call(primordial_free(&pm), pm.error_message, errmsg);
+//   }
+//   if (pfzw->required_computation_stage >= cs_perturbations){
+//     class_call(perturb_free(&pt), pt.error_message, errmsg);
+//   }
   if (pfzw->required_computation_stage >= cs_thermodynamics){
     class_call(thermodynamics_free(&th), th.error_message, errmsg);
   }
@@ -3491,6 +4795,11 @@ int input_get_guess(double *xguess,
   struct spectra sp;          /* for output spectra */
   struct nonlinear nl;        /* for non-linear spectra */
   struct lensing le;          /* for lensed spectra */
+#ifdef WITH_BISPECTRA
+  struct bessels bs;          /* for bessel functions */
+  struct bispectra bi;        /* for bispectra */  
+  struct fisher fi;           /* for fisher matrix */
+#endif // WITH_BISPECTRA
   struct output op;           /* for output files */
   int i;
 
@@ -3509,6 +4818,11 @@ int input_get_guess(double *xguess,
                                    &sp,
                                    &nl,
                                    &le,
+#ifdef WITH_BISPECTRA
+                                   &bs,
+                                   &bi,
+                                   &fi,
+#endif // WITH_BISPECTRA
                                    &op,
                                    errmsg),
              errmsg,

@@ -226,6 +226,49 @@ struct thermo
 
   //@}
 
+
+#ifdef WITH_SONG_SUPPORT
+
+  /** @name - parameters related to perturbed recombination, as in Senatore,
+  Tassev & Zaldarriaga 2009 (http://arxiv.org/abs/0812.3652) */
+
+  //@{
+
+  /** Should we compute the thermodynamical quantities needed to later compute the perturbed
+  free electron density? */
+  short has_perturbed_recombination_stz;
+
+  /** From which value of x should we start integrating the system to obtain delta_Xe? Should be
+  larger than 34 to avoid the discontinuity in the Q function. Note that x = eps / T, where eps
+  is the ionization energy of the hydrogen atom, and T is the temperature of the Universe
+  (T = T_cmb/a). */
+  double perturbed_recombination_turnx;
+  
+  /* Derivatives of the Q function. Following the CMBquick example, with respect to Senatore et al. 2009
+  our Q function is actually Q/n_e */
+  int index_th_dQ_dx;          /**< Index for the derivative of Q with respect to x (x=eps/T=13.6eV/T) */
+  int index_th_dQ_dX;          /**< Index for the derivative of Q with respect to X (X=the fraction of free electrons) */
+  int index_th_dQ_dn;          /**< Index for the derivative of Q with respect to n (n=baryon number density) */
+  int index_th_dQ_dH;          /**< Index for the derivative of Q with respect to H (H=Hubble factor) */
+  int index_th_Q;              /**< Index for the background of Q value of the Q function */
+
+  double dQ_dx;                /**< Temporary value for the derivative of Q with respect to x (x=eps/T=13.6eV/T) */
+  double dQ_dX;                /**< Temporary value for the derivative of Q with respect to X (X=the fraction of free electrons) */
+  double dQ_dn;                /**< Temporary value for the derivative of Q with respect to n (n=baryon number density) */
+  double dQ_dH;                /**< Temporary value for the derivative of Q with respect to H (H=Hubble factor) */
+  double Q;                    /**< Temporary value for the background value of the Q function */
+
+  /* Quantities needed to compute the approximated perturbed recombination (i.e. eq. 3.23 of Senatore et
+  al. 2009, http://arxiv.org/abs/0812.3652) */
+  int index_th_dxe;            /**< ionization fraction first derivative */
+  int index_th_ddxe;           /**< ionization fraction second derivative */  
+
+  short compute_xe_derivatives; /**< Compute derivatives of ionization fraction? Needed for perturbed recombination */
+
+  //@}
+
+#endif // WITH_SONG_SUPPORT
+
   /** @name - technical parameters */
 
   //@{
@@ -575,6 +618,21 @@ extern "C" {
                                  double *data
                                  );
 
+#ifdef WITH_SONG_SUPPORT
+  int thermodynamics_compute_Q_derivatives(
+            struct precision * ppr,
+            struct background * pba,
+            struct thermo * pth
+            );
+
+  int thermodynamics_compute_Q_derivatives_at_z(
+            // struct precision * ppr,
+            struct background * pba,
+            struct thermo * pth,
+            double X_e,
+            double z
+            );
+#endif // WITH_SONG_SUPPORT
 
 #ifdef __cplusplus
 }
@@ -663,5 +721,37 @@ extern "C" {
 #define _Z_REC_MIN_ 500.
 
 //@}
+
+/**  
+ * @name Physical constants needed to compute perturbed recombination as in Senatore,
+ * Tassev & Zaldarriaga 2009, mostly copied from the HyRec module.
+ */
+
+//@{
+
+#define _eps_   13.605698                /**< Hydrogen ionization energy in eV, from CMBquick */
+
+#define _hPc_       1.239841874331e-04   /**< hc in eV cm */
+#define _mH_        0.93878299831e9      /**< Hydrogen atom mass in eV/c^2 */ 
+#define _kBoltz_    8.617343e-5          /**< Boltzmann constant in eV/K */
+#define _L2s1s_     8.2206               /**< 2s -> 1s two-photon decay rate in s^{-1} (Labzowsky et al 2005) */
+
+#define _FINE_             7.2973525698e-3   /**< Fine structure constant */
+#define _s_in_inverse_eV_  1.51926751e15     /**< A second in eV^-1 */
+#define _m_in_eV_          5.06773093e6      /**< An eV in meters, this is the above divided the speed of light in m/s */
+#define _m_e_eV_           5.10998910e5      /**< Electron mass in eV */
+
+//@}
+
+/**  
+ * @name Physical constant needed to compute the Rayleigh scattering rate
+ */
+
+//@{
+
+#define _NU_EFF_ 3.1016927457e6      /**< Effective frequency for the Rayleigh scattering, in Ghz (see arXiv:1307.8148) */
+
+//@}
+
 
 #endif

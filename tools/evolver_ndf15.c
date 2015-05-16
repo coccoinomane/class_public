@@ -3,7 +3,7 @@
 /* 19/11 2010 													*/
 /* Thomas Tram													*/
 /****************************************/
-/*	This is an variable order, adaptive stepsize ODE evolver for CLASS.
+/*	This is a variable order, adaptive stepsize ODE evolver for CLASS.
 	It is based on the Numerical Differentiaion Formulas	of order 1-5,
 	and can be used to solve stiff problems. The algorithm is described in
 	[The MATLAB ODE Suite, L. F. Shampine and M. W. Reichelt, SIAM Journal
@@ -77,10 +77,38 @@ int evolver_ndf15(
 		  double timestep_over_timescale,
 		  double * t_vec,
 		  int tres,
-		  int (*output)(double x,double y[],double dy[],int index_x,void * parameters_and_workspace,
-				ErrorMsg error_message),
-		  int (*print_variables)(double x, double y[], double dy[], void *parameters_and_workspace,
-					 ErrorMsg error_message),
+    	int (*output)(double x,double y[],double dy[],int index_x,void * parameters_and_workspace,
+    		ErrorMsg error_message),
+#ifndef WITH_BISPECTRA
+      int (*print_variables)(double x, double y[], double dy[], void *parameters_and_workspace,
+    		ErrorMsg error_message),
+#else
+      int (*print_variables)(double x, double y[], double dy[], int index_x, void *parameters_and_workspace,
+    		ErrorMsg error_message),
+      int (*exit_strategy)( /**< Function invoked when something goes wrong (if not NULL) */
+            int (*derivs)(double x,double * y,double * dy,
+              void * parameters_and_workspace, ErrorMsg error_message),
+            double x_ini,
+            double x_final,
+            double * y_inout, 
+            int * used_in_output,
+            int neq, 
+            void * parameters_and_workspace_for_derivs,
+            double rtol, 
+            double minimum_variation, 
+            int (*timescale_and_approximation)(double x, 
+                       void * parameters_and_workspace, 
+                       double * timescales,
+                       ErrorMsg error_message),
+            double timestep_over_timescale, 
+            double * t_vec, 
+            int tres,
+            int (*output)(double x,double y[],double dy[],int index_x,void * parameters_and_workspace,
+              ErrorMsg error_message),
+            int (*print_variables)(double x, double y[], double dy[], int index_x, void *parameters_and_workspace,
+                 ErrorMsg error_message),
+            ErrorMsg error_message),
+#endif // WITH_BISPECTRA
 		  ErrorMsg error_message){
 
   /* Constants: */
@@ -208,9 +236,49 @@ int evolver_ndf15(
   t0 = x_ini;
   tfinal = x_final;
 
+#ifdef WITH_BISPECTRA
+
+  /* Check that the initial conditions do not contain NaN's */
+  for (ii=0; ii < neq; ++ii) {
+
+    char buffer[64];
+    sprintf(buffer, "%g", y_inout[ii]);
+    class_test (isnan(y_inout[ii]),
+                error_message,
+                "found NAN in initial conditions at tau=%f.", x_ini);
+
+  } // end of for(ii)
+
+  /* Debug - print the y & y_inout vectors */
+  // fprintf (stderr, "*** y_inout at the beginning of ndf15\n");
+  //
+  // fprintf (stderr, "%26.16f ", x_ini);
+  // for (ii=0; ii < neq; ++ii)
+  //   fprintf(stderr, "%17.7g ", y_inout[ii]);
+  //
+  // fprintf (stderr, "\n\n");
+  //
+  // fprintf (stderr, "*** y at the beginning of ndf15\n");
+  //
+  // fprintf (stderr, "%26.16f ", x_ini);
+  // for (ii=1; ii<=neq; ii++)
+  //   fprintf(stderr, "%17.7g ", y[ii]);
+  //
+  // fprintf (stderr, "\n\n");
+
+#endif // WITH_BISPECTRA
+
+
   /* Some CLASS-specific stuff:*/
   next=0;
   while (t_vec[next] < t0) next++;
+
+  #ifdef WITH_BISPECTRA
+  class_test (next >= tres,
+    error_message,
+    "stopping to prevent seg fault; accessing time array out of bounds: t0=%g, t_vec[tres-1]=%g",
+    t0, t_vec[next-1]);
+  #endif // WITH_BISPECTRA
 
   if (verbose > 1){
     numidx=0;
@@ -456,9 +524,47 @@ int evolver_ndf15(
 	    Jcurrent = _TRUE_;
 	  }
 	  else if (absh <= hmin){
-	    class_test(absh <= hmin, error_message,
-		       "Step size too small: step:%g, minimum:%g, in interval: [%g:%g]\n",
-		       absh,hmin,t0,tfinal);
+#ifndef WITH_BISPECTRA
+      class_test(absh <= hmin, error_message,
+           "Step size too small: step:%g, minimum:%g, in interval: [%g:%g]\n",
+           absh,hmin,t0,tfinal);
+#else
+      /* If the step is too small, do whatever is coded in the function exit_strategy() */
+      if (exit_strategy != NULL) {
+      
+        sprintf(error_message, "Step size too small: t=%g, step:%g, minimum:%g, in interval: [%g:%g], starting exit strategy",
+          t,absh,hmin,t0,tfinal);
+             
+        class_call ((*exit_strategy)(
+                  		  derivs,
+                  		  x_ini,
+                  		  x_final,
+                  		  y_inout, 
+                  		  used_in_output,
+                  		  neq, 
+                  		  parameters_and_workspace_for_derivs,
+                  		  rtol, 
+                  		  minimum_variation, 
+                  		  timescale_and_approximation,
+                  		  timestep_over_timescale, 
+                  		  t_vec, 
+                  		  tres,
+                  		  output,
+                  		  print_variables,
+                        error_message),
+          error_message,
+          error_message);
+          
+        /* The exit_strategy function has its own error handling */
+        return _SUCCESS_;
+      }
+      else {
+
+       class_test(absh <= hmin, error_message,
+            "Step size too small: t=%g, step:%g, minimum:%g, in interval: [%g:%g]\n",
+            t,absh,hmin,t0,tfinal);
+      }
+#endif // WITH_BISPECTRA
 	  }
 	  else{
 	    abshlast = absh;
@@ -487,9 +593,47 @@ int evolver_ndf15(
 	/*Step failed */
 	stepstat[1]+= 1;
 	if (absh <= hmin){
-	  class_test(absh <= hmin, error_message,
-		     "Step size too small: step:%g, minimum:%g, in interval: [%g:%g]\n",
-		     absh,hmin,t0,tfinal);
+#ifndef WITH_BISPECTRA
+      class_test(absh <= hmin, error_message,
+           "Step size too small: step:%g, minimum:%g, in interval: [%g:%g]\n",
+           absh,hmin,t0,tfinal);
+#else
+      /* If the step is too small, do whatever is coded in the function exit_strategy() */
+      if (exit_strategy != NULL) {
+      
+        sprintf(error_message, "Step size too small: t=%g, step:%g, minimum:%g, in interval: [%g:%g], starting exit strategy",
+          t,absh,hmin,t0,tfinal);
+             
+        class_call ((*exit_strategy)(
+                  		  derivs,
+                  		  x_ini,
+                  		  x_final,
+                  		  y_inout, 
+                  		  used_in_output,
+                  		  neq, 
+                  		  parameters_and_workspace_for_derivs,
+                  		  rtol, 
+                  		  minimum_variation, 
+                  		  timescale_and_approximation,
+                  		  timestep_over_timescale, 
+                  		  t_vec, 
+                  		  tres,
+                  		  output,
+                  		  print_variables,
+                        error_message),
+          error_message,
+          error_message);
+          
+        /* The exit_strategy function has its own error handling */
+        return _SUCCESS_;
+      }
+      else {
+
+       class_test(absh <= hmin, error_message,
+            "Step size too small: t=%g, step:%g, minimum:%g, in interval: [%g:%g]\n",
+            t,absh,hmin,t0,tfinal);
+      }
+#endif // WITH_BISPECTRA
 	}
 	abshlast = absh;
 	if (nofailed==_TRUE_){
@@ -640,9 +784,17 @@ int evolver_ndf15(
 	               error_message,
 	               error_message);
 
+#ifndef WITH_BISPECTRA
         class_call((*print_variables)(tnew,ynew+1,f0+1,
-					parameters_and_workspace_for_derivs,error_message),
-		     error_message,error_message);
+          parameters_and_workspace_for_derivs,error_message),
+         error_message,error_message);
+#else
+        /* Pass the time index to print_variables() */
+        class_call((*print_variables)(tnew,ynew+1,f0+1,next,
+          parameters_and_workspace_for_derivs,error_message),
+         error_message,error_message);
+#endif // WITH_BISPECTRA
+
     }
 // end of modification
 
@@ -1518,6 +1670,14 @@ int initialize_jacobian(struct jacobian *jac, int neq, ErrorMsg error_message){
   /*Maximal number of non-zero entries to be considered sparse */
   jac->repeated_pattern = 0;
   jac->trust_sparse = 4;
+
+  #ifdef WITH_BISPECTRA
+
+  /* Suggested by Thomas Tram to fix the sparse matrices bug */
+  // jac->trust_sparse = 10000;
+
+  #endif // WITH_BISPECTRA
+
   /* Number of times a pattern is repeated before we trust it. */
   jac->has_grouping = 0;
   jac->has_pattern = 0;

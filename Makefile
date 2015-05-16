@@ -38,7 +38,7 @@ OMPFLAG   = -fopenmp
 #OMPFLAG   = -openmp
 
 # all other compilation flags
-CCFLAG = -g -fPIC
+CCFLAG = -g -fPIC -w -std=c99
 LDFLAG = -g -fPIC
 
 # leave blank to compile without HyRec, or put path to HyRec directory
@@ -84,15 +84,15 @@ INCLUDES += -I../hyrec
 EXTERNAL += hyrectools.o helium.o hydrogen.o history.o
 endif
 
-# If the Fisher & bispectrum modules are required, define the preprocessor
-# macro WITH_BISPECTRA
-ifeq ($(WITH_BISPECTRA),1)
-	CCFLAG += -DWITH_BISPECTRA
+# If SONG is required, define the preprocessor macro WITH_SONG_SUPPORT
+ifeq ($(WITH_SONG_SUPPORT),1)
+	WITH_BISPECTRA = 1
+	CCFLAG += -DWITH_SONG_SUPPORT
 endif
 
-# If SONG is required, define the preprocessor macro WITH_SONG
-ifeq ($(WITH_SONG_SUPPORT),1)
-	CCFLAG += -DWITH_SONG_SUPPORT
+# If bispectra or Fisher matrix are required, define the macro WITH_BISPECTRA
+ifeq ($(WITH_BISPECTRA),1)
+	CCFLAG += -DWITH_BISPECTRA
 endif
 
 
@@ -102,6 +102,10 @@ endif
 TOOLS = growTable.o dei_rkck.o sparse.o evolver_rkck.o  evolver_ndf15.o arrays.o parser.o quadrature.o hyperspherical.o common.o
 
 SOURCE = input.o background.o thermodynamics.o perturbations.o primordial.o nonlinear.o transfer.o spectra.o lensing.o
+
+ifeq ($(WITH_BISPECTRA),1)
+	SOURCE += bessel.o bispectra.o fisher.o
+endif
 
 INPUT = input.o
 
@@ -167,6 +171,9 @@ libclass.a: $(TOOLS) $(SOURCE) $(EXTERNAL)
 	$(AR)  $@ $(addprefix build/, $(TOOLS) $(SOURCE) $(EXTERNAL))
 
 class: $(TOOLS) $(SOURCE) $(EXTERNAL) $(OUTPUT) $(CLASS)
+	$(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o class $(addprefix build/,$(notdir $^)) -lm
+
+biclass: $(TOOLS) $(SOURCE) $(EXTERNAL) $(OUTPUT) $(CLASS)
 	$(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o class $(addprefix build/,$(notdir $^)) -lm
 
 test_sigma: $(TOOLS) $(SOURCE) $(EXTERNAL) $(OUTPUT) $(TEST_SIGMA)

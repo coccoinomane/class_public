@@ -216,6 +216,37 @@ struct spectra {
 
   //@}
 
+#ifdef WITH_BISPECTRA
+
+  /** @name - parameters related to bispectrum and Fisher matrix computation */
+
+  //@{
+
+  // int has_rr; /**< do we want C_l^RR ? (R = Rayleigh) */
+  // int has_tr; /**< do we want C_l^TR ? */
+  int has_tz; /**< do we want C_l^TZ ? (Z = curvature pertubation) */
+  int has_ez; /**< do we want C_l^EZ ? (Z = curvature pertubation) */
+
+  // int index_ct_rr; /**< index for type C_l^RR */
+  // int index_ct_tr; /**< index for type C_l^TR */
+  int index_ct_tz; /**< index for type C_l^T-Z */
+  int index_ct_ez; /**< index for type C_l^E-Z */
+
+  short compute_cl_derivative;  /**< Should we compute and store the derivative d(l*l*C_l)/dl?
+                                     Needed by the bispectrum module to compute the analytical
+                                     approximations in Creminelli, Pitrou, Vernizzi (2011) and Lewis
+                                     (2012). */
+  double ** lsq_cl;        /**< Array containing l*l*C_l, indexed as psp->cl */
+  double ** d_lsq_cl;      /**< Array containing d(l*l*C_l)/dl, indexed as psp->cl. Note that
+                                dln(l*l*C_l)/dln(l) = d(l*l*C_l)/dl / (l*C_l) */
+  double ** dd_lsq_cl;     /**< Array containing d^2(l*l*C_l)/d^2l, indexed as psp->cl */
+  double ** spline_d_lsq_cl; /**< Array containing d^2(d_lsq_cl)/dl, indexed as psp->cl, needed for
+                                  spline integration of d_lsq_cl */
+
+  //@}
+
+#endif // WITH_BISPECTRA
+
   /** @name - technical parameters */
 
   //@{
@@ -253,6 +284,16 @@ extern "C" {
                       double ** cl_md_ic
                       );
 
+#ifdef WITH_BISPECTRA
+  int spectra_dcl_at_l(
+                       struct spectra * psp,
+                       double l,
+                       double * cl,
+                       double * * cl_md,
+                       double * * cl_md_ic
+                       );
+#endif // WITH_BISPECTRA
+          
   int spectra_pk_at_z(
                       struct background * pba,
                       struct spectra * psp,

@@ -164,6 +164,49 @@ int thermodynamics_at_z(
 
     /* in this regime, variation rate = dkappa/dtau */
     pvecthermo[pth->index_th_rate] = pvecthermo[pth->index_th_dkappa];
+    
+#ifdef WITH_SONG_SUPPORT
+    
+    /* Perturbed recombination */
+    
+    if (pth->compute_xe_derivatives == _TRUE_) {
+      
+      /* The ionization fraction is assumed to be constant at very large z (>10000) */
+      pvecthermo[pth->index_th_dxe] = 0;
+      pvecthermo[pth->index_th_ddxe] = 0;      
+    }
+    
+    if (pth->has_perturbed_recombination_stz == _TRUE_) {
+
+      /* It makes no sense to compute perturbed recombination early on, as the Q function features a discontinuity
+      just before recombination, ad x ~ 34 (x is the inverse temperature normalized to the ionization energy of
+      the hydrogen atom). The system, however, is stable enough that we can provide Q only for x > 34. */
+      pvecthermo[pth->index_th_dQ_dx] = 0;
+      pvecthermo[pth->index_th_dQ_dX] = 0;
+      pvecthermo[pth->index_th_dQ_dn] = 0;
+      pvecthermo[pth->index_th_dQ_dH] = 0;
+      pvecthermo[pth->index_th_Q] = 0;
+
+      /* Uncomment to compute the Q function and its derivatives at early times. Expect a lot of oscillations
+      and numerical noise */
+      // class_call (thermodynamics_compute_Q_derivatives_at_z (
+      //               // ppr,
+      //               pba,
+      //               pth,
+      //               x0,
+      //               z),
+      //   pth->error_message,
+      //   pth->error_message);
+      // 
+      // pvecthermo[pth->index_th_dQ_dx] = pth->dQ_dx;
+      // pvecthermo[pth->index_th_dQ_dX] = pth->dQ_dX;
+      // pvecthermo[pth->index_th_dQ_dn] = pth->dQ_dn;
+      // pvecthermo[pth->index_th_dQ_dH] = pth->dQ_dH;
+      // pvecthermo[pth->index_th_Q] = pth->Q;
+
+    }
+    
+#endif // WITH_SONG_SUPPORT    
 
   }
 
@@ -703,6 +746,21 @@ int thermodynamics_init(
              pba->error_message,
              pth->error_message);
 
+#ifdef WITH_SONG_SUPPORT
+
+  /* Compute functions needed to obtain the first-order fraction of free electrons */
+  if (pth->has_perturbed_recombination_stz == _TRUE_) {
+
+    class_call (thermodynamics_compute_Q_derivatives (
+                  ppr,
+                  pba,
+                  pth),
+      pth->error_message,
+      pth->error_message);
+  }
+  
+#endif // WITH_SONG_SUPPORT
+
   /** - if verbose flag set to next-to-minimum value, print the main results */
 
   if (pth->thermodynamics_verbose > 0) {
@@ -817,6 +875,27 @@ int thermodynamics_indices(
 
   pth->index_th_rate = index;
   index++;
+
+#ifdef WITH_SONG_SUPPORT
+  
+  /* Derivatives of ionization fraction (needed for the approximated perturbed recombination) */  
+  if (pth->compute_xe_derivatives == _TRUE_) {
+
+    pth->index_th_dxe=index++;
+    pth->index_th_ddxe = index++;
+  }
+
+  /* Derivatives of the Q function, needed for the full perturbed recombination */
+  if (pth->has_perturbed_recombination_stz == _TRUE_) {
+  
+    pth->index_th_dQ_dx = index++;
+    pth->index_th_dQ_dX = index++;
+    pth->index_th_dQ_dn = index++;
+    pth->index_th_dQ_dH = index++;
+    pth->index_th_Q = index++;
+  }
+
+#endif // WITH_SONG_SUPPORT
 
   /* end of indices */
   pth->th_size = index;
@@ -3170,6 +3249,349 @@ int thermodynamics_merge_reco_and_reio(
 
   return _SUCCESS_;
 }
+
+
+#ifdef WITH_SONG_SUPPORT
+
+/**
+ * Compute functions needed to obtain the perturbed fraction of free electrons, delta_Xe.
+ * These quantities will be used in the perturbation module to construct the evolution
+ * equation for delta_Xe.
+ *
+ * All computations are made in eV units.
+ */
+int thermodynamics_compute_Q_derivatives(
+          struct precision * ppr,
+          struct background * pba,
+          struct thermo * pth
+          )
+{
+  
+  /* Temporary table with the conformal time values corresponding to the redshift steps in pth->z_table */
+  double * tau_table;
+  class_alloc (tau_table, pth->tt_size*sizeof(double), pth->error_message);
+
+  /* Assign the times to each redshift, sorting the times in ascending order */
+  int index_tau;
+  for (index_tau=0; index_tau < pth->tt_size; ++index_tau)
+    class_call(background_tau_of_z(pba, pth->z_table[index_tau], tau_table+index_tau),
+      pba->error_message,
+      pth->error_message);
+  
+  /* Allocate vector of background quantities */
+  double * pvecback;
+  class_alloc(pvecback,pba->bg_size*sizeof(double),pba->error_message);
+
+  /* In recent versions of CLASS, the function background_functions() takes as an input
+  an array instead of the scale factor */
+  double * scale_factor;
+  class_alloc(scale_factor,pba->bi_size*sizeof(double),pba->error_message);    
+  class_test ((pba->has_dcdm == _TRUE_) || (pba->has_dr == _TRUE_) || (pba->has_scf == _TRUE_),
+    pth->error_message,
+    "only vanilla model supported in perturbed recombination");
+    
+  /* Compute background quantities at the given redshift */
+  class_call(background_functions(pba, scale_factor, pba->long_info, pvecback),
+    pba->error_message,
+    pth->error_message);
+
+  /* Loop on time (decreasing z, increasing time) */
+  for (index_tau=pth->tt_size-1; index_tau>=0; --index_tau) {
+    
+    /* Obtain all time variables */
+    double tau = tau_table[index_tau];
+    double z = pth->z_table[index_tau];
+    double a = 1/(z+1);
+    double T_kelvin = pba->T_cmb/a;
+    double T_ev = T_kelvin * _kBoltz_;
+    double x = _eps_/T_ev;
+
+    /* Some debug - print all time variables */
+    // fprintf(stderr, "%3d %12.7g %12.7g %12.7g %12.7g %12.7g %12.7g\n", index_tau, tau, z, a, T_kelvin, T_ev, x);
+    
+    /* Compute background quantities at the given time */
+    scale_factor[pba->index_bi_a] = a;
+    class_call(background_functions(pba, scale_factor, pba->long_info, pvecback),
+      pba->error_message,
+      pth->error_message);
+
+    /* The Q function features a discontinuity around x ~ 34, hence we integrate only after that time. */
+    if (x < pth->perturbed_recombination_turnx) {
+      pth->thermodynamics_table[index_tau*pth->th_size + pth->index_th_Q] = 0;
+      pth->thermodynamics_table[index_tau*pth->th_size + pth->index_th_dQ_dX] = 0;
+      pth->thermodynamics_table[index_tau*pth->th_size + pth->index_th_dQ_dH] = 0;
+      pth->thermodynamics_table[index_tau*pth->th_size + pth->index_th_dQ_dn] = 0;
+      pth->thermodynamics_table[index_tau*pth->th_size + pth->index_th_dQ_dx] = 0;
+      continue;
+    }
+
+    // *** Simple thermodynamics quantities ***
+
+    /* Fraction of free electrons */
+    double X = pth->thermodynamics_table[index_tau*pth->th_size + pth->index_th_xe];
+
+    /* Factor that converts the Hubble factor in pvecback (defined as [H/c] in inverse Mpc) to
+      the Hubble factor in electron volts (eV). */ 
+    double inverse_seconds_to_eV = (_c_ / _Mpc_over_m_) / _s_in_inverse_eV_;
+    
+    /* Hubble factor in eV (the one in pvecback is [H/c] in inverse Mpc) */
+    double H = pvecback[pba->index_bg_H] * inverse_seconds_to_eV;
+    double H0 = pba->H0 * inverse_seconds_to_eV;
+    double Hc = a*H;
+
+    /* Baryon density in eV^-3 */
+    double H0_MKS = pba->H0 * (_c_ / _Mpc_over_m_);
+    double rho_crit_MKS = 3*H0_MKS*H0_MKS/(8.*_PI_*_G_);
+    double n_b = pba->Omega0_b/pow(a/pba->a_today, 3) * (rho_crit_MKS/_m_H_/pow(_m_in_eV_,3));
+
+    /* Helium fraction */
+    double Y = pth->YHe;
+
+    /* Some debug */
+    // fprintf (stderr, "%g %g %g %g %g %g\n", z, a, x, X, n_b, H);
+
+
+    // *** Derived thermodynamics quantities ***
+
+    /* G_alp, depending only on H */
+    double G_alp_constant = pow(3*_eps_,3)/pow(8*_PI_,2);
+    double G_alp = H * G_alp_constant;
+
+    /* alpha_2p, depending only on x */
+    double alpha_2p_constant = 0.448*64*sqrt(_PI_/27)*(_FINE_/_m_e_eV_)*(_FINE_/_m_e_eV_);
+    double alpha_2p = alpha_2p_constant * sqrt(x) * log(x);
+    
+    /* beta_p, depending only on x */
+    double beta_o_constant = pow(_m_e_eV_*_eps_/(2*_PI_), 1.5);
+    double beta_p = beta_o_constant * alpha_2p * exp(-0.25*x) / pow(x, 1.5);
+    
+    /* As done in CMBquick, we divide the Q function in a front coefficient and a source term,
+      that is we write Q = F * S. */
+        
+    /* Transition rate of 2S->1S in electronvolts */
+    double lambda = _L2s1s_/_s_in_inverse_eV_;
+      
+    /* We further divide the front coefficient as F = F1*F2 in order to better deal with the
+      derivatives. Note that F2 features a singularity around x~30. */
+    double F1 = 1 + (1-X)*(1-Y)*lambda/G_alp * n_b;
+    double lambda_beta_factor = lambda/ppr->recfast_fudge_H + beta_p;
+    double F2 = 1./(1/ppr->recfast_fudge_H + (1-X)*(1-Y)*n_b/G_alp * lambda_beta_factor);
+    double F = F1*F2;
+    
+    /* To compute the source term, we need the function beta_o. */
+    double beta_o = beta_o_constant * alpha_2p * exp(-x) / pow(x, 1.5);
+    double S = 1/X * ((1-X)*beta_o - X*X*(1-Y)*n_b*alpha_2p);
+    
+    /* Finally, we compute and store the background Q function */
+    double Q = F*S;
+    pth->thermodynamics_table[index_tau*pth->th_size + pth->index_th_Q] = Q/inverse_seconds_to_eV;
+    
+    /* Some debug */
+    // fprintf (stderr, "%g %g %g %g %g %g\n", x, F, S, Q, beta_o, (1-X)*(1-Y)*n_b/G_alp * lambda_beta_factor);
+    
+
+
+    // *** Derivatives of thermodynamics quantities ***
+    
+    /* Derivative with respect to X. We add a pre-factor to account for the fact that X^(1) = X * delta_Xe,
+      where X = Xe and delta_X = delta_Xe  */
+    double dF_dX  = - (1-Y)/G_alp * n_b * F2 * (lambda - F1*F2 * lambda_beta_factor);
+    double dS_dX  = - 1/X * (S + beta_o + 2*X*(1-Y)*n_b*alpha_2p);
+    double dQ_dX  = F*dS_dX + S*dF_dX;
+    pth->thermodynamics_table[index_tau*pth->th_size + pth->index_th_dQ_dX] = X * dQ_dX/inverse_seconds_to_eV;
+
+    /* Derivative with respect to H. We add a pre-factor to account for the fact that H^(1) = H * delta_H,
+      where delta_H is given by eq. A. 67 of Pitrou et al. 2010.  */
+    double dF_dH  = -(1-X)*(1-Y)/(G_alp*G_alp) * G_alp_constant * n_b * F2 * (lambda - F1*F2 * lambda_beta_factor);
+    double dS_dH  = 0;
+    double dQ_dH  = F*dS_dH + S*dF_dH;
+    pth->thermodynamics_table[index_tau*pth->th_size + pth->index_th_dQ_dH] = H * dQ_dH/inverse_seconds_to_eV;
+
+    /* Derivative with respect to n_b. We add a pre-factor to account for the fact that n_b^(1) = n_b * delta_b */
+    double dF_dn  = (1-X)*(1-Y)/G_alp * F2 * (lambda - F1*F2 * lambda_beta_factor);
+    double dS_dn  = - X * (1-Y) * alpha_2p;
+    double dQ_dn  = F*dS_dn + S*dF_dn;
+    pth->thermodynamics_table[index_tau*pth->th_size + pth->index_th_dQ_dn] = n_b * dQ_dn/inverse_seconds_to_eV;
+
+    /* Derivative with respect to x. We add a pre-factor to account for the fact that x^(1) = -x/4 * delta_g */
+    double d_alpha2p_dx = alpha_2p_constant * (sqrt(x)/x + log(x)/(2*sqrt(x)));
+    double d_betao_dx = - beta_o * (1 + 1.5/x - d_alpha2p_dx/alpha_2p);
+    double d_betap_dx = - beta_p * (0.25 + 1.5/x - d_alpha2p_dx/alpha_2p);
+    double dF_dx  = -F1 * F2 * F2 * (1-X) * (1-Y) * n_b/G_alp * d_betap_dx;
+    double dS_dx  = 1/X * ((1-X)*d_betao_dx - X*X*(1-Y)*n_b*d_alpha2p_dx);
+    double dQ_dx  = F*dS_dx + S*dF_dx;
+    pth->thermodynamics_table[index_tau*pth->th_size + pth->index_th_dQ_dx] = -x/4 * dQ_dx/inverse_seconds_to_eV;
+
+    /* Some debug */
+    // fprintf (stderr, "%g %g %g %g %g %g \n", x, dQ_dX, dQ_dH, dQ_dn, dQ_dx, dF_dx);
+
+    
+  } // end of for(index_tau)
+
+  /* Free vectors */
+  free (pvecback);
+  free (scale_factor);
+  free (tau_table);
+  
+  return _SUCCESS_;
+  
+}
+
+/**
+ * Same as thermodynamics_compute_Q_derivatives_at_z(), but returns result
+ * at a specific redshift z. It requires the (background) free electron
+ * density as an input.
+ *
+ * All computations are made in eV units.
+ */
+int thermodynamics_compute_Q_derivatives_at_z (
+          struct background * pba,
+          struct thermo * pth,
+          double X,
+          double z
+          )
+{
+  
+  double recfast_fudge_H = 1.14;
+      
+  /* Obtain all time variables */
+  double a = 1/(z+1);
+  double T_kelvin = pba->T_cmb/a;
+  double T_ev = T_kelvin * _kBoltz_;
+  double x = _eps_/T_ev;
+
+  /* Some debug - print all time variables */
+  // double tau;
+  // class_call(background_tau_of_z(pba, z, &tau),
+  //   pba->error_message,
+  //   pth->error_message);
+  // fprintf(stderr, "%3d %12.7g %12.7g %12.7g %12.7g %12.7g %12.7g\n", index_tau, tau, z, a, T_kelvin, T_ev, x);
+
+  /* Allocate vector for output of background quantities */
+  double * pvecback;
+  class_alloc(pvecback,pba->bg_size*sizeof(double),pba->error_message);
+
+  /* In recent versions of CLASS, the function background_functions() takes as an input
+  an array instead of the scale factor */
+  double * scale_factor;
+  class_alloc(scale_factor,pba->bi_size*sizeof(double),pba->error_message);    
+  scale_factor[pba->index_bi_a] = a;
+  class_test ((pba->has_dcdm == _TRUE_) || (pba->has_dr == _TRUE_) || (pba->has_scf == _TRUE_),
+    pth->error_message,
+    "only vanilla model supported in perturbed recombination");
+    
+  /* Compute background quantities at the given redshift */
+  class_call(background_functions(pba, scale_factor, pba->long_info, pvecback),
+    pba->error_message,
+    pth->error_message);
+
+  /* Factor that converts the Hubble factor in pvecback (defined as [H/c] in inverse Mpc) to
+    the Hubble factor in electron volts (eV). */ 
+  double inverse_seconds_to_eV = (_c_ / _Mpc_over_m_) / _s_in_inverse_eV_;
+    
+  /* Hubble factor in eV (the one in pvecback is [H/c] in inverse Mpc) */
+  double H = pvecback[pba->index_bg_H] * inverse_seconds_to_eV;
+  double H0 = pba->H0 * inverse_seconds_to_eV;
+  double Hc = a*H;
+
+  /* Baryon density in eV^-3 */
+  double H0_MKS = pba->H0 * (_c_ / _Mpc_over_m_);
+  double rho_crit_MKS = 3*H0_MKS*H0_MKS/(8.*_PI_*_G_);
+  double n_b = pba->Omega0_b/pow(a/pba->a_today, 3) * (rho_crit_MKS/_m_H_/pow(_m_in_eV_,3));
+
+  /* Helium fraction */
+  double Y = pth->YHe;
+
+  /* Some debug */
+  // fprintf (stderr, "%g %g %g %g %g %g\n", z, a, x, X, n_b, H);
+
+
+  // *** Derived thermodynamics quantities ***
+
+  /* G_alp, depending only on H */
+  double G_alp_constant = pow(3*_eps_,3)/pow(8*_PI_,2);
+  double G_alp = H * G_alp_constant;
+
+  /* alpha_2p, depending only on x */
+  double alpha_2p_constant = 0.448*64*sqrt(_PI_/27)*(_FINE_/_m_e_eV_)*(_FINE_/_m_e_eV_);
+  double alpha_2p = alpha_2p_constant * sqrt(x) * log(x);
+    
+  /* beta_p, depending only on x */
+  double beta_o_constant = pow(_m_e_eV_*_eps_/(2*_PI_), 1.5);
+  double beta_p = beta_o_constant * alpha_2p * exp(-0.25*x) / pow(x, 1.5);
+    
+  /* As done in CMBquick, we divide the Q function in a front coefficient and a source term,
+    that is we write Q = F * S. */
+        
+  /* Transition rate of 2S->1S in electronvolts */
+  double lambda = _L2s1s_/_s_in_inverse_eV_;
+      
+  /* We further divide the front coefficient as F = F1*F2 in order to better deal with the
+    derivatives. Note that F2 features a singularity around x~30. */
+  double F1 = 1 + (1-X)*(1-Y)*lambda/G_alp * n_b;
+  double lambda_beta_factor = lambda/recfast_fudge_H + beta_p;
+  double F2 = 1./(1/recfast_fudge_H + (1-X)*(1-Y)*n_b/G_alp * lambda_beta_factor);
+  double F = F1*F2;
+    
+  /* To compute the source term, we need the function beta_o. */
+  double beta_o = beta_o_constant * alpha_2p * exp(-x) / pow(x, 1.5);
+  double S = 1/X * ((1-X)*beta_o - X*X*(1-Y)*n_b*alpha_2p);
+    
+  /* Finally, we compute and store the background Q function */
+  double Q = F*S;
+  pth->Q = Q/inverse_seconds_to_eV;
+    
+  /* Some debug */
+  // fprintf (stderr, "%g %g %g %g %g %g\n", x, F, S, Q, beta_o, (1-X)*(1-Y)*n_b/G_alp * lambda_beta_factor);
+    
+
+
+  // *** Derivatives of thermodynamics quantities ***
+    
+  /* Derivative with respect to X. We add a pre-factor to account for the fact that X^(1) = X * delta_X,
+  where X = X_e and delta_X = delta_X_e.  */
+  double dF_dX  = - (1-Y)/G_alp * n_b * F2 * (lambda - F1*F2 * lambda_beta_factor);
+  double dS_dX  = - 1/X * (S + beta_o + 2*X*(1-Y)*n_b*alpha_2p);
+  double dQ_dX  = F*dS_dX + S*dF_dX;
+  pth->dQ_dX = X * dQ_dX/inverse_seconds_to_eV;
+
+  /* Derivative with respect to H. We add a pre-factor to account for the fact that H^(1) = H * delta_H,
+  where delta_H is given by eq. A. 67 of Pitrou et al. 2010.  */
+  double dF_dH  = -(1-X)*(1-Y)/(G_alp*G_alp) * G_alp_constant * n_b * F2 * (lambda - F1*F2 * lambda_beta_factor);
+  double dS_dH  = 0;
+  double dQ_dH  = F*dS_dH + S*dF_dH;
+  pth->dQ_dH = H * dQ_dH/inverse_seconds_to_eV;
+
+  /* Derivative with respect to n_b. We add a pre-factor to account for the fact that n_b^(1) = n_b * delta_b */
+  double dF_dn  = (1-X)*(1-Y)/G_alp * F2 * (lambda - F1*F2 * lambda_beta_factor);
+  double dS_dn  = - X * (1-Y) * alpha_2p;
+  double dQ_dn  = F*dS_dn + S*dF_dn;
+  pth->dQ_dn = n_b * dQ_dn/inverse_seconds_to_eV;
+
+  /* Derivative with respect to x. We add a pre-factor to account for the fact that x^(1) = -x/4 * delta_g */
+  double d_alpha2p_dx = alpha_2p_constant * (sqrt(x)/x + log(x)/(2*sqrt(x)));
+  double d_betao_dx = - beta_o * (1 + 1.5/x - d_alpha2p_dx/alpha_2p);
+  double d_betap_dx = - beta_p * (0.25 + 1.5/x - d_alpha2p_dx/alpha_2p);
+  double dF_dx  = -F1 * F2 * F2 * (1-X) * (1-Y) * n_b/G_alp * d_betap_dx;
+  double dS_dx  = 1/X * ((1-X)*d_betao_dx - X*X*(1-Y)*n_b*d_alpha2p_dx);
+  double dQ_dx  = F*dS_dx + S*dF_dx;
+  pth->dQ_dx = -x/4 * dQ_dx/inverse_seconds_to_eV;
+
+  /* Some debug */
+  // fprintf (stderr, "%g %g %g %g %g %g \n", x, dQ_dX, dQ_dH, dQ_dn, dQ_dx, dF_dx);
+
+  free (pvecback);
+  free (scale_factor);
+  
+  return _SUCCESS_;
+  
+}
+
+#endif // WITH_SONG_SUPPORT
+
+
+
+
 
 /**
  * Subroutine for formatting thermodynamics output

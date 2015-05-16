@@ -60,6 +60,22 @@ enum possible_gauges {
 
 //@}
 
+#ifdef WITH_SONG_SUPPORT
+/**
+ * Possible time-sampling methods for the quadratic sources.
+ */
+
+//@{
+
+enum sources_tau_samplings {
+  lin_tau_sampling,                  /* Linear tau sampling */
+  log_tau_sampling,                  /* Logarithmic tau sampling */
+  class_tau_sampling                 /* Tau sampling adopted in perturb_timesampling_for_sources_1st_order */
+};
+
+//@}
+#endif // WITH_SONG_SUPPORT
+
 //@{
 
 /**
@@ -352,6 +368,158 @@ struct perturbs
 
   //@}
 
+#ifdef WITH_BISPECTRA
+
+  /** @name - variables to compute bispectra and Fisher matrices */
+
+  //@{
+
+  short has_bispectra; /**< do we need to compute any harmonic space bispectrum b_l1l2l3? */
+
+  short has_bi_cmb_temperature;       /**< do we need bispectra for CMB temperature? */
+  short has_bi_cmb_polarization;      /**< do we need bispectra for CMB polarization? */
+  short has_bi_cmb_rayleigh;          /**< do we need bispectra for CMB Rayleigh scattering? */
+
+  short has_cl_cmb_rayleigh;          /**< do we need Cl's for the CMB Rayleigh scattering? */
+  short has_cl_cmb_zeta;              /**< do we need Cl's for the primordial curvature perturbation zeta?
+                                           This is needed to reproduce the analytical approximation of the
+                                           squeezed temperature bispectrum in Lewis
+                                           2012 (arxiv.org/abs/1204.5018). */
+    
+  short recombination_only_zeta;      /**< should the curvature perturbation zeta only include contributions */
+
+  short has_perturbed_recombination_stz;  /**< Shall we compute perturbed ionization fraction as in Senatore,
+                                               Tassev, Zaldarriaga 2009? */
+  
+  short has_scattering_in_los; /**< Shall we include the scattering terms in the line-of-sight sources? */
+
+  short has_photon_monopole_in_los; /**< Shall we include the g/4*delta_g term in the line-of-sight sources? */
+
+  short has_metric_in_los; /**< Shall we include the metric terms in the line-of-sight sources? */
+
+  /* Shall we include the Sachs-Wolfe (SW) and integrated Sachs-Wolfe (ISW) effects in the line-of-sight
+  sources? Note when either of these flags is set to true, has_metric_in_los is always set to false to
+  avoid double counting the effects. */
+  short has_sw;        /**< Shall we include the visibility*psi Sachs-Wolfe term in the LOS sources? */
+  short has_isw;       /**< Shall we include the e^-kappa*( phi'+psi') ISW term in the LOS sources? */
+
+  //@}
+    
+#ifdef WITH_SONG_SUPPORT
+
+  /** @name - variables to compute the quadratic sources for the second-order system */
+
+  //@{
+
+  short has_perturbations2;   /**< Do we need to store the sources for Song? */
+  short has_polarization2;    /**< Do we need to compute the E polarisation for Song? */
+  
+  double *** quadsources; /**< The ppt->quadsources array is used to store the first-order transfer
+                               functions needed by the second-order module.  While ppt->sources is
+                               used to store the line-of-sight sources, ppt->quadsources is only used
+                               to solve the second-order system. The array is addressed with the index_qs
+                               indexes in the same way as ppt->sources:
+
+                               quadsources[index_mode]
+                               		 [index_ic * ppt->tr_size[index_mode] + index_tr]
+                               		 [index_tau * ppt->k_size[index_mode] + index_k] */
+
+
+  double *** dd_quadsources; /**< Array to store the second derivatives of the quadsources at the
+                                  node points, to be used for spline interpolation */
+
+  int * qs_size; /**< Number of types qs_size[index_mode] included in computation for each mode */
+
+  char *** qs_labels; /**< Array of strings that contain the labels of the various types
+                           For example,  qs_labels[index_md_scalar][index_tp_phi] is equal
+                           to "phi" */
+
+  /* Synchronous gauge */
+  int index_qs_eta;                 /**< index for the synchronous gauge eta potential */
+  int index_qs_eta_prime;           /**< index for the tau derivative of the synchronous gauge eta potential */
+  int index_qs_eta_prime_prime;     /**< index for the tau second derivative of the synchronous gauge eta potential */
+  int index_qs_h;                   /**< index for the synchronous gauge h potential */
+  int index_qs_h_prime;             /**< index for the tau derivative of the synchronous gauge h potential */
+  int index_qs_h_prime_prime;       /**< index for the tau second derivative of the synchronous gauge h potential */
+                                   
+  /* Newtonian gauge */
+  int index_qs_phi;                 /**< index for the Newtonian gauge curvature potential */
+  int index_qs_psi;                 /**< index for the Newtonian gauge time potential */
+  int index_qs_phi_prime;           /**< index for the tau derivative of the Newtonian gauge curvature potential */
+  int index_qs_psi_prime;           /**< index for the tau derivative of the Newtonian gauge time potential */
+                                   
+  /* Matter variables */
+  int index_qs_delta_g;               /**< index for the photon temperature density contrast */
+  int index_qs_theta_g;               /**< index for the photon temperature velocity divergence */
+  int index_qs_v_g;                   /**< index for the photon temperature velocity */
+  int index_qs_shear_g;               /**< index for the photon temperature shear */
+  int index_qs_monopole_g;            /**< index for the photon temperature monopole */
+  int index_qs_monopole_E;            /**< index for the photon E-polarisation monopole */
+  int index_qs_monopole_collision_g;  /**< index for the photon temperature collision term */
+  int index_qs_monopole_collision_E;  /**< index for the photon E-polarisation collision term */
+
+  int index_qs_delta_b;               /**< index for the baryon density contrast */
+  int index_qs_theta_b;               /**< index for the baryon velocity divergence */
+  int index_qs_v_b;                   /**< index for the baryon velocity */
+  int index_qs_v_b_prime;             /**< index for the tau derivative of the baryon velocity */
+  int index_qs_monopole_b;            /**< index for the baryon monopole */
+  int index_qs_dipole_b;              /**< index for the baryon dipole */
+
+  int index_qs_delta_cdm;             /**< index for the cold dark matter density contrast */
+  int index_qs_theta_cdm;             /**< index for the cold dark matter velocity divergence */
+  int index_qs_v_cdm;                 /**< index for the cold dark matter velocity */
+  int index_qs_v_cdm_prime;           /**< index for the tau derivative of the cold dark matter velocity */
+  int index_qs_monopole_cdm;          /**< index for the cold dark matter monopole */
+  int index_qs_dipole_cdm;            /**< index for the cold dark matter dipole */
+
+  int index_qs_delta_ur;              /**< index for the neutrino density contrast */
+  int index_qs_theta_ur;              /**< index for the neutrino velocity divergence */
+  int index_qs_v_ur;                  /**< index for the neutrino velocity */
+  int index_qs_shear_ur;              /**< index for the neutrino temperature shear */
+  int index_qs_monopole_ur;           /**< index for the neutrino temperature monopole */
+  
+  // int index_qs_delta_Xe;  /**< Perturbation in the fraction of free electrons */
+
+  short inter_normal; /**< Flag for calling sources_at_tau_cubic_spline and find position in
+                           interpolation table normally */
+
+  short inter_closeby; /**< Flag for calling sources_at_tau_cubic_spline and find position
+                            in interpolation table starting from previous position in previous
+                            call */
+
+  /** Time-sampling for the quadratic sources in ppt->quadsources.  Note that this is not the same as the sampling
+  for the line-of-sight sources ppt->sources.  The latter need to catch the evolution of the first-order quantities
+  only around specific times, usually at recombination (in the visibility function regime) and when dark
+  energy becomes important (to catch the evolution of the potentials that give rise to the late ISW effect).
+  On the other hand, the quadratic sources are needed to solve the second-order system and they need to be
+  sampled whenever we the first-order perturbations have an evolution. This is why by default we sample the quadratic
+  sources based on the typical (conformal) timescale of the system, that is 1/aH (see function
+  perturb2_timesampling_for_sources()).
+  
+  IMPORTANT: this array is filled by the 'perturb2_timesampling_for_sources' function, that belongs to the
+  perturbation2 module. */
+  double * tau_sampling_quadsources;
+  int tau_size_quadsources;
+
+  double tau_start_sampling_quadsources; /**< When to start the sampling of the quadratic sources for the
+                                              second-order system? */
+
+  short  has_custom_timesampling_for_quadsources; /**< Should we adopt a custom time sampling for the quadratic sources
+                                                       in ppt->quadsources? */
+  enum   sources_tau_samplings custom_tau_mode_quadsources;  /**< lin, log or sampling for ppt->quadsources? */
+  double custom_tau_ini_quadsources;           /**< Initial time for the sampling of 2nd-order eqs source terms */
+  double custom_tau_end_quadsources;           /**< Final time for the sampling of 2nd-order eqs source terms */
+  int    custom_tau_size_quadsources;          /**< Number of points where to sample the source terms */
+                                                
+  double custom_tau_step_quadsources;          /**< Step in ppt->tau_sampling_quadsources. Defined only if the mode is lin or log */
+  double custom_log_tau_ini_quadsources;       /**< Logarithm of ppt->tau_sampling[0], needed for interpolation purposes only */
+
+  //@}
+#endif // WITH_SONG_SUPPORT
+    
+#endif // WITH_BISPECTRA
+        
+    
   /** @name - technical parameters */
 
   //@{
