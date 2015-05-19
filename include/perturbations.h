@@ -6,6 +6,9 @@
 #include "thermodynamics.h"
 #include "evolver_ndf15.h"
 #include "evolver_rkck.h"
+#ifdef WITH_BISPECTRA
+#include "song_tools.h"  /* needed to access d_minus and d_plus */
+#endif // WITH_BISPECTRA
 
 #define _scalars_ ((ppt->has_scalars == _TRUE_) && (index_md == ppt->index_md_scalars))
 #define _vectors_ ((ppt->has_vectors == _TRUE_) && (index_md == ppt->index_md_vectors))
@@ -38,8 +41,12 @@ enum ncdmfa_flags {ncdmfa_off, ncdmfa_on};
  */
 
 //@{
-
+#ifndef WITH_BISPECTRA
 enum tca_method {first_order_MB,first_order_CAMB,first_order_CLASS,second_order_CRS,second_order_CLASS,compromise_CLASS};
+#else
+/* In SONG, we add a tca_none option where the TCA approximation is turned off */
+enum tca_method {first_order_MB,first_order_CAMB,first_order_CLASS,second_order_CRS,second_order_CLASS,compromise_CLASS,tca_none};
+#endif
 enum rsa_method {rsa_null,rsa_MD,rsa_MD_with_reio,rsa_none};
 enum ufa_method {ufa_mb,ufa_hu,ufa_CLASS,ufa_none};
 enum ncdmfa_method {ncdmfa_mb,ncdmfa_hu,ncdmfa_CLASS,ncdmfa_none};
@@ -61,6 +68,7 @@ enum possible_gauges {
 //@}
 
 #ifdef WITH_SONG_SUPPORT
+
 /**
  * Possible time-sampling methods for the quadratic sources.
  */
@@ -68,12 +76,20 @@ enum possible_gauges {
 //@{
 
 enum sources_tau_samplings {
-  lin_tau_sampling,                  /* Linear tau sampling */
-  log_tau_sampling,                  /* Logarithmic tau sampling */
-  class_tau_sampling                 /* Tau sampling adopted in perturb_timesampling_for_sources_1st_order */
+  lin_tau_sampling,                  /**< Linear time sampling */
+  log_tau_sampling,                  /**< Logarithmic time sampling */
+  class_tau_sampling                 /**< Time sampling adopted in CLASS for the array ppt->tau_sampling */
 };
 
 //@}
+
+/** Macro to quickly writing in the array ppt->quadsoruces */
+#define _set_quadsource_(index,value,args...) {                                      \
+    ppt->quadsources[index_md][index_ic * ppt->qs_size[index_md] + index]            \
+                    [index_tau * ppt->k_size[index_md] + index_k] = value;           \
+    sprintf(ppt->qs_labels[index_md][index],args);                                    \
+  }
+
 #endif // WITH_SONG_SUPPORT
 
 //@{
@@ -375,28 +391,21 @@ struct perturbs
   //@{
 
   short has_bispectra; /**< do we need to compute any harmonic space bispectrum b_l1l2l3? */
-
   short has_bi_cmb_temperature;       /**< do we need bispectra for CMB temperature? */
   short has_bi_cmb_polarization;      /**< do we need bispectra for CMB polarization? */
-  short has_bi_cmb_rayleigh;          /**< do we need bispectra for CMB Rayleigh scattering? */
 
-  short has_cl_cmb_rayleigh;          /**< do we need Cl's for the CMB Rayleigh scattering? */
   short has_cl_cmb_zeta;              /**< do we need Cl's for the primordial curvature perturbation zeta?
                                            This is needed to reproduce the analytical approximation of the
                                            squeezed temperature bispectrum in Lewis
                                            2012 (arxiv.org/abs/1204.5018). */
-    
-  short recombination_only_zeta;      /**< should the curvature perturbation zeta only include contributions */
-
-  short has_perturbed_recombination_stz;  /**< Shall we compute perturbed ionization fraction as in Senatore,
-                                               Tassev, Zaldarriaga 2009? */
+  short has_source_zeta; /**< do we need source for the primordial curvature perturbation zeta? */
+  short recombination_only_zeta;      /**< should the curvature perturbation zeta only include contributions */  
+  int index_tp_zeta; /**< index value for the primordial curvature perturbation zeta */
   
   short has_scattering_in_los; /**< Shall we include the scattering terms in the line-of-sight sources? */
-
   short has_photon_monopole_in_los; /**< Shall we include the g/4*delta_g term in the line-of-sight sources? */
-
   short has_metric_in_los; /**< Shall we include the metric terms in the line-of-sight sources? */
-
+  
   /* Shall we include the Sachs-Wolfe (SW) and integrated Sachs-Wolfe (ISW) effects in the line-of-sight
   sources? Note when either of these flags is set to true, has_metric_in_los is always set to false to
   avoid double counting the effects. */
@@ -413,7 +422,11 @@ struct perturbs
 
   short has_perturbations2;   /**< Do we need to store the sources for Song? */
   short has_polarization2;    /**< Do we need to compute the E polarisation for Song? */
-  
+  short has_perturbed_recombination_stz; /**< Shall we compute perturbed ionization fraction as in Senatore,
+                                            Tassev, Zaldarriaga, 2009 (http://arxiv.org/abs/0812.3652)? We
+                                            describe our approach in sec. 5.3.4 of http://arxiv.org/abs/1405.2280. */
+
+
   double *** quadsources; /**< The ppt->quadsources array is used to store the first-order transfer
                                functions needed by the second-order module.  While ppt->sources is
                                used to store the line-of-sight sources, ppt->quadsources is only used
@@ -448,7 +461,7 @@ struct perturbs
   int index_qs_phi_prime;           /**< index for the tau derivative of the Newtonian gauge curvature potential */
   int index_qs_psi_prime;           /**< index for the tau derivative of the Newtonian gauge time potential */
                                    
-  /* Matter variables */
+  /* Photons */
   int index_qs_delta_g;               /**< index for the photon temperature density contrast */
   int index_qs_theta_g;               /**< index for the photon temperature velocity divergence */
   int index_qs_v_g;                   /**< index for the photon temperature velocity */
@@ -458,13 +471,16 @@ struct perturbs
   int index_qs_monopole_collision_g;  /**< index for the photon temperature collision term */
   int index_qs_monopole_collision_E;  /**< index for the photon E-polarisation collision term */
 
+  /* Baryons */
   int index_qs_delta_b;               /**< index for the baryon density contrast */
   int index_qs_theta_b;               /**< index for the baryon velocity divergence */
   int index_qs_v_b;                   /**< index for the baryon velocity */
   int index_qs_v_b_prime;             /**< index for the tau derivative of the baryon velocity */
   int index_qs_monopole_b;            /**< index for the baryon monopole */
   int index_qs_dipole_b;              /**< index for the baryon dipole */
-
+  int index_qs_delta_Xe;  /**< index for the perturbation in the fraction of free electrons */
+  
+  /* Cold dark matter */
   int index_qs_delta_cdm;             /**< index for the cold dark matter density contrast */
   int index_qs_theta_cdm;             /**< index for the cold dark matter velocity divergence */
   int index_qs_v_cdm;                 /**< index for the cold dark matter velocity */
@@ -472,18 +488,19 @@ struct perturbs
   int index_qs_monopole_cdm;          /**< index for the cold dark matter monopole */
   int index_qs_dipole_cdm;            /**< index for the cold dark matter dipole */
 
+  /* Neutrinos */
   int index_qs_delta_ur;              /**< index for the neutrino density contrast */
   int index_qs_theta_ur;              /**< index for the neutrino velocity divergence */
   int index_qs_v_ur;                  /**< index for the neutrino velocity */
   int index_qs_shear_ur;              /**< index for the neutrino temperature shear */
   int index_qs_monopole_ur;           /**< index for the neutrino temperature monopole */
-  
-  // int index_qs_delta_Xe;  /**< Perturbation in the fraction of free electrons */
 
-  short inter_normal; /**< Flag for calling sources_at_tau_cubic_spline and find position in
+  enum interpolation_methods quadsources_time_interpolation; /**< Interpolation method for the quadratic sources in
+                                                                  the 2nd-order system */
+
+  short inter_normal; /**< Flag for calling sources_at_tau_cubic_spline() and find position in
                            interpolation table normally */
-
-  short inter_closeby; /**< Flag for calling sources_at_tau_cubic_spline and find position
+  short inter_closeby; /**< Flag for calling sources_at_tau_cubic_spline() and find position
                             in interpolation table starting from previous position in previous
                             call */
 
@@ -596,6 +613,22 @@ struct perturb_vector
                             perturbations enter in the calculation of
                             source functions */
 
+#ifdef WITH_SONG_SUPPORT
+
+  /* E-mode polarization (not computed in original CLASS) */
+  /* TODO: Rather than evolve a separate hierarchy, use instead
+  Tram & Lesgourgues, 2013 (http://arxiv.org/abs/1305.3261) */
+
+  int index_pt_monopole_E; /**< index where the E-mode polarization hierarchy starts;
+                              note that the monopole and dipole always vanish for E-modes. */
+  
+  int l_max_E; /**< max momentum in Boltzmann hierarchy (at least 3) */
+
+  int index_pt_delta_Xe;   /**< index for the perturbed density of free electrons */
+
+#endif // WITH_SONG_SUPPORT
+
+
 };
 
 
@@ -652,6 +685,9 @@ struct perturb_workspace
   double vector_source_v;
 
   double tca_shear_g; /**< photon shear in tight-coupling approximation */
+#ifdef WITH_SONG_SUPPORT
+  double tca_shear_g_prime; /**< photon shear derivative in tight-coupling approximation */
+#endif // WITH_SONG_SUPPORT
   double tca_slip;    /**< photon-baryon slip in tight-coupling approximation */
   double rsa_delta_g; /**< photon density in radiation streaming approximation */
   double rsa_theta_g; /**< photon velocity in radiation streaming approximation */
@@ -703,6 +739,19 @@ struct perturb_workspace
   double * s_l;     /**< array of freestreaming coefficients s_l = sqrt(1-K*(l^2-1)/k^2) */
 
   //@}
+
+#ifdef WITH_BISPECTRA
+  /** @name - debug parameters */
+
+  //@{
+
+  int derivs_count; /**< counter keeping track of how many times the function perturb2_derivs has
+                       been called for the considered wavemode */
+
+  int index_k; /**< include information on the considered k in order to print meaningful debug */
+
+  //@}
+#endif // WITH_BISPECTRA
 
 };
 
@@ -952,6 +1001,71 @@ extern "C" {
 
   int perturb_prepare_output(struct background * pba,
                              struct perturbs * ppt);
+                             
+                             
+#ifdef WITH_SONG_SUPPORT
+
+  int perturb_quadsources_at_tau(
+             struct precision * ppr,
+             struct perturbs * ppt,
+             int index_mode,
+             int index_ic,
+             int index_k,
+             double tau,
+             short intermode,
+             int * last_index,
+             double * psource
+             );
+
+  int perturb_quadsources_at_tau_spline(
+             struct perturbs * ppt,
+             int index_mode,
+             int index_ic,
+             int index_k,
+             double tau,
+             short intermode,
+             int * last_index,
+             double * pvecsources
+             );
+
+  int perturb_quadsources_at_tau_linear(
+            struct perturbs * ppt,
+            int index_mode,
+            int index_ic,
+            int index_k,
+            double tau,
+            double * psource
+            );
+            
+  int perturb_indices_of_perturbs_song(
+				    struct precision * ppr,
+				    struct background * pba,
+				    struct thermo * pth,
+				    struct perturbs * ppt
+				    );
+
+  int perturb_sources_song(
+            double tau,
+            double * pvecperturbations,
+            double * pvecderivs,
+            int index_tau,
+            void * parameters_and_workspace,
+            ErrorMsg error_message
+            );
+
+  int perturb_compute_psi_prime(
+         struct precision * ppr,
+         struct background * pba,
+         struct thermo * pth,
+         struct perturbs * ppt,
+         double tau,
+         double * y,
+         double * dy,
+         double * psi_prime,
+         struct perturb_workspace * ppw
+         );
+
+#endif // WITH_SONG_SUPPORT
 
 #ifdef __cplusplus
 }

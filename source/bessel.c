@@ -359,9 +359,8 @@ int bessel_init(
   /* In the bispectrum integral the upper limit in the time variable is r_max rather
   than tau0. Here we scale the Bessels domain so that it includes the integration domain
   of the bispectrum. */
-  pbs->tau0 = pba->conformal_age;
   if (pbs->has_bispectra == _TRUE_)
-    pbs->x_max = MAX (pbs->x_max, pbs->x_max*ppr->r_max/pbs->tau0);
+    pbs->x_max = MAX (pbs->x_max, pbs->x_max*ppr->r_max/pba->conformal_age);
 
   /** - copy l values from the transfer module and set x_max */
 

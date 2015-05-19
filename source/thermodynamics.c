@@ -1752,6 +1752,11 @@ int thermodynamics_reionization(
 
     }
 
+#ifdef WITH_BISPECTRA
+    /* Pass to the thermodynamics structure the redshift where reionization starts */
+    pth->z_reio_start = preio->reionization_parameters[preio->index_reio_start];
+#endif // WITH_BISPECTRA
+    
     free(preio->reionization_parameters);
 
     return _SUCCESS_;
@@ -1834,6 +1839,11 @@ int thermodynamics_reionization(
                pth->error_message);
 
     pth->tau_reio=preio->reionization_optical_depth;
+
+#ifdef WITH_BISPECTRA
+    /* Pass to the thermodynamics structure the redshift where reionization starts */
+    pth->z_reio_start = preio->reionization_parameters[preio->index_reio_start];
+#endif // WITH_BISPECTRA
 
     return _SUCCESS_;
 
@@ -3254,9 +3264,12 @@ int thermodynamics_merge_reco_and_reio(
 #ifdef WITH_SONG_SUPPORT
 
 /**
- * Compute functions needed to obtain the perturbed fraction of free electrons, delta_Xe.
+ * Compute the derivatives of the Q function for perturbed recombination.
+ * 
+ * These are needed to obtain the perturbed fraction of free electrons, delta_Xe.
  * These quantities will be used in the perturbation module to construct the evolution
- * equation for delta_Xe.
+ * equation for delta_Xe, using the approach in http://arxiv.org/abs/0812.3652. I describe
+ * the procedure in my thesis (http://arxiv.org/abs/1405.2280) in sec. 5.3.4.
  *
  * All computations are made in eV units.
  */

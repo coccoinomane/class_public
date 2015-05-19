@@ -2792,7 +2792,7 @@ int input_read_parameters(
 
   /** i.1. parameters in the perturbations module */
   
-  class_read_double("k_scalar_logstep_super",ppr->k_scalar_logstep_super);
+  class_read_double("k_logstep_super",ppr->k_logstep_super);
 
   /** i.1.1. First-order LOS effects */
 
@@ -2825,6 +2825,11 @@ int input_read_parameters(
   if ((ppt->has_sw == _TRUE_) || (ppt->has_isw == _TRUE_))
     ppt->has_metric_in_los = _FALSE_;
 
+  class_test ((ppt->has_scattering_in_los == _FALSE_) || (ppt->has_photon_monopole_in_los == _FALSE_)
+    || (ppt->has_metric_in_los == _FALSE_) || (ppt->has_sw == _TRUE_) || (ppt->has_isw == _TRUE_),
+    errmsg,
+    "Support for custom 1st-order line of sight temporarily disabled in SONG");
+
   /* If effects that are not peaked at recombination are included, we need to extend the integration range up to today */
   // if ((ppt->has_metric_in_los == _FALSE_) && (ppt->has_isw == _FALSE_))
   //   ppt->has_recombination_only = _TRUE_;
@@ -2845,6 +2850,8 @@ int input_read_parameters(
       ppt->recombination_only_zeta = _FALSE_;
   }
   
+
+#ifdef WITH_SONG_SUPPORT
 
   /** i.1.2. Time sampling for quadratic sources */
 
@@ -2867,8 +2874,8 @@ int input_read_parameters(
   class_read_int("custom_tau_size_quadsources", ppt->custom_tau_size_quadsources);
     
   class_call(parser_read_string(pfc,"custom_tau_mode_quadsources",&string1,&flag1,errmsg),
-	     errmsg,
-	     errmsg);	
+       errmsg,
+       errmsg);  
 
   if (flag1 == _TRUE_) {
 
@@ -2883,8 +2890,8 @@ int input_read_parameters(
     
     else
       class_test(1==1,
-    		errmsg,	       
-    		"custom_tau_mode_quadsources=%s not supported; choose between 'lin', 'log' or 'class'", string1);
+        errmsg,         
+        "custom_tau_mode_quadsources=%s not supported; choose between 'lin', 'log' or 'class'", string1);
   }
 
   /* Define time step, either linear or logarithmic (used only for interpolation purposes) */
@@ -2900,8 +2907,8 @@ int input_read_parameters(
   /** i.1.3. Time interpolation of quadratic sources */
 
   class_call(parser_read_string(pfc,"quadsources_time_interpolation",&string1,&flag1,errmsg),
-	     errmsg,
-	     errmsg);	
+       errmsg,
+       errmsg);  
 
   if (flag1 == _TRUE_) {
 
@@ -2914,10 +2921,14 @@ int input_read_parameters(
     
     else
       class_test(1==1,
-    		 errmsg,	       
-    		 "quadsources_time_interpolation=%s not supported. Choose between 'linear' or 'cubic'", string1);
+         errmsg,         
+         "quadsources_time_interpolation=%s not supported. Choose between 'linear' or 'cubic'", string1);
   }
+  
+  /* ppt needs to know the interpolation method in order to correctly free ppt->dd_quadsources */
+  ppt->quadsources_time_interpolation = ppr->quadsources_time_interpolation;
 
+#endif // WITH_SONG_SUPPORT
 
   /** i.2 parameters in the bessels module */
 
@@ -4380,7 +4391,7 @@ int input_default_precision ( struct precision * ppr ) {
    */
 
   /* k-sampling */
-  ppr->k_scalar_logstep_super=1.2;
+  ppr->k_logstep_super=1.2;
 
   /* l-sampling */
   ppr->compute_only_even_ls = _FALSE_;
@@ -4641,15 +4652,16 @@ int input_try_unknown_parameters(double * unknown_parameter,
     class_call(thermodynamics_init(&pr,&ba,&th), th.error_message, errmsg);
   }
 
+  if (pfzw->required_computation_stage >= cs_perturbations){
+       if (input_verbose>2)
+         printf("Stage 3: perturbations\n");
+    pt.perturbations_verbose = 0;
+    class_call(perturb_init(&pr,&ba,&th,&pt), pt.error_message, errmsg);
+  }
+
+
   /* TODO: uncomment once you have implemented these modules in SONG */
 
-//   if (pfzw->required_computation_stage >= cs_perturbations){
-//        if (input_verbose>2)
-//          printf("Stage 3: perturbations\n");
-//     pt.perturbations_verbose = 0;
-//     class_call(perturb_init(&pr,&ba,&th,&pt), pt.error_message, errmsg);
-//   }
-//
 //   if (pfzw->required_computation_stage >= cs_primordial){
 //     if (input_verbose>2)
 //       printf("Stage 4: primordial\n");
@@ -4769,9 +4781,9 @@ int input_try_unknown_parameters(double * unknown_parameter,
 //   if (pfzw->required_computation_stage >= cs_primordial){
 //     class_call(primordial_free(&pm), pm.error_message, errmsg);
 //   }
-//   if (pfzw->required_computation_stage >= cs_perturbations){
-//     class_call(perturb_free(&pt), pt.error_message, errmsg);
-//   }
+  if (pfzw->required_computation_stage >= cs_perturbations){
+    class_call(perturb_free(&pt), pt.error_message, errmsg);
+  }
   if (pfzw->required_computation_stage >= cs_thermodynamics){
     class_call(thermodynamics_free(&th), th.error_message, errmsg);
   }

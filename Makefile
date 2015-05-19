@@ -103,10 +103,6 @@ TOOLS = growTable.o dei_rkck.o sparse.o evolver_rkck.o  evolver_ndf15.o arrays.o
 
 SOURCE = input.o background.o thermodynamics.o perturbations.o primordial.o nonlinear.o transfer.o spectra.o lensing.o
 
-ifeq ($(WITH_BISPECTRA),1)
-	SOURCE += bessel.o bispectra.o fisher.o
-endif
-
 INPUT = input.o
 
 PRECISION = precision.o
@@ -150,6 +146,12 @@ TEST_SIGMA = test_sigma.o
 TEST_HYPERSPHERICAL = test_hyperspherical.o
 
 TEST_STEPHANE = test_stephane.o
+
+# Compile source files specific to SONG
+ifeq ($(WITH_BISPECTRA),1)
+	SOURCE += bessel.o bispectra.o fisher.o
+	TOOLS += song_tools.o mesh_interpolation.o slatec_3j_C.o
+endif
 
 C_TOOLS =  $(addprefix tools/, $(addsuffix .c,$(basename $(TOOLS))))
 C_SOURCE = $(addprefix source/, $(addsuffix .c,$(basename $(SOURCE) $(OUTPUT))))

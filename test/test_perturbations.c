@@ -17,13 +17,25 @@ int main(int argc, char **argv) {
   struct spectra sp;          /* for output spectra */
   struct nonlinear nl;        /* for non-linear spectra */
   struct lensing le;          /* for lensed spectra */
+#ifdef WITH_BISPECTRA
+  struct bessels bs;          /* for bessel functions */
+  struct bispectra bi;        /* for bispectra */  
+  struct fisher fi;           /* for fisher matrix */
+#endif // WITH_BISPECTRA
   struct output op;           /* for output files */
   ErrorMsg errmsg;            /* for error messages */
 
+#ifndef WITH_BISPECTRA
   if (input_init_from_arguments(argc, argv,&pr,&ba,&th,&pt,&tr,&pm,&sp,&nl,&le,&op,errmsg) == _FAILURE_) {
     printf("\n\nError running input_init_from_arguments \n=>%s\n",errmsg);
     return _FAILURE_;
   }
+#else
+  if (input_init_from_arguments(argc, argv,&pr,&ba,&th,&pt,&tr,&pm,&sp,&nl,&le,&bs,&bi,&fi,&op,errmsg) == _FAILURE_) {
+    printf("\n\nError running input_init_from_arguments \n=>%s\n",errmsg);
+    return _FAILURE_;
+  }
+#endif // WITH_BISPECTRA
 
   if (background_init(&pr,&ba) == _FAILURE_) {
     printf("\n\nError running background_init \n=>%s\n",ba.error_message);

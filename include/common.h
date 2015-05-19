@@ -56,7 +56,7 @@ typedef char FileName[_FILENAMESIZE_];
 
 #define _TOLVAR_ 100. /**< The minimum allowed variation is the machine precision times this number */
 
-#define _HUGE_ 1.e99
+#define _HUGE_ 1.e99 /**< Numbers larger than this will be considere effectively infinite */
 
 #define _OUTPUTPRECISION_ 12 /**< Number of significant digits in some output files */
 
@@ -73,7 +73,6 @@ typedef char FileName[_FILENAMESIZE_];
 
 #ifdef WITH_BISPECTRA
 
-#define _HUGE_ 1.e99 /**< Numbers larger than this will be considere effectively infinite */
 #define _MINUSCULE_ 1.e-75 /**< Numbers smaller than this will be considered effectively zero */
 #define _EPS_ 0.01 /**< Constant used to cast a float to an integer. Must be smaller than 0.5 */
 #define _SMALL_ (ppr->smallest_allowed_variation*1e6) /**< Constant used for relative floating point comparisons (only debug) */
@@ -874,7 +873,7 @@ struct precision
   // -                       Perturbations                        -
   // --------------------------------------------------------------
   
-  double k_scalar_logstep_super; /**< logarithmic step in k space, used to best sample the largest k's */
+  double k_logstep_super; /**< logarithmic step in k space, used to best sample the largest k's */
   double perturb_sampling_stepsize_quadsources; /**< sampling frequency for the quadratic sources (overridden if using a custom sampling) */
   
   

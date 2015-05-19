@@ -151,7 +151,12 @@ int perturb_init(
              "In the synchronous gauge, it is not self-consistent to assume no CDM: the later is used to define the initial timelike hypersurface. You can either add a negligible amount of CDM or switch to newtonian gauge");
 
   class_test ((ppr->tight_coupling_approximation < first_order_MB) ||
+#ifndef WITH_BISPECTRA
               (ppr->tight_coupling_approximation > compromise_CLASS),
+#else
+              /* In SONG we introduced the option to turn off the TCA */
+              (ppr->tight_coupling_approximation > tca_none),
+#endif
               ppt->error_message,
               "your tight_coupling_approximation is set to %d, out of range defined in perturbations.h",ppr->tight_coupling_approximation);
 
@@ -241,6 +246,22 @@ int perturb_init(
              ppt->error_message,
              ppt->error_message);
 
+#ifdef WITH_SONG_SUPPORT
+
+  /** - initialize indices and lists in the perturbs structure related to the computation
+      of second-order perturbations  */
+
+  if (ppt->has_perturbations2 == _TRUE_) {
+    class_call(perturb_indices_of_perturbs_song(ppr,
+                                                pba,
+                                                pth,
+                                                ppt),
+               ppt->error_message,
+               ppt->error_message);
+  }
+
+#endif // WITH_SONG_SUPPORT
+             
   /** - define the common time sampling for all sources using
       perturb_timesampling_for_sources() */
 
@@ -426,6 +447,49 @@ int perturb_free(
                  struct perturbs * ppt
                  ) {
 
+#ifdef WITH_SONG_SUPPORT
+  /* Free arrays used to store the quadratic sources. This should be done before freeing
+  the standard ppt arrays because it relies on them. */
+  
+  if (ppt->has_perturbations2 == _TRUE_) {  
+
+    for (int index_md = 0; index_md < ppt->md_size; index_md++) {
+    
+      for (int index_ic = 0; index_ic < ppt->ic_size[index_md]; index_ic++) {
+
+        for (int index_qs = 0; index_qs < ppt->qs_size[index_md]; index_qs++) {
+
+          free(ppt->quadsources[index_md][index_ic*ppt->qs_size[index_md]+index_qs]);
+
+          if (ppt->quadsources_time_interpolation == cubic_interpolation)
+            free(ppt->dd_quadsources[index_md][index_ic*ppt->qs_size[index_md]+index_qs]);
+
+        } // end of for (index_qs)
+
+      } // end of for (index_ic)
+
+      for (int index_type = 0; index_type < ppt->qs_size[index_md]; index_type++)
+        free(ppt->qs_labels[index_md][index_type]);
+
+      free(ppt->quadsources[index_md]);
+
+      if (ppt->quadsources_time_interpolation == cubic_interpolation)
+        free(ppt->dd_quadsources[index_md]);
+        
+      free(ppt->qs_labels[index_md]);  
+
+    } // end of for (index_md)
+
+    free(ppt->quadsources);
+    if (ppt->quadsources_time_interpolation == cubic_interpolation)
+      free(ppt->dd_quadsources);
+    free(ppt->qs_labels);    
+    free(ppt->qs_size);
+    free(ppt->tau_sampling_quadsources);
+    
+  }
+#endif // WITH_SONG_SUPPORT
+
   int index_md,index_ic,index_type;
   int filenum;
 
@@ -567,6 +631,9 @@ int perturb_indices_of_perturbs(
   ppt->has_source_phi_prime = _FALSE_;
   ppt->has_source_phi_plus_psi = _FALSE_;
   ppt->has_source_psi = _FALSE_;
+#ifdef WITH_BISPECTRA
+  ppt->has_source_zeta = _FALSE_;
+#endif // WITH_BISPECTRA
 
   /** - source flags and indices, for sources that all modes have in
       common (temperature, polarization, ...). For temperature, the
@@ -595,7 +662,15 @@ int perturb_indices_of_perturbs(
   class_define_index(ppt->index_tp_perturbed_recombination_delta_chi,ppt->has_perturbed_recombination,index_type,1);
 
 
-
+#ifdef WITH_SONG_SUPPORT
+  if (ppt->has_perturbations2 == _TRUE_) {
+    /* In SONG, the wavemode list is determined by the function in perturb2_get_k_lists() in the
+    perturbations2.c module. If we are here, perturb2_get_k_lists() has already been 
+    called and the k-sampling has already been determined. Therefore, we do not need to do
+    anything. */
+    goto loop_over_modes;
+  }
+#endif // WITH_SONG_SUPPORT
 
   /** define k values with perturb_get_k_list() */
 
@@ -605,6 +680,10 @@ int perturb_indices_of_perturbs(
                                 ppt),
              ppt->error_message,
              ppt->error_message);
+
+#ifdef WITH_SONG_SUPPORT
+  loop_over_modes:
+#endif // WITH_SONG_SUPPORT
 
   /** - loop over modes. Initialize flags and indices which are specific to each mode. */
 
@@ -685,6 +764,12 @@ int perturb_indices_of_perturbs(
         }
       }
 
+#ifdef WITH_BISPECTRA
+      if (ppt->has_cl_cmb_zeta == _TRUE_) {
+        ppt->has_source_zeta = _TRUE_;
+      }
+#endif // WITH_BISPECTRA      
+      
       index_type = index_type_common;
       class_define_index(ppt->index_tp_t0,         ppt->has_source_t,         index_type,1);
       class_define_index(ppt->index_tp_t1,         ppt->has_source_t,         index_type,1);
@@ -712,6 +797,9 @@ int perturb_indices_of_perturbs(
       class_define_index(ppt->index_tp_phi_prime,  ppt->has_source_phi_prime, index_type,1);
       class_define_index(ppt->index_tp_phi_plus_psi,ppt->has_source_phi_plus_psi,index_type,1);
       class_define_index(ppt->index_tp_psi,        ppt->has_source_psi,       index_type,1);
+#ifdef WITH_BISPECTRA
+      class_define_index(ppt->index_tp_zeta,       ppt->has_source_zeta,      index_type,1);
+#endif // WITH_BISPECTRA
       ppt->tp_size[index_md] = index_type;
 
       class_test(index_type == 0,
@@ -1162,6 +1250,85 @@ int perturb_timesampling_for_sources(
     }
   }
 
+
+#ifdef WITH_SONG_SUPPORT
+
+  /* Uncomment the following lines in order to use a custom time sampling */
+  // double tau_end = 1000;
+  // int index_tau_end = 0;
+  // while (ppt->tau_sampling[index_tau_end] < tau_end)
+  //   ++index_tau_end;
+  // ppt->tau_size = index_tau_end+1;
+  //
+  // printf("************  ADJUSTED TIME SAMPLING TO:  ****************\n");
+  // for (int index_tau=0; index_tau < ppt->tau_size; ++index_tau)
+  //   printf("%g ", ppt->tau_sampling[index_tau]);
+  // printf("\n");
+  
+  /* In principle, we should now determine the time sampling for the array ppt->quadsources,
+  containing the first-order quantities needed to solve the second-order system. However,
+  the time-sampling for the quadratic sources (ppt->tau_sampling_quadsources) was computed
+  by the function in perturb2_timesampling_for_sources() in the perturbations2.c module.
+  If we are here, perturb2_timesampling_for_sources() has already been called and the
+  time-sampling has already been determined. Therefore, what is left to do is to allocate
+  the ppt->quadsources array based on the size of ppt->tau_sampling_quadsources. */
+
+  if (ppt->has_perturbations2 == _TRUE_) {
+
+    if (ppt->perturbations_verbose > 1)
+      printf("    * 1st-order LOS sources time sampling: %d times in the range tau=(%g,%g)\n",
+        ppt->tau_size, ppt->tau_sampling[0], ppt->tau_sampling[ppt->tau_size-1]);
+
+    /* Loop over modes, initial conditions and types. For each of them, allocate the following arrays:
+
+      - array ppt->quadsources, which contains the transfer functions needed that appear
+        on the right hand side of the second-order system as quadratic sources
+      - array ppt->dd_quadsources, which contains the second derivative wrt time of 
+        ppt->quadsources, in view of spline interpolation.
+
+    The size of the arrays was determined inside perturb2_timesampling_for_sources(). */
+
+    for (int index_mode = 0; index_mode < ppt->md_size; index_mode++) {
+      for (int index_ic = 0; index_ic < ppt->ic_size[index_mode]; index_ic++) {
+        for (int index_type = 0; index_type < ppt->qs_size[index_mode]; index_type++) {
+
+          /* We use 'calloc' instead of 'alloc' because, in the tca and rsa approximations,
+          the l>3 multipoles are all vanishing */
+          class_calloc(ppt->quadsources[index_mode][index_ic*ppt->qs_size[index_mode]+index_type],
+               ppt->k_size[index_mode] * ppt->tau_size_quadsources,
+               sizeof(double),
+               ppt->error_message);
+
+          /* Also allocate array with the second derivatives of the quadsources with respect to time,
+          used for later spline interpolation */
+          if (ppr->quadsources_time_interpolation == cubic_interpolation)
+            class_alloc(ppt->dd_quadsources[index_mode][index_ic*ppt->qs_size[index_mode]+index_type],
+                 ppt->k_size[index_mode] * ppt->tau_size_quadsources * sizeof(double),
+                 ppt->error_message);
+
+        } // end of for(index_type)
+      } // end of for(index_ic)
+    } // end of for(index_mode)
+
+    /* Print some information on memory usage */
+    if (ppt->perturbations_verbose > 1) {
+      long int sources_size = ppt->tp_size[0]*ppt->k_size[0]*ppt->tau_size;
+      long int quadsources_size = ppt->qs_size[0]*ppt->k_size[0]*ppt->tau_size_quadsources;
+      long int dd_quadsources_size = quadsources_size;
+      long int total_size = sources_size;
+      if (ppt->has_perturbations2 == _TRUE_) {
+        total_size += quadsources_size;
+        if (ppr->quadsources_time_interpolation == cubic_interpolation)
+          total_size += dd_quadsources_size;
+      }
+      printf ("    * memory in use: ~ %g MB\n", 8*total_size/1e6);
+    }
+
+  } // end of if(has_perturbations2)
+
+#endif // WITH_SONG_SUPPORT
+
+
   return _SUCCESS_;
 }
 
@@ -1365,12 +1532,32 @@ int perturb_get_k_list(
 
       step *= (k*k/scale2+1.)/(k*k/scale2+1./ppr->k_step_super_reduction);
 
+#ifndef WITH_BISPECTRA
       class_test(step / k < ppr->smallest_allowed_variation,
                  ppt->error_message,
                  "k step =%e < machine precision : leads either to numerical error or infinite loop",
                  step * k_rec);
 
       k += step;
+#else
+      /* We also define a logarithmic step so that the largest scale (k->0)
+         are better sampled. This extra step, when optimized, sensibly quickens
+         the computation of bispectra (and possibly of spectra as well) */
+
+      double log_step = k * (ppr->k_logstep_super - 1);
+
+      class_test(MIN(step, log_step) < ppr->smallest_allowed_variation,
+                 ppt->error_message,
+                 "k step =%e < machine precision : leads either to numerical error or infinite loop",
+                 MIN(step, log_step));
+
+      /* Use the smallest between the logarithmic and linear steps. If we are considering small enough
+         scales, just use the linear step. */
+      if ((log_step > step) || (k > k_rec))
+        k += step;
+      else
+        k *= ppr->k_logstep_super;
+#endif // WITH_BISPECTRA
 
       class_test(k <= ppt->k[ppt->index_md_scalars][index_k-1],
                  ppt->error_message,
@@ -1922,6 +2109,11 @@ int perturb_workspace_init(
   if (_scalars_) {
 
     ppw->approx[ppw->index_ap_tca]=(int)tca_on;
+#ifdef WITH_BISPECTRA
+    /* TODO: why does SONG have this line? */
+    /* By default, assume TCA is off (this does not have any effect) */
+    // ppw->approx[ppw->index_ap_tca]=(int)tca_off;
+#endif // WITH_BISPECTRA
     ppw->approx[ppw->index_ap_rsa]=(int)rsa_off;
     if (pba->has_ur == _TRUE_) {
       ppw->approx[ppw->index_ap_ufa]=(int)ufa_off;
@@ -1934,6 +2126,11 @@ int perturb_workspace_init(
   if (_tensors_) {
 
     ppw->approx[ppw->index_ap_tca]=(int)tca_on;
+#ifdef WITH_BISPECTRA
+    /* TODO: why does SONG have this line? */
+    /* By default, assume TCA is off (this does not have any effect) */
+    // ppw->approx[ppw->index_ap_tca]=(int)tca_off;
+#endif // WITH_BISPECTRA
     ppw->approx[ppw->index_ap_rsa]=(int)rsa_off;
   }
 
@@ -2094,6 +2291,16 @@ int perturb_solve(
   /** - get wavenumber value */
   k = ppt->k[index_md][index_k];
 
+#ifdef WITH_BISPECTRA
+
+  /* Include information on the considered k in order to print meaningful debug */
+  ppw->index_k = index_k;
+
+  /* Reset the counter that keeps track of the number of calls of the function perturb_derivs() */
+  ppw->derivs_count = 0;
+
+#endif // WITH_BISPECTRA
+
   class_test(k == 0.,
              ppt->error_message,
              "stop to avoid division by zero");
@@ -2166,6 +2373,14 @@ int perturb_solve(
 
   /* is at most the time at which sources must be sampled */
   tau_upper = ppt->tau_sampling[0];
+  
+#ifdef WITH_SONG_SUPPORT
+
+  /* Start at least the smallest time needed by the second-order system */
+  if (ppt->has_perturbations2 == _TRUE_)
+    tau_upper = MIN (tau_upper, ppt->tau_sampling_quadsources[0]);
+
+#endif // WITH_SONG_SUPPORT
 
   /* start bisection */
   tau_mid = 0.5*(tau_lower + tau_upper);
@@ -2369,11 +2584,105 @@ int perturb_solve(
                                tau_actual_size,
                                perturb_sources,
                                perhaps_print_variables,
+                               NULL, /* exit strategy */
                                ppt->error_message),
                ppt->error_message,
                ppt->error_message);
 
   }
+
+
+#ifdef WITH_SONG_SUPPORT
+
+  /* Re-solve the system to obtain the quadratic sources. We do that because the time needed to re-solve
+  the first-order system is negligible compared to the second-order one. The alternative would be to
+  merge the two different time-samplings (the one for the line-of-sight sources in ppt->tau_sampling, and
+  the one for the quadratic sources in ppt2->tau_sampling_quadsources), pass them to a single call of the
+  evolver, and modify the perturb_source() function in such a way that it distinguishes when a given
+  time belongs to one or the other time-samplings, and hence call either perturb_source_terms_1st_order or
+  perturb_source_song. */
+
+  if (ppt->has_perturbations2 == _TRUE_) {
+
+    for (index_interval=0; index_interval<interval_number; index_interval++) {
+
+      /** (a) fix the approximation scheme */
+
+      for (index_ap=0; index_ap<ppw->ap_size; index_ap++)
+        ppw->approx[index_ap] = interval_approx[index_interval][index_ap];
+
+      /* Maximum time we are interested in, that is, the last time where we need
+      to compute the quadratic sources for the second-order system */
+      double tau_max = ppt->tau_sampling_quadsources[ppt->tau_size_quadsources-1];
+
+      /* Skip integration intervals that are not needed */
+      if (interval_limit[index_interval] > tau_max)
+        continue;
+
+      /* Stop integrating the system when we have reached tau_max */
+      interval_limit[index_interval+1] = MIN (interval_limit[index_interval+1], tau_max);
+
+      /** (b) get the previous approximation scheme. If the current
+      interval starts from the initial time tau_ini, the previous
+      approximation is set to be a NULL pointer, so that the
+      function perturb_vector_init() knows that perturbations must
+      be initialized */
+
+      if (index_interval==0) {
+        previous_approx=NULL;
+      }
+      else {
+        previous_approx=interval_approx[index_interval-1];
+      }
+
+      /** (c) define the vector of perturbations to be integrated
+      over. If the current interval starts from the initial time
+      tau_ini, fill the vector with initial conditions for each
+      mode. If it starts from an approximation switching point,
+      redistribute correctly the perturbations from the previous to
+      the new vector of perturbations. */
+
+      class_call(perturb_vector_init(ppr,
+                                     pba,
+                                     pth,
+                                     ppt,
+                                     index_md,
+                                     index_ic,
+                                     k,
+                                     interval_limit[index_interval],
+                                     ppw,
+                                     previous_approx),
+        ppt->error_message,
+        ppt->error_message);
+
+
+      /** (d) integrate the perturbations over the current interval. */
+
+      class_call(generic_evolver(perturb_derivs,
+                                 interval_limit[index_interval],
+                                 interval_limit[index_interval+1],
+                                 ppw->pv->y,
+                                 ppw->pv->used_in_sources,
+                                 ppw->pv->pt_size,
+                                 &ppaw,
+                                 ppr->tol_perturb_integration,
+                                 ppr->smallest_allowed_variation,
+                                 perturb_timescale,
+                                 ppr->perturb_integration_stepsize,
+                                 ppt->tau_sampling_quadsources, /* Sample the system differently */
+                                 ppt->tau_size_quadsources,
+                                 perturb_sources_song, /* Also use a different function */
+                                 NULL, /* No print function */
+                                 NULL, /* No exit strategy */
+                                 ppt->error_message),
+        ppt->error_message,
+        ppt->error_message);
+              
+    } // end of for(index_interval)
+  } // end of if(has_perturbations2) 
+
+#endif // WITH_SONG_SUPPORT
+
 
   /** - if perturbations were printed in a file, close the file */
 
@@ -2390,6 +2699,35 @@ int perturb_solve(
         [index_tau * ppt->k_size[index_md] + index_k] = 0.;
     }
   }
+
+
+#ifdef WITH_SONG_SUPPORT
+
+  /* Compute second derivatives of the quadratic sources for SONG, in view of 
+  spline interpolation. */  
+
+  if (ppt->has_perturbations2 == _TRUE_) {
+
+  if (ppr->quadsources_time_interpolation == cubic_interpolation)
+    class_call (spline_sources_derivs(
+                  ppt->tau_sampling_quadsources,
+                  ppt->tau_size_quadsources,
+                  ppt->quadsources,
+                  ppt->qs_size[index_md],
+                  ppt->dd_quadsources,
+                  _SPLINE_EST_DERIV_,
+                  // _SPLINE_NATURAL_,
+                  index_md,
+                  index_ic,
+                  index_k,
+                  ppt->k_size[index_md],
+                  ppt->error_message
+                  ),
+      ppt->error_message,
+      ppt->error_message);
+  }
+
+#endif // WITH_SONG_SUPPORT  
 
   /** - free quantitites allocated at the beginning of the routine */
 
@@ -2995,10 +3333,37 @@ int perturb_vector_init(
       }
     }
 
+#ifdef WITH_SONG_SUPPORT
+
+    /* Include the E-mode polarization hierarchy (scalar modes).  Note that we shall
+    execute the following block of code no matter what is the adopted approximation
+    or gauge. */
+    /* TODO: Rather than evolve a separate hierarchy, use instead
+    Tram & Lesgourgues, 2013 (http://arxiv.org/abs/1305.3261) */
+    if ((ppt->has_polarization2 == _TRUE_) && (ppt->has_perturbations2 == _TRUE_)) {
+      
+      /* The number of equations does not change with the approximation scheme. */
+      ppv->l_max_E = ppr->l_max_pol_g;
+
+    	ppv->index_pt_monopole_E = index_pt++;
+    	index_pt += ppv->l_max_E;
+            
+    } // end of if(has_polarization2)
+    
+#endif // WITH_SONG_SUPPORT
+
     /* baryons */
 
     class_define_index(ppv->index_pt_delta_b,_TRUE_,index_pt,1); /* baryon density */
     class_define_index(ppv->index_pt_theta_b,_TRUE_,index_pt,1); /* baryon velocity */
+
+#ifdef WITH_SONG_SUPPORT
+
+    /* Evolve the perturbed fraction of free electrons, which is needed by the second-order
+    module to compute the photon collision term (see Sec. 5.3.4 of http://arxiv.org/abs/1405.2280) */
+    class_define_index(ppv->index_pt_delta_Xe,ppt->has_perturbed_recombination_stz,index_pt,1);
+
+#endif // WITH_SONG_SUPPORT
 
     /* cdm */
 
@@ -3294,6 +3659,19 @@ int perturb_vector_init(
 
   }
 
+
+#ifdef WITH_SONG_SUPPORT
+
+  /* In order to compute the source terms for the second-order equations,
+  we do need all the perturbations computed at first order */
+  if (ppt->has_perturbations2 == _TRUE_) {
+    for (index_pt=0; index_pt<ppv->pt_size; index_pt++)
+      ppv->used_in_sources[index_pt] = _TRUE_;
+  }
+
+#endif // WITH_SONG_SUPPORT
+  
+
   /** - case of setting initial conditions for a new wavenumber */
 
   if (pa_old == NULL) {
@@ -3326,6 +3704,12 @@ int perturb_vector_init(
                    "scalar initial conditions assume ncdm fluid approximation turned off");
 
       }
+
+
+  #ifdef WITH_BISPECTRA
+      /* Avoid the following test if the user chose not to use the TCA */
+      if (ppr->tight_coupling_approximation != tca_none)
+  #endif // WITH_BISPECTRA
 
       class_test(ppw->approx[ppw->index_ap_tca] == (int)tca_off,
                  ppt->error_message,
@@ -3444,6 +3828,21 @@ int perturb_vector_init(
       if (ppt->gauge == newtonian)
         ppv->y[ppv->index_pt_phi] =
           ppw->pv->y[ppw->pv->index_pt_phi];
+
+#ifdef WITH_SONG_SUPPORT
+      
+      /* E-mode polarization hierarchy */
+      if ((ppt->has_perturbations2 == _TRUE_) && (ppt->has_polarization2))
+        for(l=0; l<=ppv->l_max_E; ++l)
+          ppv->y[ppv->index_pt_monopole_E + l] = ppw->pv->y[ppw->pv->index_pt_monopole_E + l];
+
+      /* Perturbed fraction of free electrons */
+      if (ppt->has_perturbed_recombination_stz == _TRUE_) {
+        ppv->y[ppv->index_pt_delta_Xe] = ppw->pv->y[ppw->pv->index_pt_delta_Xe];
+      }
+
+#endif // WITH_SONG_SUPPORT
+
 
       /* -- case of switching off tight coupling
          approximation. Provide correct initial conditions to new set
@@ -4710,6 +5109,15 @@ int perturb_approximations(
 
     }
 
+#ifdef WITH_BISPECTRA
+
+    /* Always turn the TCA off if the user asked for tca_none  */
+    if (ppr->tight_coupling_approximation == tca_none) {
+      ppw->approx[ppw->index_ap_tca] = (int)tca_off;
+    }
+
+#endif // WITH_BISPECTRA
+
     /* (c) free-streaming approximations */
 
     if ((tau/tau_k > ppr->radiation_streaming_trigger_tau_over_tau_k) &&
@@ -5873,6 +6281,56 @@ int perturb_sources(
 
     }
 
+#ifdef WITH_BISPECTRA
+
+    /* zeta curvature perturbation */
+    if (ppt->has_source_zeta == _TRUE_) {
+      
+      if (ppt->gauge == newtonian) {
+
+        double Hc = pvecback[pba->index_bg_a]*pvecback[pba->index_bg_H];
+        double psi = pvecmetric[ppw->index_mt_psi];
+        double phi = y[ppw->pv->index_pt_phi];
+        double phi_prime = dy[ppw->pv->index_pt_phi];
+        double Omega_lambda = pvecback[pba->index_bg_rho_lambda]/pvecback[pba->index_bg_rho_crit];
+        double Omega_r = pvecback[pba->index_bg_Omega_r];
+        double w_rad = 1/3.;
+        double w_lambda = -1;
+        double g = pvecthermo[pth->index_th_g];
+        
+        /* Restrict contributions to zeta only at recombination, i.e. exclude reioniation */
+        if ((ppt->recombination_only_zeta == _TRUE_) && (pth->reio_parametrization != reio_none)) {
+          g /= exp(-pth->tau_reio);
+          if (z < pth->z_reio_start)
+            g = 0;
+        }
+        
+        /* Actual curvature perturbation */
+        double w_tot = w_rad*Omega_r + w_lambda*Omega_lambda;
+        double zeta = - phi - 2/(3.*(1+w_tot)) * (psi + phi_prime/Hc);
+
+        /* Uncomment to use the primordial curvature perturbation insted, as defined in Lewis 2012
+        (http://arxiv.org/abs/1204.5018). This is equivalent to the actual curvature perturbation
+        only on superhorizon scales. Note that Fig. 3 of Lewis 2012 seems to show the 'true' curvature
+        perturbation defined above rather than delta_g/4 - phi */
+        // zeta = delta_g/4 - phi;
+
+        _set_source_(ppt->index_tp_zeta) = g * zeta;
+        
+      }
+      else {
+
+        class_test (1==1,
+          ppt->error_message,
+          "curvature perturbation zeta only supported in Newtonian gauge");
+
+      } // end of if(newtonian)
+      
+    } // end of if(has_source_zeta)
+    
+#endif // WITH_BISPECTRA
+
+
     /* now, non-CMB sources */
 
     /* Bardeen potential -PHI_H = phi in Newtonian gauge */
@@ -6630,6 +7088,11 @@ int perturb_derivs(double tau,
   pvecmetric = ppw->pvecmetric;
   pv = ppw->pv;
 
+#ifdef WITH_BISPECTRA
+  /* Update counter of calls to this function */
+  ppw->derivs_count++;
+#endif // WITH_BISPECTRA
+
   /** - get background/thermo quantities in this point */
 
   class_call(background_at_tau(pba,
@@ -6947,6 +7410,35 @@ int perturb_derivs(double tau,
       dy[ppw->pv->index_pt_perturbed_recombination_delta_temp] =  2./3. * dy[ppw->pv->index_pt_delta_b] - a * Compton_CR * pow(pba->T_cmb/a, 4) * chi / (1.+chi+fHe) * ( (1.-pba->T_cmb*pba->a_today/a/pvecthermo[pth->index_th_Tb])*(delta_g + delta_chi*(1.+fHe)/(1.+chi+fHe)) + pba->T_cmb*pba->a_today/a/pvecthermo[pth->index_th_Tb] *(delta_temp - 1./4. * delta_g) );
 
     }
+    
+#ifdef WITH_SONG_SUPPORT
+
+    /* Equation for perturbed recombination (only hydrogen recombination). Here we follow
+    the approach used in Senatore et al. 2009 (http://arxiv.org/abs/0812.3652). We describe
+    our approach and plot some results in Sec. 5.3.4 of http://arxiv.org/abs/1405.2280. */
+    if (ppt->has_perturbed_recombination_stz == _TRUE_) {
+    
+      double H = pvecback[pba->index_bg_H];
+      double Hc = a*H;
+      double Q = pvecthermo[pth->index_th_Q];
+      double delta_Xe = y[ppw->pv->index_pt_delta_Xe];
+      double psi = pvecmetric[ppw->index_mt_psi];
+      double delta_b_prime = dy[ppw->pv->index_pt_delta_b];
+      
+      double dQ = pvecthermo[pth->index_th_dQ_dX] * delta_Xe
+                + pvecthermo[pth->index_th_dQ_dx] * delta_g
+                + pvecthermo[pth->index_th_dQ_dn] * delta_b
+                + pvecthermo[pth->index_th_dQ_dH] * (-psi - 1/3.*delta_b_prime/Hc);
+           
+      dy[ppw->pv->index_pt_delta_Xe] = a*(Q*psi + dQ);
+      
+      /* Some debug */
+      // if (ppw->index_k == 0)
+      //   fprintf (stderr, "%12.5g %12.5g %12.5g\n", tau, dy[ppw->pv->index_pt_delta_Xe], dQ);
+      
+    } // end of if(has_perturbed_recombination_stz)
+
+#endif // WITH_SONG_SUPPORT
 
     /** -> dcdm and dr */
 
@@ -7250,6 +7742,70 @@ int perturb_derivs(double tau,
         }
       }
     }
+
+
+#ifdef WITH_SONG_SUPPORT
+
+    /* Include the equations for the E-mode polarization hierarchy.  Note that we shall
+    execute the following block of code no matter what is the adopted approximation
+    or gauge. */
+    if ((ppt->has_perturbations2 == _TRUE_) && (ppt->has_polarization2 == _TRUE_)) {
+
+      /* We copy the E-mode polarization hierarchy from the purely second-order
+      part of eq. 2.19 in Beneke & Fidler (2011). See also Eq. 4.147 of
+      http://arxiv.org/abs/1405.2280. Note that there is no monopole and dipole
+      in such hierarchy, as the first moment is the quadrupole */
+
+      double kappa_dot = pvecthermo[pth->index_th_dkappa];
+      double E, E_minus, E_plus; /* E_minus stands for E(l-1), E_plus for E(l+1) */
+      int l_max_E = ppw->pv->l_max_E;
+    
+      /* The monopole and dipole equations are just dummy equations because
+      the E-mode polarization does not have such moments. */
+      dy[ppw->pv->index_pt_monopole_E] = 0;
+      dy[ppw->pv->index_pt_monopole_E + 1] = 0;
+    
+      /* - Quadrupole equation */
+      
+      double quadrupole_g = 10*shear_g;
+      double quadrupole_E = y[ppw->pv->index_pt_monopole_E + 2];
+
+      /* The Pi factor is what appears in eq. 2.19 of Beneke & Fidler (2011) and in
+      eq. A.53 of Pitrou et al. (2010). Here we exclude the factor 1/10 with respect
+      to the above references to comply with CLASS conventions. */
+      double Pi = quadrupole_g - sqrt_6*quadrupole_E;
+    
+      /* This is eq. 2.19 for l=2, m=0, where we used d_plus(2,0,0) = sqrt_5/7 */
+      E      = y[ppw->pv->index_pt_monopole_E + 2];
+      E_plus = y[ppw->pv->index_pt_monopole_E + 3];
+      dy[ppw->pv->index_pt_monopole_E + 2] = -k*sqrt_5/7*E_plus - kappa_dot*(E + sqrt_6 * Pi/10);
+
+      /* - l>2 moments, excluding the last one */
+      
+      for (l=3; l<l_max_E; ++l) {
+      
+        E       = y[ppw->pv->index_pt_monopole_E + l];
+        E_minus = y[ppw->pv->index_pt_monopole_E + l-1];
+        E_plus  = y[ppw->pv->index_pt_monopole_E + l+1];
+      
+        dy[ppw->pv->index_pt_monopole_E + l] =
+          k*(coupling_d_minus(l,0,0)*E_minus - coupling_d_plus(l,0,0)*E_plus) - kappa_dot*E;
+      }    
+    
+      /* - Closure relation (from the real part of eq. D.2 in Pitrou et al. 2010) */
+
+      l = l_max_E;
+      E       = y[ppw->pv->index_pt_monopole_E + l];
+      E_minus = y[ppw->pv->index_pt_monopole_E + l-1];
+      dy[ppw->pv->index_pt_monopole_E + l] =
+        k*( sqrt((l+2.)/(l-2.))*(2*l+1.)/(2*l-1.)*E_minus - (l+3.)/(k*tau)*E ) - kappa_dot*E;
+    
+      /* This would be the simplest truncation scheme */
+      // dy[ppw->pv->index_pt_monopole_E] = k*coupling_d_plus(l,0,0)*E_minus - kappa_dot*E;
+    
+    }  // end of if(has_polarization2)
+    
+#endif // WITH_SONG_SUPPORT
 
     /** -> metric */
 
@@ -7867,6 +8423,9 @@ int perturb_tca_slip_and_shear(double * y,
 
   ppw->tca_shear_g = shear_g;
   ppw->tca_slip = slip;
+#ifdef WITH_SONG_SUPPORT
+  ppw->tca_shear_g_prime = shear_g_prime;
+#endif // WITH_SONG_SUPPORT
 
 
   return _SUCCESS_;
@@ -7987,3 +8546,1040 @@ int perturb_rsa_delta_and_theta(
   return _SUCCESS_;
 
 }
+
+
+#ifdef WITH_SONG_SUPPORT
+
+/**
+ * Determine which perturbations will be needed by SONG.
+ * 
+ * In order to solve the Einstein-Boltzmann system at second order, SONG requres many perturbations
+ * from this module. Here we determine which ones. We do so by defining a series of indices labelled
+ * index_qs_XXX, where qs stands for quadratic sources and XXX is the name of the perturbation; for
+ * example index_qs_phi is the index for the curvature potential phi.
+ * 
+ * The perturbations chosen in this function will be later stored in the array ppt->quadsources,
+ * which is indexed in the same way as ppt->sources; here we also allocate its first two levels.
+ *
+ */
+int perturb_indices_of_perturbs_song(
+        struct precision * ppr,
+        struct background * pba,
+        struct thermo * pth,
+        struct perturbs * ppt
+        )
+{
+
+  /* First level of ppt->quadsources is the mode (scalar, vector, tensor) */
+  class_alloc(ppt->quadsources, ppt->md_size*sizeof(double *), ppt->error_message);
+  class_alloc(ppt->qs_size, ppt->md_size*sizeof(int), ppt->error_message);
+
+  /* We require the second derivatives of ppt->quadsources for cubic spline interpolation */
+  if (ppr->quadsources_time_interpolation == cubic_interpolation)
+    class_alloc(ppt->dd_quadsources, ppt->md_size*sizeof(double *), ppt->error_message);
+
+  /* Allocate memory for the labels for the quadsource types */
+  class_alloc(ppt->qs_labels, ppt->md_size*sizeof(char **), ppt->error_message);
+
+  /* Loop over modes.  Not really needed, because for now we set the vector and tensor modes at first-order
+  to be vanishing. */
+  for (int index_md = 0; index_md < ppt->md_size; index_md++) {
+
+    int index_type = 0;
+
+    if (_scalars_) {
+
+      /* - Synchronous gauge metric variables */
+      if (ppt->gauge == synchronous) {        
+        ppt->index_qs_eta = index_type++;
+        ppt->index_qs_eta_prime = index_type++;
+        ppt->index_qs_eta_prime_prime = index_type++;
+        ppt->index_qs_h = index_type++;
+        ppt->index_qs_h_prime = index_type++;
+        ppt->index_qs_h_prime_prime = index_type++;
+        ppt->index_qs_phi = index_type++; /* Bardeen potential, will use gauge transformation */
+        ppt->index_qs_psi = index_type++; /* Bardeen potential, will use gauge transformation */                                
+      }
+      
+      /* - Newtonian gauge metric variables */
+      if (ppt->gauge == newtonian) {
+        ppt->index_qs_psi = index_type++;
+        ppt->index_qs_phi = index_type++;
+        ppt->index_qs_phi_prime = index_type++;
+        ppt->index_qs_psi_prime = index_type++;
+      }
+      
+      /* - Baryons */
+      ppt->index_qs_delta_b = index_type++;
+      ppt->index_qs_theta_b = index_type++;
+      ppt->index_qs_v_b = index_type++;
+      ppt->index_qs_v_b_prime = index_type++;
+      ppt->index_qs_monopole_b = index_type++;
+      ppt->index_qs_dipole_b = index_type++;      
+      if (ppt->has_perturbed_recombination_stz)
+        ppt->index_qs_delta_Xe = index_type++; /* perturbed fraction of free electrons */ 
+      
+      /* - Cold dark matter */
+      if (pba->has_cdm == _TRUE_) {
+        ppt->index_qs_delta_cdm = index_type++;
+        if (ppt->gauge != synchronous) {
+          ppt->index_qs_theta_cdm = index_type++;
+          ppt->index_qs_v_cdm = index_type++;
+          ppt->index_qs_v_cdm_prime = index_type++;
+        }
+        ppt->index_qs_monopole_cdm = index_type++;
+        if (ppt->gauge != synchronous) {
+          ppt->index_qs_dipole_cdm = index_type++;
+        }
+      }
+      
+      
+      /* - Photons */
+
+      /* CLASS evolves the energy density, velocity and shear rather than the monopole, dipole and quadrupole.
+      We shall keep both the three fluid moments and the full hierarchy of kinetic moments, even though the
+      former can be easily obtained from the latter (see for example eq. 4.50 of http://arxiv.org/abs/1405.2280). */
+      ppt->index_qs_delta_g = index_type++;
+      ppt->index_qs_theta_g = index_type++;
+      ppt->index_qs_v_g = index_type++;
+      ppt->index_qs_shear_g = index_type++;
+
+      /* The photon temperature multipoles start from ppt->index_qs_monopole_g 
+      and there are l_max_g of them */
+      /* TODO: do we really need all of them? We could just store them up to l_max_quadsources... */
+      ppt->index_qs_monopole_g = index_type++;
+      index_type += ppr->l_max_g;
+
+      /* Temperature collision term */
+      ppt->index_qs_monopole_collision_g = index_type++;
+      index_type += ppr->l_max_g;
+
+      /* We store the photon polarization multipoles from index_qs_monopole_E to
+      index_qs_monopole_E+l_max_pol_g. Note that the l=0 and l=1 moments are going to be
+      identically zero as E-modes do not have a monopole or a dipole. */
+      if ((ppt->has_perturbations2 == _TRUE_) && (ppt->has_polarization2 == _TRUE_)) {
+        ppt->index_qs_monopole_E = index_type++;
+        index_type += ppr->l_max_pol_g;
+
+        ppt->index_qs_monopole_collision_E = index_type++;
+        index_type += ppr->l_max_pol_g;
+      }
+
+
+      /* - Neutrinos */
+      if (pba->has_ur == _TRUE_) {
+
+        /* Fluid variables */
+        ppt->index_qs_delta_ur = index_type++;
+        ppt->index_qs_theta_ur = index_type++;
+        ppt->index_qs_v_ur = index_type++;
+        ppt->index_qs_shear_ur = index_type++;
+
+        /* The neutrino multipoles start from ppt->index_qs_monopole_g and there are
+        l_max_ur of them */
+        ppt->index_qs_monopole_ur = index_type++;
+        index_type += ppr->l_max_ur;
+      }
+
+    } // end of if(has_scalars)
+
+    class_test (_vectors_ || _tensors_,
+      ppt->error_message,
+      "SONG does not support non-scalar perturbations at first order");
+
+
+    /* Total number of needed quadsources */
+    ppt->qs_size[index_md] = index_type;
+
+    class_test(index_type == 0,
+      ppt->error_message,
+      "no quadsources to be computed; this is suspect, what have you asked as ouput?");
+
+    /* Allocate memory for the labels of the source types */
+    class_alloc(ppt->qs_labels[index_md], ppt->qs_size[index_md]*sizeof(char *), ppt->error_message);
+    for (index_type=0; index_type<ppt->qs_size[index_md]; ++index_type)
+      class_alloc(ppt->qs_labels[index_md][index_type], 64*sizeof(char), ppt->error_message);
+
+
+    /* Allocate the second level of the ppt->quadsources array */
+    class_alloc(ppt->quadsources[index_md],
+      ppt->ic_size[index_md] * ppt->qs_size[index_md] * sizeof(double *),
+      ppt->error_message);
+
+    /* Do the same for the second order derivatives of the quadsources, needed for spline interpolation */
+    if (ppr->quadsources_time_interpolation == cubic_interpolation)
+      class_alloc(ppt->dd_quadsources[index_md],
+        ppt->ic_size[index_md] * ppt->qs_size[index_md] * sizeof(double *),
+        ppt->error_message);
+
+  } // end of for(index_md)
+
+  /* Flags for calling the interpolation routine */
+  ppt->inter_normal=0;
+  ppt->inter_closeby=1;
+
+  /* - About the k-sampling */
+
+  /* The k-sampling for the quadratic sources is computed in the perturbations2.c module,
+  inside perturb2_get_k_lists(). If we are here, perturb2_get_k_lists() has already been 
+  called and the k-sampling has already been determined. Therefore, we do not need to do
+  anything. */
+  
+  return _SUCCESS_;
+
+}
+
+
+
+/**
+ * Store the perturbations that will be needed by SONG.
+ * 
+ * In order to solve the Einstein-Boltzmann system at second order, SONG requres many perturbations
+ * from this module. Here we extract them from the y and dy arrays of the differential system,
+ * for a specific time (tau) and wavemode (k).
+ * 
+ * The perturbations extracted in this function are stored in the array ppt->quadsources,
+ * which is indexed like ppt->sources, but using the index_qs_XXX indices instead of the
+ * index_tp_XXX ones.
+ */
+int perturb_sources_song(
+              double tau,
+              double * y,
+              double * dy,
+              int index_tau,
+              void * parameters_and_workspace,
+              ErrorMsg error_message
+              )
+{
+
+  /* Shortcuts to avoid heavy notations */
+  struct perturb_parameters_and_workspace * pppaw = parameters_and_workspace;
+  struct precision * ppr = pppaw->ppr;
+  struct background * pba = pppaw->pba;
+  struct perturbs * ppt = pppaw->ppt;
+  struct thermo * pth = pppaw->pth;  
+
+  struct perturb_workspace * ppw = pppaw->ppw;
+  double * pvecback = ppw->pvecback;
+  double * pvecmetric = ppw->pvecmetric;
+  double * pvecthermo = ppw->pvecthermo;  
+  
+  double k = pppaw->k;
+  int index_md = pppaw->index_md;
+  int index_ic = pppaw->index_ic;
+  int index_k = pppaw->index_k;
+
+  class_test (_vectors_ || _tensors_,
+    ppt->error_message,
+    "at first order, SONG supports only scalar modes");
+
+
+  // ===============================================================================================
+  // =                                      Interpolate at tau                                     =
+  // ===============================================================================================
+
+  /* Fill pvecback */
+  class_call(background_at_tau(pba,
+               tau, 
+               pba->normal_info, 
+               pba->inter_closeby, 
+               &(ppw->last_index_back), 
+               pvecback),
+    pba->error_message,
+    error_message);
+    
+  double a = pvecback[pba->index_bg_a];
+
+  /* Fill pvecthermo */
+  class_call(thermodynamics_at_z(pba,
+               pth,
+               1/a-1,  /* redshift z=1/a-1 */
+               pth->inter_closeby,
+               &(ppw->last_index_thermo),
+               pvecback,
+               pvecthermo),
+    pth->error_message,
+    error_message);
+
+  /* Fill pvecmetric */
+  class_call(perturb_einstein(ppr,
+               pba,
+               pth,
+               ppt,
+               index_md,
+               k,
+               tau,
+               y,
+               ppw),
+    ppt->error_message,
+    error_message);  
+
+
+  // ===========================================================================================
+  // =                                     Matter variables                                    =
+  // ===========================================================================================
+
+  /* Assign perturbations associated to photons and neutrinos according to the considered 
+  approximation. */
+  double delta_g,theta_g,shear_g,l3_g;
+  double delta_ur,theta_ur,shear_ur,l3_ur;
+  double Pi, Pi_prime;
+  double monopole_g, dipole_g, quadrupole_g, octupole_g, quadrupole_E;
+  double monopole_b, dipole_b;
+  double monopole_cdm, dipole_cdm;
+  double monopole_ur, dipole_ur, quadrupole_ur, octupole_ur;  
+  double pol0_g,pol1_g,pol2_g,pol3_g;
+  double phi,psi;
+  int l;
+
+
+  // --------------------------------------------------------------------------------
+  // -                                  Photons                                     -
+  // --------------------------------------------------------------------------------
+
+  /* Take care of photons.  We need to do this because, if the rsa approximation is on,
+  then delta_g won't be evolved and calling y[ppw->pv->index_pt_delta_g] may give
+  a segmentation fault.  Same argument for the tca approximation.
+  (Snippet taken from the print_variables function in vanilla CLASS) */
+  if (ppw->approx[ppw->index_ap_rsa]==(int)rsa_off) {
+    delta_g = y[ppw->pv->index_pt_delta_g];
+    theta_g = y[ppw->pv->index_pt_theta_g];
+  }
+  else {
+    delta_g = ppw->rsa_delta_g;
+    theta_g = ppw->rsa_theta_g;
+  }
+  
+  /* Take care of moments with l>=2. */
+  if (ppw->approx[ppw->index_ap_rsa]==(int)rsa_off) {
+
+    if (ppw->approx[ppw->index_ap_tca]==(int)tca_on) {
+    	Pi = 5.*ppw->tca_shear_g; /* (2.5+0.5+2)shear_g */
+    	Pi_prime = 5.*ppw->tca_shear_g_prime; /* (2.5+0.5+2)shear_g_prime */
+      shear_g = ppw->tca_shear_g;
+      l3_g = 6./7.*k/ppw->pvecthermo[pth->index_th_dkappa]*ppw->tca_shear_g;
+      pol0_g = 2.5*ppw->tca_shear_g;
+      pol1_g = 7./12.*6./7.*k/ppw->pvecthermo[pth->index_th_dkappa]*ppw->tca_shear_g;
+      pol2_g = 0.5*ppw->tca_shear_g;
+      pol3_g = 0.25*6./7.*k/ppw->pvecthermo[pth->index_th_dkappa]*ppw->tca_shear_g;
+    }
+    else {  /* if tca_off ... */
+      /* TODO: why does CLASS v2 includes the 8 factor? (see also Pi definition tca_on block above)
+        P0 = (y[pv->index_pt_pol0_g] + y[pv->index_pt_pol2_g] + 2.*s_l[2]*y[pv->index_pt_shear_g])/8.; */
+    	Pi = y[ppw->pv->index_pt_pol0_g] + y[ppw->pv->index_pt_pol2_g] + 2.*y[ppw->pv->index_pt_shear_g];
+    	Pi_prime = dy[ppw->pv->index_pt_pol0_g] + dy[ppw->pv->index_pt_pol2_g] + 2.*dy[ppw->pv->index_pt_shear_g];
+      shear_g = y[ppw->pv->index_pt_shear_g];
+      l3_g = y[ppw->pv->index_pt_l3_g];
+      pol0_g = y[ppw->pv->index_pt_pol0_g];
+      pol1_g = y[ppw->pv->index_pt_pol1_g];
+      pol2_g = y[ppw->pv->index_pt_pol2_g];
+      pol3_g = y[ppw->pv->index_pt_pol3_g];
+    }
+  }
+  else {  /* if rsa_on ... */
+    Pi = 0;
+    Pi_prime = 0;
+    shear_g = 0;
+    l3_g = 0;
+    pol0_g = 0;
+    pol1_g = 0;
+    pol2_g = 0;
+    pol3_g = 0;
+  }
+
+
+  /* IMPORTANT: Here we define Pi with an extra (2l+1)/10 factor 
+  with respect to the rest of CLASS. The 2l+1=5 factor accounts
+  for the fact that in SONG we deal with spherical transforms rather
+  than Legendre ones. The 1/10 factor is just a matter of definition,
+  since we follow Pitrou 2010 and Beneke 2010 where the 1/10 is 
+  included in Pi. */
+  Pi *= 0.5;
+  Pi_prime *= 0.5;
+  
+
+  /* Convert the fluid variables evolved by CLASS into the first multipoles of the Boltzmann
+  hierarchy.  These I_lm moments are the projection of the brightness function on spherical harmonics.
+  The relation between these moments and the F_l moments defined in Ma & Bertschinger 1995, eq. 47
+  (which are projections on Legendre polynomials), is:
+  I_l0 = (2l+1)*F_l. */
+  monopole_g      =     delta_g;
+  dipole_g        =     4.*theta_g/k;      // I_1_0 = 3(w+1) theta/k
+  quadrupole_g    =     10.*shear_g;       // I_2_0 = 15/2 (w+1) shear
+  octupole_g      =     7*l3_g;            // this is just the 2l+1 factor
+  if (ppt->has_polarization2 == _TRUE_)
+    quadrupole_E = y[ppw->pv->index_pt_monopole_E + 2];
+
+
+  // --------------------------------------------------------------------------------
+  // -                                  Baryons                                     -
+  // --------------------------------------------------------------------------------
+
+  /* Convert fluid variables to Boltzmann multipoles. See comment for photons, above.
+  The difference here is that we do not have quadrupole and octupole because baryons
+  are a perfect fluid at first-order.  Moreover, w=0 so that the dipole gets a 
+  coefficient of 3 instead of 4. */
+  monopole_b      =    y[ppw->pv->index_pt_delta_b];
+  dipole_b        =    3*y[ppw->pv->index_pt_theta_b]/k;
+
+
+
+  // --------------------------------------------------------------------------------
+  // -                                    CDM                                       -
+  // --------------------------------------------------------------------------------
+
+  /* Convert fluid variables to Boltzmann multipoles. See comment for photons, above. */
+  monopole_cdm      =    y[ppw->pv->index_pt_delta_cdm];
+  dipole_cdm        =    3*y[ppw->pv->index_pt_theta_cdm]/k;
+
+
+
+  // --------------------------------------------------------------------------------
+  // -                                 Neutrinos                                    -
+  // --------------------------------------------------------------------------------
+
+  /* Radiation streaming & ufa approximation, neutrinos.  Moments with l>2 are automatically
+  zero in both tca and ufa approximations (taken from the print_variables function in vanilla CLASS) */
+  if (pba->has_ur == _TRUE_) {
+    if (ppw->approx[ppw->index_ap_rsa]==(int)rsa_off) {
+      /* delta, theta, shear are evolved also in the ufa approximation */
+      delta_ur = y[ppw->pv->index_pt_delta_ur];
+      theta_ur = y[ppw->pv->index_pt_theta_ur];
+      shear_ur = y[ppw->pv->index_pt_shear_ur];
+      /* l3 is not evolved in the ufa approximation */
+      if (ppw->approx[ppw->index_ap_ufa]==(int)ufa_off)
+        l3_ur = y[ppw->pv->index_pt_l3_ur];
+    }
+    else {
+      delta_ur = ppw->rsa_delta_ur;
+      theta_ur = ppw->rsa_theta_ur;
+      shear_ur = 0.;
+      l3_ur = 0.;
+    }
+    
+    /* Convert fluid variables to Boltzmann multipoles. See comment for photons, above. */
+    monopole_ur      =     delta_ur;
+    dipole_ur        =     4*theta_ur/k;
+    quadrupole_ur    =     10*shear_ur;
+    octupole_ur      =     7*l3_ur;
+    
+  }  // end of if(ur)
+
+
+  // ===========================================================================================
+  // =                                     Metric variables                                    =
+  // ===========================================================================================
+
+  double psi_prime = 0;
+  double alpha_prime, h_prime_prime, eta_prime_prime, h;
+
+  if (_scalars_) {
+
+    double delta_cdm = y[ppw->pv->index_pt_delta_cdm];
+    double theta_cdm;
+    if (ppt->gauge != synchronous)
+      theta_cdm = y[ppw->pv->index_pt_theta_cdm];
+
+    /* - Newtonian gauge */
+    if (ppt->gauge == newtonian) {
+    
+      class_call(perturb_compute_psi_prime (
+                   ppr,
+                   pba,
+                   pth,
+                   ppt,
+                   tau,
+                   y,
+                   dy,
+                   &(psi_prime),
+                   ppw),
+        ppt->error_message,
+        error_message);
+    }
+
+
+    /* - Synchronous gauge */
+    if (ppt->gauge == synchronous) {
+    
+      /* alpha' = (h''+ 6 eta'')/2k^2 */
+      alpha_prime = pvecmetric[ppw->index_mt_alpha_prime];
+    
+      /* h'' */
+      h_prime_prime = pvecmetric[ppw->index_mt_h_prime_prime];
+    
+      /* eta'' = 1/6 * (2 k^2 alpha' - h'') */
+      eta_prime_prime = 1.0/6.0 * (2.0*k*k * alpha_prime - h_prime_prime);
+    
+      /* From the initial conditions in eq. 96 of Ma & Berty, h = -2 * delta_cdm at very
+      early times. Since the evolution equation for delta_cdm is delta_cdm' = -h'/2, it
+      follows that h = -2 * delta_cdm al all times. */
+      h = -2. * delta_cdm;
+            
+      /* Gravitational potentials from the gauge transformation (see for example eq. 18 of Ma & Berty) */
+      psi = (pvecback[pba->index_bg_H]*pvecback[pba->index_bg_a] * (pvecmetric[ppw->index_mt_h_prime]
+        + 6. * pvecmetric[ppw->index_mt_eta_prime])/2./k/k + alpha_prime);
+    
+      phi = y[ppw->pv->index_pt_eta]-pvecback[pba->index_bg_H]*pvecback[pba->index_bg_a]/2./k/k*(pvecmetric[ppw->index_mt_h_prime]
+        + 6. * pvecmetric[ppw->index_mt_eta_prime]);
+    }
+    
+    
+    // =============================================================================================
+    // =                                  Store source terms                                       =
+    // =============================================================================================
+
+    /* To store the perturbations in the ppt->quadsources array we use the _set_quadsource_ macro,
+    defined in perturbations.h. This shortcut allows to set the value of the perturbation and its
+    label in one line */
+
+    // ------------------------------------------------------------
+    // -                    Metric perturbations                  -
+    // ------------------------------------------------------------
+    
+    if (ppt->gauge == synchronous) {
+      _set_quadsource_ (ppt->index_qs_eta, y[ppw->pv->index_pt_eta], "eta");
+      _set_quadsource_ (ppt->index_qs_eta, y[ppw->pv->index_pt_eta], "eta");
+      _set_quadsource_ (ppt->index_qs_eta_prime, pvecmetric[ppw->index_mt_eta_prime], "eta'");
+      _set_quadsource_ (ppt->index_qs_eta_prime_prime, eta_prime_prime, "eta''");    
+      _set_quadsource_ (ppt->index_qs_h, h, "h");
+      _set_quadsource_ (ppt->index_qs_h_prime, pvecmetric[ppw->index_mt_h_prime], "h'");    
+      _set_quadsource_ (ppt->index_qs_h_prime_prime, h_prime_prime, "h''");
+      _set_quadsource_ (ppt->index_qs_phi, phi, "phi");    
+      _set_quadsource_ (ppt->index_qs_psi, psi, "psi");          
+    }
+    
+    if (ppt->gauge == newtonian) {    
+      _set_quadsource_ (ppt->index_qs_psi, pvecmetric[ppw->index_mt_psi], "psi");    
+      _set_quadsource_ (ppt->index_qs_phi, y[ppw->pv->index_pt_phi], "phi");    
+      _set_quadsource_ (ppt->index_qs_phi_prime, pvecmetric[ppw->index_mt_phi_prime], "phi'");    
+      _set_quadsource_ (ppt->index_qs_psi_prime, psi_prime, "psi'");    
+    }
+
+
+    // ------------------------------------------------------------
+    // -                           Baryons                        -
+    // ------------------------------------------------------------
+
+    _set_quadsource_ (ppt->index_qs_delta_b, y[ppw->pv->index_pt_delta_b], "delta_b");
+    _set_quadsource_ (ppt->index_qs_theta_b, y[ppw->pv->index_pt_theta_b], "theta_b");
+    _set_quadsource_ (ppt->index_qs_v_b, -y[ppw->pv->index_pt_theta_b]/k/k, "v_b");
+    _set_quadsource_ (ppt->index_qs_v_b_prime, -dy[ppw->pv->index_pt_theta_b]/k/k, "v_b_prime");
+
+    _set_quadsource_ (ppt->index_qs_monopole_b, monopole_b, "l0_b");
+    _set_quadsource_ (ppt->index_qs_dipole_b, dipole_b, "l1_b");    
+
+    if (ppt->has_perturbed_recombination_stz == _TRUE_)
+      _set_quadsource_ (ppt->index_qs_delta_Xe, y[ppw->pv->index_pt_delta_Xe], "delta_Xe");
+
+
+    // ------------------------------------------------------------
+    // -                      Cold Dark Matter                    -
+    // ------------------------------------------------------------
+
+    if (pba->has_cdm == _TRUE_) {
+
+      _set_quadsource_ (ppt->index_qs_delta_cdm, y[ppw->pv->index_pt_delta_cdm], "delta_cdm");
+      if (ppt->gauge != synchronous) {
+        _set_quadsource_ (ppt->index_qs_theta_cdm, y[ppw->pv->index_pt_theta_cdm], "theta_cdm");
+        _set_quadsource_ (ppt->index_qs_v_cdm, -y[ppw->pv->index_pt_theta_cdm]/k/k, "v_cdm");        
+        _set_quadsource_ (ppt->index_qs_v_cdm_prime, -dy[ppw->pv->index_pt_theta_cdm]/k/k, "v_cdm_prime");
+      }
+
+      _set_quadsource_ (ppt->index_qs_monopole_cdm, monopole_cdm, "l0_cdm");
+      if (ppt->gauge != synchronous) {
+        _set_quadsource_ (ppt->index_qs_dipole_cdm, dipole_cdm, "l1_cdm");
+      }
+    }
+
+
+    // ------------------------------------------------------------
+    // -                     Photon temperature                   -
+    // ------------------------------------------------------------
+
+    _set_quadsource_ (ppt->index_qs_delta_g, delta_g, "delta_g");
+    _set_quadsource_ (ppt->index_qs_theta_g, theta_g, "theta_g");
+    _set_quadsource_ (ppt->index_qs_v_g, -theta_g/k/k, "v_g");
+    _set_quadsource_ (ppt->index_qs_shear_g, shear_g, "shear_g");
+
+    _set_quadsource_ (ppt->index_qs_monopole_g, monopole_g, "I0");
+    _set_quadsource_ (ppt->index_qs_monopole_g+1, dipole_g, "I1");
+    _set_quadsource_ (ppt->index_qs_monopole_g+2, quadrupole_g, "I2");
+    _set_quadsource_ (ppt->index_qs_monopole_g+3, octupole_g, "I3");      
+
+    /* Moments with l>3.  All of these are non-zero only when both the tca and rsa approximations are turned off.
+		The extra 2*l+1 factor comes from the fact that at first order we computed the Legendre expansion of
+		the distribution function, while at second order we need the spherical harmonic expansion. */
+    if ((ppw->approx[ppw->index_ap_rsa]==(int)rsa_off) && (ppw->approx[ppw->index_ap_tca]==(int)tca_off)) {
+      for (int l = 4; l <= ppr->l_max_g; l++) { 
+        _set_quadsource_ (ppt->index_qs_monopole_g+l, (2.*l+1.)*y[ppw->pv->index_pt_delta_g+l], "I%d", l);
+      }
+    }
+
+
+    /* - Collision term */
+    
+    for (int l=0; l <= ppr->l_max_g; ++l) {
+
+      /* The collision term for the monopole vanishes */
+      if (l==0) {
+        double collision_monopole = 0;
+        _set_quadsource_ (ppt->index_qs_monopole_collision_g+0, collision_monopole, "C[I0]");
+      }
+      
+      /* The dipole from derivs:
+    	dy[ppw->pv->index_pt_theta_g] =
+    	  k2*(delta_g/4.-shear_g)
+    	  + metric_euler
+    	  +pvecthermo[pth->index_th_dkappa]*(theta_b-theta_g); */
+      else if (l==1) {
+        double collision_dipole = -dipole_g + four_thirds*dipole_b;
+        _set_quadsource_ (ppt->index_qs_monopole_collision_g+1, collision_dipole, "C[I1]");
+      }
+      /* The quadrupole from derivs:
+    	dy[ppw->pv->index_pt_shear_g] =
+    	  0.5*(8./15.*(theta_g+metric_shear)
+    	       -3./5.*k*y[ppw->pv->index_pt_l3_g]
+    	       -pvecthermo[pth->index_th_dkappa]*(2.*shear_g-1./10.*Pi)); */
+      else if (l==2) {
+        double collision_quadrupole = -quadrupole_g + Pi;
+        _set_quadsource_ (ppt->index_qs_monopole_collision_g+2, collision_quadrupole, "C[I2]");
+      }
+      else {
+        /* The l>2 moments are not defined if RSA or TCA are turned on, so not including the following 'if block'
+        will result in seg fault */
+        if ((ppw->approx[ppw->index_ap_rsa]==(int)rsa_off) && (ppw->approx[ppw->index_ap_tca]==(int)tca_off)) {
+          double collision_l = - (2*l+1.) * y[ppw->pv->index_pt_delta_g+l];
+          _set_quadsource_ (ppt->index_qs_monopole_collision_g+l, collision_l, "C[I%d]", l);
+        }
+      }
+    }
+
+
+    // ------------------------------------------------------------
+    // -                       E-polarisation                     -
+    // ------------------------------------------------------------
+
+    if ((ppt->has_perturbations2 == _TRUE_) && (ppt->has_polarization2 == _TRUE_)) {
+
+      for (int l=2; l <= ppr->l_max_pol_g; ++l) {
+        _set_quadsource_ (ppt->index_qs_monopole_E+l, y[ppw->pv->index_pt_monopole_E+l], "E%d", l);
+      }
+
+      /* Collision term */
+      for (int l=2; l <= ppr->l_max_pol_g; ++l) {
+
+        /* The quadrupole from derivs:
+        dy[ppw->pv->index_pt_monopole_E + 2] =
+          -k*sqrt_5/7*E_plus - kappa_dot*(E + sqrt_6*Pi); */
+        if (l==2) {
+          double collision_quadrupole = -quadrupole_E - sqrt_6*Pi;
+          _set_quadsource_ (ppt->index_qs_monopole_collision_E+2, collision_quadrupole, "C[E2]");
+        }
+        else {
+          double collision_l = -y[ppw->pv->index_pt_monopole_E+l];
+          _set_quadsource_ (ppt->index_qs_monopole_collision_E+l, collision_l, "C[E%d]", l);
+        }
+      }
+    }
+
+
+    // -------------------------------------------------------------
+    // -                         Neutrinos                         -
+    // -------------------------------------------------------------
+
+    if (pba->has_ur == _TRUE_) {
+
+      _set_quadsource_ (ppt->index_qs_delta_ur, delta_ur, "delta_ur");
+      _set_quadsource_ (ppt->index_qs_theta_ur, theta_ur, "theta_ur");
+      _set_quadsource_ (ppt->index_qs_v_ur, -theta_ur/k/k, "v_ur");
+      _set_quadsource_ (ppt->index_qs_shear_ur, shear_ur, "shear_ur");
+
+      _set_quadsource_ (ppt->index_qs_monopole_ur, monopole_ur, "l0_ur");
+      _set_quadsource_ (ppt->index_qs_monopole_ur+1, dipole_ur, "l1_ur");
+      _set_quadsource_ (ppt->index_qs_monopole_ur+2, quadrupole_ur, "l2_ur");
+      _set_quadsource_ (ppt->index_qs_monopole_ur+3, octupole_ur, "l3_ur");      
+      /* Moments with l>3.  All of These are non-zero only when both the rsa and ufa approximations are turned off.
+  		The extra 2*l+1 factor comes from the fact that at first order we computed the Legendre expansion of
+  		the distribution function, while at second order we need the spherical harmonic expansion. */
+      if ((ppw->approx[ppw->index_ap_rsa]==(int)rsa_off) && (ppw->approx[ppw->index_ap_ufa]==(int)ufa_off)) {
+        for (int l = 4; l <= ppr->l_max_ur; l++) { 
+          _set_quadsource_ (ppt->index_qs_monopole_ur+l, (2.*l+1.)*y[ppw->pv->index_pt_delta_ur+l], "l%d_ur", l);
+        }
+      }
+    }
+
+  } // end of if(has_scalars)
+  
+  
+  /* Some debug */
+  // if (ppw->index_k == 200) {
+  //   
+  //   fprintf (stderr, "%12.7g %17.7g %17.7g\n",
+  //     tau,
+  //     pvecmetric[ppw->index_mt_psi],
+  //     psi_prime
+  //     );
+  // }
+
+  return _SUCCESS_;
+
+}
+
+/** Compute the derivative of the gravitational potential with respect to conformal time
+ * (psi_prime) in Newtonian gauge, needed for the ISW effect. We compute it here,
+ * in a separate function rather than in perturb_einstein(), for two reasons. First, 
+ * psi_prime is not needed to solve the differential system, and it would be a waste of
+ * time to compute it at every step of the integrator. Secondly, to obtain psi_prime
+ * we first need to access the velocity and shear derivatives and perturb_einstein() does
+ * not have access to the vector 'dy' that contains them.
+ *
+ * This function needs to be called after the background, thermodynamics and einstein 
+ * variables have been interpolated.
+ *
+ * Note that here I do not consider the contribution to psi_prime from the non-CDM
+ * species (should do), and I only consider a flat geometry.
+ */
+
+int perturb_compute_psi_prime(
+       struct precision * ppr,
+       struct background * pba,
+       struct thermo * pth,
+       struct perturbs * ppt,
+       double tau,
+       double * y,
+       double * dy,
+       double * psi_prime,
+       struct perturb_workspace * ppw)
+{
+
+  /* Shortcuts */
+  double k = ppt->k[ppt->index_md_scalars][ppw->index_k];  
+  double k2 = k * k;
+  double a2 = ppw->pvecback[pba->index_bg_a]*ppw->pvecback[pba->index_bg_a];
+  double a_prime_over_a = ppw->pvecback[pba->index_bg_a]*ppw->pvecback[pba->index_bg_H];
+
+  // ===================================================================
+  // =                          Compute shear                          =
+  // ===================================================================
+
+  double theta_g=0;
+  double shear_g=0;
+  double shear_ur=0;
+  double shear_g_prime=0;
+  double shear_ur_prime=0;
+  double rho_plus_p_shear;
+  double rho_plus_p_shear_prime;
+
+  /* Compute shear_prime contribution from photons */
+  if (ppw->approx[ppw->index_ap_tca] == (int)tca_off) {
+
+    /* No approximations */
+    if (ppw->approx[ppw->index_ap_rsa] == (int)rsa_off) {
+      shear_g = y[ppw->pv->index_pt_shear_g];
+      shear_g_prime = dy[ppw->pv->index_pt_shear_g];
+    }
+
+  }
+
+  /* Tight coupling approximation */
+  else {
+
+    /* Use first-order tca for photon shear (eq. 2.24 and 2.25 of Blas et al. 2011) */
+    double tau_c = 1./ppw->pvecthermo[pth->index_th_dkappa]; /* inverse of opacity */
+    double dtau_c = -ppw->pvecthermo[pth->index_th_ddkappa]*tau_c*tau_c; /* its first derivative wrt conformal time */
+    double theta_g = dy[ppw->pv->index_pt_theta_g]; /* this is always defined because rsa=off when tca=on */
+    double theta_prime = dy[ppw->pv->index_pt_theta_g]; /* this is always defined because rsa=off when tca=on */
+    shear_g = 16./45.*tau_c*theta_g;
+    shear_g_prime = 16./45.*(tau_c*(theta_prime)+dtau_c*(theta_g));
+  }
+
+
+  /* Compute shear_prime contribution from ur species */
+  if (pba->has_ur == _TRUE_) {
+
+    /* shear always neglected in free streaming approximation */
+    if (ppw->approx[ppw->index_ap_rsa] == (int)rsa_off) {
+      shear_ur = y[ppw->pv->index_pt_shear_ur];
+      shear_ur_prime = dy[ppw->pv->index_pt_shear_ur];
+    }
+
+  }
+
+  /* Compute the total shear_prime perturbations */
+  rho_plus_p_shear = 4./3.*ppw->pvecback[pba->index_bg_rho_g]*shear_g;
+  rho_plus_p_shear_prime = 4./3.*ppw->pvecback[pba->index_bg_rho_g]*shear_g_prime;
+
+  if (pba->has_ur == _TRUE_) {
+    rho_plus_p_shear = rho_plus_p_shear + 4./3.*ppw->pvecback[pba->index_bg_rho_ur]*shear_ur;
+    rho_plus_p_shear_prime = rho_plus_p_shear_prime + 4./3.*ppw->pvecback[pba->index_bg_rho_ur]*shear_ur_prime;
+  }
+
+  // ==================================================================
+  // =                        Equation for psi'                       =
+  // ==================================================================
+
+  /* The derivative of the gravitational potential psi, needed to compute the ISW effect */
+  *psi_prime = ppw->pvecmetric[ppw->index_mt_phi_prime] - 4.5 * (a2/k2)
+    * (rho_plus_p_shear_prime - 2*a_prime_over_a*rho_plus_p_shear);
+
+  /* Debug - print psi_prime together with psi */
+  // if (ppw->index_k == 200)
+  //   fprintf (stderr, "%15g %15g %15g\n", tau, ppw->pvecmetric[ppw->index_mt_psi], *psi_prime);
+  
+  return _SUCCESS_;
+
+}
+
+
+/**
+  * Interpolate the perturbations in ppt->quadsources at a given time tau.
+  * 
+  * This function is just a wrapper that chooses whether to use linear or spline
+  * interpolation according to the option ppr->quadsources_time_interpolation.
+  */
+int perturb_quadsources_at_tau (
+         struct precision * ppr,
+         struct perturbs * ppt,
+         int index_mode, /**< mode index (scalar, vector, tensor) */
+         int index_ic, /**< initial condition index (adiabatic, isocurvature, ...)*/
+         int index_k, /**< requested wavemode for the interpolation; points to an element of ppt->k[index_mode] */
+         double tau, /**< requested time for the interpolation; must be in the same range of ppt->tau_sampling_quadsources */ 
+         short intermode, /**< type of interpolation (either ppt->inter_closeby or ppt->inter_normal) */
+		     int * last_index, /**< last time index in interpolation table; only relevant if using ppt->inter_closeby */
+         double * psource /**< output array indexed by ppt->index_qs_XXX */
+         )
+{
+
+  /* Linear interpolation */
+  if (ppr->quadsources_time_interpolation == linear_interpolation) {
+
+    class_call(perturb_quadsources_at_tau_linear(
+                 ppt,
+                 index_mode,
+                 index_ic,
+                 index_k,
+                 tau,
+                 psource
+                 ),
+      ppt->error_message,
+      ppt->error_message);
+
+  }
+  /* Cubic spline interpolation */
+  else if (ppr->quadsources_time_interpolation == cubic_interpolation) {
+
+    class_call(perturb_quadsources_at_tau_spline(
+                 ppt,
+                 index_mode,
+                 index_ic,
+                 index_k,
+                 tau,
+                 intermode,
+                 last_index,
+                 psource
+                 ),
+      ppt->error_message,
+      ppt->error_message);
+
+  } // end of if(ppr->quadsources_time_interpolation)
+
+  return _SUCCESS_;
+}
+
+
+/**
+  * Interpolate the perturbations in ppt->quadsources at a given time tau using
+  * linear interpolation.
+  */
+int perturb_quadsources_at_tau_linear (
+        struct perturbs * ppt,
+        int index_mode, /**< mode index (scalar, vector, tensor) */
+        int index_ic, /**< initial condition index (adiabatic, isocurvature, ...)*/
+        int index_k, /**< requested wavemode for the interpolation; points to an element of ppt->k[index_mode] */
+        double tau, /**< requested time for the interpolation; must be in the same range of ppt->tau_sampling_quadsources */ 
+        double * psource /**< output array indexed by ppt->index_qs_XXX */
+        )
+{
+
+  /* Check that tau is within bounds */
+  class_test (((tau>ppt->tau_sampling_quadsources[ppt->tau_size_quadsources-1])
+    || (tau<ppt->tau_sampling_quadsources[0])),
+    ppt->error_message, "time %g is not contained in the interpolation table [%g,%g]",
+    tau, ppt->tau_sampling_quadsources[0], ppt->tau_sampling_quadsources[ppt->tau_size_quadsources-1]);
+
+  int index_tau; /* Index at the left of tau in ppt->tau_sampling_quadsources */
+  double tau_right; /* Point at the right of tau */
+  double a; /* Interpolation weight associated to the point at the left of tau */
+  double step; /* Step of time sampling. Available only for linear or logarithmic samplings */
+
+
+  // ===================================================================================
+  // =                             Locate time in table                                =
+  // ===================================================================================
+
+  /* When the time-sampling is linear or logarithmic, we can obtain the position of tau
+  in a straightforward way */
+
+  if (ppt->has_custom_timesampling_for_quadsources == _TRUE_) {
+  
+    if (ppt->custom_tau_mode_quadsources == lin_tau_sampling) {
+      step = ppt->custom_tau_step_quadsources;
+      index_tau = (int)((tau - ppt->custom_tau_ini_quadsources)/step);
+      tau_right = ppt->tau_sampling_quadsources[index_tau+1];
+    }
+
+    else if (ppt->custom_tau_mode_quadsources == log_tau_sampling) {
+      double log_step = ppt->custom_tau_step_quadsources;
+      index_tau = (int)((log(tau) - ppt->custom_log_tau_ini_quadsources)/log_step);
+      tau_right = ppt->tau_sampling_quadsources[index_tau+1];
+      step = tau_right - ppt->tau_sampling_quadsources[index_tau];
+    }
+  }
+
+  /* For a general time-sampling, we resort to bisection */
+  else {
+    
+    int inf = 0;
+    int sup = ppt->tau_size_quadsources - 1;
+    int mid, i;
+    double * tau_vec = ppt->tau_sampling_quadsources;
+
+    if (tau_vec[inf] < tau_vec[sup]){
+
+      while (sup-inf > 1) {
+
+        mid = (int)(0.5*(inf+sup));
+
+        if (tau < tau_vec[mid])
+          sup = mid;
+        else
+          inf = mid;
+      }
+    }
+    else {
+      while (sup-inf > 1) {
+
+        mid = (int)(0.5*(inf+sup));
+
+        if (tau > tau_vec[mid])
+          sup = mid;
+        else
+          inf = mid;
+      }
+    }
+
+    index_tau = mid-1;
+    tau_right = tau_vec[index_tau+1];
+    step = tau_right - tau_vec[index_tau];
+    
+    /* Some debug */
+    // printf("tau=%g, tau_left[%d]=%g, tau_right=%g\n", tau, index_tau,
+    //   ppt->tau_sampling_quadsources[index_tau], ppt->tau_sampling_quadsources[index_tau+1]);
+    
+  }
+    
+  /* Compute the weight associated to tau_right */
+  a = (tau_right - tau)/step;
+
+
+  // =======================================================================================
+  // =                                     Interpolate                                     =
+  // =======================================================================================
+
+  /* We shall return an array with ppt->qs_size elements */
+  int qs_size = ppt->qs_size[index_mode];
+  
+  /* Loop over types */
+  for (int index_type=0; index_type < qs_size; ++index_type) {
+
+    /* Values of the function at the nodes around tau */
+    double source_left = ppt->quadsources[index_mode][index_ic*qs_size + index_type][index_tau*ppt->k_size[index_mode] + index_k];
+    double source_right = ppt->quadsources[index_mode][index_ic*qs_size + index_type][(index_tau+1)*ppt->k_size[index_mode] + index_k];
+    
+    /* Finally, the linear interpolation */
+    psource[index_type] = a*source_left + (1-a)*source_right;
+    
+    /* Some debug */
+    // printf("a=%g, step=%g, source_left(%g[%d])=%g, source(%g)=%g, source_right(%g[%d])=%g\n",
+    //   a, step,
+    //   ppt->tau_sampling_quadsources[index_tau], index_tau, source_left,
+    //   tau,psource[index_type],
+    //   ppt->tau_sampling_quadsources[index_tau+1], index_tau+1, source_right
+    //   );
+  }
+  
+  return _SUCCESS_;
+}
+
+
+/**
+  * Interpolate the perturbations in ppt->quadsources at a given time tau using cubic
+  * spline interpolation.
+  *
+  * If you will be calling the function frequently and with similar tau values, consider
+  * setting intermode=ppt->inter_closeby and always passing the same integer address
+  * as *last_index. Otherwise, just use intermode=ppt->inter_normal.
+  */
+int perturb_quadsources_at_tau_spline (
+         struct perturbs * ppt,
+         int index_mode, /**< mode index (scalar, vector, tensor) */
+         int index_ic, /**< initial condition index (adiabatic, isocurvature, ...)*/
+         int index_k, /**< requested wavemode for the interpolation; points to an element of ppt->k[index_mode] */
+         double tau, /**< requested time for the interpolation; must be in the same range of ppt->tau_sampling_quadsources */ 
+         short intermode, /**< type of interpolation (either ppt->inter_closeby or ppt->inter_normal) */
+		     int * last_index, /**< last time index in interpolation table; only relevant if using ppt->inter_closeby */
+         double * psource /**< output array indexed by ppt->index_qs_XXX */
+         )
+{
+
+  /* Check that tau is within bounds */
+  class_test (((tau>ppt->tau_sampling_quadsources[ppt->tau_size_quadsources-1])
+    || (tau<ppt->tau_sampling_quadsources[0])),
+    ppt->error_message, "time %g is not contained in the interpolation table [%g,%g]",
+    tau, ppt->tau_sampling_quadsources[0], ppt->tau_sampling_quadsources[ppt->tau_size_quadsources-1]);
+
+  if (intermode == ppt->inter_normal) {
+    class_call(spline_sources_interpolate(
+             ppt->tau_sampling_quadsources,
+             ppt->tau_size_quadsources,
+             ppt->quadsources,
+             ppt->dd_quadsources,
+             ppt->qs_size[index_mode],
+             tau,
+             last_index,
+             psource,
+             ppt->qs_size[index_mode],
+             index_mode,
+             index_ic,           
+             index_k,
+             ppt->k_size[index_mode],
+             ppt->error_message),
+          ppt->error_message,
+          ppt->error_message);
+  }
+  else if (intermode == ppt->inter_closeby) {
+    class_call(spline_sources_interpolate_growing_closeby(
+             ppt->tau_sampling_quadsources,
+             ppt->tau_size_quadsources,
+             ppt->quadsources,
+             ppt->dd_quadsources,
+             ppt->qs_size[index_mode],
+             tau,
+             last_index,
+             psource,
+             ppt->qs_size[index_mode],
+             index_mode,
+             index_ic,           
+             index_k,
+             ppt->k_size[index_mode],
+             ppt->error_message),
+          ppt->error_message,
+          ppt->error_message);
+  }
+
+  return _SUCCESS_;
+}
+  
+
+#endif // WITH_SONG_SUPPORT
+

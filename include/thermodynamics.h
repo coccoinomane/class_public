@@ -72,6 +72,10 @@ struct thermo
   double tau_reio; /**< if above set to tau, input value of reionization optical depth */
 
   double z_reio;   /**< if above set to z,   input value of reionization redshift */
+  
+#ifdef WITH_BISPECTRA
+  double z_reio_start;   /**< redshift when reionization starts, depends on reionization algorithm */
+#endif // WITH_BISPECTRA
 
   short compute_cb2_derivatives; /**< do we want to include in computation derivatives of baryon sound speed? */
 
