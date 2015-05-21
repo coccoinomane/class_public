@@ -305,6 +305,240 @@ int spectra_cl_at_l(
 
 }
 
+
+
+#ifdef WITH_BISPECTRA
+
+/**
+ * Interpolate the derivative of the angular power spectrum at a given value of l.
+ * 
+ * The quantity that will be interpolated is d/dl(l^2*C_l) and is contained in 
+ * the precomputed table psp->d_lsq_cl.
+ *
+ * This function is a simple find and replace of
+ * 'spectra_cl_at_l' where 'psp->cl' and 'psp->ddcl' are substituted by
+ * 'psp->d_lsq_cl' and 'psp->spline_d_lsq_cl', respectively.
+ *
+ * This function can be called from whatever module at whatever time, provided that
+ * spectra_init() has been called before, and spectra_free() has not been called yet.
+ */
+int spectra_dcl_at_l(
+		    struct spectra * psp, /**< pointer to spectra structure (containing pre-computed table) */
+		    double l, /**< multipole number */
+		    double * cl_tot, /**< array with argument cl_tot[index_ct] (must be already allocated) */
+		    double * * cl_md, /**< array with argument cl_md[index_md][index_ct] (must be already
+                             allocated only if several modes) */
+		    double * * cl_md_ic /**< array with argument cl_md_ic[index_md][index_ic1_ic2*psp->ct_size+index_ct]
+                              (must be already allocated for a given mode only if several ic's) */
+		    ) {
+
+  /** Summary: */
+
+  /** - define local variables */
+
+  int last_index;
+  int index_md;
+  int index_ic1,index_ic2,index_ic1_ic2;
+  int index_ct;
+
+  /** A) treat case in which there is only one mode and one initial condition.
+      Then, only cl_tot needs to be filled. */
+
+  if ((psp->md_size == 1) && (psp->ic_size[0] == 1)) {
+    index_md = 0;
+    if ((int)l <= psp->l[psp->l_size[index_md]-1]) {
+
+      /* interpolate at l */
+      class_call(array_interpolate_spline(psp->l,
+                                          psp->l_size[index_md],
+                                          psp->spline_d_lsq_cl[index_md],
+                                          psp->spline_d_lsq_cl[index_md],
+                                          psp->ct_size,
+                                          l,
+                                          &last_index,
+                                          cl_tot,
+                                          psp->ct_size,
+                                          psp->error_message),
+                 psp->error_message,
+                 psp->error_message);
+
+      /* set to zero for the types such that l<l_max */
+      for (index_ct=0; index_ct<psp->ct_size; index_ct++)
+        if ((int)l > psp->l_max_ct[index_md][index_ct])
+          cl_tot[index_ct]=0.;
+    }
+    else {
+      for (index_ct=0; index_ct<psp->ct_size; index_ct++)
+        cl_tot[index_ct]=0.;
+    }
+  }
+
+  /** B) treat case in which there is only one mode
+      with several initial condition.
+      Fill cl_md_ic[index_md=0] and sum it to get cl_tot. */
+
+  if ((psp->md_size == 1) && (psp->ic_size[0] > 1)) {
+    index_md = 0;
+    for (index_ct=0; index_ct<psp->ct_size; index_ct++)
+      cl_tot[index_ct]=0.;
+    for (index_ic1 = 0; index_ic1 < psp->ic_size[index_md]; index_ic1++) {
+      for (index_ic2 = index_ic1; index_ic2 < psp->ic_size[index_md]; index_ic2++) {
+        index_ic1_ic2 = index_symmetric_matrix(index_ic1,index_ic2,psp->ic_size[index_md]);
+        if (((int)l <= psp->l[psp->l_size[index_md]-1]) &&
+            (psp->is_non_zero[index_md][index_ic1_ic2] == _TRUE_)) {
+
+          class_call(array_interpolate_spline(psp->l,
+                                              psp->l_size[index_md],
+                                              psp->spline_d_lsq_cl[index_md],
+                                              psp->spline_d_lsq_cl[index_md],
+                                              psp->ic_ic_size[index_md]*psp->ct_size,
+                                              l,
+                                              &last_index,
+                                              cl_md_ic[index_md],
+                                              psp->ic_ic_size[index_md]*psp->ct_size,
+                                              psp->error_message),
+                     psp->error_message,
+                     psp->error_message);
+
+          for (index_ct=0; index_ct<psp->ct_size; index_ct++)
+            if ((int)l > psp->l_max_ct[index_md][index_ct])
+              cl_md_ic[index_md][index_ic1_ic2*psp->ct_size+index_ct]=0.;
+        }
+        else {
+          for (index_ct=0; index_ct<psp->ct_size; index_ct++)
+            cl_md_ic[index_md][index_ic1_ic2*psp->ct_size+index_ct]=0.;
+        }
+
+        /* compute cl_tot by summing over cl_md_ic */
+        for (index_ct=0; index_ct<psp->ct_size; index_ct++) {
+          if (index_ic1 == index_ic2)
+            cl_tot[index_ct]+=cl_md_ic[index_md][index_ic1_ic2*psp->ct_size+index_ct];
+          else
+            cl_tot[index_ct]+=2.*cl_md_ic[index_md][index_ic1_ic2*psp->ct_size+index_ct];
+        }
+      }
+    }
+  }
+
+  /** C) loop over modes */
+
+  if (psp->md_size > 1) {
+
+    for (index_ct=0; index_ct<psp->ct_size; index_ct++)
+      cl_tot[index_ct]=0.;
+
+    for (index_md = 0; index_md < psp->md_size; index_md++) {
+
+      /** C.1) treat case in which the mode under consideration
+          has only one initial condition.
+          Fill cl_md[index_md]. */
+
+      if (psp->ic_size[index_md] == 1) {
+        if ((int)l <= psp->l[psp->l_size[index_md]-1]) {
+
+          class_call(array_interpolate_spline(psp->l,
+                                              psp->l_size[index_md],
+                                              psp->spline_d_lsq_cl[index_md],
+                                              psp->spline_d_lsq_cl[index_md],
+                                              psp->ct_size,
+                                              l,
+                                              &last_index,
+                                              cl_md[index_md],
+                                              psp->ct_size,
+                                              psp->error_message),
+                     psp->error_message,
+                     psp->error_message);
+
+          for (index_ct=0; index_ct<psp->ct_size; index_ct++)
+            if ((int)l > psp->l_max_ct[index_md][index_ct])
+              cl_md[index_md][index_ct]=0.;
+        }
+        else {
+          for (index_ct=0; index_ct<psp->ct_size; index_ct++)
+            cl_md[index_md][index_ct]=0.;
+        }
+      }
+
+      /** C.2) treat case in which the mode under consideration
+          has several initial conditions.
+          Fill cl_md_ic[index_md] and sum it to get cl_md[index_md] */
+
+      if (psp->ic_size[index_md] > 1) {
+
+        if ((int)l <= psp->l[psp->l_size[index_md]-1]) {
+
+          /* interpolate all ic and ct */
+          class_call(array_interpolate_spline(psp->l,
+                                              psp->l_size[index_md],
+                                              psp->spline_d_lsq_cl[index_md],
+                                              psp->spline_d_lsq_cl[index_md],
+                                              psp->ic_ic_size[index_md]*psp->ct_size,
+                                              l,
+                                              &last_index,
+                                              cl_md_ic[index_md],
+                                              psp->ic_ic_size[index_md]*psp->ct_size,
+                                              psp->error_message),
+                     psp->error_message,
+                     psp->error_message);
+
+          /* set to zero some of the components */
+          for (index_ic1 = 0; index_ic1 < psp->ic_size[index_md]; index_ic1++) {
+            for (index_ic2 = index_ic1; index_ic2 < psp->ic_size[index_md]; index_ic2++) {
+              index_ic1_ic2 = index_symmetric_matrix(index_ic1,index_ic2,psp->ic_size[index_md]);
+              for (index_ct=0; index_ct<psp->ct_size; index_ct++) {
+
+                if (((int)l > psp->l_max_ct[index_md][index_ct]) || (psp->is_non_zero[index_md][index_ic1_ic2] == _FALSE_))
+                  cl_md_ic[index_md][index_ic1_ic2*psp->ct_size+index_ct]=0.;
+              }
+            }
+          }
+        }
+        /* if l was too big, set anyway all components to zero */
+        else {
+          for (index_ic1 = 0; index_ic1 < psp->ic_size[index_md]; index_ic1++) {
+            for (index_ic2 = index_ic1; index_ic2 < psp->ic_size[index_md]; index_ic2++) {
+              index_ic1_ic2 = index_symmetric_matrix(index_ic1,index_ic2,psp->ic_size[index_md]);
+              for (index_ct=0; index_ct<psp->ct_size; index_ct++) {
+                cl_md_ic[index_md][index_ic1_ic2*psp->ct_size+index_ct]=0.;
+              }
+            }
+          }
+        }
+
+        /* sum up all ic for each mode */
+
+        for (index_ct=0; index_ct<psp->ct_size; index_ct++) {
+
+          cl_md[index_md][index_ct]=0.;
+
+          for (index_ic1 = 0; index_ic1 < psp->ic_size[index_md]; index_ic1++) {
+            for (index_ic2 = index_ic1; index_ic2 < psp->ic_size[index_md]; index_ic2++) {
+              index_ic1_ic2 = index_symmetric_matrix(index_ic1,index_ic2,psp->ic_size[index_md]);
+
+              if (index_ic1 == index_ic2)
+                cl_md[index_md][index_ct]+=cl_md_ic[index_md][index_ic1_ic2*psp->ct_size+index_ct];
+              else
+                cl_md[index_md][index_ct]+=2.*cl_md_ic[index_md][index_ic1_ic2*psp->ct_size+index_ct];
+            }
+          }
+        }
+      }
+
+      /** C.3) add contribution of cl_md[index_md] to cl_tot */
+
+      for (index_ct=0; index_ct<psp->ct_size; index_ct++)
+        cl_tot[index_ct]+=cl_md[index_md][index_ct];
+    }
+  }
+
+  return _SUCCESS_;
+
+}
+
+#endif // WITH_BISPECTRA
+
+
+
 /**
  * Matter power spectrum for arbitrary redshift and for all initial conditions.
  *
@@ -1419,6 +1653,14 @@ int spectra_free(
         free(psp->l_max_ct[index_md]);
         free(psp->cl[index_md]);
         free(psp->ddcl[index_md]);
+#ifdef WITH_BISPECTRA
+        if (psp->compute_cl_derivative == _TRUE_) {
+          free(psp->lsq_cl[index_md]);
+          free(psp->d_lsq_cl[index_md]);
+          free(psp->dd_lsq_cl[index_md]);
+          free(psp->spline_d_lsq_cl[index_md]);
+        }
+#endif // WITH_BISPECTRA
       }
       free(psp->l);
       free(psp->l_size);
@@ -1426,6 +1668,16 @@ int spectra_free(
       free(psp->l_max);
       free(psp->cl);
       free(psp->ddcl);
+      
+#ifdef WITH_BISPECTRA
+      if (psp->compute_cl_derivative == _TRUE_) {
+        free(psp->lsq_cl);
+        free(psp->d_lsq_cl);
+        free(psp->dd_lsq_cl);
+        free(psp->spline_d_lsq_cl);
+      }
+#endif // WITH_BISPECTRA
+      
     }
 
     if (psp->ln_k_size > 0) {
@@ -1672,6 +1924,28 @@ int spectra_indices(
       psp->has_dl = _FALSE_;
     }
 
+#ifdef WITH_BISPECTRA
+
+    /* Cross correlations with the primordial curvature perturbation zeta
+    (see http://arxiv.org/abs/1204.5018) */
+
+    if ((ppt->has_cl_cmb_temperature == _TRUE_) && (ppt->has_cl_cmb_zeta == _TRUE_) && (ppt->has_scalars == _TRUE_)) {
+      psp->has_tz = _TRUE_;
+      psp->index_ct_tz=index_ct++;
+    }
+    else {
+      psp->has_tz = _FALSE_;
+    }
+
+    if ((ppt->has_cl_cmb_polarization == _TRUE_) && (ppt->has_cl_cmb_zeta == _TRUE_) && (ppt->has_scalars == _TRUE_)) {
+      psp->has_ez = _TRUE_;
+      psp->index_ct_ez=index_ct++;
+    }
+    else {
+      psp->has_ez = _FALSE_;
+    }
+#endif // WITH_BISPECTRA
+
     psp->ct_size = index_ct;
 
     /* infer from input quantities the l_max for each mode and type,
@@ -1839,6 +2113,15 @@ int spectra_cls(
   class_alloc(psp->cl,sizeof(double *)*psp->md_size,psp->error_message);
   class_alloc(psp->ddcl,sizeof(double *)*psp->md_size,psp->error_message);
 
+#ifdef WITH_BISPECTRA
+  if (psp->compute_cl_derivative == _TRUE_) {
+    class_alloc(psp->lsq_cl,sizeof(double *)*psp->md_size,psp->error_message);
+    class_alloc(psp->d_lsq_cl,sizeof(double *)*psp->md_size,psp->error_message);
+    class_alloc(psp->dd_lsq_cl,sizeof(double *)*psp->md_size,psp->error_message);
+    class_alloc(psp->spline_d_lsq_cl,sizeof(double *)*psp->md_size,psp->error_message);
+  }
+#endif // WITH_BISPECTRA
+
   psp->l_size_max = ptr->l_size_max;
   class_alloc(psp->l,sizeof(double)*psp->l_size_max,psp->error_message);
 
@@ -1860,6 +2143,15 @@ int spectra_cls(
     class_alloc(psp->cl[index_md],sizeof(double)*psp->l_size[index_md]*psp->ct_size*psp->ic_ic_size[index_md],psp->error_message);
     class_alloc(psp->ddcl[index_md],sizeof(double)*psp->l_size[index_md]*psp->ct_size*psp->ic_ic_size[index_md],psp->error_message);
     cl_integrand_num_columns = 1+psp->ct_size*2; /* one for k, ct_size for each type, ct_size for each second derivative of each type */
+
+#ifdef WITH_BISPECTRA
+    if (psp->compute_cl_derivative == _TRUE_) {
+      class_alloc(psp->lsq_cl[index_md],sizeof(double)*psp->l_size[index_md]*psp->ct_size*psp->ic_ic_size[index_md],psp->error_message);
+      class_alloc(psp->d_lsq_cl[index_md],sizeof(double)*psp->l_size[index_md]*psp->ct_size*psp->ic_ic_size[index_md],psp->error_message);
+      class_alloc(psp->dd_lsq_cl[index_md],sizeof(double)*psp->l_size[index_md]*psp->ct_size*psp->ic_ic_size[index_md],psp->error_message);
+      class_alloc(psp->spline_d_lsq_cl[index_md],sizeof(double)*psp->l_size[index_md]*psp->ct_size*psp->ic_ic_size[index_md],psp->error_message);
+    }
+#endif // WITH_BISPECTRA
 
     /** d) loop over initial conditions */
 
@@ -1978,6 +2270,78 @@ int spectra_cls(
                                         psp->error_message),
                psp->error_message,
                psp->error_message);
+                   
+#ifdef WITH_BISPECTRA
+
+    /* - f) Compute the first derivative of the C_l. To do so, we first compute and store l^2*C_l
+    and then take its derivative. This is numerically more stable than computing 2*l*C_l + l^2*dC_l
+    because the function l^2*C_l is smoother than the normal C_l's.  */
+
+    if (psp->compute_cl_derivative == _TRUE_) {
+    
+      /* First of all, store l^2*C_l in psp->lsq_cl. */
+      
+      for (index_ic1 = 0; index_ic1 < psp->ic_size[index_md]; index_ic1++) {
+        for (index_ic2 = index_ic1; index_ic2 < psp->ic_size[index_md]; index_ic2++) {
+
+          index_ic1_ic2 = index_symmetric_matrix(index_ic1,index_ic2,psp->ic_size[index_md]);
+
+          for (index_l=0; index_l < ptr->l_size[index_md]; index_l++) {
+
+            double l = (double)psp->l[index_l];
+
+            for (index_ct=0; index_ct<psp->ct_size; index_ct++) {
+          
+              psp->lsq_cl[index_md][(index_l * psp->ic_ic_size[index_md] + index_ic1_ic2) * psp->ct_size + index_ct] =
+                psp->cl[index_md][(index_l * psp->ic_ic_size[index_md] + index_ic1_ic2) * psp->ct_size + index_ct] * l * l;
+                  
+            }
+          }
+        }
+      } 
+
+      /* Compute the second derivatives of l^2*C_l */
+      
+      class_call(array_spline_table_lines(
+                   psp->l,
+                   psp->l_size[index_md],
+                   psp->lsq_cl[index_md],
+                   psp->ic_ic_size[index_md]*psp->ct_size,
+                   psp->dd_lsq_cl[index_md],
+                   _SPLINE_EST_DERIV_,
+                   psp->error_message),
+        psp->error_message,
+        psp->error_message);
+
+      /* Compute the first derivative using the above information */
+        
+      class_call (array_spline_derive_table_lines(
+                    psp->l,
+                    psp->l_size[index_md],
+                    psp->lsq_cl[index_md],
+                    psp->dd_lsq_cl[index_md],
+                    psp->ic_ic_size[index_md]*psp->ct_size,
+                    psp->d_lsq_cl[index_md],
+                    psp->error_message),
+        psp->error_message,
+        psp->error_message);
+
+      /* Compute second derivative of d_lsq_cl in view of spline interpolation */
+        
+      class_call(array_spline_table_lines(psp->l,
+            psp->l_size[index_md],
+            psp->d_lsq_cl[index_md],
+            psp->ic_ic_size[index_md]*psp->ct_size,
+            psp->spline_d_lsq_cl[index_md],
+            _SPLINE_EST_DERIV_,
+            psp->error_message),
+           psp->error_message,
+           psp->error_message);
+      
+    } // end of(compute_cl_derivative)
+
+#endif // WITH_BISPECTRA
+    
   }
 
   return _SUCCESS_;
@@ -2313,6 +2677,30 @@ int spectra_compute_cl(
         }
       }
     }
+    
+#ifdef WITH_BISPECTRA
+
+    /* Cross correlations with the primordial curvature perturbation zeta */
+    if (_scalars_ && (psp->has_tz == _TRUE_)) {
+      
+      cl_integrand[index_q*cl_integrand_num_columns+1+psp->index_ct_tz]=
+        primordial_pk[index_ic1_ic2]
+        * 0.5*(transfer_ic1_temp * transfer_ic2[ptr->index_tt_zeta] +
+               transfer_ic1[ptr->index_tt_zeta] * transfer_ic2_temp)
+        * factor;
+    }
+
+    if (_scalars_ && (psp->has_ez == _TRUE_)) {
+
+      cl_integrand[index_q*cl_integrand_num_columns+1+psp->index_ct_ez]=
+        primordial_pk[index_ic1_ic2]
+        * 0.5*(transfer_ic1[ptr->index_tt_e] * transfer_ic2[ptr->index_tt_zeta] +
+               transfer_ic1[ptr->index_tt_zeta] * transfer_ic2[ptr->index_tt_e])
+        * factor;
+    }
+
+#endif // WITH_BISPECTRA
+
   }
 
   for (index_ct=0; index_ct<psp->ct_size; index_ct++) {
@@ -2329,6 +2717,10 @@ int spectra_compute_cl(
         (_tensors_ && (psp->has_ll == _TRUE_) && (index_ct == psp->index_ct_ll)) ||
         (_tensors_ && (psp->has_tl == _TRUE_) && (index_ct == psp->index_ct_tl)) ||
         (_tensors_ && (psp->has_dl == _TRUE_) && (index_ct == psp->index_ct_dl))
+#ifdef WITH_BISPECTRA
+        || (_tensors_ && (psp->has_tz == _TRUE_) && (index_ct == psp->index_ct_tz)) ||
+        (_tensors_ && (psp->has_ez == _TRUE_) && (index_ct == psp->index_ct_ez))
+#endif // WITH_BISPECTRA
         ) {
 
       psp->cl[index_md]

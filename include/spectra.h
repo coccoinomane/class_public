@@ -64,6 +64,10 @@ struct spectra {
   int has_ll; /**< do we want C_l^l-l ? (l = galaxy lensing potential) */
   int has_tl; /**< do we want C_l^T-l ? */
   int has_dl; /**< do we want C_l^d-l ? */
+#ifdef WITH_BISPECTRA
+  int has_tz; /**< do we want C_l^TZ ? (Z = curvature pertubation, see http://arxiv.org/abs/1204.5018) */
+  int has_ez; /**< do we want C_l^EZ ? (Z = curvature pertubation, see http://arxiv.org/abs/1204.5018) */
+#endif // WITH_BISPECTRA
 
   int index_ct_tt; /**< index for type C_l^TT */
   int index_ct_ee; /**< index for type C_l^EE */
@@ -78,6 +82,10 @@ struct spectra {
   int index_ct_ll; /**< first index for type C_l^ll ((d_size*d_size-(d_size-non_diag)*(d_size-non_diag-1)/2) values) */
   int index_ct_tl; /**< first index for type C_l^Tl (d_size values) */
   int index_ct_dl; /**< first index for type C_l^dl (d_size values) */
+#ifdef WITH_BISPECTRA
+  int index_ct_tz; /**< index for type C_l^T-Z */
+  int index_ct_ez; /**< index for type C_l^E-Z */
+#endif // WITH_BISPECTRA
 
   int d_size;
 
@@ -116,6 +124,20 @@ struct spectra {
 
   double ** cl;   /**< table of anisotropy spectra for each mode, multipole, pair of initial conditions and types, cl[index_md][(index_l * psp->ic_ic_size[index_md] + index_ic1_ic2) * psp->ct_size + index_ct] */
   double ** ddcl; /**< second derivatives of previous table with respect to l, in view of spline interpolation */
+
+#ifdef WITH_BISPECTRA
+
+  /* Should we compute and store the derivative d(l*l*C_l)/dl? Needed by the bispectrum
+  module to compute the analytical approximations in Creminelli, Pitrou & Vernizzi (2011)
+  and Lewis (2012). Note that only d_lsq_cl is used outside of this module, and that 
+  dln(l*l*C_l)/dln(l) = d(l*l*C_l)/dl / (l*C_l) */
+  short compute_cl_derivative; /**< should we compute derivatives of the C_l? */
+  double ** lsq_cl; /**< array with l*l*C_l, indexed like psp->cl  */
+  double ** d_lsq_cl; /**< array with d(l*l*C_l)/dl, indexed like psp->cl  */
+  double ** dd_lsq_cl; /**< array with d^2(l*l*C_l)/d^2l, indexed like psp->cl  */
+  double ** spline_d_lsq_cl; /**< array with the second derivative of d_lsq_cl,
+                                in view of spline interpolation, indexed like psp->cl  */         
+#endif // WITH_BISPECTRA
 
   double alpha_II_2_20;
   double alpha_RI_2_20;
@@ -215,37 +237,6 @@ struct spectra {
   /* double * LTdCl; /\**< cross (temperature * density) Cl's in the Limber plus thin shell approximation; depends on index_tau,index_l as: LTdCl[index_tau*psp->psp->l_size[psp->index_md_scalars]+index_l] *\/ */
 
   //@}
-
-#ifdef WITH_BISPECTRA
-
-  /** @name - parameters related to bispectrum and Fisher matrix computation */
-
-  //@{
-
-  // int has_rr; /**< do we want C_l^RR ? (R = Rayleigh) */
-  // int has_tr; /**< do we want C_l^TR ? */
-  int has_tz; /**< do we want C_l^TZ ? (Z = curvature pertubation) */
-  int has_ez; /**< do we want C_l^EZ ? (Z = curvature pertubation) */
-
-  // int index_ct_rr; /**< index for type C_l^RR */
-  // int index_ct_tr; /**< index for type C_l^TR */
-  int index_ct_tz; /**< index for type C_l^T-Z */
-  int index_ct_ez; /**< index for type C_l^E-Z */
-
-  short compute_cl_derivative;  /**< Should we compute and store the derivative d(l*l*C_l)/dl?
-                                     Needed by the bispectrum module to compute the analytical
-                                     approximations in Creminelli, Pitrou, Vernizzi (2011) and Lewis
-                                     (2012). */
-  double ** lsq_cl;        /**< Array containing l*l*C_l, indexed as psp->cl */
-  double ** d_lsq_cl;      /**< Array containing d(l*l*C_l)/dl, indexed as psp->cl. Note that
-                                dln(l*l*C_l)/dln(l) = d(l*l*C_l)/dl / (l*C_l) */
-  double ** dd_lsq_cl;     /**< Array containing d^2(l*l*C_l)/d^2l, indexed as psp->cl */
-  double ** spline_d_lsq_cl; /**< Array containing d^2(d_lsq_cl)/dl, indexed as psp->cl, needed for
-                                  spline integration of d_lsq_cl */
-
-  //@}
-
-#endif // WITH_BISPECTRA
 
   /** @name - technical parameters */
 

@@ -108,6 +108,10 @@ struct transfers {
   int index_tt_nc_g4;   /**< index for first bin of transfer type = gravity term G3 for of number count */
   int index_tt_nc_g5;   /**< index for first bin of transfer type = gravity term G3 for of number count */
 
+#ifdef WITH_BISPECTRA
+  int index_tt_zeta;    /**< index for transfer type = zeta curvature perturbation */
+#endif // WITH_BISPECTRA
+
   int * tt_size;     /**< number of requested transfer types tt_size[index_md] for each mode */
 
   //@}

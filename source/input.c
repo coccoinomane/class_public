@@ -4659,7 +4659,6 @@ int input_try_unknown_parameters(double * unknown_parameter,
     class_call(perturb_init(&pr,&ba,&th,&pt), pt.error_message, errmsg);
   }
 
-
   /* TODO: uncomment once you have implemented these modules in SONG */
 
 //   if (pfzw->required_computation_stage >= cs_primordial){
@@ -4675,21 +4674,21 @@ int input_try_unknown_parameters(double * unknown_parameter,
 //     nl.nonlinear_verbose = 0;
 //     class_call(nonlinear_init(&pr,&ba,&th,&pt,&pm,&nl), nl.error_message, errmsg);
 //   }
-//
-//   if (pfzw->required_computation_stage >= cs_transfer){
-//     if (input_verbose>2)
-//       printf("Stage 6: transfer\n");
-//     tr.transfer_verbose = 0;
-//     class_call(transfer_init(&pr,&ba,&th,&pt,&nl,&tr), tr.error_message, errmsg);
-//   }
-//
-//   if (pfzw->required_computation_stage >= cs_spectra){
-//     if (input_verbose>2)
-//       printf("Stage 7: spectra\n");
-//     sp.spectra_verbose = 0;
-//     class_call(spectra_init(&pr,&ba,&pt,&pm,&nl,&tr,&sp),sp.error_message, errmsg);
-//   }
-//
+
+  if (pfzw->required_computation_stage >= cs_transfer){
+    if (input_verbose>2)
+      printf("Stage 6: transfer\n");
+    tr.transfer_verbose = 0;
+    class_call(transfer_init(&pr,&ba,&th,&pt,&nl,&tr), tr.error_message, errmsg);
+  }
+
+  if (pfzw->required_computation_stage >= cs_spectra){
+    if (input_verbose>2)
+      printf("Stage 7: spectra\n");
+    sp.spectra_verbose = 0;
+    class_call(spectra_init(&pr,&ba,&pt,&pm,&nl,&tr,&sp),sp.error_message, errmsg);
+  }
+
 // #ifdef WITH_BISPECTRA
 //
 //   if (pfzw->required_computation_stage >= cs_bessels){
@@ -4769,12 +4768,12 @@ int input_try_unknown_parameters(double * unknown_parameter,
 //     class_call(bessel_free(&bs), bs.error_message, errmsg);
 //   }
 // #endif // WITH_BISPECTRA
-//   if (pfzw->required_computation_stage >= cs_spectra){
-//     class_call(spectra_free(&sp), sp.error_message, errmsg);
-//   }
-//   if (pfzw->required_computation_stage >= cs_transfer){
-//     class_call(transfer_free(&tr), tr.error_message, errmsg);
-//   }
+  if (pfzw->required_computation_stage >= cs_spectra){
+    class_call(spectra_free(&sp), sp.error_message, errmsg);
+  }
+  if (pfzw->required_computation_stage >= cs_transfer){
+    class_call(transfer_free(&tr), tr.error_message, errmsg);
+  }
 //   if (pfzw->required_computation_stage >= cs_nonlinear){
 //     class_call(nonlinear_free(&nl), nl.error_message, errmsg);
 //   }

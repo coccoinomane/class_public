@@ -515,6 +515,10 @@ int transfer_indices_of_transfers(
     class_define_index(ptr->index_tt_nc_g4,  ppt->has_nc_gr,                   index_tt,ppt->selection_num);
     class_define_index(ptr->index_tt_nc_g5,  ppt->has_nc_gr,                   index_tt,ppt->selection_num);
     class_define_index(ptr->index_tt_lensing,ppt->has_cl_lensing_potential,    index_tt,ppt->selection_num);
+#ifdef WITH_BISPECTRA
+    if (ppt->has_cl_cmb_zeta == _TRUE_)
+      class_define_index(ptr->index_tt_zeta, ppt->has_cl_cmb_zeta,             index_tt,1);
+#endif // WITH_BISPECTRA
 
     ptr->tt_size[ppt->index_md_scalars]=index_tt;
 
@@ -1356,6 +1360,10 @@ int transfer_get_source_correspondence(
         if ((ppt->has_cl_lensing_potential == _TRUE_) && (index_tt >= ptr->index_tt_lensing) && (index_tt < ptr->index_tt_lensing+ppt->selection_num))
           tp_of_tt[index_md][index_tt]=ppt->index_tp_phi_plus_psi;
 
+        #ifdef WITH_BISPECTRA
+        if ((ppt->has_cl_cmb_zeta == _TRUE_) && (index_tt == ptr->index_tt_zeta))
+          tp_of_tt[index_md][index_tt]=ppt->index_tp_zeta;
+        #endif // WITH_BISPECTRA
       }
 
       if (_vectors_) {
@@ -3450,11 +3458,27 @@ int transfer_compute_for_each_l(
                ptr->error_message);
   }
 
+#ifdef WITH_BISPECTRA
+
+  /* TODO: verify that this is needed */
+  /* TODO: if this is needed, why switching the sign only for m=0 (scalars)? */
+
+  /* Flip sign of E-mode transfer functions, to match with what we do at second order,
+  where we follow the convention by Hu & White. */
+  if (((ppt->has_scalars == _TRUE_) && (index_md == ppt->index_md_scalars)) &&
+      ((ppt->has_cl_cmb_polarization == _TRUE_) && (index_tt == ptr->index_tt_e))) {
+    transfer_function *= -1;
+  }
+        
+#endif // WITH_BISPECTRA
+
+
   /* store transfer function in transfer structure */
   ptr->transfer[index_md][((index_ic * ptr->tt_size[index_md] + index_tt)
                            * ptr->l_size[index_md] + index_l)
                           * ptr->q_size + index_q]
     = transfer_function;
+
 
   return _SUCCESS_;
 
