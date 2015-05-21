@@ -5,6 +5,9 @@
 
 #include "common.h"
 #include "lensing.h"
+#ifdef WITH_BISPECTRA
+#include "fisher.h"
+#endif // WITH_BISPECTRA
 
 /**
  * Maximum number of values of redshift at which the spectra will be
@@ -50,6 +53,9 @@ struct output {
   short write_thermodynamics;
   short write_perturbations;
   short write_primordial;
+#ifdef WITH_BISPECTRA
+  short write_bispectra;
+#endif // WITH_BISPECTRA
 
   //@}
 
@@ -90,6 +96,10 @@ extern "C" {
                   struct spectra * psp,
                   struct nonlinear * pnl,
                   struct lensing * ple,
+#ifdef WITH_BISPECTRA
+                  struct bispectra * pbi,
+                  struct fisher * pfi,
+#endif // WITH_BISPECTRA
                   struct output * pop
                   );
 
@@ -100,6 +110,14 @@ extern "C" {
                 struct lensing * ple,
                 struct output * pop
                 );
+
+#ifdef WITH_BISPECTRA
+  int output_fisher(
+                   struct bispectra * pbi,
+                   struct fisher * pfi,
+                   struct output * pop
+                   );
+#endif // WITH_BISPECTRA
 
   int output_pk(
                 struct background * pba,

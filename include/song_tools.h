@@ -266,6 +266,14 @@ extern "C" {
 			       int result_size, /** from 1 to n_columns */
 			       ErrorMsg errmsg);
 	
+  int array_spline_derive_table_lines(
+             double * x_array,
+             int x_size,
+             double * y_array,
+             double * ddy_array,
+             int y_size,
+             double * dy_array,
+             ErrorMsg errmsg);
 
 
   // ============================================================================

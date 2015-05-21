@@ -2619,9 +2619,11 @@ int spline_sources_interpolate(
  
  
  
-/* Same as spline_sources_interpolate, but faster if x is arranged in growing order, and the point x is
-presumably very close to the previous point x from the last call of this function. */
-
+/**
+ * Same as spline_sources_interpolate, but faster if x is arranged in growing order,
+ * and the point x is presumably very close to the previous point x from the last 
+ * call of this function.
+ */
 int spline_sources_interpolate_growing_closeby(
 			     double * x_array,
 			     int tau_size,
@@ -2695,12 +2697,12 @@ int spline_sources_interpolate_growing_closeby(
 
 
 
- /**
-  * Takes the same input as 'array_interpolate_spline' but does linear interpolation, by
-  * ignoring the spline matrix. Useful for debugging the splines thoroughout CLASS.
-  *
-  * Called by background_at_eta(); background_eta_of_z(); background_solve(); thermodynamics_at_z().
-  */
+/**
+ * Takes the same input as 'array_interpolate_spline' but does linear interpolation, by
+ * ignoring the spline matrix. Useful for debugging the splines thoroughout CLASS.
+ *
+ * Called by background_at_eta(); background_eta_of_z(); background_solve(); thermodynamics_at_z().
+ */
 int array_interpolate_spline_fake(
 			     double * x_array,
 			     int n_lines,
@@ -2777,7 +2779,107 @@ int array_interpolate_spline_fake(
   return _SUCCESS_;
 }
 
+ 
+/**
+ * Compute the first derivative of all the columns of an array (y_array) with respect to x,
+ * using the precomputed second derivative array (ddy_array), and store the result into an
+ * output array (dy_array). The number of columns of the input array must be given by y_size.
+ */
 
+int array_spline_derive_table_lines(
+           double * x_array, /**< vector of size x_size */
+           int x_size, /**< size of the vector x_array (first argument) */
+           double * y_array, /**< matrix of size x_size*y_size with elements, y_array[index_x*y_size+index_y] */
+           double * ddy_array, /**< matrix of size x_size*y_size, ddy_array[index_x*y_size+index_y] */
+           int y_size, /**< number of columns */
+           double * dy_array, /**< output matrix of size x_size*y_size, ddy_array[index_x*y_size+index_y] */
+           ErrorMsg errmsg) {
+
+  int index_x, index_y;
+
+  double h;
+  
+  class_test(x_size<2,
+       errmsg,
+       "no possible derivation with less than two lines");
+
+  for (index_x=0; index_x < x_size-1; ++index_x) {
+
+    h = x_array[index_x+1] - x_array[index_x];
+    
+    if (h == 0) {
+      sprintf(errmsg,"%s(L:%d) h=0, stop to avoid division by zero",__func__,__LINE__);
+      return _FAILURE_;
+    }
+
+    for (index_y=0; index_y < y_size; index_y++) {
+
+      dy_array[index_x*y_size+index_y] = 
+        (y_array[(index_x+1)*y_size+index_y] - y_array[index_x*y_size+index_y])/h
+        - h / 6. * (ddy_array[(index_x+1)*y_size+index_y] + 2. * ddy_array[(index_x+1)*y_size+index_y]);
+    }
+
+  } 
+  
+  h = x_array[x_size-1] - x_array[x_size-2];
+
+  for (index_y=0; index_y < y_size; index_y++) {
+
+    dy_array[(x_size-1)*y_size+index_y] = 
+      (y_array[(x_size-1)*y_size+index_y] - y_array[(x_size-2)*y_size+index_y])/h
+      + h / 6. * (2. * ddy_array[(x_size-1)*y_size+index_y] + ddy_array[(x_size-2)*y_size+index_y]);
+  }
+  
+  return _SUCCESS_;
+}
+
+
+// /**
+//  * Compute the first derivative of array[y] with respect to array[x], and store it in the
+//  * preallocated location given by array[dy].
+//  */
+// int array_derive(
+//     double * array,
+//     int n_columns,
+//     int n_lines,
+//     int index_x,   /** from 0 to (n_columns-1) */
+//     int index_y,
+//     int index_dydx,
+//     ErrorMsg errmsg) {
+//   
+//   int i;
+// 
+//   double dx1,dx2,dy1,dy2,weight1,weight2;
+// 
+//   class_test((index_dydx == index_x) || (index_dydx == index_y),
+//       errmsg,
+//       "output column %d must differ from input columns %d and %d",index_dydx,index_x,index_y);
+// 
+//   dx2=array[1*n_columns+index_x]-array[0*n_columns+index_x];
+//   dy2=array[1*n_columns+index_y]-array[0*n_columns+index_y];
+// 
+//   for (i=1; i<n_lines-1; i++) {
+// 
+//     dx1 = dx2;
+//     dy1 = dy2;
+//     dx2 = array[(i+1)*n_columns+index_x]-array[i*n_columns+index_x];
+//     dy2 = array[(i+1)*n_columns+index_y]-array[i*n_columns+index_y];
+//     class_test((dx1 == 0) || (dx2 == 0),
+//         errmsg,
+//         "stop to avoid division by zero");
+//     weight1 = dx2*dx2;
+//     weight2 = dx1*dx1;
+//     array[i*n_columns+index_dydx] = (weight1*dy1+weight2*dy2) / (weight1*dx1+weight2*dx2);
+//     
+//     if (i == 1)
+//       array[(i-1)*n_columns+index_dydx] = 2.*dy1/dx1 - array[i*n_columns+index_dydx];
+// 
+//     if (i == n_lines-2)
+//       array[(i+1)*n_columns+index_dydx] = 2.*dy2/dx2 - array[i*n_columns+index_dydx];
+//   } 
+//   
+//   return _SUCCESS_;
+// }
 
  
 // ============================================================================

@@ -109,6 +109,10 @@ int output_init(
                 struct spectra * psp,
                 struct nonlinear * pnl,
                 struct lensing * ple,
+#ifdef WITH_BISPECTRA
+                struct bispectra * pbi,
+                struct fisher * pfi,
+#endif // WITH_BISPECTRA
                 struct output * pop
                 ) {
 
@@ -116,7 +120,11 @@ int output_init(
 
   /** - check that we really want to output at least one file */
 
-  if ((ppt->has_cls == _FALSE_) && (ppt->has_pk_matter == _FALSE_) && (ppt->has_density_transfers == _FALSE_) && (ppt->has_velocity_transfers == _FALSE_) && (pop->write_background == _FALSE_) && (pop->write_thermodynamics == _FALSE_) && (pop->write_primordial == _FALSE_)) {
+  if ((ppt->has_cls == _FALSE_) && (ppt->has_pk_matter == _FALSE_) && (ppt->has_density_transfers == _FALSE_) && (ppt->has_velocity_transfers == _FALSE_) && (pop->write_background == _FALSE_) && (pop->write_thermodynamics == _FALSE_) && (pop->write_primordial == _FALSE_)
+#ifdef WITH_BISPECTRA
+    && (pbi->has_bispectra == _FALSE_) && (pfi->has_fisher == _FALSE_)
+#endif // WITH_BISPECTRA
+  ) {
     if (pop->output_verbose > 0)
       printf("No output files requested. Output module skipped.\n");
     return _SUCCESS_;
@@ -198,6 +206,19 @@ int output_init(
                pop->error_message);
 
   }
+
+#ifdef WITH_BISPECTRA
+  /** - deal with fisher matrices */
+  
+  if (pfi->has_fisher == _TRUE_) {
+
+    class_call(output_fisher(pbi,pfi,pop),
+         pop->error_message,
+         pop->error_message);
+
+  }
+#endif // WITH_BISPECTRA
+
 
   return _SUCCESS_;
 
@@ -297,7 +318,6 @@ int output_cl(
               psp->ct_size*sizeof(double),
               pop->error_message);
 
-
   if (ple->has_lensed_cls == _TRUE_) {
 
     sprintf(file_name,"%s%s",pop->root,"cl_lensed.dat");
@@ -347,6 +367,53 @@ int output_cl(
 
     }
   }
+
+  #ifdef WITH_BISPECTRA
+
+    /* Do the same as above but for the derivative of the cls */
+  
+    double ** dcl_md;
+    double ** dcl_md_ic;
+    double * dcl_tot;
+    FILE * out_dcl;
+  
+    if (psp->compute_cl_derivative == _TRUE_) {
+
+      /* Allocate arrays for derivatives of cls */    
+      class_alloc(dcl_md_ic,
+        psp->md_size*sizeof(double *),
+        pop->error_message);
+
+      class_alloc(dcl_md,
+        psp->md_size*sizeof(double *),
+        pop->error_message);
+
+      class_alloc(dcl_tot,
+        psp->ct_size*sizeof(double),
+        pop->error_message);
+
+      if (ppt->md_size > 1)
+        for (index_md = 0; index_md < ppt->md_size; index_md++)
+          class_alloc(dcl_md[index_md],
+        	  psp->ct_size*sizeof(double),
+        	  pop->error_message);
+
+      /* Create file for derivatives of cls */
+      sprintf(file_name,"%s%s",pop->root,"dcl.dat");
+    
+      class_call(output_open_cl_file(psp,
+             pop,
+             &out_dcl,
+             file_name,
+             "total dln(l*l*C_l)/dln(l)",
+             ple->l_lensed_max
+             ),
+           pop->error_message,
+           pop->error_message);
+    }
+  
+  #endif // WITH_BISPECTRA
+  
 
   for (index_md = 0; index_md < ppt->md_size; index_md++) {
 
@@ -511,6 +578,33 @@ int output_cl(
                pop->error_message,
                pop->error_message);
 
+
+#ifdef WITH_BISPECTRA
+  
+    /* Write to file the quantity dln(l*l*cl)/dln(l), needed to compute the analytical
+    approximations of the bispectrum in Creminelli, Pitrou & Vernizzi (2011) and in
+    Lewis (2012) */
+  
+    if (psp->compute_cl_derivative == _TRUE_) { 
+
+      /* Interpolate array with the derivative DCL=d/dl(l^2*C_l) */
+      class_call(spectra_dcl_at_l(psp,(double)l,dcl_tot,dcl_md,dcl_md_ic),
+           psp->error_message,
+           pop->error_message);
+
+      /* Compute the logarithmic derivative of the C_l using the fact that
+      dln(l*l*cl)/dln(l) = DCL/(l*cl) */
+      for (int index_ct=0; index_ct < psp->ct_size; index_ct++)
+        dcl_tot[index_ct] /= (l*cl_tot[index_ct]);
+
+      class_call(output_one_line_of_cl(pba,psp,pop,out_dcl,l,dcl_tot,psp->ct_size),
+           pop->error_message,
+           pop->error_message);      
+    }
+
+#endif // WITH_BISPECTRA
+
+
     if ((ple->has_lensed_cls == _TRUE_) && (l<=ple->l_lensed_max)) {
 
       class_call(lensing_cl_at_l(ple,
@@ -571,6 +665,14 @@ int output_cl(
   if (ple->has_lensed_cls == _TRUE_) {
     fclose(out_lensed);
   }
+#ifdef WITH_BISPECTRA
+  if (psp->compute_cl_derivative == _TRUE_) {
+    fclose(out_dcl);
+    free(dcl_tot);
+    free(dcl_md_ic);
+    free(dcl_md);
+  }
+#endif // WITH_BISPECTRA
   free(cl_tot);
   for (index_md = 0; index_md < ppt->md_size; index_md++) {
     free(out_md_ic[index_md]);
@@ -1447,6 +1549,10 @@ int output_open_cl_file(
       class_fprintf_columntitle(*clfile,"EE",psp->has_ee,colnum);
       class_fprintf_columntitle(*clfile,"TE",psp->has_te,colnum);
       class_fprintf_columntitle(*clfile,"BB",psp->has_bb,colnum);
+#ifdef WITH_BISPECTRA
+      class_fprintf_columntitle(*clfile,"TZ",psp->has_tz,colnum);
+      class_fprintf_columntitle(*clfile,"EZ",psp->has_ez,colnum);
+#endif // WITH_BISPECTRA
       class_fprintf_columntitle(*clfile,"phiphi",psp->has_pp,colnum);
       class_fprintf_columntitle(*clfile,"TPhi",psp->has_tp,colnum);
       class_fprintf_columntitle(*clfile,"Ephi",psp->has_ep,colnum);
@@ -1538,6 +1644,29 @@ int output_one_line_of_cl(
   double factor;
 
   factor = l*(l+1)/2./_PI_;
+
+#ifdef WITH_BISPECTRA
+
+  /* If psp->compute_cl_derivative==_TRUE_, then the argument cl is actually
+  the logarithmic derivative dln(l*l*cl)/dln(l). We do not apply any factor. Note
+  that this quantity blows when the cls vanish, as it happens when mixed cls such
+  as TE cross the zero line and for the BB (with scalar perturbations and no
+  lensing). */
+
+  if (psp->compute_cl_derivative == _TRUE_) {
+    
+    fprintf(clfile,"%4d ",(int)l);
+
+    for (index_ct=0; index_ct < ct_size; index_ct++) {
+      class_fprintf_double(clfile, cl[index_ct], _TRUE_);
+    }
+
+    fprintf(clfile,"\n");  
+
+    return _SUCCESS_;    
+  }
+  
+#endif // WITH_BISPECTRA
 
   fprintf(clfile," ");
 

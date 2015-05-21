@@ -3624,7 +3624,6 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
   // 
   // }
   
-
 #endif // WITH_BISPECTRA
 
   /** m.1. shall we write background quantitites in a file? */
@@ -3692,6 +3691,22 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
     pop->write_primordial = _TRUE_;
 
   }
+
+#ifdef WITH_BISPECTRA
+
+  /** m.5. shall we write bispectra to file? */
+
+  class_call(parser_read_string(pfc,"write bispectra",&string1,&flag1,errmsg),
+             errmsg,
+             errmsg);
+
+  if ((flag1 == _TRUE_) && ((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL))) {
+
+    pop->write_bispectra = _TRUE_;
+
+  }
+
+#endif // WITH_BISPECTRA
 
   return _SUCCESS_;
 
@@ -4080,6 +4095,10 @@ int input_default_params(
   pfi->ignore_r = _FALSE_;
   pfi->include_lensing_effects = _FALSE_;
   pfi->squeezed_ratio = 0;
+  
+  /** - output structure */
+
+  pop->write_bispectra = _FALSE_;
 
 #ifdef WITH_SONG_SUPPORT
 
@@ -4659,21 +4678,19 @@ int input_try_unknown_parameters(double * unknown_parameter,
     class_call(perturb_init(&pr,&ba,&th,&pt), pt.error_message, errmsg);
   }
 
-  /* TODO: uncomment once you have implemented these modules in SONG */
+  if (pfzw->required_computation_stage >= cs_primordial){
+    if (input_verbose>2)
+      printf("Stage 4: primordial\n");
+    pm.primordial_verbose = 0;
+    class_call(primordial_init(&pr,&pt,&pm), pm.error_message, errmsg);
+  }
 
-//   if (pfzw->required_computation_stage >= cs_primordial){
-//     if (input_verbose>2)
-//       printf("Stage 4: primordial\n");
-//     pm.primordial_verbose = 0;
-//     class_call(primordial_init(&pr,&pt,&pm), pm.error_message, errmsg);
-//   }
-//
-//   if (pfzw->required_computation_stage >= cs_nonlinear){
-//     if (input_verbose>2)
-//       printf("Stage 5: nonlinear\n");
-//     nl.nonlinear_verbose = 0;
-//     class_call(nonlinear_init(&pr,&ba,&th,&pt,&pm,&nl), nl.error_message, errmsg);
-//   }
+  if (pfzw->required_computation_stage >= cs_nonlinear){
+    if (input_verbose>2)
+      printf("Stage 5: nonlinear\n");
+    nl.nonlinear_verbose = 0;
+    class_call(nonlinear_init(&pr,&ba,&th,&pt,&pm,&nl), nl.error_message, errmsg);
+  }
 
   if (pfzw->required_computation_stage >= cs_transfer){
     if (input_verbose>2)
@@ -4688,6 +4705,8 @@ int input_try_unknown_parameters(double * unknown_parameter,
     sp.spectra_verbose = 0;
     class_call(spectra_init(&pr,&ba,&pt,&pm,&nl,&tr,&sp),sp.error_message, errmsg);
   }
+
+  /* TODO: uncomment once you have implemented these modules in SONG */
 
 // #ifdef WITH_BISPECTRA
 //
@@ -4774,12 +4793,12 @@ int input_try_unknown_parameters(double * unknown_parameter,
   if (pfzw->required_computation_stage >= cs_transfer){
     class_call(transfer_free(&tr), tr.error_message, errmsg);
   }
-//   if (pfzw->required_computation_stage >= cs_nonlinear){
-//     class_call(nonlinear_free(&nl), nl.error_message, errmsg);
-//   }
-//   if (pfzw->required_computation_stage >= cs_primordial){
-//     class_call(primordial_free(&pm), pm.error_message, errmsg);
-//   }
+  if (pfzw->required_computation_stage >= cs_nonlinear){
+    class_call(nonlinear_free(&nl), nl.error_message, errmsg);
+  }
+  if (pfzw->required_computation_stage >= cs_primordial){
+    class_call(primordial_free(&pm), pm.error_message, errmsg);
+  }
   if (pfzw->required_computation_stage >= cs_perturbations){
     class_call(perturb_free(&pt), pt.error_message, errmsg);
   }

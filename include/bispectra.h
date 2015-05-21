@@ -3,6 +3,7 @@
 #ifndef __BISPECTRA__
 #define __BISPECTRA__
 
+#include "bessel.h"
 #include "lensing.h"
 #include "spectra.h"
 #include "slatec_3j_C.h"

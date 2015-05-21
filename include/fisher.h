@@ -4,8 +4,6 @@
 #define __FISHER__
 
 #include "bispectra.h"
-#include "lensing.h"
-#include "spectra.h"
 #include "mesh_interpolation.h"
 
 

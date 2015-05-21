@@ -18,6 +18,11 @@
 #include "dei_rkck.h"
 #include "parser.h"
 
+/* tools for SONG */
+#ifdef WITH_BISPECTRA
+#include "song_tools.h"
+#endif // WITH_BISPECTRA
+
 /* class modules */
 #include "common.h"
 #include "input.h"

@@ -85,18 +85,26 @@ int main(int argc, char **argv) {
     printf("\n\nError in bispectra_init \n=>%s\n",bi.error_message);
     return _FAILURE_;
   }
-     
+
   if (fisher_init(&pr,&ba,&th,&pt,&bs,&tr,&pm,&sp,&le,&bi,&fi) == _FAILURE_) {
     printf("\n\nError in fisher_init \n=>%s\n",fi.error_message);
     return _FAILURE_;
   }
 #endif // WITH_BISPECTRA
 
+#ifndef WITH_BISPECTRA
   if (output_init(&ba,&th,&pt,&pm,&tr,&sp,&nl,&le,&op) == _FAILURE_) {
     printf("\n\nError in output_init \n=>%s\n",op.error_message);
     return _FAILURE_;
   }
-
+#else
+  if (output_init(&ba,&th,&pt,&pm,&tr,&sp,&nl,&le,&bi,&fi,&op) == _FAILURE_) {
+    printf("\n\nError in output_init \n=>%s\n",op.error_message);
+    return _FAILURE_;
+  }
+#endif
+  
+  
   /****** all calculations done, now free the structures ******/
 
 #ifdef WITH_BISPECTRA

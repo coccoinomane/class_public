@@ -128,9 +128,9 @@ struct spectra {
 #ifdef WITH_BISPECTRA
 
   /* Should we compute and store the derivative d(l*l*C_l)/dl? Needed by the bispectrum
-  module to compute the analytical approximations in Creminelli, Pitrou & Vernizzi (2011)
-  and Lewis (2012). Note that only d_lsq_cl is used outside of this module, and that 
-  dln(l*l*C_l)/dln(l) = d(l*l*C_l)/dl / (l*C_l) */
+  module to compute the analytical approximations of the intrinsic bispectrum in Creminelli,
+  Pitrou & Vernizzi (2011) and in Lewis (2012). Note that only d_lsq_cl is used outside of this
+  module, and that dln(l*l*C_l)/dln(l) = d(l*l*C_l)/dl / (l*C_l) */
   short compute_cl_derivative; /**< should we compute derivatives of the C_l? */
   double ** lsq_cl; /**< array with l*l*C_l, indexed like psp->cl  */
   double ** d_lsq_cl; /**< array with d(l*l*C_l)/dl, indexed like psp->cl  */

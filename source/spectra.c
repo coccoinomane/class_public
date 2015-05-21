@@ -17,7 +17,7 @@
  */
 
 #include "spectra.h"
-
+#include "arrays.h"
 
 
 int spectra_bandpower(struct spectra * psp,
@@ -351,7 +351,7 @@ int spectra_dcl_at_l(
       /* interpolate at l */
       class_call(array_interpolate_spline(psp->l,
                                           psp->l_size[index_md],
-                                          psp->spline_d_lsq_cl[index_md],
+                                          psp->d_lsq_cl[index_md],
                                           psp->spline_d_lsq_cl[index_md],
                                           psp->ct_size,
                                           l,
@@ -389,7 +389,7 @@ int spectra_dcl_at_l(
 
           class_call(array_interpolate_spline(psp->l,
                                               psp->l_size[index_md],
-                                              psp->spline_d_lsq_cl[index_md],
+                                              psp->d_lsq_cl[index_md],
                                               psp->spline_d_lsq_cl[index_md],
                                               psp->ic_ic_size[index_md]*psp->ct_size,
                                               l,
@@ -438,7 +438,7 @@ int spectra_dcl_at_l(
 
           class_call(array_interpolate_spline(psp->l,
                                               psp->l_size[index_md],
-                                              psp->spline_d_lsq_cl[index_md],
+                                              psp->d_lsq_cl[index_md],
                                               psp->spline_d_lsq_cl[index_md],
                                               psp->ct_size,
                                               l,
@@ -470,7 +470,7 @@ int spectra_dcl_at_l(
           /* interpolate all ic and ct */
           class_call(array_interpolate_spline(psp->l,
                                               psp->l_size[index_md],
-                                              psp->spline_d_lsq_cl[index_md],
+                                              psp->d_lsq_cl[index_md],
                                               psp->spline_d_lsq_cl[index_md],
                                               psp->ic_ic_size[index_md]*psp->ct_size,
                                               l,
@@ -2329,15 +2329,35 @@ int spectra_cls(
       /* Compute second derivative of d_lsq_cl in view of spline interpolation */
         
       class_call(array_spline_table_lines(psp->l,
-            psp->l_size[index_md],
-            psp->d_lsq_cl[index_md],
-            psp->ic_ic_size[index_md]*psp->ct_size,
-            psp->spline_d_lsq_cl[index_md],
-            _SPLINE_EST_DERIV_,
-            psp->error_message),
-           psp->error_message,
-           psp->error_message);
-      
+                   psp->l_size[index_md],
+                   psp->d_lsq_cl[index_md],
+                   psp->ic_ic_size[index_md]*psp->ct_size,
+                   psp->spline_d_lsq_cl[index_md],
+                   _SPLINE_EST_DERIV_,
+                   psp->error_message),
+        psp->error_message,
+        psp->error_message);
+
+
+      for (index_ic1 = 0; index_ic1 < psp->ic_size[index_md]; index_ic1++) {
+        for (index_ic2 = index_ic1; index_ic2 < psp->ic_size[index_md]; index_ic2++) {
+
+          index_ic1_ic2 = index_symmetric_matrix(index_ic1,index_ic2,psp->ic_size[index_md]);
+
+          for (index_l=0; index_l < ptr->l_size[index_md]; index_l++) {
+
+            double l = (double)psp->l[index_l];
+
+            for (index_ct=0; index_ct<psp->ct_size; index_ct++) {
+          
+              if (index_ct==0)
+                fprintf (stderr, "%12g %12g\n", l, psp->d_lsq_cl[index_md][(index_l * psp->ic_ic_size[index_md] + index_ic1_ic2) * psp->ct_size + index_ct]);
+                  
+            }
+          }
+        }
+      } 
+
     } // end of(compute_cl_derivative)
 
 #endif // WITH_BISPECTRA
