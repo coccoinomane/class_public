@@ -252,7 +252,7 @@ int perturb_init(
       of second-order perturbations  */
 
   if (ppt->has_perturbations2 == _TRUE_) {
-    class_call(perturb_indices_of_perturbs_song(ppr,
+    class_call(perturb_song_indices_of_perturbs(ppr,
                                                 pba,
                                                 pth,
                                                 ppt),
@@ -2671,7 +2671,7 @@ int perturb_solve(
                                  ppr->perturb_integration_stepsize,
                                  ppt->tau_sampling_quadsources, /* Sample the system differently */
                                  ppt->tau_size_quadsources,
-                                 perturb_sources_song, /* Also use a different function */
+                                 perturb_song_sources, /* Also use a different function */
                                  NULL, /* No print function */
                                  NULL, /* No exit strategy */
                                  ppt->error_message),
@@ -8562,7 +8562,7 @@ int perturb_rsa_delta_and_theta(
  * which is indexed in the same way as ppt->sources; here we also allocate its first two levels.
  *
  */
-int perturb_indices_of_perturbs_song(
+int perturb_song_indices_of_perturbs(
         struct precision * ppr,
         struct background * pba,
         struct thermo * pth,
@@ -8742,7 +8742,7 @@ int perturb_indices_of_perturbs_song(
  * which is indexed like ppt->sources, but using the index_qs_XXX indices instead of the
  * index_tp_XXX ones.
  */
-int perturb_sources_song(
+int perturb_song_sources(
               double tau,
               double * y,
               double * dy,
@@ -9337,7 +9337,7 @@ int perturb_compute_psi_prime(
   * This function is just a wrapper that chooses whether to use linear or spline
   * interpolation according to the option ppr->quadsources_time_interpolation.
   */
-int perturb_quadsources_at_tau (
+int perturb_song_sources_at_tau (
          struct precision * ppr,
          struct perturbs * ppt,
          int index_mode, /**< mode index (scalar, vector, tensor) */
@@ -9353,7 +9353,7 @@ int perturb_quadsources_at_tau (
   /* Linear interpolation */
   if (ppr->quadsources_time_interpolation == linear_interpolation) {
 
-    class_call(perturb_quadsources_at_tau_linear(
+    class_call(perturb_song_sources_at_tau_linear(
                  ppt,
                  index_mode,
                  index_ic,
@@ -9368,7 +9368,7 @@ int perturb_quadsources_at_tau (
   /* Cubic spline interpolation */
   else if (ppr->quadsources_time_interpolation == cubic_interpolation) {
 
-    class_call(perturb_quadsources_at_tau_spline(
+    class_call(perturb_song_sources_at_tau_spline(
                  ppt,
                  index_mode,
                  index_ic,
@@ -9391,7 +9391,7 @@ int perturb_quadsources_at_tau (
   * Interpolate the perturbations in ppt->quadsources at a given time tau using
   * linear interpolation.
   */
-int perturb_quadsources_at_tau_linear (
+int perturb_song_sources_at_tau_linear (
         struct perturbs * ppt,
         int index_mode, /**< mode index (scalar, vector, tensor) */
         int index_ic, /**< initial condition index (adiabatic, isocurvature, ...)*/
@@ -9520,7 +9520,7 @@ int perturb_quadsources_at_tau_linear (
   * setting intermode=ppt->inter_closeby and always passing the same integer address
   * as *last_index. Otherwise, just use intermode=ppt->inter_normal.
   */
-int perturb_quadsources_at_tau_spline (
+int perturb_song_sources_at_tau_spline (
          struct perturbs * ppt,
          int index_mode, /**< mode index (scalar, vector, tensor) */
          int index_ic, /**< initial condition index (adiabatic, isocurvature, ...)*/

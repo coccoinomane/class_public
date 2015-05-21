@@ -83,11 +83,11 @@ enum sources_tau_samplings {
 
 //@}
 
-/** Macro to quickly writing in the array ppt->quadsoruces */
+/** Macro to quickly write in the array ppt->quadsoruces */
 #define _set_quadsource_(index,value,args...) {                                      \
     ppt->quadsources[index_md][index_ic * ppt->qs_size[index_md] + index]            \
                     [index_tau * ppt->k_size[index_md] + index_k] = value;           \
-    sprintf(ppt->qs_labels[index_md][index],args);                                    \
+    sprintf(ppt->qs_labels[index_md][index],args);                                   \
   }
 
 #endif // WITH_SONG_SUPPORT
@@ -1005,7 +1005,7 @@ extern "C" {
                              
 #ifdef WITH_SONG_SUPPORT
 
-  int perturb_quadsources_at_tau(
+  int perturb_song_sources_at_tau(
              struct precision * ppr,
              struct perturbs * ppt,
              int index_mode,
@@ -1017,7 +1017,7 @@ extern "C" {
              double * psource
              );
 
-  int perturb_quadsources_at_tau_spline(
+  int perturb_song_sources_at_tau_spline(
              struct perturbs * ppt,
              int index_mode,
              int index_ic,
@@ -1028,7 +1028,7 @@ extern "C" {
              double * pvecsources
              );
 
-  int perturb_quadsources_at_tau_linear(
+  int perturb_song_sources_at_tau_linear(
             struct perturbs * ppt,
             int index_mode,
             int index_ic,
@@ -1037,14 +1037,14 @@ extern "C" {
             double * psource
             );
             
-  int perturb_indices_of_perturbs_song(
+  int perturb_song_indices_of_perturbs(
 				    struct precision * ppr,
 				    struct background * pba,
 				    struct thermo * pth,
 				    struct perturbs * ppt
 				    );
 
-  int perturb_sources_song(
+  int perturb_song_sources(
             double tau,
             double * pvecperturbations,
             double * pvecderivs,

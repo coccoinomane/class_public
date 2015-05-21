@@ -3303,11 +3303,6 @@ int thermodynamics_compute_Q_derivatives(
     pth->error_message,
     "only vanilla model supported in perturbed recombination");
     
-  /* Compute background quantities at the given redshift */
-  class_call(background_functions(pba, scale_factor, pba->long_info, pvecback),
-    pba->error_message,
-    pth->error_message);
-
   /* Loop on time (decreasing z, increasing time) */
   for (index_tau=pth->tt_size-1; index_tau>=0; --index_tau) {
     
