@@ -209,8 +209,17 @@ int transfer_init(
 
   /** order of magnitude of the oscillation period of transfer functions */
 
+  /* In older version of CLASS, q_period was implicitely defined as 2.*_PI_/pth->rs_rec,
+  where pth->rs_rec is the comoving sound horizon at recombination (~150 Mpc).
+  Now it is defined as 2.*_PI_*pth->ra_rec/pow(tau0-tau_rec,2), where pth->ra_rec
+  is the conformal angular diameter distance to recombination. For flat geometries,
+  ra_rec=tau0-tau_rec, which means that q_period=2.*_PI_/(tau0-tau_rec). Since
+  tau0-tau_rec~14000 Mpc, we have that the ratio between the old and new q_period
+  is (tau0-tau_rec)/rs_rec ~ 14000/150 ~ 95. This is the reason why the parameter
+  q_linstep is now set by default to 0.45, while in older versions of CLASS it was
+  set to 0.004 */
   q_period = 2.*_PI_/(tau0-tau_rec)*ptr->angular_rescaling;
-
+  
   /** - initialize all indices in the transfers structure and
       allocate all its arrays using transfer_indices_of_transfers() */
 
@@ -430,6 +439,9 @@ int transfer_free(
     free(ptr->l_size_tt);
     free(ptr->l_size);
     free(ptr->l);
+#ifdef WITH_BISPECTRA
+  free (ptr->index_l);
+#endif // WITH_BISPECTRA
     free(ptr->q);
     free(ptr->k);
     free(ptr->transfer);
@@ -896,6 +908,84 @@ int transfer_get_l_list(
 
   }
 
+#ifdef WITH_BISPECTRA
+
+  /* If needed, convert odd values to even ones or viceversa. */
+  
+  if ((ppr->compute_only_even_ls==_TRUE_) || (ppr->compute_only_odd_ls==_TRUE_)) {
+  
+    int * l_copy;
+    class_alloc (l_copy, ptr->l_size_max*sizeof(int), ptr->error_message);
+    for (int index_l=0; index_l < ptr->l_size_max; ++index_l)
+      l_copy[index_l] = ptr->l[index_l];
+    
+    /* Create an all-even grid */
+    if (ppr->compute_only_even_ls == _TRUE_) {
+      for (int index_l=0; index_l < ptr->l_size_max; ++index_l)
+        if (l_copy[index_l]%2!=0)
+          l_copy[index_l] = l_copy[index_l]+1;
+    }
+    /* ... or an all-odd grid */
+    else if (ppr->compute_only_odd_ls == _TRUE_) {
+      for (int index_l=0; index_l < ptr->l_size_max; ++index_l)
+        if (l_copy[index_l]%2==0)
+          l_copy[index_l] = l_copy[index_l]+1;
+    }
+    
+    /* Some debug */
+    // for (index_l=0; index_l < ptr->l_size_max; ++index_l)
+    //   printf ("%5d %5d\n", index_l, l_copy[index_l]);
+    
+    /* Remove duplicates */
+    int index_l_copy = 0;
+    index_l = 0;
+    ptr->l[index_l] = l_copy[index_l_copy];
+    index_l++;
+    
+    for (index_l_copy=1; index_l_copy < ptr->l_size_max; ++index_l_copy) {
+      if (l_copy[index_l_copy] != l_copy[index_l_copy-1]) {
+        ptr->l[index_l] = l_copy[index_l_copy];
+        index_l++;
+      }
+    }
+    
+    ptr->l_size_max = index_l;
+  
+  } // end of if(compute even/odd l-grid)
+
+
+  /* Find out the index in ptr->l corresponding to a given l. */
+  
+  class_alloc (ptr->index_l, (ptr->l[ptr->l_size_max-1]+1)*sizeof(int), ptr->error_message);
+  
+  for(int l=0; l<=ptr->l[ptr->l_size_max-1]; ++l) {
+  
+    ptr->index_l[l] = -1;
+  
+    for (index_l=0; index_l<ptr->l_size_max; ++index_l)
+      if (l==ptr->l[index_l]) ptr->index_l[l] = index_l;
+    
+    /* Some debug */
+    // printf("ptr->index_l[%d] = %d\n", l, ptr->index_l[l]);
+  }
+
+
+  /* Print some information on the multipoles to be computed */
+  if (ptr->transfer_verbose > 0)
+    printf(" -> we shall compute %d %smultipoles ranging from l=%d to %d\n",
+      ptr->l_size_max, (ppr->compute_only_even_ls==_TRUE_?"EVEN ":""), ptr->l[0], ptr->l[ptr->l_size_max-1]);
+
+  /* Print the full l-list */
+  if (ptr->transfer_verbose > 0) {
+    printf ("     * ");
+    for (index_l=0; index_l < (ptr->l_size_max-1); ++index_l)
+      printf ("%d,", ptr->l[index_l]);
+    printf ("%d\n", ptr->l[index_l]);
+  }
+
+#endif // WITH_BISPECTRA
+
+
   /* for each mode and type, find relevant size of l array,
      l_size_tt[index_md][index_tt] (since for some modes and types
      l_max can be smaller). Also, maximize this size for each mode to
@@ -1360,10 +1450,10 @@ int transfer_get_source_correspondence(
         if ((ppt->has_cl_lensing_potential == _TRUE_) && (index_tt >= ptr->index_tt_lensing) && (index_tt < ptr->index_tt_lensing+ppt->selection_num))
           tp_of_tt[index_md][index_tt]=ppt->index_tp_phi_plus_psi;
 
-        #ifdef WITH_BISPECTRA
+#ifdef WITH_BISPECTRA
         if ((ppt->has_cl_cmb_zeta == _TRUE_) && (index_tt == ptr->index_tt_zeta))
           tp_of_tt[index_md][index_tt]=ppt->index_tp_zeta;
-        #endif // WITH_BISPECTRA
+#endif // WITH_BISPECTRA
       }
 
       if (_vectors_) {
@@ -3460,11 +3550,13 @@ int transfer_compute_for_each_l(
 
 #ifdef WITH_BISPECTRA
 
-  /* TODO: verify that this is needed */
+  /* TODO: verify that this is really needed; if this is the case, move it
+  to the second-order module rather than keeping it here, where it affects
+  also vanilla CLASS */
   /* TODO: if this is needed, why switching the sign only for m=0 (scalars)? */
 
-  /* Flip sign of E-mode transfer functions, to match with what we do at second order,
-  where we follow the convention by Hu & White. */
+  /* Flip the sign of the E-mode transfer functions to match Hu & White convention,
+  which is the one used by SONG. */
   if (((ppt->has_scalars == _TRUE_) && (index_md == ppt->index_md_scalars)) &&
       ((ppt->has_cl_cmb_polarization == _TRUE_) && (index_tt == ptr->index_tt_e))) {
     transfer_function *= -1;

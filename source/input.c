@@ -2747,6 +2747,28 @@ int input_read_parameters(
   class_read_double("q_linstep_trans",ppr->q_linstep); // obsolete precision parameter: read for compatibility with old precision files
   class_read_double("q_logstep_trans",ppr->q_logstep_spline); // obsolete precision parameter: read for compatibility with old precision files
 
+#ifdef WITH_BISPECTRA
+
+  /* Older versions of CLASS used the parameter 'k_step_trans_scalars' instead of 'q_linstep'
+  to specify the frequency of the k-sampling for the transfer functions. The change is not
+  only in name but in substance, because the two parameters have a different definition:
+    q_linstep / k_step_trans_scalars = (tau0-tau_rec)/pth->rs_rec ~ 95.
+  Here we apply the corrective factor, hoping that the user will update his parameter file
+  with q_linstep. For more detail, please refer to the comment in transfer.c on top of the
+  definition of q_period */
+  class_call(parser_read_double(pfc,"k_step_trans_scalars",&param1,&flag1,errmsg),
+    errmsg,
+    errmsg);
+
+  if (flag1==_TRUE_) {
+    double ratio = 95;
+    ppr->q_linstep = param1 * 95;
+    printf ("\nOBSOLETE PARAMETER: changed k_step_trans_scalars=%g to q_linstep=%g (ratio=%g).\n",
+      param1, ppr->q_linstep, ratio);
+  }
+  
+#endif // WITH_BISPECTRA
+
   class_read_double("transfer_neglect_delta_k_S_t0",ppr->transfer_neglect_delta_k_S_t0);
   class_read_double("transfer_neglect_delta_k_S_t1",ppr->transfer_neglect_delta_k_S_t1);
   class_read_double("transfer_neglect_delta_k_S_t2",ppr->transfer_neglect_delta_k_S_t2);
@@ -2931,6 +2953,9 @@ int input_read_parameters(
 #endif // WITH_SONG_SUPPORT
 
   /** i.2 parameters in the bessels module */
+
+  class_read_int("bessels_verbose",
+    pbs->bessels_verbose);
 
   class_read_double("bessel_x_step",ppr->bessel_x_step);
   class_read_double("bessel_j_cut",ppr->bessel_j_cut);
@@ -3680,6 +3705,19 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
     pop->write_perturbations = _TRUE_;
   }
 
+#ifdef WITH_SONG
+
+  /* If the user asks to output the perturbations at some values of k, CLASS adds
+  these values to the k-sampling (ppt->k). Here we turn off this this mechanism
+  because SONG relies on the k-sampling being unaltered after it is set. */
+  if (ppt->has_perturbations2) {
+    ppt->k_output_values_num = 0;
+    ppt->store_perturbations = _FALSE_;
+    pop->write_perturbations = _FALSE_;
+  }
+
+#endif // WITH_SONG
+
   /** m.4. shall we write primordial spectra in a file? */
 
   class_call(parser_read_string(pfc,"write primordial",&string1,&flag1,errmsg),
@@ -3705,7 +3743,7 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
     pop->write_bispectra = _TRUE_;
 
   }
-
+  
 #endif // WITH_BISPECTRA
 
   return _SUCCESS_;
@@ -4053,6 +4091,7 @@ int input_default_params(
 
   /** - bessels structure */
 
+  pbs->bessels_verbose = 0;
   pbs->l_max = MAX(ppt->l_scalar_max,MAX(ppt->l_vector_max,ppt->l_tensor_max));
   pbs->has_bispectra = _FALSE_;
 
@@ -4432,6 +4471,11 @@ int input_default_precision ( struct precision * ppr ) {
   ppr->r_max = 15000;
   ppr->r_size = 100;
 
+  /* Bessel module */
+  ppr->bessel_x_step = 0.5;
+  ppr->bessel_j_cut = 1e-5;
+  ppr->bessel_tol_x_min = 1e-4;
+
   /* Storage of intermediate results */
   ppr->store_run = _FALSE_;
   ppr->append_date_to_run = _FALSE_;
@@ -4708,15 +4752,15 @@ int input_try_unknown_parameters(double * unknown_parameter,
 
   /* TODO: uncomment once you have implemented these modules in SONG */
 
-// #ifdef WITH_BISPECTRA
-//
-//   if (pfzw->required_computation_stage >= cs_bessels){
-//     if (input_verbose>2)
-//       printf("Stage 8: Bessel functions\n");
-//     bs.bessels_verbose = 0;
-//     class_call(bessel_init(&pr,&ba,&tr,&bs),bs.error_message, errmsg);
-//   }
-//
+#ifdef WITH_BISPECTRA
+
+  if (pfzw->required_computation_stage >= cs_bessels){
+    if (input_verbose>2)
+      printf("Stage 8: Bessel functions\n");
+    bs.bessels_verbose = 0;
+    class_call(bessel_init(&pr,&ba,&tr,&bs),bs.error_message, errmsg);
+  }
+
 //   if (pfzw->required_computation_stage >= cs_bispectra){
 //     if (input_verbose>2)
 //       printf("Stage 9: bispectra\n");
@@ -4730,8 +4774,8 @@ int input_try_unknown_parameters(double * unknown_parameter,
 //     fi.fisher_verbose = 0;
 //     class_call(fisher_init(&pr,&ba,&th,&pt,&bs,&tr,&pm,&sp,&le,&bi,&fi),fi.error_message, errmsg);
 //   }
-//
-// #endif // WITH_BISPECTRA
+
+#endif // WITH_BISPECTRA
 
   for (i=0; i < pfzw->target_size; i++) {
     switch (pfzw->target_name[i]) {
@@ -4776,17 +4820,17 @@ int input_try_unknown_parameters(double * unknown_parameter,
 
   /* TODO: uncomment once you have implemented these modules in SONG */
 
-// #ifdef WITH_BISPECTRA
+#ifdef WITH_BISPECTRA
 //   if (pfzw->required_computation_stage >= cs_fisher){
 //     class_call(fisher_free(&bi,&fi), fi.error_message, errmsg);
 //   }
 //   if (pfzw->required_computation_stage >= cs_bispectra){
 //     class_call(bispectra_free(&pr,&pt,&sp,&le,&bi), bi.error_message, errmsg);
 //   }
-//   if (pfzw->required_computation_stage >= cs_bessels){
-//     class_call(bessel_free(&bs), bs.error_message, errmsg);
-//   }
-// #endif // WITH_BISPECTRA
+  if (pfzw->required_computation_stage >= cs_bessels){
+    class_call(bessel_free(&bs), bs.error_message, errmsg);
+  }
+#endif // WITH_BISPECTRA
   if (pfzw->required_computation_stage >= cs_spectra){
     class_call(spectra_free(&sp), sp.error_message, errmsg);
   }

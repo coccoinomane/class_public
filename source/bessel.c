@@ -475,7 +475,7 @@ int bessel_free(
     free(pbs->l);
     
   }
-
+  
   return _SUCCESS_; 
 }
 
@@ -501,7 +501,7 @@ int bessel_get_l_list(
   in input2.c, coincides with the l_max from the transfer module. This should be the
   case because pbs->l_max was computed in input_read_parameters() using the same code
   snippet used in transfer_get_l_list(). */
-  class_test_permissive (pbs->l_max != pbs->l[pbs->l_size-1],
+  class_test_permissive (pbs->l_max != ptr->l[ptr->l_size_max-1],
     pbs->error_message,
     "WARNING: l_max computed in input.c is different from l_max computed in transfer.c");
 

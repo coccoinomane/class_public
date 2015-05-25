@@ -2080,7 +2080,11 @@ int perturb_workspace_init(
       values of background, thermodynamics, metric and source
       quantities at a given time */
 
+#ifndef WITH_BISPECTRA
   class_alloc(ppw->pvecback,pba->bg_size_normal*sizeof(double),ppt->error_message);
+#else
+  class_alloc(ppw->pvecback,pba->bg_size*sizeof(double),ppt->error_message);
+#endif // WITH_BISPECTRA
   class_alloc(ppw->pvecthermo,pth->th_size*sizeof(double),ppt->error_message);
   class_alloc(ppw->pvecmetric,ppw->mt_size*sizeof(double),ppt->error_message);
 
@@ -6132,6 +6136,7 @@ int perturb_sources(
 
   /** - get background/thermo quantities in this point */
 
+#ifndef WITH_BISPECTRA
   class_call(background_at_tau(pba,
                                tau,
                                pba->normal_info,
@@ -6140,6 +6145,17 @@ int perturb_sources(
                                pvecback),
              pba->error_message,
              error_message);
+#else
+  /* Let us work with the full background vector */
+  class_call(background_at_tau(pba,
+                               tau,
+                               pba->long_info,
+                               pba->inter_closeby,
+                               &(ppw->last_index_back),
+                               pvecback),
+             pba->error_message,
+             error_message);
+#endif
 
   z = pba->a_today/pvecback[pba->index_bg_a]-1.;
 

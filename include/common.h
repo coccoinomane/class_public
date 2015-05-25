@@ -75,7 +75,7 @@ typedef char FileName[_FILENAMESIZE_];
 
 #define _MINUSCULE_ 1.e-75 /**< Numbers smaller than this will be considered effectively zero */
 #define _EPS_ 0.01 /**< Constant used to cast a float to an integer. Must be smaller than 0.5 */
-#define _SMALL_ (ppr->smallest_allowed_variation*1e6) /**< Constant used for relative floating point comparisons (only debug) */
+#define _SMALL_ (1e-7) /**< Constant used for relative floating point comparisons (only debug) */
 
 #define _MAX_LENGTH_LABEL_ 64 /**< Maximum length allowed for the label strings (e.g. for the perturbation variables such as 'phi', 'psi') */
 #define _MAX_NUM_BISPECTRA_ 32 /**< Maximum number of bispectra that can be computed */
@@ -949,9 +949,8 @@ struct precision
     structure of folders, were ppr->data_dir points to the top directory which contains the data (sources, transfers,
     bispectra) and 'ppr->run_dir' is used to create custom sub-folders with variations in the parameters. */
   
-  /** Paths of the parameter & precision input files */
-  char ini_filename[_FILENAMESIZE_];
-  char pre_filename[_FILENAMESIZE_];
+  char ini_filename[_FILENAMESIZE_]; /**< paths of the parameter input file */
+  char pre_filename[_FILENAMESIZE_]; /**< paths of the precision input file */
 
   short store_bispectra_to_disk;  /**< Should we store the bispectra to disk? */
   short load_bispectra_from_disk; /**< Should we load the bispectra from disk? */

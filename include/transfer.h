@@ -107,7 +107,6 @@ struct transfers {
   int index_tt_nc_g3;   /**< index for first bin of transfer type = gravity term G3 for of number count */
   int index_tt_nc_g4;   /**< index for first bin of transfer type = gravity term G3 for of number count */
   int index_tt_nc_g5;   /**< index for first bin of transfer type = gravity term G3 for of number count */
-
 #ifdef WITH_BISPECTRA
   int index_tt_zeta;    /**< index for transfer type = zeta curvature perturbation */
 #endif // WITH_BISPECTRA
@@ -127,6 +126,10 @@ struct transfers {
   int l_size_max; /**< greatest of all l_size[index_md] */
 
   int * l;        /**< list of multipole values l[index_l] */
+
+#ifdef WITH_BISPECTRA
+  int * index_l;  /**< pbs->index_l[L] is the index of L inside ptr->l, or -1 if L does not belong to pbs->l */
+#endif // WITH_BISPECTRA
 
   //int * l_size_bessel; /**< for each wavenumber, maximum value of l at which bessel functions must be evaluated */
 
