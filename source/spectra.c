@@ -1925,7 +1925,7 @@ int spectra_indices(
     }
 
 #ifdef WITH_BISPECTRA
-
+    
     /* Cross correlations with the primordial curvature perturbation zeta
     (see http://arxiv.org/abs/1204.5018) */
 
@@ -1944,6 +1944,7 @@ int spectra_indices(
     else {
       psp->has_ez = _FALSE_;
     }
+    
 #endif // WITH_BISPECTRA
 
     psp->ct_size = index_ct;
@@ -1968,6 +1969,10 @@ int spectra_indices(
       if (psp->has_pp == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_pp] = ppt->l_scalar_max;
       if (psp->has_tp == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_tp] = ppt->l_scalar_max;
       if (psp->has_ep == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_ep] = ppt->l_scalar_max;
+#ifdef WITH_BISPECTRA
+      if (psp->has_tz == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_tz] = ppt->l_scalar_max;
+      if (psp->has_ez == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_ez] = ppt->l_scalar_max;
+#endif // WITH_BISPECTRA
 
       /* spectra computed up to l_lss_max */
 
@@ -2339,24 +2344,21 @@ int spectra_cls(
         psp->error_message);
 
 
-      for (index_ic1 = 0; index_ic1 < psp->ic_size[index_md]; index_ic1++) {
-        for (index_ic2 = index_ic1; index_ic2 < psp->ic_size[index_md]; index_ic2++) {
-
-          index_ic1_ic2 = index_symmetric_matrix(index_ic1,index_ic2,psp->ic_size[index_md]);
-
-          for (index_l=0; index_l < ptr->l_size[index_md]; index_l++) {
-
-            double l = (double)psp->l[index_l];
-
-            for (index_ct=0; index_ct<psp->ct_size; index_ct++) {
-          
-              if (index_ct==0)
-                fprintf (stderr, "%12g %12g\n", l, psp->d_lsq_cl[index_md][(index_l * psp->ic_ic_size[index_md] + index_ic1_ic2) * psp->ct_size + index_ct]);
-                  
-            }
-          }
-        }
-      } 
+      /* Debug: print the cl derivative */
+      // for (index_ic1 = 0; index_ic1 < psp->ic_size[index_md]; index_ic1++) {
+      //   for (index_ic2 = index_ic1; index_ic2 < psp->ic_size[index_md]; index_ic2++) {
+      //     index_ic1_ic2 = index_symmetric_matrix(index_ic1,index_ic2,psp->ic_size[index_md]);
+      //     for (index_l=0; index_l < ptr->l_size[index_md]; index_l++) {
+      //       double l = (double)psp->l[index_l];
+      //       for (index_ct=0; index_ct<psp->ct_size; index_ct++) {
+      //         if (index_ct==0)
+      //           fprintf (stderr, "%12g %12g\n", l,
+      //           psp->d_lsq_cl[index_md][(index_l * psp->ic_ic_size[index_md]
+      //           + index_ic1_ic2) * psp->ct_size + index_ct]);
+      //       }
+      //     }
+      //   }
+      // }
 
     } // end of(compute_cl_derivative)
 

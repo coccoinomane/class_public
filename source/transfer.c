@@ -391,6 +391,32 @@ int transfer_init(
 
   if (abort == _TRUE_) return _FAILURE_;
 
+#ifdef WITH_BISPECTRA
+
+  /* Compute the derived transfer functions */
+  for (int index_q = 0; index_q < ptr->q_size; index_q++) {  
+    for (int index_md = 0; index_md < ptr->md_size; index_md++) {
+      for (int index_ic = 0; index_ic < ppt->ic_size[index_md]; index_ic++) {
+        for (int index_tt = 0; index_tt < ptr->tt_size[index_md]; index_tt++) {
+          for (int index_l = 0; index_l < ptr->l_size[index_md]; index_l++) {
+
+            #define transfer(INDEX_TT) ptr->transfer[index_md]\
+                                       [((index_ic * ptr->tt_size[index_md] + INDEX_TT)\
+                                       * ptr->l_size[index_md] + index_l)\
+                                       * ptr->q_size + index_q]\
+
+            if ((ppt->has_cl_cmb_temperature == _TRUE_) && (index_tt == ptr->index_tt_t)) 
+              transfer(ptr->index_tt_t) = transfer(ptr->index_tt_t0)
+                                        + transfer(ptr->index_tt_t1)
+                                        + transfer(ptr->index_tt_t2);
+          }
+        }
+      }
+    }
+  }
+
+#endif // WITH_BISPECTRA
+  
   /* finally, free arrays allocated outside parallel zone */
 
   class_call(transfer_perturbation_sources_spline_free(ppt,ptr,sources_spline),
@@ -528,6 +554,7 @@ int transfer_indices_of_transfers(
     class_define_index(ptr->index_tt_nc_g5,  ppt->has_nc_gr,                   index_tt,ppt->selection_num);
     class_define_index(ptr->index_tt_lensing,ppt->has_cl_lensing_potential,    index_tt,ppt->selection_num);
 #ifdef WITH_BISPECTRA
+    class_define_index(ptr->index_tt_t,      ppt->has_cl_cmb_temperature,      index_tt,1);
     if (ppt->has_cl_cmb_zeta == _TRUE_)
       class_define_index(ptr->index_tt_zeta, ppt->has_cl_cmb_zeta,             index_tt,1);
 #endif // WITH_BISPECTRA
@@ -1025,6 +1052,11 @@ int transfer_get_l_list(
         if ((ppt->has_cl_lensing_potential == _TRUE_) && (index_tt >= ptr->index_tt_lensing) && (index_tt < ptr->index_tt_lensing+ppt->selection_num))
           l_max=ppt->l_lss_max;
 
+#ifdef WITH_BISPECTRA
+        if ((ppt->has_cl_cmb_zeta == _TRUE_) && (index_tt == ptr->index_tt_zeta))
+          l_max=ppt->l_scalar_max;
+#endif // WITH_BISPECTRA
+
       }
 
       if (_tensors_) {
@@ -1451,6 +1483,11 @@ int transfer_get_source_correspondence(
           tp_of_tt[index_md][index_tt]=ppt->index_tp_phi_plus_psi;
 
 #ifdef WITH_BISPECTRA
+        /* We flag the derived transfer functions with a negative value, so that no computation
+        is lost to obtain them. */
+        if ((ppt->has_cl_cmb_temperature == _TRUE_) && (index_tt == ptr->index_tt_t)) 
+          tp_of_tt[index_md][index_tt]=-1;
+        
         if ((ppt->has_cl_cmb_zeta == _TRUE_) && (index_tt == ptr->index_tt_zeta))
           tp_of_tt[index_md][index_tt]=ppt->index_tp_zeta;
 #endif // WITH_BISPECTRA
@@ -1610,6 +1647,11 @@ int transfer_source_tau_size(
       /* infer number of time steps after removing early times */
       *tau_size = ppt->tau_size-index_tau_min;
     }
+
+#ifdef WITH_BISPECTRA
+    if ((ppt->has_cl_cmb_zeta == _TRUE_) && (index_tt == ptr->index_tt_zeta))
+      *tau_size = ppt->tau_size;
+#endif // WITH_BISPECTRA
 
     /* density Cl's */
     if ((_index_tt_in_range_(ptr->index_tt_density, ppt->selection_num, ppt->has_nc_density)) ||
@@ -1830,6 +1872,14 @@ int transfer_compute_for_each_q(
         /** - loop over types. For each of them: */
 
         for (index_tt = 0; index_tt < ptr->tt_size[index_md]; index_tt++) {
+
+#ifdef WITH_BISPECTRA
+          /* Skip the indices corresponding to the derived transfer functions. These
+          are those transfer functions that can be obtained from the others and thus
+          do not require to be computed by solving the line of sight integral. */
+          if (tp_of_tt[index_md][index_tt] < 0)
+            continue;
+#endif // WITH_BISPECTRA
 
           /** check if we must now deal with a new source with a
               new index ppt->index_type. If yes, interpolate it at the
@@ -3821,7 +3871,12 @@ int transfer_integrate(
     *trsf -= 0.5*(tau0_minus_tau[index_tau_max+1]-tau0_minus_tau_min_bessel)*
       radial_function[index_tau_max]*sources[index_tau_max];
   }
-
+  
+#ifdef WITH_BISPECTRA
+  /* Debug - print the transfer function for the zeta curvature perturbation */
+  // if ((ppt->has_cl_cmb_zeta == _TRUE_) && (index_tt == ptr->index_tt_zeta))
+  //   printf ("%12g %12g\n", k, trsf);
+#endif // WITH_BISPECTRA
 
   free(radial_function);
   return _SUCCESS_;
@@ -4576,6 +4631,11 @@ int transfer_select_radial_function(
 
     if (_index_tt_in_range_(ptr->index_tt_nc_g5,   ppt->selection_num, ppt->has_nc_gr))
       *radial_type = SCALAR_TEMPERATURE_1;
+
+#ifdef WITH_BISPECTRA
+    if ((ppt->has_cl_cmb_zeta == _TRUE_) && (index_tt == ptr->index_tt_zeta))
+      *radial_type = SCALAR_TEMPERATURE_0;
+#endif // WITH_BISPECTRA
 
   }
 

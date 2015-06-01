@@ -2431,7 +2431,7 @@ int input_read_parameters(
                errmsg,
                errmsg);
 
-    if ((flag1 == _TRUE_)) {
+    if (flag1 == _TRUE_) {
       if ((strstr(string1,"analytic") != NULL))
         ptr->has_nz_analytic = _TRUE_;
       else{
@@ -2448,7 +2448,7 @@ int input_read_parameters(
                errmsg,
                errmsg);
 
-    if ((flag1 == _TRUE_)) {
+    if (flag1 == _TRUE_) {
       if ((strstr(string1,"analytic") != NULL))
         ptr->has_nz_evo_analytic = _TRUE_;
       else{
@@ -4761,13 +4761,13 @@ int input_try_unknown_parameters(double * unknown_parameter,
     class_call(bessel_init(&pr,&ba,&tr,&bs),bs.error_message, errmsg);
   }
 
-//   if (pfzw->required_computation_stage >= cs_bispectra){
-//     if (input_verbose>2)
-//       printf("Stage 9: bispectra\n");
-//     bi.bispectra_verbose = 0;
-//     class_call(bispectra_init(&pr,&ba,&th,&pt,&bs,&tr,&pm,&sp,&le,&bi),bi.error_message, errmsg);
-//   }
-//
+  if (pfzw->required_computation_stage >= cs_bispectra){
+    if (input_verbose>2)
+      printf("Stage 9: bispectra\n");
+    bi.bispectra_verbose = 0;
+    class_call(bispectra_init(&pr,&ba,&th,&pt,&bs,&tr,&pm,&sp,&le,&bi),bi.error_message, errmsg);
+  }
+
 //   if (pfzw->required_computation_stage >= cs_fisher){
 //     if (input_verbose>2)
 //       printf("Stage 10: fisher matrix\n");
@@ -4823,10 +4823,10 @@ int input_try_unknown_parameters(double * unknown_parameter,
 #ifdef WITH_BISPECTRA
 //   if (pfzw->required_computation_stage >= cs_fisher){
 //     class_call(fisher_free(&bi,&fi), fi.error_message, errmsg);
-//   }
-//   if (pfzw->required_computation_stage >= cs_bispectra){
-//     class_call(bispectra_free(&pr,&pt,&sp,&le,&bi), bi.error_message, errmsg);
-//   }
+// }
+  if (pfzw->required_computation_stage >= cs_bispectra){
+    class_call(bispectra_free(&pr,&pt,&sp,&le,&bi), bi.error_message, errmsg);
+  }
   if (pfzw->required_computation_stage >= cs_bessels){
     class_call(bessel_free(&bs), bs.error_message, errmsg);
   }

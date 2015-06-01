@@ -740,23 +740,26 @@ double coupling_c_minus (int l, int m1, int m) {
 
   double result;
 
-  if (m1 == m+1)
+  if (m1 == m+1) {
     if (l==m)
       result = 0;
     else
       result = sqrt((l-1.-m)*(l-m)) / (sqrt_2*(2*l-1.));
+  }
 
-  if (m1 == m-1)
+  if (m1 == m-1) {
     if (l==-m)
       result = 0;
     else
       result = sqrt((l-1.+m)*(l+m))/(sqrt_2*(2*l-1.));
+  }
 
-  if (m1 == m)
+  if (m1 == m) {
     if (m == 0)
       result = l/(2*l-1.);
     else
       result = sqrt((double)l*l-m*m)/(2*l-1.);
+  }
   
   // *** Some debug
   // printf("c_minus(%d,%d,%d)=%g\n", l, m1, m, result);
@@ -779,11 +782,12 @@ double coupling_c_plus (int l, int m1, int m) {
   if (m1 == m-1)
     result = -sqrt((l+1.-m)*(l+2-m))/(sqrt_2*(2*l+3.));
 
-  if (m1 == m)
+  if (m1 == m) {
     if (m == 0)
       result = (l+1)/(2*l+3.);
     else
       result = sqrt((l+1.)*(l+1)-m*m)/(2*l+3.);
+  }
  
   return result;
       
@@ -797,23 +801,26 @@ double coupling_d_zero (int l, int m1, int m) {
 
   double result;
 
-  if (m1 == m+1)
+  if (m1 == m+1) {
     if (l==m)
       result = 0;
     else
       result = -sqrt(2*(l+1.+m)*(l-m)) / (l*(l+1.));
+  }
 
-  if (m1 == m-1)
+  if (m1 == m-1) {
     if (l==-m)
       result = 0;
     else
       result = sqrt(2*(l+1.-m)*(l+m)) / (l*(l+1.));
+  }
 
-  if (m1 == m)
+  if (m1 == m) {
     if (m == 0)
       result = 0;
     else
       result = -2*m/(l*(l+1.));
+  }
         
   // *** Some debug
   // printf("d_zero(%d,%d,%d)=%g\n", l, m1, m, result);
@@ -1085,6 +1092,9 @@ double plegendre_lm_rescaled (int l, int m, double x) {
     else
       return 0;
   }
+
+  printf ("ERROR (%s): Should not be here!\n", __func__);
+  return 0;
 
 }
 

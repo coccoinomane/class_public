@@ -189,11 +189,27 @@ int get_number_of_titles(char * titlestring);
   pointer=calloc(init,size);                                                                                     \
   if (pointer == NULL) {                                                                                         \
     int size_int;                                                                                                \
-    size_int = size;                                                                                             \
+    size_int = init*size;                                                                                        \
     class_alloc_message(error_message_output,#pointer, size_int);                                                \
     return _FAILURE_;                                                                                            \
   }                                                                                                              \
 }
+
+#ifdef WITH_BISPECTRA
+/* same as class_calloc(), but inside parallel structure */
+#define class_calloc_parallel(pointer, init, size, error_message_output)  {                                      \
+  pointer=NULL;                                                                                                  \
+  if (abort == _FALSE_) {                                                                                        \
+    pointer=calloc(init,size);                                                                                   \
+    if (pointer == NULL) {                                                                                       \
+      int size_int;                                                                                              \
+      size_int = init*size;                                                                                      \
+      class_alloc_message(error_message_output,#pointer, size_int);                                              \
+      abort=_TRUE_;                                                                                              \
+    }                                                                                                            \
+  }                                                                                                              \
+}
+#endif // WITH_BISPECTRA
 
 /* macro for re-allocating memory, returning error if it failed */
 #define class_realloc(pointer, newname, size, error_message_output)  {                                          \

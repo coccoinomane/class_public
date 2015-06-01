@@ -108,6 +108,9 @@ struct transfers {
   int index_tt_nc_g4;   /**< index for first bin of transfer type = gravity term G3 for of number count */
   int index_tt_nc_g5;   /**< index for first bin of transfer type = gravity term G3 for of number count */
 #ifdef WITH_BISPECTRA
+  int index_tt_t;       /**< index for the transfer function of the total temperature perturbation, given by
+                             the sum of the t0+t1+t2 transfer functions. Being a derived transfer function,
+                             index_tt_t can be computed without solving the line of sight integral. */
   int index_tt_zeta;    /**< index for transfer type = zeta curvature perturbation */
 #endif // WITH_BISPECTRA
 

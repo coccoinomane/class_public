@@ -1,22 +1,80 @@
-/** @file bispectra.c documented spectra module for second-order perturbations
+/** @file bispectra.c
+ * 
+ * Compute bispectra in harmonic (l1,l2,l3) space.
  *
- * Guido W Pettinari, 19.07.2012.
+ * The bispectrum is practically the three-point function of a random field. In cosmology,
+ * it is important because it encodes the non-linearities in our Universe. For example,
+ * the bispectrum of cold dark matter contains informations on the non-linear processes
+ * of gravity, while the presence of a primordial CMB bispectrum might be indicative of
+ * non-Gaussian initial conditions.
+ *
+ * In this module we compute the CMB bispectrum in temperature and polarisation. Details
+ * on the computations can be found in chapter 6 of my thesis
+ * (http://arxiv.org/abs/1405.2280).
+ *
+ * We deal with three types of bispectra:
+ *
+ * -# The analytical bispectra, which are built using the C_l power spectra computed
+ *    in the spectra.c module. These are the simplest bispectra to compute as they do
+ *    not require to solve numerical integrals. Examples of such bispectra are the
+ *    CMB-lensing bispectrum (http://uk.arxiv.org/abs/1101.2234) and the squeezed limit
+ *    of the intrinsic bispectrum (http://arxiv.org/abs/1204.5018 and
+ *    http://arxiv.org/abs/1109.1822).
+ *
+ * -# The separable bispectra, which can be computed by solving three 1D integrals
+ *    involving the transfer functions computed in the transfer.c module,
+ *    as first shown in Komatsu et al. 2001 (http://arxiv.org/abs/astro-ph/0005036).
+ *    Examples are the local, equilateral and orthogonal templates of non-Gaussianity
+ *    (see Planck paper, http://arxiv.org/abs/1303.5084).
+ *
+ * -# The non-separable bispectra, which require solving a non-separable 3D integral in
+ *    (k1,k2,k3), involving the transfer functions and a primordial shape function in
+ *    (k1,k2,k3). The user can specify the arbitrary shape shape function in k1,k2,k3.
+ *    Examples are the Galileon models in http://arxiv.org/abs/0905.3746.
+ *
+ * The intrinsic bispectrum of the CMB is also a non-separable bispectrum, but we leave it
+ * for the bispectra2.c module, as it requires the computation of second-order perturbations
+ * (see chapter 6 of http://arxiv.org/abs/1405.2280).
+ *
+ * The main functions in this module that can be called externally are:
+ * -# bispectra_init() to run the module, requires the background, thermodynamics,
+ *    perturbations, bessel, transfer, primordial, spectra and lensing modules.
+ * -# bispectra_free() to free all the memory associated to the module.
+ * 
+ * If the user specified 'store_bispectra_to_disk=yes', the module will save all the 
+ * bispectra but the intrinsic one in pbi->bispectra to disk after computation.
+ *
+ * Created by Guido W. Pettinari on 19.07.2012.
+ * Last modified by Guido W. Pettinari on 02.06.2015
  */
 
 #include "bispectra.h"
 
 
 /**
- * This routine initializes the spectra structure (in particular, 
- * computes table of anisotropy and Fourier spectra \f$ C_l^{X}, P(k), ... \f$)
+ * Fill the fields in the bispectra structure, especially the pbi->bispectra
+ * array.
  * 
- * @param ppr Input : pointer to precision structure
- * @param pba Input : pointer to background structure (will provide H, Omega_m at redshift of interest)
- * @param ppt Input : pointer to perturbation structure
- * @param ptr Input : pointer to transfer structure
- * @param ppm Input : pointer to primordial structure
- * @param psp Output: pointer to initialized spectra structure
- * @return the error status
+ * This function calls the other bispectra_XXX functions in the order needed to 
+ * compute the requested bispectra. It requires the following modules to be
+ * filled and available: background, thermodynamics, perturbations, bessel,
+ * transfer, primordial, spectra, lensing.
+ *
+ * Details on the physics and on the adopted method can be found in my thesis
+ * (http://arxiv.org/abs/1405.2280), chapters 6. The code itself is
+ * extensively documented and hopefully will give you further insight.
+ *
+ * In detail, this function does:
+ *
+ * -# Determine which bispectra need to be computed and their l-sampling via
+ *    bispectra_indices(), according to the content of the previous modules.
+ *
+ * -# Compute the three types of bispectra (analytic, separable, non-separable)
+ *    via bispectra_harmonic().
+ *
+ * -# If requested, store to disk the content of pbi->bispectra via
+ *    bispectra_store_to_disk().
+ *
  */
 
 int bispectra_init (
@@ -49,17 +107,16 @@ int bispectra_init (
   }
 
 
+
   // =====================================================================================
   // =                                    Preparations                                   =
   // =====================================================================================
 
   /* Initialize indices & arrays in the bispectra structure */
 
-  class_call (bispectra_indices (ppr,pba,ppt,pbs,ptr,ppm,psp,ple,pbi),
+  class_call (bispectra_indices (ppr,pba,pth,ppt,pbs,ptr,ppm,psp,ple,pbi),
     pbi->error_message,
     pbi->error_message);
-
-
 
 
 
@@ -67,11 +124,56 @@ int bispectra_init (
   // =                                 Compute bispectra                                 =
   // =====================================================================================
   
+  /* Compute the three types of CMB bispectra: analytic, separable and non-separable */
+  
   class_call (bispectra_harmonic (ppr,pba,ppt,pbs,ptr,ppm,psp,ple,pbi),
     pbi->error_message,
     pbi->error_message);
 
-	/* Debug - Print some bispectra configuration (make sure you're not loading the bispectrum from disk, though) */
+
+  /* If load_bispectra_from_disk==_TRUE_, at this point all the arrays in the module have been
+  filled apart from the intrinsic and non-separable bispectra. Any subsequent module that
+  requires them (like fisher.c), has to load them from disk using load_bispectra_from_disk(). */
+    
+  if (ppr->load_bispectra_from_disk == _TRUE_) {
+
+    if (pbi->bispectra_verbose > 0)
+      printf(" -> the intrinsic and non-separable bispectra will be read from disk\n");
+
+    return _SUCCESS_;
+  }
+
+
+
+  // =====================================================================================
+  // =                               Save bispectra to disk                              =
+  // =====================================================================================
+  
+  if (ppr->store_bispectra_to_disk==_TRUE_) {
+
+    for (int index_bt = 0; index_bt < pbi->bt_size; ++index_bt) {
+
+      /* Save the non-separable bispectra to disk. We do not save the other ones because
+      they take no time to recompute. */
+      if (pbi->bispectrum_type[index_bt] == non_separable_bispectrum)
+        class_call (bispectra_store_to_disk (
+                      pbi,
+                      index_bt),
+          pbi->error_message,
+          pbi->error_message);
+    }  
+  }
+  
+  /* Check that we correctly filled the bispectra array (but only if there are no
+  intrinsic bispectra left to be computed)*/
+  if (pbi->n[intrinsic_bispectrum] < 1)
+    class_test_permissive (pbi->count_allocated_for_bispectra != pbi->count_memorised_for_bispectra,
+      pbi->error_message,
+      "there is a mismatch between allocated (%ld) and used (%ld) space!",
+      pbi->count_allocated_for_bispectra, pbi->count_memorised_for_bispectra);
+
+
+	/* Debug - Print some bispectra configurations */
   // for (int index_bt = 0; index_bt < pbi->bt_size; ++index_bt) {
   //   for (int index_l1 = 0; index_l1 < pbi->l_size; ++index_l1) {
   //     for (int index_l2 = 0; index_l2 <= index_l1; ++index_l2) {
@@ -117,15 +219,47 @@ int bispectra_init (
 }
 
 
+/**
+ * Save the bispectra in pbi->bispectra to disk for a given type.
+ * 
+ * The bispectra will be saved to the file in pbi->bispectra_files[index_bt].
+ */
+int bispectra_store_to_disk (
+    struct bispectra * pbi,
+    int index_bt
+    )
+{
 
+  /* Open file for writing */
+  class_open (pbi->bispectra_files[index_bt], pbi->bispectra_paths[index_bt], "a+b", pbi->error_message);
 
+  /* Print some debug */
+  if (pbi->bispectra_verbose > 2)
+    printf("     * writing bispectra to disk for index_bt=%d on '%s'\n",
+      index_bt, pbi->bispectra_paths[index_bt]);
+
+  /* Write all the independent (l1,l2,l3) triplets for this bispectrum */
+  for (int X = 0; X < pbi->bf_size; ++X)
+    for (int Y = 0; Y < pbi->bf_size; ++Y)
+      for (int Z = 0; Z < pbi->bf_size; ++Z)
+        fwrite(
+              pbi->bispectra[index_bt][X][Y][Z],
+              sizeof(double),
+              pbi->n_independent_configurations,
+              pbi->bispectra_files[index_bt]
+              );
+
+  /* Close file */
+  fclose(pbi->bispectra_files[index_bt]);
+  
+  return _SUCCESS_;
+  
+}
 
 
 /**
- * This routine frees all the memory space allocated by bispectra_init().
- *
- * @param pbi Input: pointer to bispectra structure (which fields must be freed)
- * @return the error status
+ * Free all the memory space allocated by bispectra_init() in the
+ * bispectrum structure.
  */
 
 int bispectra_free(
@@ -249,13 +383,42 @@ int bispectra_free(
 
 
 /**
- * This routine defines indices and allocates tables in the bispectra structure 
+ * Initialize indices and arrays in the second-order transfer functions structure.
+ *
+ * In detail, this function does:
+ *
+ *  -# Determine which bispectra to compute and assign them the pbi->index_bt_XXX indices
+ *     (for the type: local, cmb-lensing, intrinsic...) and the pbi->index_bf_XXX indices
+ *     (for the field: temperature, polarisation...).
+ *
+ *  -# Determine the common (l1,l2,l3) sampling of all bispectra; for each (l1,l2) couple,
+ *     define the extent of the l3 direction based on the triangular condition, with the 
+ *     constraint that l1, l2 and l3 all belong to ptr->l (the multipole list where we have
+ *     compute the transfer functions).
+ *
+ *  -# Determine window function for the bispectrum interpolation in harmonic space.
+ *
+ *  -# Define the integration grid in the k1 and k2 directions for the integration of the
+ *     separable and non-separable bispectra.
+ *
+ *  -# Allocate all levels of the pbi->bispectra array, which will contain the bispectra.
+ *
+ *  -# Open the files where we will store the bispectra at the end of the computation.
+ *
+ *  -# Store P(k) (power spectrum of phi) in pbi->pk for all the k-values in the transfer
+ *     module (ptr->q) using interpolation, to speed up the integration of the separable
+ *     and non-separable bispectra.
+ *
+ *  -# Store C_l (angular power spectrum of the CMB) in pbi->cls for all the multipoles
+ *     between l=2 and l=ptr->l[size-1], to speed up the computation of the analytic
+ *     bispectra.
  *
  */
 
 int bispectra_indices (
         struct precision * ppr,
         struct background * pba,
+        struct thermo * pth,
         struct perturbs * ppt,
         struct bessels * pbs,
         struct transfers * ptr,
@@ -280,7 +443,7 @@ int bispectra_indices (
   pbi->has_bispectra_t = _FALSE_;
   pbi->has_bispectra_e = _FALSE_;
   pbi->has_bispectra_b = _FALSE_;
-  pbi->has_bispectra_r = _FALSE_;
+  // pbi->has_bispectra_r = _FALSE_;
     
   if (ppt->has_bi_cmb_temperature == _TRUE_) {
     pbi->has_bispectra_t = _TRUE_;
@@ -298,13 +461,13 @@ int bispectra_indices (
     pbi->index_bf_e = index_bf++;
   }
 
-  if (ppt->has_bi_cmb_rayleigh == _TRUE_) {
-    pbi->has_bispectra_r = _TRUE_;
-    strcpy (pbi->bf_labels[index_bf], "r");
-    pbi->field_parity[index_bf] = _EVEN_;
-    pbi->field_spin[index_bf] = 0;
-    pbi->index_bf_r = index_bf++;
-  }
+  // if (ppt->has_bi_cmb_rayleigh == _TRUE_) {
+  //   pbi->has_bispectra_r = _TRUE_;
+  //   strcpy (pbi->bf_labels[index_bf], "r");
+  //   pbi->field_parity[index_bf] = _EVEN_;
+  //   pbi->field_spin[index_bf] = 0;
+  //   pbi->index_bf_r = index_bf++;
+  // }
 
   pbi->bf_size = index_bf;
   pbi->n_probes = pow(pbi->bf_size, 3);
@@ -334,9 +497,10 @@ int bispectra_indices (
     if ((pbi->has_bispectra_t == _TRUE_) && (X == pbi->index_bf_t)) {
       pbi->index_tt_of_bf[X] = ptr->index_tt_t;
       pbi->index_ct_of_phi_bf[X] = psp->index_ct_tp;
-      pbi->index_ct_of_zeta_bf[X] = psp->index_ct_tz;
       pbi->index_ct_of_t_bf[X] = psp->index_ct_tt;
       pbi->index_ct_of_bf_bf[X][X] = psp->index_ct_tt;
+      if (ppt->has_cl_cmb_zeta == _TRUE_)
+        pbi->index_ct_of_zeta_bf[X] = psp->index_ct_tz;
       if (pbi->include_lensing_effects == _TRUE_)
         pbi->index_lt_of_bf_bf[X][X] = ple->index_lt_tt;
     }
@@ -344,23 +508,24 @@ int bispectra_indices (
     if ((pbi->has_bispectra_e == _TRUE_) && (X == pbi->index_bf_e)) {
       pbi->index_tt_of_bf[X] = ptr->index_tt_e;
       pbi->index_ct_of_phi_bf[X] = psp->index_ct_ep;
-      pbi->index_ct_of_zeta_bf[X] = psp->index_ct_ez;
       pbi->index_ct_of_t_bf[X] = psp->index_ct_te;
       pbi->index_ct_of_bf_bf[X][X] = psp->index_ct_ee;
+      if (ppt->has_cl_cmb_zeta == _TRUE_)
+        pbi->index_ct_of_zeta_bf[X] = psp->index_ct_ez;
       if (pbi->include_lensing_effects == _TRUE_)
         pbi->index_lt_of_bf_bf[X][X] = ple->index_lt_ee;
     }
 
-    if ((pbi->has_bispectra_r == _TRUE_) && (X == pbi->index_bf_r)) {
-      pbi->index_tt_of_bf[X] = ptr->index_tt_r;
-      pbi->index_ct_of_t_bf[X] = psp->index_ct_tr;
-      pbi->index_ct_of_bf_bf[X][X] = psp->index_ct_rr;
-      /* TODO: lensed Rayleigh not implemented yet */
-      // pbi->index_ct_of_phi_bf[X] = psp->index_ct_rp;
-      // pbi->index_ct_of_zeta_bf[X] = psp->index_ct_rz;
-      // if (pbi->include_lensing_effects == _TRUE_)
-      //   pbi->index_lt_of_bf_bf[X][X] = ple->index_lt_rr;
-    }
+    // if ((pbi->has_bispectra_r == _TRUE_) && (X == pbi->index_bf_r)) {
+    //   pbi->index_tt_of_bf[X] = ptr->index_tt_r;
+    //   pbi->index_ct_of_t_bf[X] = psp->index_ct_tr;
+    //   pbi->index_ct_of_bf_bf[X][X] = psp->index_ct_rr;
+    //   /* TODO: lensed Rayleigh not implemented yet */
+    //   // pbi->index_ct_of_phi_bf[X] = psp->index_ct_rp;
+    //   // pbi->index_ct_of_zeta_bf[X] = psp->index_ct_rz;
+    //   // if (pbi->include_lensing_effects == _TRUE_)
+    //   //   pbi->index_lt_of_bf_bf[X][X] = ple->index_lt_rr;
+    // }
 
     for (int Y = 0; Y < pbi->bf_size; ++Y) {
       if (((pbi->has_bispectra_t == _TRUE_) && (X == pbi->index_bf_t))
@@ -371,22 +536,22 @@ int bispectra_indices (
           pbi->index_lt_of_bf_bf[X][Y] = pbi->index_lt_of_bf_bf[Y][X] = ple->index_lt_te;
       }
 
-      if (((pbi->has_bispectra_t == _TRUE_) && (X == pbi->index_bf_t))
-       && ((pbi->has_bispectra_r == _TRUE_) && (Y == pbi->index_bf_r))) {
+      // if (((pbi->has_bispectra_t == _TRUE_) && (X == pbi->index_bf_t))
+      //  && ((pbi->has_bispectra_r == _TRUE_) && (Y == pbi->index_bf_r))) {
+      //
+      //   pbi->index_ct_of_bf_bf[X][Y] = pbi->index_ct_of_bf_bf[Y][X] = psp->index_ct_tr;
+      //   /* TODO: lensed Rayleigh not implemented yet */
+      //   // if (pbi->include_lensing_effects == _TRUE_)
+      //   //   pbi->index_lt_of_bf_bf[X][Y] = pbi->index_lt_of_bf_bf[Y][X] = ple->index_lt_tr;
+      // }
 
-        pbi->index_ct_of_bf_bf[X][Y] = pbi->index_ct_of_bf_bf[Y][X] = psp->index_ct_tr;
-        /* TODO: lensed Rayleigh not implemented yet */
-        // if (pbi->include_lensing_effects == _TRUE_)
-        //   pbi->index_lt_of_bf_bf[X][Y] = pbi->index_lt_of_bf_bf[Y][X] = ple->index_lt_tr;
-      }
-
-      if (((pbi->has_bispectra_e == _TRUE_) && (X == pbi->index_bf_e))
-       && ((pbi->has_bispectra_r == _TRUE_) && (Y == pbi->index_bf_r)))
-        class_test (1==1, pbi->error_message, "polarization-Rayleigh bispectrum not implemented yet");
-
-      if (((pbi->has_bispectra_b == _TRUE_) && (X == pbi->index_bf_b))
-       && ((pbi->has_bispectra_r == _TRUE_) && (Y == pbi->index_bf_r)))
-        class_test (1==1, pbi->error_message, "polarization-Rayleigh bispectrum not implemented yet");
+      // if (((pbi->has_bispectra_e == _TRUE_) && (X == pbi->index_bf_e))
+      //  && ((pbi->has_bispectra_r == _TRUE_) && (Y == pbi->index_bf_r)))
+      //   class_test (1==1, pbi->error_message, "polarization-Rayleigh bispectrum not implemented yet");
+      //
+      // if (((pbi->has_bispectra_b == _TRUE_) && (X == pbi->index_bf_b))
+      //  && ((pbi->has_bispectra_r == _TRUE_) && (Y == pbi->index_bf_r)))
+      //   class_test (1==1, pbi->error_message, "polarization-Rayleigh bispectrum not implemented yet");
     }
   }
 
@@ -550,6 +715,12 @@ int bispectra_indices (
    "exceeded maximum number of allowed bispectra, increase _MAX_NUM_BISPECTRA_ in common.h",
    pbi->error_message);
 
+#ifndef WITH_SONG_SUPPORT
+   class_test (pbi->has_intrinsic == _TRUE_,
+     pbi->error_message,
+     "cannot compute the intrinsic bispectrum without SONG support\n");
+#endif // WITH_SONG_SUPPORT
+
   /* Are the Wigner 3j-symbols needed to compute the requested bispectra? */
   pbi->need_3j_symbols = ((pbi->has_bispectra_e) &&
   ((pbi->has_quadratic_correction == _TRUE_)
@@ -661,7 +832,9 @@ int bispectra_indices (
       
       /* Print some debug */
       // printf("l1=%d, l2=%d, l_triangular_min[%d]=%d, l_triangular_max[%d]=%d, l[index_l_triangular_min]=%d, l=[index_l_triangular_max]=%d, l_triangular_size=%d\n", 
-      //   l1, l2, index_l_triangular_min, l_triangular_min, index_l_triangular_max, l_triangular_max, pbs->l[index_l_triangular_min], pbs->l[index_l_triangular_max], pbi->l_triangular_size[index_l1][index_l2]);
+      //   l1, l2, index_l_triangular_min, l_triangular_min, index_l_triangular_max,
+      //   l_triangular_max, pbs->l[index_l_triangular_min], pbs->l[index_l_triangular_max],
+      //   pbi->l_triangular_size[index_l1][index_l2]);
       
     } // end of for(index_l2)
   } // end of for(index_l1)
@@ -671,11 +844,18 @@ int bispectra_indices (
   
 
   /* Inform the user on how much her machine will have to suffer */
-  if (pbi->bispectra_verbose > 1) {
+  if (pbi->bispectra_verbose > 0) {
     printf(" -> we shall compute %dx%d=%d bispectr%s for %ld configurations of (l1,l2,l3)\n",
       pbi->bt_size, pbi->n_probes, pbi->bt_size*pbi->n_probes,
       ((pbi->bt_size*pbi->n_probes)!=1?"a":"um"), pbi->n_independent_configurations);
     // printf("    with (L1,L2,L3) ranging from l=%d to %d (l_size=%d)\n", pbi->l[0], pbi->l[pbi->l_size-1], pbi->l_size);
+    if (pbi->bispectra_verbose > 1) {
+      printf ("     * bispectra types: ");
+      for (int index_bt=0; index_bt < (pbi->bt_size-1); ++index_bt) {
+        printf ("%s, ", pbi->bt_labels[index_bt]);
+      }
+      printf ("%s\n", pbi->bt_labels[pbi->bt_size-1]);
+    }
   }
   
   
@@ -684,74 +864,73 @@ int bispectra_indices (
   // =                                  Assign window functions                                 =
   // ============================================================================================
   
-  /* Assign to each bispectrum a window function suitable for its interpolation. See header file
-  for mode details. Comment out a bispectrum to have it interpolated without a window function.
-  
-  It seems that using window functions that cross the zero might generate some issues. This
-  has yet to be verified rigorously, though.
-  
-  */
+  /* Assign to each bispectrum a window function suitable for its interpolation. See
+  header file for mode details. Comment out a bispectrum to have it interpolated without
+  a window function. It seems that using window functions that cross the zero might
+  generate some issues. This has yet to be verified rigorously, though. */
   for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt) {
 
     pbi->window_function[index_bt] = NULL;
     
-    /* Previously, SONG used to interpolate the bispectra in the two smallest l-multipoles. That
-    was not a good idea, and we needed to use window functions. Now we interpolate the two 
-    largest l's instead, and we don't need window functions anymore. */
+    /* Previously, SONG used to interpolate the bispectra in the two smallest l-multipoles.
+    That was not a good idea, and as a result we needed to use window functions to obtain
+    precise results. Now we interpolate the two largest l's instead, and we don't need
+    window functions anymore. You can ignore what follows in this block. */
     continue;
 
-    /* In absence of reionisation and for polarisation, better results are obtained without a window
-    function. The reason is that the C_l's for polarisation are tiny at small l's without
-    reionisation, so multiplying and dividing by the window functions creates numerical
+    /* In absence of reionisation and for polarisation, better results are obtained without
+    a window  function. The reason is that the C_l's for polarisation are tiny at small l's
+    without reionisation, so multiplying and dividing by the window functions creates numerical
     instabilities. The patology is stronger for bispectra that peak in the squeezed limit,
     as in that case the large scales are those where most of the signal comes from. */
     /* TODO: the above statement has to be corrected in terms of the new interpolation,
     which relies on interpolating the two largest multipoles */
-    if ((ppr->has_reionization == _FALSE_) && (pbi->has_bispectra_e == _TRUE_) && (pbi->bf_size > 1)) {
+    if ((pth->reio_parametrization != reio_none)
+      && (pbi->has_bispectra_e == _TRUE_) && (pbi->bf_size > 1)) {
       continue;
     }
     else {
-  
+
       if ((pbi->has_local_model == _TRUE_) && (index_bt == pbi->index_bt_local))
         pbi->window_function[index_bt] = bispectra_local_window_function;
-          
+
       else if ((pbi->has_intrinsic == _TRUE_) && (index_bt == pbi->index_bt_intrinsic))
         pbi->window_function[index_bt] = bispectra_local_window_function;
-          
+
       else if ((pbi->has_intrinsic_squeezed == _TRUE_) && (index_bt == pbi->index_bt_intrinsic_squeezed))
         pbi->window_function[index_bt] = bispectra_local_window_function;
     }
-  
+
     /* For the non-squeezed bispectra, we always use the window function. */
     if ((pbi->has_equilateral_model == _TRUE_) && (index_bt == pbi->index_bt_equilateral))
       pbi->window_function[index_bt] = bispectra_local_window_function;
-    
+
     else if ((pbi->has_orthogonal_model == _TRUE_) && (index_bt == pbi->index_bt_orthogonal))
       pbi->window_function[index_bt] = bispectra_local_window_function;
-    
+
     else if ((pbi->has_galileon_model==_TRUE_) && (index_bt == pbi->index_bt_galileon_gradient))
       pbi->window_function[index_bt] = bispectra_local_window_function;
-    
+
     else if ((pbi->has_galileon_model==_TRUE_) && (index_bt == pbi->index_bt_galileon_time))
       pbi->window_function[index_bt] = bispectra_local_window_function;
   
   }
   
+
   
   // ============================================================================================
   // =                               Integration grid in k1 and k2                              =
   // ============================================================================================
   
   /* Sampling of the first-order transfer functions  */
-  int k_tr_size = ptr->k_size[ppt->index_md_scalars];
-  double * k_tr = ptr->k[ppt->index_md_scalars];
+  int k_tr_size = ptr->q_size;
+  double * k_tr = ptr->q;
 
-
-  /* Allocate & fill delta_k, which is needed for the trapezoidal integration of the bispectrum.
-  This array is has ptr->k_size elements, and is defined as k(i+1)-k(i-1) except for the first
-  k(1)-k(0) and last k(N)-k(N-1) elements.  Note that when dealing with non-separable shapes,
-  we shall not use this array for the integration over k3, as in that case the grid in k3 is
-  not fixed but it depends on k1 and k2. */
+  /* Allocate & fill delta_k, which is needed for the trapezoidal integration of both separable and
+  non-separable bispectra. This array is has k_size elements, and is defined as k(i+1)-k(i-1)
+  except for the first k(1)-k(0) and last k(N)-k(N-1) elements.  Note that when dealing with
+  non-separable shapes, we shall not use this array for the integration over k3, as in that
+  case the grid in k3 is not fixed but it depends on k1 and k2. */
   class_alloc (pbi->delta_k, k_tr_size * sizeof(double), pbi->error_message);
   
   /* Fill pbi->delta_k */
@@ -761,8 +940,6 @@ int bispectra_indices (
     pbi->delta_k[index_k] = k_tr[index_k+1] - k_tr[index_k-1];
       
   pbi->delta_k[k_tr_size-1] = k_tr[k_tr_size-1] - k_tr[k_tr_size-2];
-  
-  
   
   
   
@@ -785,7 +962,8 @@ int bispectra_indices (
         class_alloc (pbi->bispectra[index_bt][X][Y], pbi->bf_size*sizeof(double *), pbi->error_message);
         
         for (int Z = 0; Z < pbi->bf_size; ++Z)
-          class_calloc (pbi->bispectra[index_bt][X][Y][Z], pbi->n_independent_configurations, sizeof(double), pbi->error_message);
+          class_calloc (pbi->bispectra[index_bt][X][Y][Z], pbi->n_independent_configurations,
+            sizeof(double), pbi->error_message);
       }
     }
   }
@@ -797,9 +975,6 @@ int bispectra_indices (
       pbi->count_allocated_for_bispectra*sizeof(double)/1e6, pbi->count_allocated_for_bispectra);
 
 
-
-
-  
   
   // ==============================================================================================
   // =                            Create files for the bispectra                                  =
@@ -829,7 +1004,6 @@ int bispectra_indices (
   
   
 
-
   // ===========================================================================================
   // =                                     Interpolate P(k)                                    =
   // ===========================================================================================
@@ -845,9 +1019,6 @@ int bispectra_indices (
                 pbi),
     pbi->error_message,
     pbi->error_message);
-
-
-
 
 
   // =============================================================================================
@@ -871,23 +1042,18 @@ int bispectra_indices (
 
 
 
-
-
-
-
 /**
  * Compute and store in pbi->pk[index_k] the primordial power spectrum of the Newtonian
- * time potential psi. The power spectrum is computed in the points contained in ptr->k, as
- * these are the points where the transfer functions are computed.
+ * time potential psi. The power spectrum is computed in the points contained in ptr->q,
+ * as these are the points where the transfer functions are computed.
  *
  * The purpose of this function is twofold. First, it stores the primordial power spectrum
- * into memory for faster access by the bispectra module, as calling primordial_spectrum_at_k
+ * into memory for faster access by the bispectra module, as calling primordial_spectrum_at_k()
  * is fairly expensive. Secondly, we convert the dimensionless spectrum of the curvature
  * perturbation R outputted by the primordial module of CLASS, Delta_R(k), into the power
- * spectrum for the Newtonian curvature potential, P_Phi(k). The
- * two spectra are related by:
+ * spectrum for the Newtonian curvature potential, P_Phi(k). The two spectra are related by:
  *  
- *  P_Phi(k) = 2*Pi^2/k^3 * Delta_R(k)
+ * P_Phi(k) = 2*Pi^2/k^3 * Delta_R(k)
  *
  * where
  * 
@@ -903,15 +1069,15 @@ int bispectra_primordial_power_spectrum (
     )
 {
 
-  /* Allocate the pbi->pk vector so that it contains ptr->k_size values */
-  int k_size = ptr->k_size[ppt->index_md_scalars];
+  /* Allocate the pbi->pk vector so that it contains ptr->q_size values */
+  int k_size = ptr->q_size;
   class_alloc (pbi->pk, k_size*sizeof(double), pbi->error_message);
   
   /* Fill pk with the values of the primordial power spectrum, as obtained in the ppm module */
 
   for (int index_k=0; index_k<k_size; ++index_k) {
     
-    double k = ptr->k[ppt->index_md_scalars][index_k];
+    double k = ptr->q[index_k];
 
     class_call (primordial_spectrum_at_k (
                   ppm,
@@ -1209,14 +1375,8 @@ int bispectra_cls (
 
 
 /**
- * This routine computes a table of values for all harmonic spectra C_l's,
- * given the transfer functions and primordial spectra.
- * 
- * @param ppt Input : pointer to perturbation structure
- * @param ptr Input : pointer to transfers structure
- * @param ppm Input : pointer to primordial structure
- * @param psp Input/Output: pointer to spectra structure 
- * @return the error status
+ * Compute the CMB bispectra as a function of (l1,l2,l3) and store them
+ * in pbi->bispectra.
  */
 
 int bispectra_harmonic (
@@ -1299,15 +1459,12 @@ int bispectra_harmonic (
       
   }
   
-  /* Apart from the secondary bispectra in pbi->bispectra, all the arrays needed by the subsequent modules
-  have been filled. If the user requested to load the bispectra from disk, we can stop the execution of
-  this module now without regrets. */
+  /* If we are loading the bispectra from disk, nothing else needs to be done */
+
   if (ppr->load_bispectra_from_disk == _TRUE_) {
-    
-    if (pbi->bispectra_verbose > 0)
-      printf(" -> the intrinsic and non-separable bispectra will be read from disk\n");
-    
+        
     return _SUCCESS_;
+
   }
   
   
@@ -1348,33 +1505,6 @@ int bispectra_harmonic (
       pbi->count_memorised_for_bispectra*sizeof(double)/1e6, pbi->count_memorised_for_bispectra);
   
   
-   
-  // =======================================================================================================
-  // =                                       Save bispectra to disk                                        =
-  // =======================================================================================================
-  
-  if (ppr->store_bispectra_to_disk == _TRUE_) {
-
-    for (int index_bt = 0; index_bt < pbi->bt_size; ++index_bt) {
-
-      /* Save the non-separable bispectra to disk. We do not save the other ones because
-      they take no time to recompute. */
-      if (pbi->bispectrum_type[index_bt] == non_separable_bispectrum)
-        class_call (bispectra_save_to_disk (
-                      pbi,
-                      index_bt),
-          pbi->error_message,
-          pbi->error_message);
-    }  
-  }
-  
-  /* Check that we correctly filled the bispectra array (but only if there are no
-  intrinsic bispectra left to be computed)*/
-  if (pbi->n[intrinsic_bispectrum] < 1)
-    class_test_permissive (pbi->count_allocated_for_bispectra != pbi->count_memorised_for_bispectra,
-      pbi->error_message,
-      "there is a mismatch between allocated (%ld) and used (%ld) space!",
-      pbi->count_allocated_for_bispectra, pbi->count_memorised_for_bispectra);
   
   // ============================================================================
   // =                      Check bispectra against nan's                       =
@@ -1531,8 +1661,8 @@ int bispectra_separable_workspace_init (
       thread = omp_get_thread_num();
       #endif
       
-      class_calloc_parallel (pwb->alpha_integrand[thread], ptr->k_size[ppt->index_md_scalars], sizeof(double), pbi->error_message);
-      class_calloc_parallel (pwb->beta_integrand[thread], ptr->k_size[ppt->index_md_scalars], sizeof(double), pbi->error_message);      
+      class_calloc_parallel (pwb->alpha_integrand[thread], ptr->q_size, sizeof(double), pbi->error_message);
+      class_calloc_parallel (pwb->beta_integrand[thread], ptr->q_size, sizeof(double), pbi->error_message);      
     }
     
   } // end of if all models
@@ -1570,8 +1700,8 @@ int bispectra_separable_workspace_init (
       thread = omp_get_thread_num();
       #endif
       
-      class_calloc_parallel (pwb->gamma_integrand[thread], ptr->k_size[ppt->index_md_scalars], sizeof(double), pbi->error_message);
-      class_calloc_parallel (pwb->delta_integrand[thread], ptr->k_size[ppt->index_md_scalars], sizeof(double), pbi->error_message);      
+      class_calloc_parallel (pwb->gamma_integrand[thread], ptr->q_size, sizeof(double), pbi->error_message);
+      class_calloc_parallel (pwb->delta_integrand[thread], ptr->q_size, sizeof(double), pbi->error_message);      
     }
     
   } // end of if equilateral || orthogonal
@@ -1598,7 +1728,7 @@ int bispectra_separable_filter_functions (
   
   
   /* We shall integrate over the same k-points where we computed the first-order transfer functions */
-  int k_size = ptr->k_size[ppt->index_md_scalars];
+  int k_size = ptr->q_size;
 
   /* Parallelization variables */
   int thread = 0;
@@ -1642,7 +1772,7 @@ int bispectra_separable_filter_functions (
           (pbi->has_orthogonal_model == _TRUE_) ||
           (pbi->has_equilateral_model == _TRUE_)) {
 
-        for (int index_k=0; index_k < ptr->k_size[ppt->index_md_scalars]; ++index_k) {
+        for (int index_k=0; index_k < k_size; ++index_k) {
         
           double pk = pbi->pk[index_k];
           double tr = transfer[index_k];
@@ -1653,7 +1783,7 @@ int bispectra_separable_filter_functions (
           /* Print out the transfer function for a given field */
           // if (ptr->l[index_l]==284)
           //   if ((ppt->has_cl_cmb_polarization == _TRUE_) && (pbi->index_tt_of_bf[index_bf] == ptr->index_tt_e))
-          //     fprintf (stderr, "%12g %12g\n", ptr->k[ppt->index_md_scalars][index_k], tr);
+          //     fprintf (stderr, "%12g %12g\n", ptr->q[index_k], tr);
           
         }
 
@@ -1666,7 +1796,7 @@ int bispectra_separable_filter_functions (
         /* Here we basically copy eqs. 15-18 in Creminelli et al. 2006, keeping out the 2/pi factor and the
         Bessel function, and multiplying the rest by k (we use the dimensional power spectrum and we already
         factored out a k^2 factor) */
-        for (int index_k=0; index_k < ptr->k_size[ppt->index_md_scalars]; ++index_k) {      
+        for (int index_k=0; index_k < k_size; ++index_k) {      
 
           double pk_one_third = pow(pbi->pk[index_k], 1/3.);
           double pk_two_thirds = pk_one_third*pk_one_third;
@@ -1704,9 +1834,9 @@ int bispectra_separable_filter_functions (
           class_call_parallel (bessel_convolution (
                         ppr,
                         pbs,
-                        ptr->k[ppt->index_md_scalars],
+                        ptr->q,
                         pbi->delta_k,
-                        ptr->k_size[ppt->index_md_scalars],
+                        k_size,
                         pwb->alpha_integrand[thread],
                         NULL,
                         index_l,
@@ -1721,9 +1851,9 @@ int bispectra_separable_filter_functions (
           class_call_parallel (bessel_convolution (
                         ppr,
                         pbs,
-                        ptr->k[ppt->index_md_scalars],
+                        ptr->q,
                         pbi->delta_k,
-                        ptr->k_size[ppt->index_md_scalars],
+                        k_size,
                         pwb->beta_integrand[thread],
                         NULL,
                         index_l,
@@ -1749,9 +1879,9 @@ int bispectra_separable_filter_functions (
           class_call_parallel (bessel_convolution (
                         ppr,
                         pbs,
-                        ptr->k[ppt->index_md_scalars],
+                        ptr->q,
                         pbi->delta_k,
-                        ptr->k_size[ppt->index_md_scalars],
+                        k_size,
                         pwb->gamma_integrand[thread],
                         NULL,
                         index_l,
@@ -1766,9 +1896,9 @@ int bispectra_separable_filter_functions (
           class_call_parallel (bessel_convolution (
                         ppr,
                         pbs,
-                        ptr->k[ppt->index_md_scalars],
+                        ptr->q,
                         pbi->delta_k,
-                        ptr->k_size[ppt->index_md_scalars],
+                        k_size,
                         pwb->delta_integrand[thread],
                         NULL,
                         index_l,
@@ -2035,8 +2165,7 @@ int bispectra_separable_integrate_over_r (
 
 /**
  * Compute the angular bispectrum for the separable primordial bispectra.
- *
-*/
+ */
 int bispectra_separable_init (
     struct precision * ppr,
     struct background * pba,
@@ -2617,9 +2746,10 @@ int bispectra_non_separable_workspace_init (
   // -                       Grid for the shape function                   -
   // -----------------------------------------------------------------------
   
-  /* We shall sample the primordial shape function only in the k-points determined in the perturbation
-  module, which are much sparsely sampled than those of the transfer functions. Hence, we are assuming
-  that the shape function is a smooth function of (k1,k2,k3) */
+  /* We shall sample the primordial shape function only in the k-points determined
+  in the perturbation module, which are much sparsely sampled than those of the
+  transfer functions. This means that we are assuming that the shape function is a
+  smooth function of (k1,k2,k3) */
   
   pwb->k_smooth_size = ppt->k_size[ppt->index_md_scalars];
   
@@ -2627,7 +2757,6 @@ int bispectra_non_separable_workspace_init (
   
   for (int index_k=0; index_k < pwb->k_smooth_size; ++index_k)
     pwb->k_smooth_grid[index_k] = ppt->k[ppt->index_md_scalars][index_k];
-  
     
   
   
@@ -2635,15 +2764,16 @@ int bispectra_non_separable_workspace_init (
   // -                       Grid for the shape function                   -
   // -----------------------------------------------------------------------
 
-  /* Here we set the integration limits on k3. These can be made equal to those of k1 and k2 (that is equal to
-  the range where we computed the transfer functions) but we can do better than that. In fact, 
-  the r-integral enforces the triangular condition |k1-k2| <= k3 <= k1+k2 which means that we can restrict
-  our range to those configurations. However, we should not get too close to the triangular limits otherwise
-  the integral becomes numerically unstable. */
+  /* Here we set the integration limits on k3. These can be made equal to those of k1
+  and k2 (that is equal to the range where we computed the transfer functions) but we
+  can do better than that. In fact, the r-integral enforces the triangular condition
+  |k1-k2| <= k3 <= k1+k2 which means that we can restrict our range to those configurations.
+  However, we should not get too close to the triangular limits otherwise the integral
+  becomes numerically unstable. */
 
   /* Sampling of the first-order transfer functions.  */
-  int k_tr_size = ptr->k_size[ppt->index_md_scalars];
-  double * k_tr = ptr->k[ppt->index_md_scalars];
+  int k_tr_size = ptr->q_size;
+  double * k_tr = ptr->q;
   pwb->k3_size_max = k_tr_size;
   
   class_alloc (pwb->index_k3_lower, pwb->k_smooth_size*sizeof(int *), pbi->error_message);
@@ -2661,21 +2791,28 @@ int bispectra_non_separable_workspace_init (
 
       double k2 = pwb->k_smooth_grid[index_k2];
       
-      /* Uncomment to use the triangular condition. This will give an imprecise result, one
-      needs to extend the range a bit, same as we do for the second-order bispectrum. */
-      // double k_tr_min = fabs(k1-k2);
-      // double k_tr_max = k1+k2;
-
-      /* Uncomment to take the whole k3 range for the integration (safer) */
+      /* Uncomment to take the whole k3 range for the integration (safe approach) */
       double k_tr_min = k_tr[0];
       double k_tr_max = k_tr[k_tr_size-1];
+      
+      /* Uncomment to restrict the integration to the k3 values that satisfy the triangular
+      condition |k1-k2| <= k3 <= k1+k2. This will give faster but imprecise result. The reason
+      is that the Dirac delta function that enforces the triangular condition, \delta(k1+k2-k3),
+      is not explicit in the integral. In fact, we expanded \delta in Bessel functions using the 
+      Rayleigh expansion of a plane wave (see eq. 6.30 of my thesis http://arxiv.org/abs/1405.2280
+      or eqs. 9 and 10 of Fergusson and Shellard 2007). Analytically, this does not make any
+      difference, but numerically it renders the integral unstable unless we take extra oscillations
+      in the k3 direction. This means that to make the integral stable, we should extend the range
+      a bit, similarly to what we do for the second-order bispectrum in bispectra2.c. */
+      // double k_tr_min = fabs(k1-k2);
+      // double k_tr_max = k1+k2;
       
       /* Find the index corresponding to k3_lower inside k_tr */
       int index_k3_lower = 0;
       while (k_tr[index_k3_lower] < k_tr_min) ++index_k3_lower;
       pwb->index_k3_lower[index_k1][index_k2] = index_k3_lower;
 
-      /* Find the index corresponding to k3_upper inside ptr->k */
+      /* Find the index corresponding to k3_upper inside ptr->q */
       int index_k3_upper = k_tr_size - 1;
       while (k_tr[index_k3_upper] > k_tr_max) --index_k3_upper;
       pwb->index_k3_upper[index_k1][index_k2] = index_k3_upper;
@@ -2692,7 +2829,6 @@ int bispectra_non_separable_workspace_init (
       // 
       //   fprintf (stderr, "\n\n");
       // }
-
     
     } // end of for(k2)
   } // end of for(k1)
@@ -2703,9 +2839,9 @@ int bispectra_non_separable_workspace_init (
   // =                               Determine window function                              =
   // ========================================================================================
   
-  /* Determine the window function for the interpolation of the k-space bispectrum in k1 and k2. We need
-  a window function because the primordial bispectrum will usually contain products of power spectra 
-  that diverge as k^-3 for k -> 0. */
+  /* Determine the window function for the interpolation of the k-space bispectrum in k1
+  and k2. We need a window function because the primordial bispectrum will usually contain
+  products of power spectra that diverge as k^-3 for k->0. */
     
   /* Window function will have pbi->k_smooth_size elements */
   class_alloc (pwb->k_window, pwb->k_smooth_size*sizeof(double), pbi->error_message);
@@ -2719,11 +2855,11 @@ int bispectra_non_separable_workspace_init (
 
   }
 
-  /* Inverse window function will have ptr->k_size[ppt->index_md_scalars] elements */
-  class_alloc (pwb->k_window_inverse, ptr->k_size[ppt->index_md_scalars]*sizeof(double), pbi->error_message);
-  for (int index_k=0; index_k < ptr->k_size[ppt->index_md_scalars]; ++index_k) {
+  /* Inverse window function will have ptr->q_size elements */
+  class_alloc (pwb->k_window_inverse, ptr->q_size*sizeof(double), pbi->error_message);
+  for (int index_k=0; index_k < ptr->q_size; ++index_k) {
 
-    double k = ptr->k[ppt->index_md_scalars][index_k];
+    double k = ptr->q[index_k];
     double pk = pbi->pk[index_k];
 
     pwb->k_window_inverse[index_k] = 1./pow(k,2);
@@ -2762,14 +2898,14 @@ int bispectra_non_separable_workspace_init (
     thread = omp_get_thread_num();
     #endif
   
-    /* Allocate the integration grid in k3 with the maximum possible number of k3-values. This is given by the
-    number of k-values in ptr->k */
+    /* Allocate the integration grid in k3 with the maximum possible number of k3-values. This is
+    given by the number of k-values in ptr->q */
     class_alloc_parallel(pwb->k3_grid[thread], pwb->k3_size_max*sizeof(double), pbi->error_message);
     class_alloc_parallel(pwb->delta_k3[thread], pwb->k3_size_max*sizeof(double), pbi->error_message);
   
     /* Allocate memory for the interpolation arrays (used only for the k2 and k3 integrations) */
-    class_alloc_parallel (pwb->integral_splines[thread], ptr->k_size[ppt->index_md_scalars]*sizeof(double), pbi->error_message);
-    class_alloc_parallel (pwb->interpolated_integral[thread], ptr->k_size[ppt->index_md_scalars]*sizeof(double), pbi->error_message);
+    class_alloc_parallel (pwb->integral_splines[thread], ptr->q_size*sizeof(double), pbi->error_message);
+    class_alloc_parallel (pwb->interpolated_integral[thread], ptr->q_size*sizeof(double), pbi->error_message);
     class_alloc_parallel (pwb->f[thread], pwb->k_smooth_size*sizeof(double), pbi->error_message);
   
   } // end of parallel region
@@ -2801,8 +2937,8 @@ int bispectra_non_separable_integrate_over_k3 (
 {
   
   /* Integration grid */
-  int k_tr_size = ptr->k_size[ppt->index_md_scalars];
-  double * k_tr = ptr->k[ppt->index_md_scalars];  
+  int k_tr_size = ptr->q_size;
+  double * k_tr = ptr->q;
 
   /* Parallelization variables */
   int thread = 0;
@@ -2896,9 +3032,10 @@ int bispectra_non_separable_integrate_over_k3 (
         for (int index_k3=index_k3_lower; index_k3<=index_k3_upper; ++index_k3)
           pwb->k3_grid[thread][index_k3-index_k3_lower] = k_tr[index_k3];
 
-        /* If there are no points in k_tr that satisfy the triangular condition for the current (k1,k2), then
-          there is no contribution to the integral */
-        class_test_parallel (k3_size<=0, pbi->error_message, "include when triangular condition does not fit with ptr->k");
+        /* If there are no points in k_tr that satisfy the triangular condition for the current
+        (k1,k2), then there is no contribution to the integral */
+        class_test_parallel (k3_size<=0, pbi->error_message,
+          "include when triangular condition does not fit with ptr->q");
           
         /* Determine the measure for the trapezoidal rule for k3 */  
         pwb->delta_k3[thread][0] = pwb->k3_grid[thread][1] - pwb->k3_grid[thread][0];
@@ -3009,8 +3146,8 @@ int bispectra_non_separable_integrate_over_k2 (
 {
 
   /* Integration grid */
-  int k_tr_size = ptr->k_size[ppt->index_md_scalars];
-  double * k_tr = ptr->k[ppt->index_md_scalars];
+  int k_tr_size = ptr->q_size;
+  double * k_tr = ptr->q;
     
   /* Parallelization variables */
   int thread = 0;
@@ -3209,17 +3346,17 @@ int bispectra_non_separable_interpolate_over_k2 (
   /* Shortcuts */
   int k_pt_size = pwb->k_smooth_size;
   double * k_pt = pwb->k_smooth_grid;
-  int k_tr_size = ptr->k_size[ppt->index_md_scalars];
-  double * k_tr = ptr->k[ppt->index_md_scalars];
-
+  int k_tr_size = ptr->q_size;
+  double * k_tr = ptr->q;
 
   /* So far, we always assumed that k1>=k2 because the shape function is symmetric wrt k1<->k2.
   Interpolating an array with such property is complicated, hence we build a temporary array
   where f(index_k1, index_k2) = f(index_k2, index_k1) when index_k1 < index_k2. */
   for (index_k2=0; index_k2 < k_pt_size; ++index_k2) {
 
-    f[index_k2] = (index_k1 > index_k2 ? pwb->integral_over_k3[index_l3][index_r][index_k1][index_k2]:
-                                         pwb->integral_over_k3[index_l3][index_r][index_k2][index_k1]);
+    f[index_k2] = (index_k1 > index_k2 ?
+      pwb->integral_over_k3[index_l3][index_r][index_k1][index_k2]:
+      pwb->integral_over_k3[index_l3][index_r][index_k2][index_k1]);
 
     /* Multiply by window function */
     f[index_k2] *= pwb->k_window[index_k2];
@@ -3322,8 +3459,8 @@ int bispectra_non_separable_integrate_over_k1 (
 {
   
   /* Integration grid */
-  int k_tr_size = ptr->k_size[ppt->index_md_scalars];
-  double * k_tr = ptr->k[ppt->index_md_scalars];
+  int k_tr_size = ptr->q_size;
+  double * k_tr = ptr->q;
 
   /* Parallelization variables */
   int thread = 0;
@@ -3506,8 +3643,8 @@ int bispectra_non_separable_interpolate_over_k1 (
   /* Shortcuts */
   int k_pt_size = pwb->k_smooth_size;
   double * k_pt = pwb->k_smooth_grid;
-  int k_tr_size = ptr->k_size[ppt->index_md_scalars];
-  double * k_tr = ptr->k[ppt->index_md_scalars];
+  int k_tr_size = ptr->q_size;
+  double * k_tr = ptr->q;
   
   /* Define the function to be interpolated, and multiply it by a window function */
   for (index_k1=0; index_k1 < k_pt_size; ++index_k1) {
@@ -3693,7 +3830,7 @@ int bispectra_non_separable_integrate_over_r (
   
   /* Free the memory that was allocated for the integral over k1, but do that only when we are at
   the last iteration of the Z and Y . */
-  if ((pwb->Z == (pbi->bf_size-1))) {
+  if (pwb->Z == (pbi->bf_size-1)) {
     for (long int index_l1_l2_l3 = 0; index_l1_l2_l3 < pbi->n_independent_configurations; ++index_l1_l2_l3)
       free (pwb->integral_over_k1[index_l1_l2_l3]);
     free (pwb->integral_over_k1);
@@ -3756,48 +3893,6 @@ int bispectra_non_separable_workspace_free (
 
 
 
-
-/**
- * Save a bispectrum to disk. It is important to keep the index_bt dependence in the argument list,
- * as we might want to selectively save only the secondary bispectra.
- */
-int bispectra_save_to_disk (
-    struct bispectra * pbi,
-    int index_bt
-    )
-{
-
-  /* Open file for writing */
-  class_open (pbi->bispectra_files[index_bt], pbi->bispectra_paths[index_bt], "a+b", pbi->error_message);
-
-  /* Print some debug */
-  if (pbi->bispectra_verbose > 2)
-    printf("     * writing bispectra to disk for index_bt=%d on '%s'\n",
-      index_bt, pbi->bispectra_paths[index_bt]);
-
-  /* Write all the independent (l1,l2,l3) triplets for this bispectrum */
-  for (int X = 0; X < pbi->bf_size; ++X)
-    for (int Y = 0; Y < pbi->bf_size; ++Y)
-      for (int Z = 0; Z < pbi->bf_size; ++Z)
-        fwrite(
-              pbi->bispectra[index_bt][X][Y][Z],
-              sizeof(double),
-              pbi->n_independent_configurations,
-              pbi->bispectra_files[index_bt]
-              );
-
-  /* Close file */
-  fclose(pbi->bispectra_files[index_bt]);
-  
-  return _SUCCESS_;
-  
-}
-
-
-
-
-
-
 /**
  * Load a bispectrum from disk. It is important to keep the index_bt dependence in the argument list,
  * as we might want to selectively load only the secondary bispectra.
@@ -3846,8 +3941,8 @@ int bispectra_load_from_disk(
 
 
 /**
- * Bispectrum produced by pi_dot * grad_pi^2 in the Galileon Lagrangian, from eq. 22 of arXiv:0905.3746v3
- *
+ * Bispectrum produced by the pi_dot * grad_pi^2 term in the Galileon Lagrangian, 
+ * taken from eq. 22 of http://arxiv.org/abs/0905.3746.
  */
 int bispectra_galileon_gradient (
   struct primordial * ppm,
@@ -3893,8 +3988,8 @@ int bispectra_galileon_gradient (
 
 
 /**
- * Bispectrum produced by pi_dot^3 in the Galileon Lagrangian, from eq. 22 of arXiv:0905.3746v3
- *
+ * Bispectrum produced by the pi_dot^3 term in the Galileon Lagrangian, 
+ * taken from eq. 22 of http://arxiv.org/abs/0905.3746.
  */
 int bispectra_galileon_time (
   struct primordial * ppm,
@@ -4523,8 +4618,8 @@ int bispectra_local_squeezed_bispectrum (
     pbi->error_message,
     "in all squeezed approximations, make sure l3 is the smallest multipole");
 
-  /* We take l3 to be the long wavelength and l1 and l2 the short ones. This is the only sensible
-  choice as the l-loop we are into is constructed to have l1>=l2>=l3. */
+  /* We take l3 to be the long wavelength and l1 and l2 the short ones. This is the only
+  sensible choice as the l-loop we are into is constructed to have l1>=l2>=l3. */
   double cl3_Zz = pbi->cls[pbi->index_ct_of_zeta_bf[ Z ]][l3-2];
   double cl1_XY = pbi->cls[pbi->index_ct_of_bf_bf[X][Y]][l1-2];
   double cl2_XY = pbi->cls[pbi->index_ct_of_bf_bf[X][Y]][l2-2];
@@ -4559,10 +4654,12 @@ int bispectra_local_squeezed_bispectrum (
 
 
 /** 
- * Compute the squeezed-limit approximation for the intrinsic bispectrum, as reported in eq. 4.1 and 4.2 of
- * Lewis 2012 (see also Creminelli et al. 2004, Creminelli et al. 2011, Bartolo et al. 2012). This is the
- * general formula that includes polarisation. With respect to Lewis' formula, (i,l1)->(Z,l3), (j,l2)->(X,l1),
- * (k,l3)->(Y,l2) and \zeta -> z.
+ * Compute the squeezed-limit approximation for the intrinsic bispectrum, as in
+ * eq. 4.1 and 4.2 of Lewis 2012 (http://arxiv.org/abs/1204.5018). See also Creminelli
+ * et al. 2004 (http://arxiv.org/abs/astro-ph/0405428), Creminelli et al. 2011
+ * (http://arxiv.org/abs/1109.1822), Bartolo et al. 2012 (http://arxiv.org/abs/1109.2043).
+ * This is the general formula that includes polarisation. With respect to Lewis' formula,
+ * (i,l1)->(Z,l3), (j,l2)->(X,l1), (k,l3)->(Y,l2) and \zeta -> z.
  * 
  * ~~~ CONSIDERATIONS THAT APPLY TO ALL "SQUEEZED" BISPECTRA ~~~
  *
@@ -4612,9 +4709,9 @@ int bispectra_intrinsic_squeezed_bispectrum (
   // }
 
   /* Uncomment to restrict the approximation to squeezed configurations, as in Sec. 6 of Creminelli,
-  Pitrou & Vernizzi 2011. Note that in our case the smallest mode is l3, while in that paper it
-  is l1. IMPORTANT: setting a bispectrum to zero might screw up some matrix inversions done in the
-  Fisher module, especially when 'pfi->include_lensing_effects' is _TRUE_. */
+  Pitrou & Vernizzi 2011 (http://arxiv.org/abs/1109.1822). Note that in our case the smallest mode is l3,
+  while in that paper it is l1. IMPORTANT: setting a bispectrum to zero might screw up some matrix
+  inversions done in the Fisher module, especially when 'pfi->include_lensing_effects' is _TRUE_. */
   // if (!((l3<=100) && (l2>=10*l3))) {
   //   *result = 0;
   //   return _SUCCESS_;
@@ -4828,11 +4925,11 @@ int bispectra_quadratic_bispectrum (
     if (X2 == pbi->index_bf_t) {S_X2 = 1; T_X2 = pbi->index_bf_t; index_ct_X2_I = psp->index_ct_tt;}
     if (X3 == pbi->index_bf_t) {S_X3 = 1; T_X3 = pbi->index_bf_t; index_ct_X3_I = psp->index_ct_tt;}
   }
-  if (pbi->has_bispectra_r == _TRUE_) {
-    if (X1 == pbi->index_bf_r) {S_X1 = 1; T_X1 = pbi->index_bf_r; index_ct_X1_I = psp->index_ct_tr;}
-    if (X2 == pbi->index_bf_r) {S_X2 = 1; T_X2 = pbi->index_bf_r; index_ct_X2_I = psp->index_ct_tr;}
-    if (X3 == pbi->index_bf_r) {S_X3 = 1; T_X3 = pbi->index_bf_r; index_ct_X3_I = psp->index_ct_tr;}
-  }
+  // if (pbi->has_bispectra_r == _TRUE_) {
+  //   if (X1 == pbi->index_bf_r) {S_X1 = 1; T_X1 = pbi->index_bf_r; index_ct_X1_I = psp->index_ct_tr;}
+  //   if (X2 == pbi->index_bf_r) {S_X2 = 1; T_X2 = pbi->index_bf_r; index_ct_X2_I = psp->index_ct_tr;}
+  //   if (X3 == pbi->index_bf_r) {S_X3 = 1; T_X3 = pbi->index_bf_r; index_ct_X3_I = psp->index_ct_tr;}
+  // }
   if (pbi->has_bispectra_e == _TRUE_) {
     if (X1 == pbi->index_bf_e) {S_X1 = (L%2==0)?2:0; T_X1 = pbi->index_bf_e; index_ct_X1_I = psp->index_ct_te;}
     if (X2 == pbi->index_bf_e) {S_X2 = (L%2==0)?2:0; T_X2 = pbi->index_bf_e; index_ct_X2_I = psp->index_ct_te;}

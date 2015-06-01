@@ -1,39 +1,185 @@
-/** @file bessel.c Documented Bessel module.
+/** @file bessel.c
  *
- * Julien Lesgourgues, 26.08.2010    
+ * This module computes the spherical Bessel functions and stores them for 
+ * later interpolation.
  *
- * This module loads spherical Bessel functions
- * (either read from file or computed from scratch).
+ * The spherical Bessel functions are important in cosmology because they project
+ * quantities defined in 3D space (such as perturbations at the time of
+ * recombination) to a 2D spherical surface (such as our sky today). The
+ * basical mathematical reason for this lies in the Rayleigh expansion of the plane
+ * wave as a sum of spherical waves (http://en.wikipedia.org/wiki/Plane_wave_expansion).
  *
- * Hence the following functions can be called from other modules:
+ * In particular, in CLASS and in SONG the Bessel functions are used to build
+ * the projection functions that, once convolved with the line of sight sources,
+ * allow to compute today's value of the transfer functions. This process goes 
+ * under the name of line of sight formalism; see Seljak and Zaldarriaga 1996 for
+ * the original paper and sec. 5.5 of http://arxiv.org/abs/1405.2280 for a general
+ * derivation. The Bessel functions are also used to project a primordial
+ * bispectrum to today's sky (see eqs. 9 and 10 of Fergusson and Shellard 2007).
  *
- * -# bessel_init() at the beginning (anytime after input_init() and before transfer_init())
- * -# bessel_at_x() at any time for computing a value j_l(x) at any x by interpolation
- * -# bessel_free() at the end
+ * This module is no longer included in CLASS since v2. In newer versions of CLASS,
+ * the (hyper)spherical Bessel functions are computed directly in the transfer.c module
+ * using a more general procedure suitable for curved universes. In SONG, we have
+ * preferred to keep the old bessel.c module because it is more transparent. However,
+ * in order to not disrupt CLASS, the l-list is still computed in the transfer module;
+ * that's why this module requires ptr as an input. Note that, due to the aforementioned
+ * changes in CLASS, now the Bessel functions in this module are used only in SONG's
+ * bispectra.c module to solve the bispectrum integral.
+ *
+ * The following functions can be called from other modules:
+ *
+ * -# bessel_init() to run the module, anytime after transfer_init()
+ * -# bessel_at_x() for computing a value j_l(x) at any x by spline interpolation
+ * -# bessel_at_x_linear() for computing a value j_l(x) at any x by linear interpolation
+ * -# bessel_convolution() for convolving a function f(k) with j_l(k*r) for a given r
+ * -# bessel_free() at the end to free the structure and its content
+ *
+ * Created by Julien Lesgourgues on the 26.08.2010.
+ * Last modified by Guido W. Pettinari on 01.06.2015
  */
 
 #include "bessel.h"
 
+
+/**
+ * Compute and store the spherical Bessel functions in pbs->j.
+ *
+ * In detail, this function does:
+ *
+ * -# Determine the list of multipole values pbs->l where to compute the Bessel functions.
+ *    Since CLASS v2, the list is copied directly from the transfer module (see comment on
+ *    top of this file).
+ *
+ * -# Allocate the Bessel array pbs->j and its second derivative pbs->ddj in view of
+ *    spline interpolation.
+ *
+ * -# For each multipole value in pbs->l, call bessel_j_for_l() to compute and store
+ *    the spherical Bessel functions.
+ *
+ * The computation of the Bessel function is determined by the following parameters:
+ *
+ * -# pbs->l[index_l]: list of size pbs->l_size with the multipole values l where we shall
+ *    compute the Bessel functions; it is determined in transfer structure.
+ * -# pbs->x_step: step dx for sampling Bessel functions j_l(x)
+ * -# pbs->x_max: maximum value of x where to compute the Bessel functions
+ * -# pbs->j_cut: value of j_l(x) below which it is approximated by zero in the region x<<l
+ *
+ * You need to call the background_init() and transfer_init() before calling this function.
+ */
+
+int bessel_init(
+		struct precision * ppr,
+    struct background * pba,
+		struct transfers * ptr,
+		struct bessels * pbs
+		) {
+
+  /** Summary: */
+
+  /** - define local variables */
+
+  /* index for l (since first value of l is always 2, l=index_l+2) */
+  int index_l;
+  int num_j;
+  int abort;
+
+  if (pbs->bessels_verbose > 0)
+    printf("Computing bessels\n");
+
+  /** - update the value of pbs->x_max of j_l(x) */
+  
+  /* In the bispectrum integral the upper limit in the time variable is r_max rather
+  than tau0. Here we scale the Bessels domain so that it includes the integration domain
+  of the bispectrum. */
+  if (pbs->has_bispectra == _TRUE_)
+    pbs->x_max = MAX (pbs->x_max, pbs->x_max*ppr->r_max/pba->conformal_age);
+
+  /** - copy l values from the transfer module and set x_max */
+
+  class_call(bessel_get_l_list(ppr,ptr,pbs),
+	     pbs->error_message,
+	     pbs->error_message);
+
+  /** - check x_step, x_max and j_cut from precision parameters and from l_max */
+
+  class_test(pbs->x_step <= 0.,
+	     pbs->error_message,
+	     "x_step=%e, stop to avoid segmentation fault",pbs->x_step);
+
+  class_test(pbs->x_max <= 0.,
+	     pbs->error_message,
+	     "x_max=%e, stop to avoid segmentation fault",pbs->x_max);
+
+  pbs->j_cut = ppr->bessel_j_cut;
+
+  /** - do we need to store also j_l'(x) ? */
+  // added for new version
+  pbs->has_dj = _TRUE_;
+
+  /** - compute Bessel functions */
+
+  class_alloc(pbs->x_size,pbs->l_size*sizeof(int*),pbs->error_message);
+  class_alloc(pbs->buffer,pbs->l_size*sizeof(double*),pbs->error_message);
+  class_alloc(pbs->x_min,pbs->l_size*sizeof(double*),pbs->error_message);
+  class_alloc(pbs->j,pbs->l_size*sizeof(double*),pbs->error_message);
+  class_alloc(pbs->ddj,pbs->l_size*sizeof(double*),pbs->error_message);
+  if (pbs->has_dj == _TRUE_) {
+    class_alloc(pbs->dj,pbs->l_size*sizeof(double*),pbs->error_message);
+    class_alloc(pbs->dddj,pbs->l_size*sizeof(double*),pbs->error_message);
+  }
+
+  /* initialize error management flag */
+  abort = _FALSE_;
+  
+  /* beginning of parallel region */
+
+  #pragma omp parallel				\
+  shared(ppr,pbs,abort)				\
+  private(index_l)
+  
+  {
+
+    #pragma omp for schedule (dynamic)
+
+    /** (a) loop over l and x values, compute \f$ j_l(x) \f$ for each of them */
+    for (index_l = 0; index_l < pbs->l_size; index_l++) {
+
+      class_call_parallel(bessel_j_for_l(ppr,pbs,index_l),
+			  pbs->error_message,
+			  pbs->error_message);
+	
+      #pragma omp flush(abort)
+		  
+    } /* end of loop over l */
+
+  } /* end of parallel region */
+
+  if (abort == _TRUE_) return _FAILURE_;
+
+  pbs->x_size_max=0;
+  for (index_l=0; index_l < pbs->l_size; index_l++)
+    if (pbs->x_size[index_l] > pbs->x_size_max)
+      pbs->x_size_max=pbs->x_size[index_l];
+
+  return _SUCCESS_;
+
+}
+
+
 /** 
- * Bessel function for arbitrary argument x. 
+ * Bessel function for arbitrary argument x using spline interpolation.
  *
  * Evaluates the spherical Bessel function x at a given value of x by
  * interpolating in the pre-computed table.  This function can be
  * called from whatever module at whatever time, provided that
  * bessel_init() has been called before, and bessel_free() has not
  * been called yet.
- *
- * @param pbs     Input: pointer to bessels structure
- * @param x       Input: argument x
- * @param index_l Input: index defining l = pbs->l[index_l]
- * @param j       Ouput: \f$j_l(x) \f$
- * @return the error status
  */
 int bessel_at_x(
-		struct bessels * pbs,
-		double x,
-		int index_l,
-		double * j
+		struct bessels * pbs, /**< input, pointer to bessels structure */
+		double x, /**< argument x where to interpolate j_l(x) */
+		int index_l, /**< order of the Bessel functions from pbs->l[index_l] */
+		double * j /* output, spherical Bessel function j_l(x) */
 		) {
   
   /** Summary: */
@@ -98,13 +244,16 @@ int bessel_at_x(
 
 
 /** 
- * Same as above, but using linear interpolation instead of cubic one.
+ * Bessel function for arbitrary argument x using linear interpolation.
+ * 
+ * Same as bessel_at_x(), but using linear interpolation instead of cubic
+ * spline interpolation.
  */
 int bessel_at_x_linear(
-    struct bessels * pbs,
-    double x,
-    int index_l,
-    double * j
+		struct bessels * pbs, /**< input, pointer to bessels structure */
+		double x, /**< argument x where to interpolate j_l(x) */
+		int index_l, /**< order of the Bessel functions from pbs->l[index_l] */
+		double * j /* output, spherical Bessel function j_l(x) */
     ) {
 
   /** Summary: */
@@ -165,30 +314,35 @@ int bessel_at_x_linear(
 
 
 /**
- * Given the integration domain kk and the array f[index_k], compute the following integral using trapezoidal rule:
+ * Given the integration domain kk and the array f[index_k], compute the following integral
+ * using the trapezoidal rule:
  * 
  *     /
  *    |  dk k^2 f[k] * g[k] * j_l[k*r]
  *    /
  *
- * The Bessel functions are interpolated from the table in the Bessel structure pbs. The delta_k array should
- * contains the trapezoidal measure around a given k[i], that is k[i+1] - k[i-1]. Note that delta_k[0] = k[1] - k[0]
- * and delta_k[k_size-1] = k[k_size-1] - k[k_size-2].
+ * The Bessel functions are interpolated from the table in the Bessel structure pbs. The
+ * delta_k array should contain the trapezoidal measure around a given k[i], that is
+ * delta_k[i]=k[i+1]-k[i-1], with delta_k[0]=k[1]-k[0] and delta_k[k_size-1]=k[k_size-1]-k[k_size-2].
  *
  * If you give a NULL pointer for the g function, then it is assumed to be unity.
  */
+
 int bessel_convolution(
-    struct precision * ppr,
-    struct bessels * pbs,
-    double * kk,
-    double * delta_kk,
-    int k_size,
-    double * f,
-    double * g,
-    int index_l,
-    double r,
-    double * integral,
-    ErrorMsg error_message
+    struct precision * ppr, /**< pointer to precision structure */
+    struct bessels * pbs, /**< pointer to Bessel structure, should be already initiated
+                          with bessel_init() */
+    double * kk, /**< array with the integration grid in k */
+    double * delta_kk, /**< trapezoidal measure, compute as delta_k[i]=k[i+1]-k[i-1],
+                       and delta_k[0]=k[1]-k[0], delta_k[k_size-1]=k[k_size-1]-k[k_size-2] */
+    int k_size, /**< size of the integration grid in k */
+    double * f, /**< array with the integrand function f, of size k_size */
+    double * g, /**< array with the integrand function g, of size k_size; pass NULL
+                to automatically set it to unity */
+    int index_l, /**< order of the Bessel function, taken from the multipole array pbs->l */
+    double r, /**< frequency of the Bessel function */
+    double * integral, /**< output, estimate of the integral */
+    ErrorMsg error_message /**< string to write error message */
     )
 {
 
@@ -298,152 +452,6 @@ int bessel_convolution(
 
 
 
-
-/**
- * Compute and store spherical Bessel functions.
- *
- * Each table of spherical Bessel functions \f$ j_l(x) \f$ corresponds
- * to a set of values for: 
- *
- * -# pbs->l[index_l]: list of l values l of size pbs->l_size
- * -# pbs->x_step: step dx for sampling Bessel functions \f$ j_l(x) \f$
- * -# pbs->x_max: last value of x (always a multiple of x_step!)
- * -# pbs->j_cut: value of \f$ j_l \f$ below which it is approximated by zero (in the region x << l)
- *
- * The Bessel functions are computed using
- * bessel_j_for_l(), and stored in the bessels
- * stucture pbs.
- *
- * Since version 2, CLASS computes the Bessel functions on the fly in the transfer module; therefore,
- * CLASS does not have anymore a Bessel module. In SONG we chose to keep the Bessel module, and
- * use its tables to interpolate the Bessel functions. The reason is that SONG calls the Bessel
- * functions N^3 times as compared to the N times of CLASS. Computing j_l(x) that many times without
- * interpolation would probably require too much time.
- *
- * We use the Bessel functions computed in this module for two purposes:
- * 1) compute the bispectrum integral and
- * 2) compute the line of sight integral at second order.
- * On the other hand, the Bessel functions for the first-order line of sight integral
- * are computed on the fly in the transfer.c module, as it is done in vanilla CLASS. The
- * multipole list is also computed in transfer.c, and that's why the Bessel module requires
- * ptr as an input.
- * 
- *
- * @param ppr Input: pointer to precision strucutre
- * @param ptr Input: pointer to background structure
- * @param pbs Output: initialized bessel structure 
- * @return the error status
- */
-
-int bessel_init(
-		struct precision * ppr,
-    struct background * pba,
-		struct transfers * ptr,
-		struct bessels * pbs
-		) {
-
-  /** Summary: */
-
-  /** - define local variables */
-
-  /* index for l (since first value of l is always 2, l=index_l+2) */
-  int index_l;
-  int num_j;
-  int abort;
-
-  if (pbs->bessels_verbose > 0)
-    printf("Computing bessels\n");
-
-  /** - update the value of pbs->x_max of j_l(x) */
-  
-  /* In the bispectrum integral the upper limit in the time variable is r_max rather
-  than tau0. Here we scale the Bessels domain so that it includes the integration domain
-  of the bispectrum. */
-  if (pbs->has_bispectra == _TRUE_)
-    pbs->x_max = MAX (pbs->x_max, pbs->x_max*ppr->r_max/pba->conformal_age);
-
-  /** - copy l values from the transfer module and set x_max */
-
-  class_call(bessel_get_l_list(ppr,ptr,pbs),
-	     pbs->error_message,
-	     pbs->error_message);
-
-  /** - check x_step, x_max and j_cut from precision parameters and from l_max */
-
-  class_test(pbs->x_step <= 0.,
-	     pbs->error_message,
-	     "x_step=%e, stop to avoid segmentation fault",pbs->x_step);
-
-  class_test(pbs->x_max <= 0.,
-	     pbs->error_message,
-	     "x_max=%e, stop to avoid segmentation fault",pbs->x_max);
-
-  pbs->j_cut = ppr->bessel_j_cut;
-
-  /** - do we need to store also j_l'(x) ? */
-  // added for new version
-  pbs->has_dj = _TRUE_;
-
-  /** - compute Bessel functions */
-
-  class_alloc(pbs->x_size,pbs->l_size*sizeof(int*),pbs->error_message);
-  class_alloc(pbs->buffer,pbs->l_size*sizeof(double*),pbs->error_message);
-  class_alloc(pbs->x_min,pbs->l_size*sizeof(double*),pbs->error_message);
-  class_alloc(pbs->j,pbs->l_size*sizeof(double*),pbs->error_message);
-  class_alloc(pbs->ddj,pbs->l_size*sizeof(double*),pbs->error_message);
-  if (pbs->has_dj == _TRUE_) {
-    class_alloc(pbs->dj,pbs->l_size*sizeof(double*),pbs->error_message);
-    class_alloc(pbs->dddj,pbs->l_size*sizeof(double*),pbs->error_message);
-  }
-
-  /* initialize error management flag */
-  abort = _FALSE_;
-  
-  /* beginning of parallel region */
-
-  #pragma omp parallel				\
-  shared(ppr,pbs,abort)				\
-  private(index_l)
-  
-  {
-
-    #pragma omp for schedule (dynamic)
-
-    /** (a) loop over l and x values, compute \f$ j_l(x) \f$ for each of them */
-    for (index_l = 0; index_l < pbs->l_size; index_l++) {
-
-      class_call_parallel(bessel_j_for_l(ppr,pbs,index_l),
-			  pbs->error_message,
-			  pbs->error_message);
-	
-      #pragma omp flush(abort)
-		  
-    } /* end of loop over l */
-
-  } /* end of parallel region */
-
-  if (abort == _TRUE_) return _FAILURE_;
-
-  pbs->x_size_max=0;
-  for (index_l=0; index_l < pbs->l_size; index_l++)
-    if (pbs->x_size[index_l] > pbs->x_size_max)
-      pbs->x_size_max=pbs->x_size[index_l];
-
-  return _SUCCESS_;
-
-}
-
-
-
-
-
-
-
-
-
-
-
-
 /**
  * Free all memory space allocated by bessel_init().
  *
@@ -522,14 +530,10 @@ int bessel_get_l_list(
 /**
  * Get spherical Bessel functions for given value of l.
  *
- * Find the first value x_min(l) at which the function is not
- * negligible (for large l values, Bessel functions are very close to
- * zero nearly until x=l).
- * Then, sample it with step x_step till x_max.
- *
- * @param ppr Input : pointer to precision structure
- * @param pbs Input/Output : pointer to bessel structure (store result here) 
- * @return the error status
+ * Find the first value x_min(l) at which the function is not negligible
+ * (for large l values, Bessel functions are very close to zero nearly
+ * until x=l). Then, sample it with step x_step till x_max, using the
+ * function bessel_j().
  */
 
 int bessel_j_for_l(
@@ -565,15 +569,15 @@ int bessel_j_for_l(
   x_min_down=0.;
 
   class_call(bessel_j(pbs,
-		      pbs->l[index_l], /* l */
-		      x_min_up, /* x */
-		      &j),  /* j_l(x) */
-	     pbs->error_message,
-	     pbs->error_message);
+               pbs->l[index_l], /* l */
+               x_min_up, /* x */
+               &j),  /* j_l(x) */
+    pbs->error_message,
+    pbs->error_message);
   
   class_test(j < pbs->j_cut,
-	     pbs->error_message,
-	     "in bisection, wrong initial guess for x_min_up.");
+    pbs->error_message,
+    "in bisection, wrong initial guess for x_min_up.");
  
   while ((x_min_up-x_min_down)/x_min_down > ppr->bessel_tol_x_min) {
       
@@ -583,11 +587,11 @@ int bessel_j_for_l(
 	       (x_min_up-x_min_down),ppr->bessel_tol_x_min);
     
     class_call(bessel_j(pbs,
-			pbs->l[index_l], /* l */
-			0.5 * (x_min_up+x_min_down), /* x */
-			&j),  /* j_l(x) */
-	       pbs->error_message,
-	       pbs->error_message);
+          			pbs->l[index_l], /* l */
+          			0.5 * (x_min_up+x_min_down), /* x */
+          			&j),  /* j_l(x) */
+      pbs->error_message,
+      pbs->error_message);
     
     if (j >= pbs->j_cut) 
       x_min_up=0.5 * (x_min_up+x_min_down);
@@ -599,11 +603,11 @@ int bessel_j_for_l(
   x_min = x_min_down;
 
   class_call(bessel_j(pbs,
-		      pbs->l[index_l], /* l */
-		      x_min, /* x */
-		      &j),  /* j_l(x) */
-	     pbs->error_message,
-	     pbs->error_message);
+    		      pbs->l[index_l], /* l */
+    		      x_min, /* x */
+    		      &j),  /* j_l(x) */
+    pbs->error_message,
+    pbs->error_message);
 
   /** - define number of x values to be stored (one if all values of j_l(x) were negligible for this l) */
   
@@ -622,8 +626,8 @@ int bessel_j_for_l(
   }
 
   class_alloc(pbs->buffer[index_l],
-	      (1+num_j*pbs->x_size[index_l])*sizeof(double),
-	      pbs->error_message);
+    (1+num_j*pbs->x_size[index_l])*sizeof(double),
+    pbs->error_message);
     
   pbs->x_min[index_l] = pbs->buffer[index_l];
   pbs->j[index_l] = pbs->buffer[index_l]+1;
@@ -670,8 +674,8 @@ int bessel_j_for_l(
       pbs->dj[index_l][0] = jprime; 
 
       pbs->dddj[index_l][0] = - 2./x_min*pbs->ddj[index_l][0]
-	+ ((pbs->l[index_l]*(pbs->l[index_l]+1)+2)/x_min/x_min-1.)*jprime
-	- 2.*pbs->l[index_l]*(pbs->l[index_l]+1)/x_min/x_min/x_min*j;
+      	+ ((pbs->l[index_l]*(pbs->l[index_l]+1)+2)/x_min/x_min-1.)*jprime
+      	- 2.*pbs->l[index_l]*(pbs->l[index_l]+1)/x_min/x_min/x_min*j;
     }
 
     /* loop over other non-negligible values */
@@ -680,33 +684,33 @@ int bessel_j_for_l(
       x = *(pbs->x_min[index_l])+index_x*pbs->x_step;
 
       class_call(bessel_j(pbs,
-			  pbs->l[index_l], /* l */
-			  x, /* x */
-			  &j),  /* j_l(x) */
-		 pbs->error_message,
-		 pbs->error_message);
+                   pbs->l[index_l], /* l */
+                   x, /* x */
+                   &j),  /* j_l(x) */
+        pbs->error_message,
+        pbs->error_message);
 
       class_call(bessel_j(pbs,
-			  pbs->l[index_l]-1, /* l-1 */
-			  x, /* x */
-			  &jm),  /* j_{l-1}(x) */
-		 pbs->error_message,
-		 pbs->error_message);
+          			  pbs->l[index_l]-1, /* l-1 */
+          			  x, /* x */
+          			  &jm),  /* j_{l-1}(x) */
+        pbs->error_message,
+        pbs->error_message);
 
       jprime = jm - (pbs->l[index_l]+1)*j/x; /* j_l'=j_{l-1}-(l+1)j_l/x */
     
       pbs->j[index_l][index_x] = j;
 
       pbs->ddj[index_l][index_x] = - 2./x*jprime 
-	+ (pbs->l[index_l]*(pbs->l[index_l]+1)/x/x-1.)*j; /* j_l'' = -2/x j_l' + (l(l+1)/x/x-1)*j */
+        + (pbs->l[index_l]*(pbs->l[index_l]+1)/x/x-1.)*j; /* j_l'' = -2/x j_l' + (l(l+1)/x/x-1)*j */
 
       if (pbs->has_dj == _TRUE_) {
 
-	pbs->dj[index_l][index_x] = jprime; 
+        pbs->dj[index_l][index_x] = jprime; 
 
-	pbs->dddj[index_l][index_x] = - 2./x*pbs->ddj[index_l][index_x]
-	  + ((pbs->l[index_l]*(pbs->l[index_l]+1)+2)/x/x-1.)*jprime
-	  - 2.*pbs->l[index_l]*(pbs->l[index_l]+1)/x/x/x*j;
+        	pbs->dddj[index_l][index_x] = - 2./x*pbs->ddj[index_l][index_x]
+        	  + ((pbs->l[index_l]*(pbs->l[index_l]+1)+2)/x/x-1.)*jprime
+        	  - 2.*pbs->l[index_l]*(pbs->l[index_l]+1)/x/x/x*j;
       }
     }
   }
@@ -739,28 +743,6 @@ int bessel_j(
   double cotb,cot3b,cot6b,secb,sec2b;
   double trigarg,expterm,fl;
   double l3,cosb;
-
-  // *** MY MODIFICATIONS ***
-  // /* Uncomment to use the Bessel functions in the Slatec distribution */
-  // float * result = malloc(sizeof(float));
-  // 
-  // besselJ_l1(
-  //    l+0.5,
-  //    (float)x,
-  //    1,
-  //    result,
-  //    pbs->error_message          
-  //    );
-  //    
-  // *jl = _SQRT_PI_OVER_2_/sqrt(x)*(double)(*result);
-  //    
-  // free(result);
-  // 
-  // // *** Some debug
-  // // printf("j_l(%d,%20.15g) = %15g\n", l, x, *jl);
-  //    
-  // return _SUCCESS_;
-  // *** END OF MY MODIFICATIONS ***
   
   class_test(l < 0,
 	     pbs->error_message,

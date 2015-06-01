@@ -231,8 +231,8 @@ struct bispectra {
   long int n_independent_configurations;
 
   /* Multi-array where the bispectra will be stored.  It must be indexed as
-    bispectra [index_bt][i][j][k][index_l1_l2_l3]
-  where i,j,k=T,E,B are indexed by the 'pbi->index_bf' indices, and
+    bispectra [index_bt][X][Y][Z][index_l1_l2_l3]
+  where X,Y,Z=T,E,B are indexed by the 'pbi->index_bf' indices, and
   'index_l1_l2_l3' is described above. */          
   double ***** bispectra;
   
@@ -559,6 +559,7 @@ extern "C" {
   int bispectra_indices(
           struct precision * ppr,
           struct background * pba,
+          struct thermo * pth,
           struct perturbs * ppt,
           struct bessels * pbs,
           struct transfers * ptr,
@@ -790,7 +791,7 @@ extern "C" {
 
 
 
-  int bispectra_save_to_disk(
+  int bispectra_store_to_disk(
       struct bispectra * pbi,
       int index_bt
       );
