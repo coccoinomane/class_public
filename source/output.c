@@ -1248,6 +1248,374 @@ int output_tk(
 
 }
 
+
+#ifdef WITH_BISPECTRA
+
+int output_fisher(
+        struct bispectra * pbi,
+        struct fisher * pfi,
+        struct output * pop
+        )
+{
+  
+  FileName filename, filename_lmin, filename_lmax;
+  char label[256];
+  
+  // ============================================================================================
+  // =                                   Full fisher matrix                                     =
+  // ============================================================================================
+  
+  FILE * fisher_file;
+  
+  /* Open the file for the Fisher matrix */
+  if ((pfi->l_min_estimator > pfi->l_min) || (pfi->l_max_estimator < pfi->l_max))
+    sprintf (filename, "%s%s_%d_%d.dat", pop->root, "fisher",
+      MAX(pfi->l_min, pfi->l_min_estimator), MIN(pfi->l_max, pfi->l_max_estimator));
+  else
+    sprintf (filename, "%s%s.dat", pop->root, "fisher");
+
+  class_open (fisher_file, filename, "w", pop->error_message);
+  
+  /* Print the Fisher matrix to file */
+  fprintf (fisher_file, "%s", pfi->info);
+
+  /* Close file */
+  fclose (fisher_file);
+
+  // ============================================================================================
+  // =                               Same, with lensing variance                                =
+  // ============================================================================================
+
+  if (pfi->include_lensing_effects == _TRUE_) {
+    
+    if ((pfi->l_min_estimator > pfi->l_min) || (pfi->l_max_estimator < pfi->l_max))
+      sprintf (filename, "%s%s_%d_%d.dat", pop->root, "fisher_lensvar",
+        MAX(pfi->l_min, pfi->l_min_estimator), MIN(pfi->l_max, pfi->l_max_estimator));
+    else
+      sprintf (filename, "%s%s.dat", pop->root, "fisher_lensvar");
+
+    class_open (fisher_file, filename, "w", pop->error_message);
+  
+    /* Print the Fisher matrix to file */
+    fprintf (fisher_file, "%s", pfi->info_lensvar);
+
+    /* Close file */
+    fclose (fisher_file);
+    
+  }
+
+  // ============================================================================================
+  // =                            Full Fisher matrix for lmin/lmax                              =
+  // ============================================================================================
+
+  FILE * fisher_file_lmin;
+  FILE * fisher_file_lmax;
+
+  /* Open the file for the signal to noise as a function of the maximum resolution of the experiment */
+  if ((pfi->l_min_estimator > pfi->l_min) || (pfi->l_max_estimator < pfi->l_max)) {
+    sprintf (filename_lmax, "%s%s_%d_%d.dat", pop->root, "fisher_lmax",
+      MAX(pfi->l_min, pfi->l_min_estimator), MIN(pfi->l_max, pfi->l_max_estimator));
+    sprintf (filename_lmin, "%s%s_%d_%d.dat", pop->root, "fisher_lmin",
+      MAX(pfi->l_min, pfi->l_min_estimator), MIN(pfi->l_max, pfi->l_max_estimator));
+  }
+  else { 
+    sprintf (filename_lmax, "%s%s.dat", pop->root, "fisher_lmax");
+    sprintf (filename_lmin, "%s%s.dat", pop->root, "fisher_lmin");
+  }
+
+  class_open (fisher_file_lmax, filename_lmax, "w", pop->error_message);
+  class_open (fisher_file_lmin, filename_lmin, "w", pop->error_message);
+  
+  // --------------------------------------------------------------------------
+  // -                                Print labels                            -
+  // --------------------------------------------------------------------------
+  
+  fprintf (fisher_file_lmax, "%20s ", "l_max");
+  for (int index_ft=0; index_ft < pfi->ft_size; ++index_ft) {
+    sprintf (label, "F_%s", pbi->bt_labels[pfi->index_bt_of_ft[index_ft]]);
+    fprintf (fisher_file_lmax, "%20s ", label);
+  }
+  for (int index_ft=0; index_ft < pfi->ft_size; ++index_ft) {
+    sprintf (label, "F_cum_%s", pbi->bt_labels[pfi->index_bt_of_ft[index_ft]]);
+    fprintf (fisher_file_lmax, "%20s ", label);
+  }
+  fprintf (fisher_file_lmax, "\n");
+  
+  fprintf (fisher_file_lmin, "%20s ", "l_min");
+  for (int index_ft=0; index_ft < pfi->ft_size; ++index_ft) {
+    sprintf (label, "F_%s", pbi->bt_labels[pfi->index_bt_of_ft[index_ft]]);
+    fprintf (fisher_file_lmin, "%20s ", label);
+  }
+  for (int index_ft=0; index_ft < pfi->ft_size; ++index_ft) {
+    sprintf (label, "F_cum_%s", pbi->bt_labels[pfi->index_bt_of_ft[index_ft]]);
+    fprintf (fisher_file_lmin, "%20s ", label);
+  }
+  fprintf (fisher_file_lmin, "\n");
+  
+  // ---------------------------------------------------------------------
+  // -                           Print values                            -
+  // ---------------------------------------------------------------------
+  
+  /* Fisher as a function of the l_max of the experiment */
+  for (int index_l3=0; index_l3 < pfi->l3_size; ++index_l3) {
+    
+    fprintf (fisher_file_lmax, "%20d ", pfi->l3[index_l3]);
+
+    for (int index_ft=0; index_ft < pfi->ft_size; ++index_ft)
+      fprintf (fisher_file_lmax, "%20.7g ", (pfi->fisher_matrix_largest[index_l3][index_ft][index_ft]));
+
+    for (int index_ft=0; index_ft < pfi->ft_size; ++index_ft)
+      fprintf (fisher_file_lmax, "%20.7g ", (pfi->fisher_matrix_lmax[index_l3][index_ft][index_ft]));
+
+    fprintf (fisher_file_lmax, "\n");
+
+  } // end of for (index_l3)
+  
+  /* Fisher as a function of the l_min of the experiment */
+  for (int index_l1=0; index_l1 < pfi->l1_size; ++index_l1) {
+  
+    fprintf (fisher_file_lmin, "%20d ", pfi->l1[index_l1]);
+
+    for (int index_ft=0; index_ft < pfi->ft_size; ++index_ft)
+      fprintf (fisher_file_lmin, "%20.7g ", (pfi->fisher_matrix_smallest[index_l1][index_ft][index_ft]));
+
+    for (int index_ft=0; index_ft < pfi->ft_size; ++index_ft)
+      fprintf (fisher_file_lmin, "%20.7g ", (pfi->fisher_matrix_lmin[index_l1][index_ft][index_ft]));
+
+    fprintf (fisher_file_lmin, "\n");
+
+  } // end of for (index_l1)    
+  
+  // ---------------------------------------------------------------------------
+  // -                            Close files                                  -
+  // ---------------------------------------------------------------------------
+  
+  fclose (fisher_file_lmax);
+  fclose (fisher_file_lmin);
+  
+  
+  // ============================================================================================
+  // =                               Same, with lensing variance                                =
+  // ============================================================================================
+
+  if (pfi->include_lensing_effects == _TRUE_) {
+
+    /* No lmax file for lensing variance */
+
+    if ((pfi->l_min_estimator > pfi->l_min) || (pfi->l_max_estimator < pfi->l_max)) {
+      sprintf (filename_lmin, "%s%s_%d_%d.dat", pop->root, "fisher_lensvar_lmin",
+        MAX(pfi->l_min, pfi->l_min_estimator), MIN(pfi->l_max, pfi->l_max_estimator));
+      if (pfi->compute_lensing_variance_lmax == _TRUE_)
+        sprintf (filename_lmax, "%s%s_%d_%d.dat", pop->root, "fisher_lensvar_lmax",
+          MAX(pfi->l_min, pfi->l_min_estimator), MIN(pfi->l_max, pfi->l_max_estimator));
+    }
+    else { 
+      sprintf (filename_lmin, "%s%s.dat", pop->root, "fisher_lensvar_lmin");
+      if (pfi->compute_lensing_variance_lmax == _TRUE_)
+        sprintf (filename_lmax, "%s%s.dat", pop->root, "fisher_lensvar_lmax");
+    }
+
+    class_open (fisher_file_lmin, filename_lmin, "w", pop->error_message);
+    if (pfi->compute_lensing_variance_lmax == _TRUE_)
+      class_open (fisher_file_lmax, filename_lmax, "w", pop->error_message);
+  
+    // --------------------------------------------------------------------------
+    // -                                Print labels                            -
+    // --------------------------------------------------------------------------
+  
+    fprintf (fisher_file_lmin, "%20s ", "l_min");
+    for (int index_ft=0; index_ft < pfi->ft_size; ++index_ft) {
+      sprintf (label, "F_%s", pbi->bt_labels[pfi->index_bt_of_ft[index_ft]]);
+      fprintf (fisher_file_lmin, "%20s ", label);
+    }
+    for (int index_ft=0; index_ft < pfi->ft_size; ++index_ft) {
+      sprintf (label, "F_cum_%s", pbi->bt_labels[pfi->index_bt_of_ft[index_ft]]);
+      fprintf (fisher_file_lmin, "%20s ", label);
+    }
+    fprintf (fisher_file_lmin, "\n");
+
+    if (pfi->compute_lensing_variance_lmax == _TRUE_) {
+      fprintf (fisher_file_lmax, "%20s ", "l_max");
+      for (int index_ft=0; index_ft < pfi->ft_size; ++index_ft) {
+        sprintf (label, "F_cum_%s", pbi->bt_labels[pfi->index_bt_of_ft[index_ft]]);
+        fprintf (fisher_file_lmax, "%20s ", label);
+      }
+      fprintf (fisher_file_lmax, "\n");
+    }
+  
+    // ---------------------------------------------------------------------
+    // -                           Print values                            -
+    // ---------------------------------------------------------------------
+  
+    for (int index_l1=0; index_l1 < pfi->l1_size; ++index_l1) {
+  
+      fprintf (fisher_file_lmin, "%20d ", pfi->l1[index_l1]);
+
+      for (int index_ft=0; index_ft < pfi->ft_size; ++index_ft)
+        fprintf (fisher_file_lmin, "%20.7g ", (pfi->fisher_matrix_lensvar_smallest[index_l1][index_ft][index_ft]));
+
+      for (int index_ft=0; index_ft < pfi->ft_size; ++index_ft)
+        fprintf (fisher_file_lmin, "%20.7g ", (pfi->fisher_matrix_lensvar_lmin[index_l1][index_ft][index_ft]));
+
+      fprintf (fisher_file_lmin, "\n");
+
+    } // end of for (index_l1)    
+
+    if (pfi->compute_lensing_variance_lmax == _TRUE_) {
+      for (int index_l1=0; index_l1 < pfi->l1_size; ++index_l1) {
+  
+        fprintf (fisher_file_lmax, "%20d ", pfi->l1[index_l1]);
+
+        for (int index_ft=0; index_ft < pfi->ft_size; ++index_ft)
+          fprintf (fisher_file_lmax, "%20.7g ", (pfi->fisher_matrix_lensvar_lmax[index_l1][index_ft][index_ft]));
+
+        fprintf (fisher_file_lmax, "\n");
+
+      } // end of for (index_l1)
+    } // end of if(compute_lensing_variance_lmax)
+  
+    // ---------------------------------------------------------------------------
+    // -                            Close files                                  -
+    // ---------------------------------------------------------------------------
+  
+    fclose (fisher_file_lmin);
+    if (pfi->compute_lensing_variance_lmax == _TRUE_)
+      fclose (fisher_file_lmax);
+
+  } // end of if(include_lensing_effects)
+  
+
+
+  // ============================================================================================
+  // =                           Fisher matrix for XYZ and lmin/lmax                            =
+  // ============================================================================================
+
+  if (pfi->fisher_verbose > 2) {
+
+    /* One file per XYZ bispectrum, so that if you ask for temperature and polarisation, 8 files
+    (TTT, EEE, TEE, ...) will be produced */
+    FILE **** fisher_file_XYZ_lmin, **** fisher_file_XYZ_lmax;
+
+    class_alloc (fisher_file_XYZ_lmin, pbi->bf_size*sizeof(FILE ***), pop->error_message);
+    class_alloc (fisher_file_XYZ_lmax, pbi->bf_size*sizeof(FILE ***), pop->error_message);
+
+    for (int X=0; X < pbi->bf_size; ++X) {
+
+      class_alloc (fisher_file_XYZ_lmin[X], pbi->bf_size*sizeof(FILE **), pop->error_message);
+      class_alloc (fisher_file_XYZ_lmax[X], pbi->bf_size*sizeof(FILE **), pop->error_message);
+
+      for (int Y=0; Y < pbi->bf_size; ++Y) {
+
+        class_alloc (fisher_file_XYZ_lmin[X][Y], pbi->bf_size*sizeof(FILE *), pop->error_message);
+        class_alloc (fisher_file_XYZ_lmax[X][Y], pbi->bf_size*sizeof(FILE *), pop->error_message);
+      }
+    }
+  
+    /* Copy the code above for l_min and l_max, but now for each bispectrum XYZ */
+    for (int X=0; X < pbi->bf_size; ++X) {
+      for (int Y=0; Y < pbi->bf_size; ++Y) {
+        for (int Z=0; Z < pbi->bf_size; ++Z) {
+  
+          /* Open the file for the signal to noise as a function of the maximum resolution of the experiment */
+          if ((pfi->l_min_estimator > pfi->l_min) || (pfi->l_max_estimator < pfi->l_max)) {
+            sprintf (filename_lmax, "%s%s_%s_%d_%d.dat",
+              pop->root, "fisher_lmax", pbi->bfff_labels[X][Y][Z],
+                MAX(pfi->l_min, pfi->l_min_estimator), MIN(pfi->l_max, pfi->l_max_estimator));
+            sprintf (filename_lmin, "%s%s_%s_%d_%d.dat",
+              pop->root, "fisher_lmin", pbi->bfff_labels[X][Y][Z],
+                MAX(pfi->l_min, pfi->l_min_estimator), MIN(pfi->l_max, pfi->l_max_estimator));
+          }
+          else {
+            sprintf (filename_lmax, "%s%s_%s.dat", pop->root, "fisher_lmax", pbi->bfff_labels[X][Y][Z]);
+            sprintf (filename_lmin, "%s%s_%s.dat", pop->root, "fisher_lmin", pbi->bfff_labels[X][Y][Z]);
+          }
+
+          class_open (fisher_file_XYZ_lmax[X][Y][Z], filename_lmax, "w", pop->error_message);
+          class_open (fisher_file_XYZ_lmin[X][Y][Z], filename_lmin, "w", pop->error_message);
+
+          
+          // --------------------------------------------------------------------------
+          // -                                Print labels                            -
+          // --------------------------------------------------------------------------
+          
+          fprintf (fisher_file_XYZ_lmax[X][Y][Z], "%20s ", "l_max");
+          for (int index_ft=0; index_ft < pfi->ft_size; ++index_ft) {
+            sprintf (label, "F_%s", pbi->bt_labels[pfi->index_bt_of_ft[index_ft]]);
+            fprintf (fisher_file_XYZ_lmax[X][Y][Z], "%20s ", label);
+          }
+          for (int index_ft=0; index_ft < pfi->ft_size; ++index_ft) {
+            sprintf (label, "F_cum_%s", pbi->bt_labels[pfi->index_bt_of_ft[index_ft]]);
+            fprintf (fisher_file_XYZ_lmax[X][Y][Z], "%20s ", label);
+          }
+          fprintf (fisher_file_XYZ_lmax[X][Y][Z], "\n");
+
+            
+          fprintf (fisher_file_XYZ_lmin[X][Y][Z], "%20s ", "l_min");
+          for (int index_ft=0; index_ft < pfi->ft_size; ++index_ft) {
+            sprintf (label, "F_%s", pbi->bt_labels[pfi->index_bt_of_ft[index_ft]]);
+            fprintf (fisher_file_XYZ_lmin[X][Y][Z], "%20s ", label);
+          }
+          for (int index_ft=0; index_ft < pfi->ft_size; ++index_ft) {
+            sprintf (label, "F_cum_%s", pbi->bt_labels[pfi->index_bt_of_ft[index_ft]]);
+            fprintf (fisher_file_XYZ_lmin[X][Y][Z], "%20s ", label);
+          }
+          fprintf (fisher_file_XYZ_lmin[X][Y][Z], "\n");
+          
+          // ---------------------------------------------------------------------
+          // -                           Print values                            -
+          // ---------------------------------------------------------------------
+          
+          /* Fisher as a function of the l_max of the experiment */
+          for (int index_l3=0; index_l3 < pfi->l3_size; ++index_l3) {
+            
+            fprintf (fisher_file_XYZ_lmax[X][Y][Z], "%20d ", pfi->l3[index_l3]);
+          
+            for (int index_ft=0; index_ft < pfi->ft_size; ++index_ft)
+              fprintf (fisher_file_XYZ_lmax[X][Y][Z], "%20.7g ",
+                (pfi->fisher_matrix_XYZ_largest[X][Y][Z][index_l3][index_ft][index_ft]));
+          
+            for (int index_ft=0; index_ft < pfi->ft_size; ++index_ft)
+              fprintf (fisher_file_XYZ_lmax[X][Y][Z], "%20.7g ",
+                (pfi->fisher_matrix_XYZ_lmax[X][Y][Z][index_l3][index_ft][index_ft]));
+          
+            fprintf (fisher_file_XYZ_lmax[X][Y][Z], "\n");
+          
+          } // end of for (index_l3)
+            
+          for (int index_l1=0; index_l1 < pfi->l1_size; ++index_l1) {
+          
+            fprintf (fisher_file_XYZ_lmin[X][Y][Z], "%20d ", pfi->l1[index_l1]);
+        
+            for (int index_ft=0; index_ft < pfi->ft_size; ++index_ft)
+              fprintf (fisher_file_XYZ_lmin[X][Y][Z], "%20.7g ",
+                (pfi->fisher_matrix_XYZ_smallest[X][Y][Z][index_l1][index_ft][index_ft]));
+        
+            for (int index_ft=0; index_ft < pfi->ft_size; ++index_ft)
+              fprintf (fisher_file_XYZ_lmin[X][Y][Z], "%20.7g ",
+                (pfi->fisher_matrix_XYZ_lmin[X][Y][Z][index_l1][index_ft][index_ft]));
+        
+            fprintf (fisher_file_XYZ_lmin[X][Y][Z], "\n");
+          }
+  
+          // ---------------------------------------------------------------------------
+          // -                            Close files                                  -
+          // ---------------------------------------------------------------------------
+  
+          fclose (fisher_file_XYZ_lmax[X][Y][Z]);
+          fclose (fisher_file_XYZ_lmin[X][Y][Z]);
+  
+        } // end of for Z
+      } // end of for Y
+    } // end of for X
+  } // end of if(fisher_verbose>2)
+
+  
+  return _SUCCESS_;
+  
+}
+
+#endif // WITH_BISPECTRA
+
 int output_background(
                       struct background * pba,
                       struct output * pop

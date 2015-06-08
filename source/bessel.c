@@ -229,13 +229,11 @@ int bessel_at_x(
 
   }
 
-  // *** MY MODIFICATIONS ***
+  /* Debug - test interpolation */
   // int l = pbs->l[index_l];
   // printf("from table: j(%d, %20.15g) = %g\n", l, (*pbs->x_min[index_l]) + (index_x)*pbs->x_step, pbs->j[index_l][index_x]);
   // printf("from table: j(%d, %20.15g) = %g\n", l, (*pbs->x_min[index_l]) + (index_x+1)*pbs->x_step, pbs->j[index_l][index_x+1]);
-  // printf("interp    : j(%d, %20.15g) = %g\n", l, x, *j);
-  // *** END OF MY MODIFICATIONS ***
-  
+  // printf("interp    : j(%d, %20.15g) = %g\n", l, x, *j);  
 
   return _SUCCESS_;
 

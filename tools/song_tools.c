@@ -711,7 +711,7 @@ double spherical_bessel_j(
    -((((beta2/349920.-1./29160.)*beta2+71./583200.)*beta2-121./874800.)*
      beta2+7939./224532000.)*beta*sx2*sx*secb*_GAMMA1_)*sqrt(sx)/12./sqrt(_PI_);
   
-      // *** MY MODIFICATIONS
+      /* Debug */
       // printf("j_l(%d,%20.15g) = %15g\n", l, x, jl);
   
       return jl;

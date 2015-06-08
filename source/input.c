@@ -4768,12 +4768,12 @@ int input_try_unknown_parameters(double * unknown_parameter,
     class_call(bispectra_init(&pr,&ba,&th,&pt,&bs,&tr,&pm,&sp,&le,&bi),bi.error_message, errmsg);
   }
 
-//   if (pfzw->required_computation_stage >= cs_fisher){
-//     if (input_verbose>2)
-//       printf("Stage 10: fisher matrix\n");
-//     fi.fisher_verbose = 0;
-//     class_call(fisher_init(&pr,&ba,&th,&pt,&bs,&tr,&pm,&sp,&le,&bi,&fi),fi.error_message, errmsg);
-//   }
+  if (pfzw->required_computation_stage >= cs_fisher){
+    if (input_verbose>2)
+      printf("Stage 10: fisher matrix\n");
+    fi.fisher_verbose = 0;
+    class_call(fisher_init(&pr,&ba,&th,&pt,&bs,&tr,&pm,&sp,&le,&bi,&fi),fi.error_message, errmsg);
+  }
 
 #endif // WITH_BISPECTRA
 
@@ -4821,9 +4821,9 @@ int input_try_unknown_parameters(double * unknown_parameter,
   /* TODO: uncomment once you have implemented these modules in SONG */
 
 #ifdef WITH_BISPECTRA
-//   if (pfzw->required_computation_stage >= cs_fisher){
-//     class_call(fisher_free(&bi,&fi), fi.error_message, errmsg);
-// }
+  if (pfzw->required_computation_stage >= cs_fisher){
+    class_call(fisher_free(&bi,&fi), fi.error_message, errmsg);
+  }
   if (pfzw->required_computation_stage >= cs_bispectra){
     class_call(bispectra_free(&pr,&pt,&sp,&le,&bi), bi.error_message, errmsg);
   }
