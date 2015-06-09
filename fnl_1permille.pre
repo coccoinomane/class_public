@@ -1,0 +1,12 @@
+# Precision settings for ~0.1% precision on f_nl^local for temperature
+
+k_min_tau0 = 0.05
+k_step_sub = 0.1
+k_step_super = 0.025
+k_logstep_super = 1.2
+k_max_tau0_over_l_max = 2
+
+bessel_x_step = 0.05
+
+l_logstep = 1.15
+l_linstep = 25
