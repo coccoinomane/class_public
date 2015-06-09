@@ -48,8 +48,9 @@ int fisher_init (
     pfi->error_message);
     
 
-  /* Load intrinsic bispectra from disk if they were not already computed. Note that we are only loading the
-  intrinsic bispectra, since the primary ones are very quick to recompute. */
+  /* Load intrinsic bispectra from disk if they were not already computed. Note that
+  we are only loading the non-separable and intrinsic bispectra, since the primary ones
+  are very quick to recompute. */
 
   if (ppr->load_bispectra_from_disk == _TRUE_) {
     
@@ -3854,13 +3855,19 @@ int fisher_interpolate_bispectrum_mesh_2D (
     pfi->error_message, pfi->error_message);
   }
   
-  /* Check for nan's */
-  if (isnan(*interpolated_value))
+  /* Check for nan's and crazy values. A value is crazy when it is much larger than
+  the characteristic scale for a bispectrum, A_s*A_s~1e-20 */
+  if (isnan(*interpolated_value) || (fabs(*interpolated_value)>1) )
     printf ("@@@ WARNING: Interpolated b(%g,%g,%g) = %g for bispectrum %s_%s!!!\n",
     l1, l2, l3, *interpolated_value,
     pfi->ft_labels[index_ft],
     pfi->ffff_labels[X][Y][Z]);
   
+  /* Debug - print the interpolated value of the intrinsic bispectrum */
+  // if ((pbi->has_intrinsic) || (pfi->index_ft_intrinsic==_TRUE_)) {
+  //   printf ("%8g %8g %8g %16.7g\n", l1, l2, l3, *interpolated_value);
+  // }
+
   return _SUCCESS_;
   
 }

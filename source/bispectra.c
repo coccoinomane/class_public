@@ -9,7 +9,7 @@
  * non-Gaussian initial conditions.
  *
  * In this module we compute the CMB bispectrum in temperature and polarisation. Details
- * on the computations can be found in chapter 6 of my thesis
+ * on the theory and computation can be found in chapter 6 of my thesis
  * (http://arxiv.org/abs/1405.2280).
  *
  * We deal with three types of bispectra:
@@ -61,8 +61,9 @@
  * transfer, primordial, spectra, lensing.
  *
  * Details on the physics and on the adopted method can be found in my thesis
- * (http://arxiv.org/abs/1405.2280), chapters 6. The code itself is
- * extensively documented and hopefully will give you further insight.
+ * (http://arxiv.org/abs/1405.2280), especially chapters 6. The code itself is
+ * extensively documented and hopefully will give you further insight; in doubt,
+ * feel free to drop an email to guido.pettinari@gmail.com.
  *
  * In detail, this function does:
  *
@@ -261,7 +262,6 @@ int bispectra_store_to_disk (
  * Free all the memory space allocated by bispectra_init() in the
  * bispectrum structure.
  */
-
 int bispectra_free(
      struct precision * ppr,
      struct perturbs * ppt,
@@ -1377,8 +1377,22 @@ int bispectra_cls (
 /**
  * Compute the CMB bispectra as a function of (l1,l2,l3) and store them
  * in pbi->bispectra.
+ *
+ * In detail, this function does:
+ *
+ * -# Compute and store the separable bispectra (local, equilateral, orthogonal, etc.) in
+ * bispectra_separable_init(). 
+ *
+ * -# Compute and store the analytical bispectra (cmb-lensing, squeezed-limit approximations,
+ * etc.) in bispectra_analytical_init().
+ *
+ * -# Compute and store the non-separable bispectra (galileon or any arbitrary shape) in
+ * bispectra_non_separable_init().
+ *
+ * -# Chec that the bispectra thus computed and stored in pbi->bispectra do not contain
+ * invalid entries (nans).
+ * 
  */
-
 int bispectra_harmonic (
     struct precision * ppr,
     struct background * pba,
@@ -1394,6 +1408,7 @@ int bispectra_harmonic (
 
   /* Initialize counter for the values that will be memorised in pbi->bispectra */
   pbi->count_memorised_for_bispectra = 0;
+
 
   // =============================================================================================
   // =                             Compute separable bispectra                                   =
@@ -1548,7 +1563,6 @@ int bispectra_harmonic (
     } // end of for(Z)
   } // end of for(index_bt)
   
-
   return _SUCCESS_;
 
 }
@@ -1556,10 +1570,10 @@ int bispectra_harmonic (
 
 
 
-
-
-
-
+/**
+ * Initialise the workspace that will be required to integrate the separable bispectra.
+ *
+ */
 int bispectra_separable_workspace_init (
     struct precision * ppr,
     struct background * pba,
@@ -1990,7 +2004,7 @@ int bispectra_separable_integrate_over_r (
   we shall loop over all the l1-l2-l3 configurations, compute the simple integral over r, and store the bispectrum
   in pbi->bispectra.
 
-    When computing the primordial bispectra, we shall assume a primordial f_NL of unity for phi. So far, we
+  When computing the primordial bispectra, we shall assume a primordial f_NL of unity for phi. So far, we
   derived transfer functions for R. The curvature perturbation R and the potential during matter domination
   phi are related by R = -5/3 phi. The bispectrum integral has two power spectra (equivalent to 4 R's)
   and 3 transfer functions.  When converting to phi, each R brings a (-5/3) while each transfer function
@@ -2164,7 +2178,15 @@ int bispectra_separable_integrate_over_r (
 
 
 /**
- * Compute the angular bispectrum for the separable primordial bispectra.
+ * Compute the CMB bispectra that are separable in k-space.
+ *
+ * Separable bispectra are characterised by a primordial shape function S(k1,k2,k3)
+ * that can be expressed as the product of three functions:
+ *     S(k1,k2,k3) = A(k1)*B(k2)*C(k3).
+ * As a result, the integration in Fourier space of separable bispectra can be reduced
+ * to three simple one-dimensional integrals, which can be solved quickly. Examples of
+ * separable bispectra are the local, equilateral and orthogonal primordial templates
+ * (see Planck paper, http://arxiv.org/abs/1303.5084).
  */
 int bispectra_separable_init (
     struct precision * ppr,
@@ -2198,7 +2220,8 @@ int bispectra_separable_init (
 
 
   if (pbi->bispectra_verbose > 1)
-    printf (" -> computing separable bispectra; r sampled %d times in [%g,%g]\n", pwb->r_size, pwb->r_min, pwb->r_max);
+    printf (" -> computing separable bispectra; r sampled %d times in [%g,%g]\n",
+      pwb->r_size, pwb->r_min, pwb->r_max);
     
 
 
@@ -2282,9 +2305,10 @@ int bispectra_separable_init (
 
 
 
-
-
-
+/**
+ * Free the memory associated to the workspace used for the computation of the
+ * separable bispectra.
+ */
 int bispectra_separable_workspace_free (
     struct bispectra * pbi,
     struct bispectra_workspace_separable * pwb
@@ -2337,8 +2361,16 @@ int bispectra_separable_workspace_free (
 
 
 /**
- * Compute the angular bispectrum for the analytical primordial bispectra.
+ * Compute the analytic CMB bispectra.
  *
+ * Analytic bispectra are obtained using a closed formula usually involving
+ * three-j symbols and angular power spectra C_l. They do not require a numerical
+ * integrations and therefore they are quicker to compute. Examples are the
+ * cmb-lensing bispectrum and any squeezed-limit approximation.
+ *
+ * The user has to provide the formula for the analytic bispectra by writing actual
+ * functions that take l1, l2 and l3 as arguments.
+ * 
  */
 int bispectra_analytical_init (
     struct precision * ppr,
@@ -2551,7 +2583,48 @@ int bispectra_analytical_init (
 
 
 
-
+/**
+ * Compute the CMB bispectra that have an arbitrary form in k-space.
+ *
+ * The non-separable bispectra can be obtained only by brute force, that is, convolving
+ * the arbitrary shape function S(k1,k2,k3) with the Bessel functions and the transfer
+ * functions inside a 3D integral, according to the formula in Eq. 12 of Fergusson
+ * and Shellard 2007.
+ *
+ * The user provides the shape functions by writing actual functions that take
+ * k1, k2 and k3 as arguments. The integration of the shape functions is then
+ * broken down in the following steps:
+ *
+ * -# Determine the k-sampling for the shape functions and the r-sampling for
+ * the bispectrum integral in bispectra_non_separable_workspace_init().
+ * 
+ * -# For each non-separable bispectrum, determine its shape function and let the
+ * pointer pbi->shape_function point to it.
+ * 
+ * -# Integrate the shape function S(k1,k2,k3,r) in the k3 direction via
+ * bispectra_non_separable_integrate_over_k3(); in the future, this will
+ * be done in an optimised way that takes into account the triangular 
+ * condition.
+ *
+ * -# Integrate the resulting array I_l3(k1,k2,r) in the k2 direction via
+ * bispectra_non_separable_integrate_over_k2().
+ *
+ * -# Integrate the resulting array I_l2_l3(k1,r) in the k1 direction via
+ * bispectra_non_separable_integrate_over_k1().
+ *
+ * -# Finally, in bispectra_non_separable_integrate_over_r() integrate the
+ * resulting array I_l1_l2_l3(r) in the r direction and store the resulting
+ * bispectrum b_l1_l2_l3 in pbi->bispectra.
+ *
+ * When integrating the k-directions, we always assume that the primordial shape functions
+ * are smoother than the transfer functions in k1, k2 and k3; in particular, we assume that
+ * their features are well captured by the k-sampling in ppt->k. There are certain models
+ * of cosmic inflation for which this might not be true; in these cases, make sure to modify 
+ * the sampling accordingly in bispectra_non_separable_workspace_init().
+ *
+ * Note that the hard number grinding is done by the bessel_convolution() function in the
+ * bessel.c module.
+ */
 int bispectra_non_separable_init (
     struct precision * ppr,
     struct background * pba,
@@ -2564,7 +2637,8 @@ int bispectra_non_separable_init (
     )
 {
   
-  /* Allocate arrays inside the integration workspace */
+  /* Allocate arrays inside the integration workspace; in particular, 
+  determine the k-grid for */
   class_call (bispectra_non_separable_workspace_init(
                 ppr,
                 pba,
@@ -2579,8 +2653,8 @@ int bispectra_non_separable_init (
   
 
   if (pbi->bispectra_verbose > 1)
-    printf (" -> computing non-separable bispectra; r sampled %d times in [%g,%g]\n", pwb->r_size, pwb->r_min, pwb->r_max);
-  
+    printf (" -> computing non-separable bispectra; r sampled %d times in [%g,%g]\n",
+      pwb->r_size, pwb->r_min, pwb->r_max);
   
   for (int index_bt = 0; index_bt < pbi->bt_size; ++index_bt) {
 
@@ -2691,10 +2765,26 @@ int bispectra_non_separable_init (
 }
 
 
-
-
-
-
+/**
+ * Initialise the workspace that will be required to integrate the non-separable
+ * bispectra.
+ *
+ * In particular:
+ *
+ * -# Set up the integration grid in the time direction r, based on the cosmological
+ * model.
+ *
+ * -# Determine the sampling in k of the primordial shape function S(k1,k2,k3); in
+ * doing so, we assume that S is smoother than the transfer functions.
+ *
+ * -# For each (k1,k2) pair, enforce the limits imposed by the triangular condition
+ * on the integration grid in the k3 direction.
+ *
+ * -# Determine the window function to apply to the bispectrum integral during the
+ * integration in k2 and k1; the window function is supposed to make the function
+ * smoother and therefore easier to interpolate.
+ *
+ */
 int bispectra_non_separable_workspace_init (
     struct precision * ppr,
     struct background * pba,
@@ -2707,23 +2797,22 @@ int bispectra_non_separable_workspace_init (
     )
 {
 
-  // ===================================================================================================
-  // =                                    Prepare integration grid                                     =
-  // ===================================================================================================
+  // =====================================================================================
+  // =                              Prepare integration grid                             =
+  // =====================================================================================
 
 
   // ------------------------------------------------------------
   // -                         Grid in r                        -
   // ------------------------------------------------------------
   
-  /* We set the r-sampling as if it were a time sampling.  We do so because 'r' has the right dimensions, and
-  it always appears in the argument of a Bessel function multiplying a wavemode, just as it was for conformal
-  time in the line-of-sight integral.  This is the only place in the module where the background structure
-  is accessed. */
+  /* We set the r-sampling as if it were a time sampling.  We do so because 'r' has the
+  right dimensions, and it always appears in the argument of a Bessel function multiplying
+  a wavemode, just as it was for conformal time in the line-of-sight integral. This is
+  the only place in the module where the background structure is accessed. */
   pwb->r_min = ppr->r_min;
   pwb->r_max = ppr->r_max;
   pwb->r_size = ppr->r_size;
-    
 
   /* We decide to sample r linearly */
   class_alloc (pwb->r, pwb->r_size*sizeof(double), pbi->error_message);
@@ -2761,7 +2850,7 @@ int bispectra_non_separable_workspace_init (
   
   
   // -----------------------------------------------------------------------
-  // -                       Grid for the shape function                   -
+  // -                     Enforce triangular condition                    -
   // -----------------------------------------------------------------------
 
   /* Here we set the integration limits on k3. These can be made equal to those of k1
@@ -3015,7 +3104,7 @@ int bispectra_non_separable_integrate_over_k3 (
         printf("     * computing the k3 integral for k1=%g, index_k1=%d\n", pwb->k_smooth_grid[index_k1], index_k1);
   
       /* We only need to consider those k2's that are equal to or larger than k1,
-        as the shape function is assumed to be symmetric woth respect to k1<->k2<->k3 */      
+      as the shape function is assumed to be symmetric woth respect to k1<->k2<->k3 */      
       for (int index_k2 = 0; index_k2 <= index_k1; ++index_k2) {
     
         double k2 = pwb->k_smooth_grid[index_k2];
@@ -3842,7 +3931,10 @@ int bispectra_non_separable_integrate_over_r (
 
 
 
-
+/**
+ * Free the memory associated to the workspace used for the computation of the
+ * non-separable bispectra.
+ */
 int bispectra_non_separable_workspace_free (
     struct bispectra * pbi,
     struct bispectra_workspace_non_separable * pwb
