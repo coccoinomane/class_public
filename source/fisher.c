@@ -3812,12 +3812,14 @@ int fisher_interpolate_bispectrum_mesh_3D (
     pfi->error_message, pfi->error_message);
   }
   
+#ifdef DEBUG
   /* Check for nan's */
   if (isnan(*interpolated_value))
     printf ("@@@ WARNING: Interpolated b(%g,%g,%g) = %g for bispectrum %s_%s!!!\n",
     l1, l2, l3, *interpolated_value,
     pfi->ft_labels[index_ft],
     pfi->ffff_labels[X][Y][Z]);
+#endif // DEBUG
   
   return _SUCCESS_;
   
@@ -3855,6 +3857,7 @@ int fisher_interpolate_bispectrum_mesh_2D (
     pfi->error_message, pfi->error_message);
   }
   
+#ifdef DEBUG
   /* Check for nan's and crazy values. A value is crazy when it is much larger than
   the characteristic scale for a bispectrum, A_s*A_s~1e-20 */
   if (isnan(*interpolated_value) || (fabs(*interpolated_value)>1) )
@@ -3862,6 +3865,7 @@ int fisher_interpolate_bispectrum_mesh_2D (
     l1, l2, l3, *interpolated_value,
     pfi->ft_labels[index_ft],
     pfi->ffff_labels[X][Y][Z]);
+#endif // DEBUG
   
   /* Debug - print the interpolated value of the intrinsic bispectrum */
   // if ((pbi->has_intrinsic) || (pfi->index_ft_intrinsic==_TRUE_)) {
