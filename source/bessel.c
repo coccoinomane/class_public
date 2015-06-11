@@ -344,8 +344,16 @@ int bessel_convolution(
     )
 {
 
-  /* Loop variable */
-  int index_k;
+  /* Test that the Bessel functions have been computed for the requested
+  multipole index (index_l) and argument (x=k*r) */
+  class_test ((index_l<0) || (index_l>=pbs->l_size),
+    error_message,
+    "index_l=%d out of bounds (l_size=%d)", index_l, pbs->l_size);
+
+  class_test_permissive ((kk[k_size-1]*r)>pbs->x_max,
+    error_message,
+    "r*k_max=%g is larger than x_max=%g (index_l1=%d)",
+    kk[k_size-1]*r, pbs->x_max, index_l);
 
   /* Initialize the integral */
   *integral = 0;
@@ -353,21 +361,16 @@ int bessel_convolution(
   /* Find the value of l from the Bessel structure */
   int l = pbs->l[index_l];
      
-  /* We shall store the value of j_l2(r*k2) in here */
-  double j;
-
-  
-  // *** Actual integration ***
-    
-  for (index_k = 0; index_k < k_size; ++index_k) {
+  /* Loop over the integration grid */
+  for (int index_k = 0; index_k < k_size; ++index_k) {
 
     /* Value of the function f in k */
     double f_in_k = f[index_k];
 
     /* If the function f vanishes, do not bother computing the Bessel function,
-      and jump to the next iteration without incrementing the integral.  Note that this
-      is important because CLASS transfer functions at first-order are set to zero above
-      a certain value of k. */
+    and jump to the next iteration without incrementing the integral.  Note that this
+    is important because CLASS transfer functions at first-order are set to zero above
+    a certain value of k. */
     if (f_in_k == 0.)
       continue;
 
@@ -385,9 +388,8 @@ int bessel_convolution(
     /* Value of the considered k */
     double k = kk[index_k];
 
-    
-    // *** Bessel interpolation ***
-
+    /* - Bessel interpolation j_l(k*r) */
+    double j;
     double x = k*r;
 
     /* j_l(x) vanishers for x < x_min(l) */

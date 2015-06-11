@@ -364,6 +364,7 @@ stopping the execution of the current function  */
 #define class_test_permissive(condition, error_message_output, args...) {                                        \
   if (condition) {                                                                                               \
     class_test_message(error_message_output,#condition, args);                                                   \
+    printf("%s\n",error_message_output);                                                                         \
   }                                                                                                              \
 }
 
@@ -372,6 +373,7 @@ regardless of the condition */
 #define class_test_lazy(condition, error_message_output, args...) {                                              \
   if (1==1) {                                                                                                    \
     class_test_message(error_message_output,#condition, args);                                                   \
+    printf("%s\n",error_message_output);                                                                         \
   }                                                                                                              \
 }
 
