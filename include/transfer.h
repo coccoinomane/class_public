@@ -330,7 +330,8 @@ extern "C" {
   int transfer_get_l_list(
                           struct precision * ppr,
                           struct perturbs * ppt,
-                          struct transfers * ptr
+                          struct transfers * ptr,
+                          int sgnK
                           );
 
   int transfer_get_q_list(
