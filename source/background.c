@@ -586,6 +586,18 @@ int background_init(
               pba->error_message,
               pba->error_message);
 
+#ifdef WITH_BISPECTRA
+
+  /* Write some information on the cosmological model for debug purposes */
+  class_call (background_print_info (
+                ppr,
+                pba,
+                pba->info),
+    pba->error_message,
+    pba->error_message);
+
+#endif // WITH_BISPECTRA
+
   return _SUCCESS_;
 
 }
@@ -2126,6 +2138,57 @@ int background_epoch_of_equality (
   return _SUCCESS_;
 
 }
+
+
+
+
+#ifdef WITH_BISPECTRA
+
+/**
+ * Simple function to fill the pba->info string with useful information about
+ * the cosmological model.
+ */
+int background_print_info (
+        struct precision * ppr,
+        struct background * pba,
+        char * info
+        )
+{
+
+  /*  We shall write on ppw2->info line by line, commenting each line with the below
+  comment style. */
+  char comment[2] = "#";
+  char line[1024];
+
+  sprintf(info, "");
+
+  sprintf(line, "Cosmological parameters:");
+  sprintf(info, "%s%s %s\n", info, comment, line);
+
+  sprintf(line, "h = %g, conformal_age = %g, Tcmb = %g, a_eq = %g, k_eq = %g",
+    pba->h, pba->conformal_age, pba->T_cmb, pba->a_eq, pba->k_eq);
+  sprintf(info, "%s%s %s\n", info, comment, line);
+  
+  sprintf(line, "Omega_b = %g, Omega_cdm = %g, Omega_lambda = %g, Omega_g = %g,",  
+    pba->Omega0_b, pba->Omega0_cdm, pba->Omega0_lambda, pba->Omega0_g);
+  sprintf(info, "%s%s %s\n", info, comment, line);
+
+  sprintf(line, "Omega_ur = %g, Omega_r = %g, Omega_fld = %g",  
+    pba->Omega0_ur, pba->Omega0_g+pba->Omega0_ur, pba->Omega0_fld);
+  sprintf(info, "%s%s %s\n", info, comment, line);
+
+  /* Uncomment to include density parameters multiplied by h^2 */
+  // double h = pba->h;
+  // sprintf(line, "omega_b = %g, omega_cdm = %g, omega_lambda = %g, omega_ur = %g, omega_fld = %g",
+  //   pba->Omega0_b*h*h, pba->Omega0_cdm*h*h, pba->Omega0_lambda*h*h, pba->Omega0_ur*h*h, pba->Omega0_fld*h*h);
+  // sprintf(info, "%s%s %s\n", info, comment, line);
+
+  return _SUCCESS_;
+
+}
+
+#endif // WITH_BISPECTRA
+
 
 
 

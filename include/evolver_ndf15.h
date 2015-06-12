@@ -111,12 +111,9 @@ int evolver_ndf15(
 	int t_res,
 	int (*output)(double x,double y[],double dy[],int index_x,void * parameters_and_workspace,
 		ErrorMsg error_message),
-#ifndef WITH_BISPECTRA
 	int (*print_variables)(double x, double y[], double dy[], void *parameters_and_workspace,
 		ErrorMsg error_message),
-#else
-	int (*print_variables)(double x, double y[], double dy[], int index_x, void *parameters_and_workspace,
-		ErrorMsg error_message),
+#ifdef WITH_SONG_SUPPORT
   int (*exit_strategy)(
         int (*derivs)(double x,double * y,double * dy,
           void * parameters_and_workspace, ErrorMsg error_message),
@@ -137,10 +134,10 @@ int evolver_ndf15(
         int tres,
         int (*output)(double x,double y[],double dy[],int index_x,void * parameters_and_workspace,
           ErrorMsg error_message),
-        int (*print_variables)(double x, double y[], double dy[], int index_x, void *parameters_and_workspace,
+        int (*print_variables)(double x, double y[], double dy[], void *parameters_and_workspace,
              ErrorMsg error_message),
         ErrorMsg error_message),
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG_SUPPORT
 	ErrorMsg error_message);
 
 

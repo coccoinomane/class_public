@@ -308,6 +308,13 @@ struct background
 
   ErrorMsg error_message; /**< zone for writing error messages */
 
+#ifdef WITH_BISPECTRA
+
+  char info [4096];  /**< String with human readable information on the cosmological model */
+
+#endif // WITH_BISPECTRA
+
+
   //@}
 };
 
@@ -467,6 +474,15 @@ extern "C" {
       struct background * pba,
       double tol_tau_approx
       );
+
+#ifdef WITH_BISPECTRA
+  int background_print_info (
+          struct precision * ppr,
+          struct background * pba,
+          char * info
+          );
+#endif // WITH_BISPECTRA
+
 
   /** Scalar field potential and its derivatives **/
   double V_scf(

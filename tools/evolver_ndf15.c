@@ -79,13 +79,10 @@ int evolver_ndf15(
 		  int tres,
     	int (*output)(double x,double y[],double dy[],int index_x,void * parameters_and_workspace,
     		ErrorMsg error_message),
-#ifndef WITH_BISPECTRA
       int (*print_variables)(double x, double y[], double dy[], void *parameters_and_workspace,
     		ErrorMsg error_message),
-#else
-      int (*print_variables)(double x, double y[], double dy[], int index_x, void *parameters_and_workspace,
-    		ErrorMsg error_message),
-      int (*exit_strategy)( /**< Function invoked when something goes wrong (if not NULL) */
+#ifdef WITH_SONG_SUPPORT
+      int (*exit_strategy)( /**< Function invoked when something goes wrong (unless NULL) */
             int (*derivs)(double x,double * y,double * dy,
               void * parameters_and_workspace, ErrorMsg error_message),
             double x_ini,
@@ -105,10 +102,10 @@ int evolver_ndf15(
             int tres,
             int (*output)(double x,double y[],double dy[],int index_x,void * parameters_and_workspace,
               ErrorMsg error_message),
-            int (*print_variables)(double x, double y[], double dy[], int index_x, void *parameters_and_workspace,
+            int (*print_variables)(double x, double y[], double dy[], void *parameters_and_workspace,
                  ErrorMsg error_message),
             ErrorMsg error_message),
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG_SUPPORT
 		  ErrorMsg error_message){
 
   /* Constants: */
@@ -236,7 +233,7 @@ int evolver_ndf15(
   t0 = x_ini;
   tfinal = x_final;
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG_SUPPORT
 
   /* Check that the initial conditions do not contain NaN's */
   for (ii=0; ii < neq; ++ii) {
@@ -266,19 +263,19 @@ int evolver_ndf15(
   //
   // fprintf (stderr, "\n\n");
 
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG_SUPPORT
 
 
   /* Some CLASS-specific stuff:*/
   next=0;
   while (t_vec[next] < t0) next++;
 
-  #ifdef WITH_BISPECTRA
+  #ifdef WITH_SONG_SUPPORT
   class_test (next >= tres,
     error_message,
     "stopping to prevent seg fault; accessing time array out of bounds: t0=%g, t_vec[tres-1]=%g",
     t0, t_vec[next-1]);
-  #endif // WITH_BISPECTRA
+  #endif // WITH_SONG_SUPPORT
 
   if (verbose > 1){
     numidx=0;
@@ -524,7 +521,7 @@ int evolver_ndf15(
 	    Jcurrent = _TRUE_;
 	  }
 	  else if (absh <= hmin){
-#ifndef WITH_BISPECTRA
+#ifndef WITH_SONG_SUPPORT
       class_test(absh <= hmin, error_message,
            "Step size too small: step:%g, minimum:%g, in interval: [%g:%g]\n",
            absh,hmin,t0,tfinal);
@@ -564,7 +561,7 @@ int evolver_ndf15(
             "Step size too small: t=%g, step:%g, minimum:%g, in interval: [%g:%g]\n",
             t,absh,hmin,t0,tfinal);
       }
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG_SUPPORT
 	  }
 	  else{
 	    abshlast = absh;
@@ -593,7 +590,7 @@ int evolver_ndf15(
 	/*Step failed */
 	stepstat[1]+= 1;
 	if (absh <= hmin){
-#ifndef WITH_BISPECTRA
+#ifndef WITH_SONG_SUPPORT
       class_test(absh <= hmin, error_message,
            "Step size too small: step:%g, minimum:%g, in interval: [%g:%g]\n",
            absh,hmin,t0,tfinal);
@@ -633,7 +630,7 @@ int evolver_ndf15(
             "Step size too small: t=%g, step:%g, minimum:%g, in interval: [%g:%g]\n",
             t,absh,hmin,t0,tfinal);
       }
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG_SUPPORT
 	}
 	abshlast = absh;
 	if (nofailed==_TRUE_){
@@ -777,6 +774,7 @@ int evolver_ndf15(
 
 // MODIFICATION BY LUC
     if (print_variables!=NULL){
+
       class_call((*derivs)(tnew,
 		             ynew+1,
 		             f0+1,
@@ -784,16 +782,9 @@ int evolver_ndf15(
 	               error_message,
 	               error_message);
 
-#ifndef WITH_BISPECTRA
-        class_call((*print_variables)(tnew,ynew+1,f0+1,
-          parameters_and_workspace_for_derivs,error_message),
-         error_message,error_message);
-#else
-        /* Pass the time index to print_variables() */
-        class_call((*print_variables)(tnew,ynew+1,f0+1,next,
-          parameters_and_workspace_for_derivs,error_message),
-         error_message,error_message);
-#endif // WITH_BISPECTRA
+      class_call((*print_variables)(tnew,ynew+1,f0+1,
+        parameters_and_workspace_for_derivs,error_message),
+       error_message,error_message);
 
     }
 // end of modification
@@ -1671,12 +1662,12 @@ int initialize_jacobian(struct jacobian *jac, int neq, ErrorMsg error_message){
   jac->repeated_pattern = 0;
   jac->trust_sparse = 4;
 
-  #ifdef WITH_BISPECTRA
+  #ifdef WITH_SONG_SUPPORT
 
   /* Suggested by Thomas Tram to fix the sparse matrices bug */
   // jac->trust_sparse = 10000;
 
-  #endif // WITH_BISPECTRA
+  #endif // WITH_SONG_SUPPORT
 
   /* Number of times a pattern is repeated before we trust it. */
   jac->has_grouping = 0;
