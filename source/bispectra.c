@@ -1124,7 +1124,16 @@ int bispectra_primordial_power_spectrum (
 }
 
 
-
+/**
+ * Interpolate the C_l and their derivatives from the spectra.c module, and store them
+ * in the bispectra structure for easy access.
+ *
+ * This function allocates and fills the following fields:
+ * -# pbi->cls
+ * -# pbi->d_lsq_cls
+ * -# pbi->lensed_cls
+ * -# pbi->lensed_d_lsq_cls
+ */
 int bispectra_cls (
     struct precision * ppr,
     struct perturbs * ppt,
@@ -1186,7 +1195,7 @@ int bispectra_cls (
   // ==========================================================================================================
   // =                                                Store C_l's                                             =
   // ==========================================================================================================
-  
+
   for (int l=2; l<=pbi->l_max; ++l) {
     
     class_call(spectra_cl_at_l(

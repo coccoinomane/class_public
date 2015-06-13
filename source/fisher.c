@@ -1048,7 +1048,12 @@ int fisher_indices (
   if (pfi->fisher_verbose > 1)
     printf ("     * %.3g%% of the computed bispectra configurations will be (directly) used to compute the Fisher matrix (%ld not used)\n",
     100-count_wasted/(double)(pbi->n_independent_configurations)*100, count_wasted);
-  
+
+  /* Initialise info strings */
+  sprintf (pfi->info, "");
+  if (pfi->include_lensing_effects == _TRUE_)
+    sprintf (pfi->info_lensvar, "");
+    
   return _SUCCESS_;
 
 }

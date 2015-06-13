@@ -45,6 +45,13 @@ int main(int argc, char **argv) {
     return _FAILURE_;
   }
 
+#ifdef WITH_BISPECTRA
+  if (compute_cls (&pr,&ba,&th,&sp,&le,errmsg) == _FAILURE_) {
+    printf("\n\nError in compute_cls \n=>%s\n",errmsg);
+    return _FAILURE_;
+  }
+#endif // WITH_BISPECTRA
+
   if (perturb_init(&pr,&ba,&th,&pt) == _FAILURE_) {
     printf("\n\nError in perturb_init \n=>%s\n",pt.error_message);
     return _FAILURE_;
@@ -65,6 +72,7 @@ int main(int argc, char **argv) {
     return _FAILURE_;
   }
 
+#ifndef WITH_BISPECTRA
   if (spectra_init(&pr,&ba,&pt,&pm,&nl,&tr,&sp) == _FAILURE_) {
     printf("\n\nError in spectra_init \n=>%s\n",sp.error_message);
     return _FAILURE_;
@@ -74,6 +82,7 @@ int main(int argc, char **argv) {
     printf("\n\nError in lensing_init \n=>%s\n",le.error_message);
     return _FAILURE_;
   }
+#endif // WITH_BISPECTRA
 
 #ifdef WITH_BISPECTRA
   if (bessel_init(&pr,&ba,&tr,&bs) == _FAILURE_) {

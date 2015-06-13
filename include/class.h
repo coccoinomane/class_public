@@ -20,6 +20,7 @@
 
 /* tools for SONG */
 #ifdef WITH_BISPECTRA
+#include "utility.h"
 #include "song_tools.h"
 #endif // WITH_BISPECTRA
 

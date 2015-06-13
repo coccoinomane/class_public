@@ -2804,9 +2804,17 @@ int input_read_parameters(
     class_read_int("num_mu_minus_lmax",ppr->num_mu_minus_lmax);
     class_read_int("tol_gauss_legendre",ppr->tol_gauss_legendre);
   }
+#ifndef WITH_BISPECTRA
+  /* When computing bispectra, we need the lensed C_l to be computed
+  up to the same l_max as the unlensed C_l. This can be achieved by increasing
+  the overall l_max by delta_l_max, as it is done in standard CLASS. However,
+  this becomes very computationally expensive when dealing with bispectra. Therefore,
+  we adopt a workaround whereby we increase l_max only for the spectra and lensing
+  modules, and not for the bispectra module. For details on how we do so, refer
+  to the compute_cls() function in the utility.c file */
   if (ple->has_lensed_cls == _TRUE_)
     ppt->l_scalar_max+=ppr->delta_l_max;
-
+#endif // WITH_BISPECTRA
 
 #ifdef WITH_BISPECTRA
 
@@ -4134,6 +4142,7 @@ int input_default_params(
   pfi->ignore_r = _FALSE_;
   pfi->include_lensing_effects = _FALSE_;
   pfi->squeezed_ratio = 0;
+  pfi->compute_lensing_variance_lmax = _FALSE_;
   
   /** - output structure */
 

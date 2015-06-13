@@ -150,7 +150,7 @@ TEST_STEPHANE = test_stephane.o
 # Compile source files specific to SONG
 ifeq ($(WITH_BISPECTRA),1)
 	SOURCE += bessel.o bispectra.o fisher.o
-	TOOLS += song_tools.o mesh_interpolation.o slatec_3j_C.o
+	TOOLS += utility.o song_tools.o mesh_interpolation.o slatec_3j_C.o
 endif
 
 C_TOOLS =  $(addprefix tools/, $(addsuffix .c,$(basename $(TOOLS))))
