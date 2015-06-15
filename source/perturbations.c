@@ -7781,17 +7781,25 @@ int perturb_derivs(double tau,
       dy[ppw->pv->index_pt_monopole_E] = 0;
       dy[ppw->pv->index_pt_monopole_E + 1] = 0;
     
-      /* - Quadrupole equation */
-      
-      double quadrupole_g = 10*shear_g;
-      double quadrupole_E = y[ppw->pv->index_pt_monopole_E + 2];
+      /* Extract the photon shear and quadrupole */
+      double shear_g = 0;
 
+      if (ppw->approx[ppw->index_ap_rsa]==(int)rsa_off) {
+        if (ppw->approx[ppw->index_ap_tca]==(int)tca_on)
+          shear_g = ppw->tca_shear_g;
+        else
+          shear_g = y[ppw->pv->index_pt_shear_g];
+      }
+
+      double quadrupole_g = 10 * shear_g;
+      double quadrupole_E = y[ppw->pv->index_pt_monopole_E + 2];
+      
       /* The Pi factor is what appears in eq. 2.19 of Beneke & Fidler (2011) and in
       eq. A.53 of Pitrou et al. (2010). Here we exclude the factor 1/10 with respect
       to the above references to comply with CLASS conventions. */
       double Pi = quadrupole_g - sqrt_6*quadrupole_E;
     
-      /* This is eq. 2.19 for l=2, m=0, where we used d_plus(2,0,0) = sqrt_5/7 */
+      /* Quadrupole equation, from eq. 2.19 for l=2, m=0, where we used d_plus(2,0,0) = sqrt_5/7 */
       E      = y[ppw->pv->index_pt_monopole_E + 2];
       E_plus = y[ppw->pv->index_pt_monopole_E + 3];
       dy[ppw->pv->index_pt_monopole_E + 2] = -k*sqrt_5/7*E_plus - kappa_dot*(E + sqrt_6 * Pi/10);
@@ -8846,7 +8854,7 @@ int perturb_song_sources(
   double monopole_ur, dipole_ur, quadrupole_ur, octupole_ur;  
   double pol0_g,pol1_g,pol2_g,pol3_g;
   double phi,psi;
-  int l;
+
 
 
   // --------------------------------------------------------------------------------
