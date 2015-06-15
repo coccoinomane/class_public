@@ -368,51 +368,63 @@ int output_cl(
     }
   }
 
-  #ifdef WITH_BISPECTRA
+#ifdef WITH_BISPECTRA
 
-    /* Do the same as above but for the derivative of the cls */
+  /* Do the same as above but for the derivative of the cls */
+
+  double ** dcl_md;
+  double ** dcl_md_ic;
+  double * dcl_tot;
+  FILE * out_dcl;
+
+  if (psp->compute_cl_derivative == _TRUE_) {
+
+    /* Allocate arrays for derivatives of cls */    
+    class_alloc(dcl_md_ic,
+      psp->md_size*sizeof(double *),
+      pop->error_message);
+
+    class_alloc(dcl_md,
+      psp->md_size*sizeof(double *),
+      pop->error_message);
+
+    class_alloc(dcl_tot,
+      psp->ct_size*sizeof(double),
+      pop->error_message);
+
+    if (ppt->md_size > 1)
+      for (index_md = 0; index_md < ppt->md_size; index_md++)
+        class_alloc(dcl_md[index_md],
+      	  psp->ct_size*sizeof(double),
+      	  pop->error_message);
+
+    /* Create file for derivatives of cls */
+    sprintf(file_name,"%s%s",pop->root,"dcl.dat");
   
-    double ** dcl_md;
-    double ** dcl_md_ic;
-    double * dcl_tot;
-    FILE * out_dcl;
+    /* Explain what is in the file */
+    char first_paragraph[4096];
+    sprintf (first_paragraph, "total dln(l*l*C_l)/dln(l)\n");
+    sprintf (first_paragraph, "%s%s", first_paragraph,"\
+# Do not trust the curve for the last ~150 values of l unless you ran CLASS with\n\
+# a very good sampling in l (say, l_linstep=10). Otherwise, these values will be\n\
+# affected by the low precision in taking the derivative of the sparsely sampled\n\
+# C_l, and by edge effects from the interpolation. This is not a problem for either\n\
+# CLASS or SONG, because internally they use a stabler way to compute the derivatives\n\
+# of the C_l.\n\
+# ");
+
+    class_call(output_open_cl_file(psp,
+           pop,
+           &out_dcl,
+           file_name,
+           first_paragraph,
+           psp->l_max_tot
+           ),
+         pop->error_message,
+         pop->error_message);
+  }
   
-    if (psp->compute_cl_derivative == _TRUE_) {
-
-      /* Allocate arrays for derivatives of cls */    
-      class_alloc(dcl_md_ic,
-        psp->md_size*sizeof(double *),
-        pop->error_message);
-
-      class_alloc(dcl_md,
-        psp->md_size*sizeof(double *),
-        pop->error_message);
-
-      class_alloc(dcl_tot,
-        psp->ct_size*sizeof(double),
-        pop->error_message);
-
-      if (ppt->md_size > 1)
-        for (index_md = 0; index_md < ppt->md_size; index_md++)
-          class_alloc(dcl_md[index_md],
-        	  psp->ct_size*sizeof(double),
-        	  pop->error_message);
-
-      /* Create file for derivatives of cls */
-      sprintf(file_name,"%s%s",pop->root,"dcl.dat");
-    
-      class_call(output_open_cl_file(psp,
-             pop,
-             &out_dcl,
-             file_name,
-             "total dln(l*l*C_l)/dln(l)",
-             ple->l_lensed_max
-             ),
-           pop->error_message,
-           pop->error_message);
-    }
-  
-  #endif // WITH_BISPECTRA
+#endif // WITH_BISPECTRA
   
 
   for (index_md = 0; index_md < ppt->md_size; index_md++) {
@@ -601,6 +613,8 @@ int output_cl(
            pop->error_message,
            pop->error_message);      
     }
+
+    /* TODO: output also lensed dcl */
 
 #endif // WITH_BISPECTRA
 

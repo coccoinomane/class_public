@@ -105,8 +105,9 @@ struct bispectra {
   non-reducible bispectra using the following array. */
   int has_reduced_bispectrum[_MAX_NUM_BISPECTRA_];
   
-  /* Add the bolometric and redshift corrections (in the form of C_l*C_l) to the intrinsic bispectrum?
-  Ignore if you are only interested in first-order CLASS. */
+  /* Add the bolometric and redshift corrections (in the form of C_l*C_l) to the intrinsic
+  bispectrum? Ignore if you are only interested in first-order CLASS, and see function
+  bispectra2_add_quadratic_correction() for a proper documentation. */
   short add_quadratic_correction;
 
   /* Array of functions that associates to a bispetrum index its analytical function. Defined only for

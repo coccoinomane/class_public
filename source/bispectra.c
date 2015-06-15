@@ -1093,7 +1093,6 @@ int bispectra_primordial_power_spectrum (
     
   } // end of for(index_k)
   
-  
 
   /* Do the same, but with ppt->k */
   int k_pt_size = ppt->k_size[ppt->index_md_scalars];
@@ -1362,7 +1361,7 @@ int bispectra_cls (
         pbi->error_message);
 
     } // end of loop on index_lt
-  } // end of if 
+  } // end of if lensing
   
   free (l_array);
   free(lsq_cl);
