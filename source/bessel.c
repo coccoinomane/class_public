@@ -83,8 +83,8 @@ int bessel_init(
   int num_j;
   int abort;
 
-  if (pbs->bessels_verbose > 0)
-    printf("Computing bessels\n");
+  printf_log_if (pbs->bessels_verbose, 0, 
+    "Computing bessels\n");
 
   /** - update the value of pbs->x_max of j_l(x) */
   

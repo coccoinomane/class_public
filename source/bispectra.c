@@ -95,16 +95,16 @@ int bispectra_init (
   /* Check whether we need to compute bispectra at all */  
   if (pbi->has_bispectra == _FALSE_) {
 
-    if (pbi->bispectra_verbose > 0)
-      printf("No bispectra requested. Bispectra module skipped.\n");
+    printf_log_if (pbi->bispectra_verbose, 0,
+      "No bispectra requested. Bispectra module skipped.\n");
 
     pbi->bt_size=0;
 
     return _SUCCESS_;
   }
   else {
-    if (pbi->bispectra_verbose > 0)
-      printf("Computing bispectra\n");
+    printf_log_if (pbi->bispectra_verbose, 0,
+      "Computing bispectra.\n");
   }
 
 
@@ -138,8 +138,8 @@ int bispectra_init (
     
   if (ppr->load_bispectra_from_disk == _TRUE_) {
 
-    if (pbi->bispectra_verbose > 0)
-      printf(" -> the intrinsic and non-separable bispectra will be read from disk\n");
+    printf_log_if (pbi->bispectra_verbose, 0, 
+      " -> the intrinsic and non-separable bispectra will be read from disk\n");
 
     return _SUCCESS_;
   }
@@ -235,9 +235,9 @@ int bispectra_store_to_disk (
   class_open (pbi->bispectra_files[index_bt], pbi->bispectra_paths[index_bt], "a+b", pbi->error_message);
 
   /* Print some debug */
-  if (pbi->bispectra_verbose > 2)
-    printf("     * writing bispectra to disk for index_bt=%d on '%s'\n",
-      index_bt, pbi->bispectra_paths[index_bt]);
+  printf_log_if (pbi->bispectra_verbose, 2, 
+    "     * writing bispectra to disk for index_bt=%d on '%s'\n",
+    index_bt, pbi->bispectra_paths[index_bt]);
 
   /* Write all the independent (l1,l2,l3) triplets for this bispectrum */
   for (int X = 0; X < pbi->bf_size; ++X)
@@ -845,16 +845,16 @@ int bispectra_indices (
 
   /* Inform the user on how much her machine will have to suffer */
   if (pbi->bispectra_verbose > 0) {
-    printf(" -> we shall compute %dx%d=%d bispectr%s for %ld configurations of (l1,l2,l3)\n",
+    printf_log (" -> we shall compute %dx%d=%d bispectr%s for %ld configurations of (l1,l2,l3)\n",
       pbi->bt_size, pbi->n_probes, pbi->bt_size*pbi->n_probes,
       ((pbi->bt_size*pbi->n_probes)!=1?"a":"um"), pbi->n_independent_configurations);
     // printf("    with (L1,L2,L3) ranging from l=%d to %d (l_size=%d)\n", pbi->l[0], pbi->l[pbi->l_size-1], pbi->l_size);
     if (pbi->bispectra_verbose > 1) {
-      printf ("     * bispectra types: ");
+      printf_log ("     * bispectra types: ");
       for (int index_bt=0; index_bt < (pbi->bt_size-1); ++index_bt) {
-        printf ("%s, ", pbi->bt_labels[index_bt]);
+        printf_log ("%s, ", pbi->bt_labels[index_bt]);
       }
-      printf ("%s\n", pbi->bt_labels[pbi->bt_size-1]);
+      printf_log ("%s\n", pbi->bt_labels[pbi->bt_size-1]);
     }
   }
   
@@ -970,9 +970,9 @@ int bispectra_indices (
   
   pbi->count_allocated_for_bispectra = pbi->bt_size*pbi->n_probes*pbi->n_independent_configurations;
   
-  if (pbi->bispectra_verbose > 2)
-    printf("     * allocated ~ %.3g MB (%ld doubles) for the bispectra array\n",
-      pbi->count_allocated_for_bispectra*sizeof(double)/1e6, pbi->count_allocated_for_bispectra);
+  printf_log_if (pbi->bispectra_verbose, 2, 
+    "     * allocated ~ %.3g MB (%ld doubles) for the bispectra array\n",
+    pbi->count_allocated_for_bispectra*sizeof(double)/1e6, pbi->count_allocated_for_bispectra);
 
 
   
@@ -997,8 +997,8 @@ int bispectra_indices (
     } // end of for(index_bt)
 
     if (ppr->store_bispectra_to_disk == _TRUE_)
-      if (pbi->bispectra_verbose > 1)
-        printf ("     * will create %d files for the bispectra\n", pbi->bt_size);
+      printf_log_if (pbi->bispectra_verbose, 1, 
+        "     * will create %d files for the bispectra\n", pbi->bt_size);
       
   } // end of if(ppr->store_bispectra_to_disk)
   
@@ -1771,8 +1771,8 @@ int bispectra_separable_filter_functions (
     #pragma omp for schedule (dynamic)
     for (int index_l = 0; index_l < pbi->l_size; ++index_l) {
 
-      if (pbi->bispectra_verbose > 2)
-        printf("      \\ computing filter functions for l=%d, index_l=%d\n", pbi->l[index_l], index_l);
+      printf_log_if (pbi->bispectra_verbose, 2, 
+        "      \\ computing filter functions for l=%d, index_l=%d\n", pbi->l[index_l], index_l);
 
       /* Define the pointer to the first-order transfer functions as a function of k, for this value of l */
       int tt_size = ptr->tt_size[ppt->index_md_scalars];
@@ -1843,8 +1843,8 @@ int bispectra_separable_filter_functions (
       
         double r = pwb->r[index_r];
       
-        if (pbi->bispectra_verbose > 3)
-          printf("       \\ r=%g, index_r=%d\n", r, index_r);
+        printf_log_if (pbi->bispectra_verbose, 3, 
+          "       \\ r=%g, index_r=%d\n", r, index_r);
         
         
         // *** All models ***
@@ -1990,8 +1990,8 @@ int bispectra_separable_integrate_over_r (
 
 {
 
-  if (pbi->bispectra_verbose > 2)
-    printf("     * computing the r-integral for the bispectrum %s_%s%s%s\n",
+  printf_log_if (pbi->bispectra_verbose, 2, 
+    "     * computing the r-integral for the bispectrum %s_%s%s%s\n",
     pbi->bt_labels[index_bt], pbi->bf_labels[X], pbi->bf_labels[Y], pbi->bf_labels[Z]);
 
   /* Parallelization variables */
@@ -2037,8 +2037,8 @@ int bispectra_separable_integrate_over_r (
     #pragma omp for schedule (dynamic)
     for (int index_l1 = 0; index_l1 < pbi->l_size; ++index_l1) {
 
-      if (pbi->bispectra_verbose > 2)
-        printf("      \\ computing r-integral for l1=%d, index_l1=%d\n", pbi->l[index_l1], index_l1);
+      printf_log_if (pbi->bispectra_verbose, 2, 
+        "      \\ computing r-integral for l1=%d, index_l1=%d\n", pbi->l[index_l1], index_l1);
     
       for (int index_l2 = 0; index_l2 <= index_l1; ++index_l2) {
   
@@ -2227,9 +2227,9 @@ int bispectra_separable_init (
     pbi->error_message);
 
 
-  if (pbi->bispectra_verbose > 1)
-    printf (" -> computing separable bispectra; r sampled %d times in [%g,%g]\n",
-      pwb->r_size, pwb->r_min, pwb->r_max);
+  printf_log_if (pbi->bispectra_verbose, 1, 
+    " -> computing separable bispectra; r sampled %d times in [%g,%g]\n",
+    pwb->r_size, pwb->r_min, pwb->r_max);
     
 
 
@@ -2244,8 +2244,9 @@ int bispectra_separable_init (
 
   for (int index_bf=0; index_bf < pbi->bf_size; ++index_bf) {
 
-    if (pbi->bispectra_verbose > 1)
-        printf("     * computing %s filter functions for the separable bispectra ...\n", pbi->bf_labels[index_bf]);
+    printf_log_if (pbi->bispectra_verbose, 1, 
+      "     * computing %s filter functions for the separable bispectra ...\n",
+      pbi->bf_labels[index_bf]);
 
     class_call (bispectra_separable_filter_functions(
                   ppr,
@@ -2276,8 +2277,8 @@ int bispectra_separable_init (
     if (pbi->bispectrum_type[index_bt] != separable_bispectrum)
       continue;
 
-    if (pbi->bispectra_verbose > 1)
-        printf("     * integrating the filter functions over r ...\n");
+    printf_log_if (pbi->bispectra_verbose, 1, 
+      "     * integrating the filter functions over r ...\n");
 
     /* Loop on the considered probe (TTT, TTE, TEE, EEE...) */
     for (int X = 0; X < pbi->bf_size; ++X) {
@@ -2393,8 +2394,8 @@ int bispectra_analytical_init (
     )
 {  
 
-  if (pbi->bispectra_verbose > 0)
-    printf (" -> computing analytic bispectra\n");
+  printf_log_if (pbi->bispectra_verbose, 0, 
+    " -> computing analytic bispectra\n");
 
   /* Parallelization variables */
   int number_of_threads = 1;
@@ -2660,9 +2661,9 @@ int bispectra_non_separable_init (
     pbi->error_message);
   
 
-  if (pbi->bispectra_verbose > 1)
-    printf (" -> computing non-separable bispectra; r sampled %d times in [%g,%g]\n",
-      pwb->r_size, pwb->r_min, pwb->r_max);
+  printf_log_if (pbi->bispectra_verbose, 1, 
+    " -> computing non-separable bispectra; r sampled %d times in [%g,%g]\n",
+    pwb->r_size, pwb->r_min, pwb->r_max);
   
   for (int index_bt = 0; index_bt < pbi->bt_size; ++index_bt) {
 
@@ -2688,8 +2689,8 @@ int bispectra_non_separable_init (
       /* Debug - Uncomment to compute a custom bispectrum; useful to test against the separable shapes */
       // pwb->shape_function = bispectra_orthogonal_model;
 
-      if (pbi->bispectra_verbose > 0)
-        printf(" -> computing %s bispectrum involving %s^(2)\n",
+      printf_log_if (pbi->bispectra_verbose, 0, 
+        " -> computing %s bispectrum involving %s^(2)\n",
         pbi->bt_labels[index_bt], pbi->bf_labels[X]);
 
       /* Compute fist integral over k3 */
@@ -2730,8 +2731,8 @@ int bispectra_non_separable_init (
 
           pwb->Z = Z;
 
-          if (pbi->bispectra_verbose > 1)
-            printf("   \\ computing bispectrum %s_%s%s%s\n",
+          printf_log_if (pbi->bispectra_verbose, 1, 
+            "   \\ computing bispectrum %s_%s%s%s\n",
             pbi->bt_labels[index_bt], pbi->bf_labels[X], pbi->bf_labels[Y], pbi->bf_labels[Z]);
 
           /* Compute the third integral over k1 */
@@ -3077,9 +3078,10 @@ int bispectra_non_separable_integrate_over_k3 (
     } // end of for(index_r)
   } // end of for(index_l3)
     
-  if (pbi->bispectra_verbose > 2)
-    printf("     * allocated ~ %.3g MB (%ld doubles) for the k3-integral array (k_size=%d)\n",
-      pwb->count_allocated_for_integral_over_k3*sizeof(double)/1e6, pwb->count_allocated_for_integral_over_k3, pwb->k_smooth_size);
+  printf_log_if (pbi->bispectra_verbose, 2, 
+    "     * allocated ~ %.3g MB (%ld doubles) for the k3-integral array (k_size=%d)\n",
+    pwb->count_allocated_for_integral_over_k3*sizeof(double)/1e6,
+    pwb->count_allocated_for_integral_over_k3, pwb->k_smooth_size);
   
 
 
@@ -3108,8 +3110,9 @@ int bispectra_non_separable_integrate_over_k3 (
       double k1 = pwb->k_smooth_grid[index_k1];
       double pk_1 = pbi->pk_pt[index_k1];
       
-      if (pbi->bispectra_verbose > 2)
-        printf("     * computing the k3 integral for k1=%g, index_k1=%d\n", pwb->k_smooth_grid[index_k1], index_k1);
+      printf_log_if (pbi->bispectra_verbose, 2, 
+        "     * computing the k3 integral for k1=%g, index_k1=%d\n",
+        pwb->k_smooth_grid[index_k1], index_k1);
   
       /* We only need to consider those k2's that are equal to or larger than k1,
       as the shape function is assumed to be symmetric woth respect to k1<->k2<->k3 */      
@@ -3207,15 +3210,16 @@ int bispectra_non_separable_integrate_over_k3 (
     } // end of for(index_k1)
   } if (abort == _TRUE_) return _FAILURE_; /* end of parallel region */    
   
-  if (pbi->bispectra_verbose > 2)
-    printf(" -> memorised ~ %.3g MB (%ld doubles) for the k3-integral array\n",
-      pwb->count_memorised_for_integral_over_k3*sizeof(double)/1e6, pwb->count_memorised_for_integral_over_k3);
+  printf_log_if (pbi->bispectra_verbose, 2, 
+    " -> memorised ~ %.3g MB (%ld doubles) for the k3-integral array\n",
+    pwb->count_memorised_for_integral_over_k3*sizeof(double)/1e6,
+    pwb->count_memorised_for_integral_over_k3);
   
   /* Check that we correctly filled the array */
   class_test (pwb->count_memorised_for_integral_over_k3 != pwb->count_allocated_for_integral_over_k3,
-              pbi->error_message,
-              "there is a mismatch between allocated (%ld) and used (%ld) space!",
-                pwb->count_allocated_for_integral_over_k3, pwb->count_memorised_for_integral_over_k3);
+    pbi->error_message,
+    "there is a mismatch between allocated (%ld) and used (%ld) space!",
+    pwb->count_allocated_for_integral_over_k3, pwb->count_memorised_for_integral_over_k3);
 
   return _SUCCESS_;
   
@@ -3289,9 +3293,10 @@ int bispectra_non_separable_integrate_over_k2 (
       } // end of for(index_r)
     } // end of for(index_l2)
     
-    if (pbi->bispectra_verbose > 2)
-      printf("     * allocated ~ %.3g MB (%ld doubles) for the k2-integral array\n",
-        pwb->count_allocated_for_integral_over_k2*sizeof(double)/1e6, pwb->count_allocated_for_integral_over_k2);
+    printf_log_if (pbi->bispectra_verbose, 2, 
+      "     * allocated ~ %.3g MB (%ld doubles) for the k2-integral array\n",
+      pwb->count_allocated_for_integral_over_k2*sizeof(double)/1e6,
+      pwb->count_allocated_for_integral_over_k2);
   
   } // end of if (pwb->Y==0)
 
@@ -3314,8 +3319,9 @@ int bispectra_non_separable_integrate_over_k2 (
     #pragma omp for schedule (dynamic)
     for (int index_r = 0; index_r < pwb->r_size; ++index_r) {
   
-      if (pbi->bispectra_verbose > 2)
-        printf("     * computing the k2 integral for r=%g, index_r=%d\n", pwb->r[index_r], index_r);
+      printf_log_if (pbi->bispectra_verbose, 2, 
+        "     * computing the k2 integral for r=%g, index_r=%d\n",
+        pwb->r[index_r], index_r);
   
       for (int index_k1 = 0; index_k1 < pwb->k_smooth_size; ++index_k1) {
           
@@ -3386,9 +3392,10 @@ int bispectra_non_separable_integrate_over_k2 (
   } if (abort == _TRUE_) return _FAILURE_;  // end of parallel region
   
   
-  if (pbi->bispectra_verbose > 2)
-    printf(" -> memorised ~ %.3g MB (%ld doubles) for the k2-integral array\n",
-      pwb->count_memorised_for_integral_over_k2*sizeof(double)/1e6, pwb->count_memorised_for_integral_over_k2);
+  printf_log_if (pbi->bispectra_verbose, 2, 
+    " -> memorised ~ %.3g MB (%ld doubles) for the k2-integral array\n",
+    pwb->count_memorised_for_integral_over_k2*sizeof(double)/1e6,
+    pwb->count_memorised_for_integral_over_k2);
   
   /* Check that we correctly filled the array */
   class_test (pwb->count_memorised_for_integral_over_k2 != pwb->count_allocated_for_integral_over_k2,
@@ -3584,9 +3591,10 @@ int bispectra_non_separable_integrate_over_k1 (
     for (long int index_l3_l2_l1=0; index_l3_l2_l1 < pbi->n_independent_configurations; ++index_l3_l2_l1)
       class_alloc (pwb->integral_over_k1[index_l3_l2_l1], pwb->r_size*sizeof(double), pbi->error_message);
     
-    if (pbi->bispectra_verbose > 2)
-      printf("     * allocated ~ %.3g MB (%ld doubles) for the k1-integral array\n",
-        pwb->count_allocated_for_integral_over_k1*sizeof(double)/1e6, pwb->count_allocated_for_integral_over_k1);
+    printf_log_if (pbi->bispectra_verbose, 2, 
+      "     * allocated ~ %.3g MB (%ld doubles) for the k1-integral array\n",
+      pwb->count_allocated_for_integral_over_k1*sizeof(double)/1e6,
+      pwb->count_allocated_for_integral_over_k1);
   }
   
   // ==========================================================================================================
@@ -3608,8 +3616,9 @@ int bispectra_non_separable_integrate_over_k1 (
     #pragma omp for schedule (dynamic)
     for (int index_r = 0; index_r < pwb->r_size; ++index_r) {
   
-      if (pbi->bispectra_verbose > 2)
-        printf("     * computing the k1 integral for r=%g, index_r=%d\n", pwb->r[index_r], index_r);
+      printf_log_if (pbi->bispectra_verbose, 2, 
+        "     * computing the k1 integral for r=%g, index_r=%d\n",
+        pwb->r[index_r], index_r);
 
       for (int index_l3 = 0; index_l3 < pbi->l_size; ++index_l3) {
     
@@ -3682,9 +3691,10 @@ int bispectra_non_separable_integrate_over_k1 (
     } // end of for(index_r)
   } if (abort == _TRUE_) return _FAILURE_;  // end of parallel region
   
-  if (pbi->bispectra_verbose > 2)
-    printf(" -> memorised ~ %.3g MB (%ld doubles) for the k1-integral array\n",
-      pwb->count_memorised_for_integral_over_k1*sizeof(double)/1e6, pwb->count_memorised_for_integral_over_k1);
+  printf_log_if (pbi->bispectra_verbose, 2, 
+    " -> memorised ~ %.3g MB (%ld doubles) for the k1-integral array\n",
+    pwb->count_memorised_for_integral_over_k1*sizeof(double)/1e6,
+    pwb->count_memorised_for_integral_over_k1);
   
   /* Check that we correctly filled the array */
   class_test (pwb->count_memorised_for_integral_over_k1 != pwb->count_allocated_for_integral_over_k1,
@@ -3858,8 +3868,9 @@ int bispectra_non_separable_integrate_over_r (
     #pragma omp for schedule (dynamic)
     for (int index_l1 = 0; index_l1 < pbi->l_size; ++index_l1) {
 
-      if (pbi->bispectra_verbose > 2)
-        printf("     * computing the r-integral for l1=%d, index_l1=%d\n", pbi->l[index_l1], index_l1);
+      printf_log_if (pbi->bispectra_verbose, 2, 
+        "     * computing the r-integral for l1=%d, index_l1=%d\n",
+        pbi->l[index_l1], index_l1);
     
       for (int index_l2 = 0; index_l2 <= index_l1; ++index_l2) {
   
@@ -4007,8 +4018,9 @@ int bispectra_load_from_disk(
   class_open (pbi->bispectra_files[index_bt], pbi->bispectra_paths[index_bt], "rb", pbi->error_message);
 
   /* Print some debug */
-  if (pbi->bispectra_verbose > 2)
-    printf("     * reading bispectra from disk for index_bt=%d on'%s'\n", index_bt, pbi->bispectra_paths[index_bt]);
+  printf_log_if (pbi->bispectra_verbose, 2, 
+    "     * reading bispectra from disk for index_bt=%d on'%s'\n",
+    index_bt, pbi->bispectra_paths[index_bt]);
 
   for (int X = 0; X < pbi->bf_size; ++X) {
     for (int Y = 0; Y < pbi->bf_size; ++Y) {

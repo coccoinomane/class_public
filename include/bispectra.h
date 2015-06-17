@@ -789,9 +789,6 @@ extern "C" {
       struct bispectra_workspace_non_separable * pwb
       );
 
-
-
-
   int bispectra_store_to_disk(
       struct bispectra * pbi,
       int index_bt

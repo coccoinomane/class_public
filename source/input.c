@@ -643,6 +643,11 @@ int input_free(
                  
   parser_free(ppr->parameter_files_content);
   free (ppr->parameter_files_content);
+
+#ifdef WITH_BISPECTRA
+  if (log_file != NULL)
+    fclose(log_file);
+#endif // WITH_BISPECTRA
  
   return _SUCCESS_;
                  
@@ -1392,7 +1397,7 @@ int input_read_parameters(
 
     if ((strstr(string1,"tBisp") != NULL) || (strstr(string1,"TBISP") != NULL)) {
       ppt->has_cl_cmb_temperature = _TRUE_;
-      ppt->has_bi_cmb_temperature = _TRUE_;  
+      ppt->has_bi_cmb_temperature = _TRUE_;
       ppt->has_perturbations = _TRUE_;  
       ppt->has_cls = _TRUE_;
       ppt->has_bispectra = _TRUE_;
@@ -1403,7 +1408,7 @@ int input_read_parameters(
     if ((strstr(string1,"pBisp") != NULL)|| (strstr(string1,"PBISP") != NULL)
       ||(strstr(string1,"eBisp") != NULL)|| (strstr(string1,"EBISP") != NULL)) {
       ppt->has_cl_cmb_polarization = _TRUE_;
-      ppt->has_bi_cmb_polarization = _TRUE_;  
+      ppt->has_bi_cmb_polarization = _TRUE_;
       ppt->has_perturbations = _TRUE_;  
       ppt->has_cls = _TRUE_;
       ppt->has_bispectra = _TRUE_;
@@ -2824,7 +2829,7 @@ int input_read_parameters(
   
   class_read_double("k_logstep_super",ppr->k_logstep_super);
 
-  /** i.1.1. First-order LOS effects */
+  /** i.1.1. First-order LOS effects (DISABLED) */
 
   class_call(parser_read_string(pfc,"include_scattering_in_los_1st_order",&(string1),&(flag1),errmsg),errmsg,errmsg);
   if ((flag1 == _TRUE_) && (strstr(string1,"y") == NULL) && (strstr(string1,"Y") == NULL)) {
@@ -3406,7 +3411,9 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
     pfi->always_interpolate_bispectra = _TRUE_;
 
 
-  /** (l) shall we store or load results from a directory? */
+  /** (l) Technical parameters */
+  
+  /** l.1. Store & load results from the run directory */
   
   // =======================================================================================
   // =                               Create run directory                                  =
@@ -3508,13 +3515,36 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
   if ((ppr->store_run == _TRUE_) || (ppr->load_run == _TRUE_))
     sprintf (pop->root, "%s/", ppr->run_dir);
 
-  /* Set an environment variable for the run directory, so that it can be used in the
-  parameter file by the user, for example to set the location of the data directory */
+  /* Set an environment variable for the run directory, which can be used in the
+  parameter file by the user. The most common usage would be to run SONG on a folder
+  while using data (sources, transfer functions and bispectra) stored in another
+  folder; thanks to the environment variable, the latter can be given in the parameter
+  file using a relative path with respect to ppr->run_dir.
+  
+    For example, let's say the user has used SONG to compute a forecast for
+  an ideal experiment, and stored it in the folder `huge_run`. Now they want to get
+  a forecast for the Prism experiment.
+    
+    The bispectrum computed in `huge_run` can be recycled for this new forecast.
+  To avoid a useless recomputation of the bispectrum, the user needs to create a subfolder
+  for each experiment they want to consider (for example, huge_run/planck, huge_run/wmap,
+  huge_run/prism) and copy in them the ini and precision files contained in the parent
+  folder (huge_run/run_params.ini and huge_run/run_params.pre). The ini files of each folder
+  should be then modified to match the specifications of the corresponding experiment,
+  and to include the line `data_directory = $SONG_RUN_DIR/..`.
+  
+    The user can then run SONG on one of the subdirectories (e.g. ./song huge_run/prism);
+  SONG will recycle the results of the run in the parent folder, while using the
+  parameters contained in the new folder (huge_run/prism/run_params.ini and
+  huge_run/prism/run_params.pre). All new results will refer to the considered experiment
+  and will be written to the new folder (huge_run/prism/fisher.txt). */
   setenv ("SONG_RUN", ppr->run_dir, 1);
   setenv ("SONG_RUN_PATH", ppr->run_dir, 1);
   setenv ("SONG_RUN_DIR", ppr->run_dir, 1);
   setenv ("SONG_RUN_FOLDER", ppr->run_dir, 1);
   
+
+
 
   // ============================================================================================
   // =                                   Read data directory                                    =
@@ -3607,6 +3637,19 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
     "cannot load and save bispectra at the same time!");
 
 
+  /** l.2. Create log file */
+  
+  class_call(parser_read_string(pfc,"log file",&string1,&flag1,errmsg),
+             errmsg,
+             errmsg);
+
+  if (flag1 == _TRUE_) {
+    sprintf (ppr->log_filename, "%s/%s", pop->root, string1);
+    class_open(log_file,ppr->log_filename,"w",errmsg);    
+  }
+  
+  
+  
   // =======================================================================================
   // =                               Even or odd l-grid?                                   =
   // =======================================================================================
@@ -3740,7 +3783,7 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
 
 #ifdef WITH_BISPECTRA
 
-  /** m.5. shall we write bispectra to file? */
+  /** m.5. shall we write bispectra to file? (NOT IMPLEMENTED YET) */
 
   class_call(parser_read_string(pfc,"write bispectra",&string1,&flag1,errmsg),
              errmsg,
@@ -4490,6 +4533,9 @@ int input_default_precision ( struct precision * ppr ) {
   ppr->append_date_to_run = _FALSE_;
   ppr->store_bispectra_to_disk = _FALSE_;
   ppr->load_bispectra_from_disk = _FALSE_;
+
+  /* By default, do not write a log file */
+  log_file = NULL;
 
   /* By default, assume that the data folders (sources, transfers, bispectra) are in the
   run directory */

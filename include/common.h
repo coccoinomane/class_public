@@ -12,13 +12,6 @@
 #include "omp.h"
 #endif
 
-#ifdef WITH_BISPECTRA
-#include "time.h"         /* Needed to append the current date to output files */
-#include "libgen.h"       /* dirname, basename */
-#include "sys/stat.h"     /* stat, mkdir */
-#include "wordexp.h"      /* expand environment variables and shell symbols */
-#endif // WITH_BISPECTRA
-
 #ifndef __COMMON__
 #define __COMMON__
 
@@ -69,41 +62,6 @@ typedef char FileName[_FILENAMESIZE_];
 #ifndef __CLASSDIR__
 #define __CLASSDIR__ "." /**< The directory of CLASS. This is set to the absolute path to the CLASS directory so this is just a failsafe. */
 #endif
-
-
-#ifdef WITH_BISPECTRA
-
-#define _MINUSCULE_ 1.e-75 /**< Numbers smaller than this will be considered effectively zero */
-#define _EPS_ 0.01 /**< Constant used to cast a float to an integer. Must be smaller than 0.5 */
-#define _SMALL_ (1e-7) /**< Constant used for relative floating point comparisons (only debug) */
-
-#define _MAX_LENGTH_LABEL_ 64 /**< Maximum length allowed for the label strings (e.g. for the perturbation variables such as 'phi', 'psi') */
-#define _MAX_NUM_BISPECTRA_ 32 /**< Maximum number of bispectra that can be computed */
-#define _MAX_NUM_FIELDS_ 16 /**< Maximum number of fields (T, E, B...) that can be computed */
-
-#define _ODD_ 1 /**< Value assigned to the ODD parity state */
-#define _EVEN_ 0 /**< Value assigned to the EVEN parity state */
-
-#define _SPECTRA_SCALE_ 1e-10 /**< Natural amplitude of power spectra (used only for debug) */
-#define _BISPECTRA_SCALE_ 1e-20 /**< Natural amplitude of bispectra (used only for debug) */
-
-/* Numerical constants */
-#define _PI_SQUARED_ 9.869604401089358618834491
-#define _PI_CUBE_ 31.006276680299820175
-#define _PI_FOURTH_ 97.40909103400243723644033
-#define sqrt_pi_over_2 1.25331413731550025120788264241
-#define sqrt_2 1.414213562373095049
-#define sqrt_3 1.732050807568877294
-#define sqrt_5 2.236067977499789696
-#define sqrt_6 2.449489742783178098
-#define sqrt_7 2.645751311064590591
-#define sqrt_8 2.828427124746190098
-#define sqrt_10 3.162277660168379332
-#define one_third 0.33333333333333333333333333
-#define four_thirds 1.33333333333333333333333333
-
-#endif // WITH_BISPECTRA
-
 
 #define MIN(a,b) (((a)<(b)) ? (a) : (b) ) /**< the usual "min" function */
 #define MAX(a,b) (((a)<(b)) ? (b) : (a) ) /**< the usual "max" function */
@@ -194,22 +152,6 @@ int get_number_of_titles(char * titlestring);
     return _FAILURE_;                                                                                            \
   }                                                                                                              \
 }
-
-#ifdef WITH_BISPECTRA
-/* same as class_calloc(), but inside parallel structure */
-#define class_calloc_parallel(pointer, init, size, error_message_output)  {                                      \
-  pointer=NULL;                                                                                                  \
-  if (abort == _FALSE_) {                                                                                        \
-    pointer=calloc(init,size);                                                                                   \
-    if (pointer == NULL) {                                                                                       \
-      int size_int;                                                                                              \
-      size_int = init*size;                                                                                      \
-      class_alloc_message(error_message_output,#pointer, size_int);                                              \
-      abort=_TRUE_;                                                                                              \
-    }                                                                                                            \
-  }                                                                                                              \
-}
-#endif // WITH_BISPECTRA
 
 /* macro for re-allocating memory, returning error if it failed */
 #define class_realloc(pointer, newname, size, error_message_output)  {                                          \
@@ -355,36 +297,6 @@ int get_number_of_titles(char * titlestring);
 }
 
 
-#ifdef WITH_BISPECTRA
-
-#define ALTERNATING_SIGN(m) ((m)%2==0 ? 1 : -1) /**< Return 1 if the argument is even, odd otherwise */
-
-/** Modification of the class_test() macro that just prints the error message, without
-stopping the execution of the current function  */
-#define class_test_permissive(condition, error_message_output, args...) {                                        \
-  if (condition) {                                                                                               \
-    class_test_message(error_message_output,#condition, args);                                                   \
-    printf("%s\n",error_message_output);                                                                         \
-  }                                                                                                              \
-}
-
-/** Modification of the class_test() macro that prints the error message
-regardless of the condition */
-#define class_test_lazy(condition, error_message_output, args...) {                                              \
-  if (1==1) {                                                                                                    \
-    class_test_message(error_message_output,#condition, args);                                                   \
-    printf("%s\n",error_message_output);                                                                         \
-  }                                                                                                              \
-}
-
-/** Modification of the class_test() macro that can be used to to deactivate
-the test */
-#define class_test_nothing(condition, error_message_output, args...) {                                           \
-}
-
-#endif // WITH_BISPECTRA
-
-
 /** parameters related to the precision of the code and to the method of calculation */
 
 /**
@@ -415,7 +327,126 @@ enum pk_def {
 enum file_format {class_format,camb_format};
 
 
+
 #ifdef WITH_BISPECTRA
+
+/* Includes, macros and enum structures required by SONG */
+
+#include "time.h"         /* Needed to append the current date to output files */
+#include "libgen.h"       /* dirname, basename */
+#include "sys/stat.h"     /* stat, mkdir */
+#include "wordexp.h"      /* expand environment variables and shell symbols */
+
+#define _MINUSCULE_ 1.e-75 /**< Numbers smaller than this will be considered effectively zero */
+#define _EPS_ 0.01 /**< Constant used to cast a float to an integer. Must be smaller than 0.5 */
+#define _SMALL_ (1e-7) /**< Constant used for relative floating point comparisons (only debug) */
+
+#define _MAX_LENGTH_LABEL_ 64 /**< Maximum length allowed for the label strings (e.g. for the perturbation variables such as 'phi', 'psi') */
+#define _MAX_NUM_BISPECTRA_ 32 /**< Maximum number of bispectra that can be computed */
+#define _MAX_NUM_FIELDS_ 16 /**< Maximum number of fields (T, E, B...) that can be computed */
+
+#define _ODD_ 1 /**< Value assigned to the ODD parity state */
+#define _EVEN_ 0 /**< Value assigned to the EVEN parity state */
+
+#define _SPECTRA_SCALE_ 1e-10 /**< Natural amplitude of power spectra (used only for debug) */
+#define _BISPECTRA_SCALE_ 1e-20 /**< Natural amplitude of bispectra (used only for debug) */
+
+/* Numerical constants */
+#define _PI_SQUARED_ 9.869604401089358618834491
+#define _PI_CUBE_ 31.006276680299820175
+#define _PI_FOURTH_ 97.40909103400243723644033
+#define sqrt_pi_over_2 1.25331413731550025120788264241
+#define sqrt_2 1.414213562373095049
+#define sqrt_3 1.732050807568877294
+#define sqrt_5 2.236067977499789696
+#define sqrt_6 2.449489742783178098
+#define sqrt_7 2.645751311064590591
+#define sqrt_8 2.828427124746190098
+#define sqrt_10 3.162277660168379332
+#define one_third 0.33333333333333333333333333
+#define four_thirds 1.33333333333333333333333333
+
+extern FILE * log_file;  /**< Pointer to the log file where we shall store CLASS and SONG messages using
+                         the printf_log() function. If NULL, messages won't be logged. */
+
+void fprintf_twoway(
+  int verbose_level,
+  FILE *stream1,
+  int min1,
+  FILE *stream2,
+  int min2,
+  char *fmt, ...);
+
+/**
+ * Macro to simultaneously print a message to screen (stdout) and to a global
+ * log file (log_file), with a different level of verbosity.
+ *
+ * This is a wrapper to fprintf_twoway(), called with two different values of
+ * 'min' so that more information is printed to file than to screen.
+ *
+ * TODO: right now this line works only for GCC and compilers that support 
+ * the double hash ## before __VA_ARGS__  trick to avoid trailing commas.
+ * Will need to find a portable solution. For more information, see:
+ * http://binglongx.com/2013/07/11/trailing-comma-when-passing-empty-argument-to-variadic-macro/
+ */
+#define printf_log_if(verbose_level, min, fmt, ...) \
+  fprintf_twoway ((verbose_level), stdout, (min), log_file, (min)-1, (fmt), ##__VA_ARGS__);
+
+/**
+ * Macro to simultaneously print a message to screen (stdout) and to a global
+ * log file (log_file).
+ *
+ * See documentation for printf_log_if() for a caveat about variadic macros.
+ */
+#define printf_log(fmt, ...) \
+  fprintf_twoway (1, stdout, 0, log_file, 0, (fmt), ##__VA_ARGS__);
+
+/**
+ * Macro to print a message to a global log file (log_file).
+ *
+ * See documentation for printf_log_if() for a caveat about variadic macros.
+ */
+#define LOG(fmt, ...) \
+  fprintf_twoway (1, NULL, 0, log_file, 0, (fmt), ##__VA_ARGS__);
+
+#define ALTERNATING_SIGN(m) ((m)%2==0 ? 1 : -1) /**< Return 1 if the argument is even, odd otherwise */
+
+/** Same as class_calloc(), but inside parallel structure */
+#define class_calloc_parallel(pointer, init, size, error_message_output)  {                                      \
+  pointer=NULL;                                                                                                  \
+  if (abort == _FALSE_) {                                                                                        \
+    pointer=calloc(init,size);                                                                                   \
+    if (pointer == NULL) {                                                                                       \
+      int size_int;                                                                                              \
+      size_int = init*size;                                                                                      \
+      class_alloc_message(error_message_output,#pointer, size_int);                                              \
+      abort=_TRUE_;                                                                                              \
+    }                                                                                                            \
+  }                                                                                                              \
+}
+
+/** Modification of the class_test() macro that just prints the error message, without
+stopping the execution of the current function  */
+#define class_test_permissive(condition, error_message_output, args...) {                                        \
+  if (condition) {                                                                                               \
+    class_test_message(error_message_output,#condition, args);                                                   \
+    printf("%s\n",error_message_output);                                                                         \
+  }                                                                                                              \
+}
+
+/** Modification of the class_test() macro that prints the error message
+regardless of the condition */
+#define class_test_lazy(condition, error_message_output, args...) {                                              \
+  if (1==1) {                                                                                                    \
+    class_test_message(error_message_output,#condition, args);                                                   \
+    printf("%s\n",error_message_output);                                                                         \
+  }                                                                                                              \
+}
+
+/** Modification of the class_test() macro that can be used to to deactivate
+the test */
+#define class_test_nothing(condition, error_message_output, args...) {                                           \
+}
 
 /**
   * Possible interpolation techniques.
@@ -434,6 +465,8 @@ enum k3_extrapolation {
 };
 
 #endif // WITH_BISPECTRA
+
+
 
 /**
  * All precision parameters.
@@ -880,8 +913,6 @@ struct precision
 
   #ifdef WITH_BISPECTRA
 
-  /* TODO: discriminate between WITH_BISPECTRA and WITH_SONG_SUPPORT */
-
   /** @name - parameters related to bispectra, Fisher matrices and second-order
   perturbations (specific to SONG) */
 
@@ -972,6 +1003,11 @@ struct precision
 
   short store_bispectra_to_disk;  /**< Should we store the bispectra to disk? */
   short load_bispectra_from_disk; /**< Should we load the bispectra from disk? */
+
+  FileName log_filename; /**< Name of the log file where we shall store CLASS and SONG messages using
+                             the printf_log() function */
+  // FILE * log_file; /**< Pointer to the log file where we shall store CLASS and SONG messages using
+  //                       the printf_log() function. If NULL, messages won't be logged. */
 
   //@}
   

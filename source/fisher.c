@@ -26,14 +26,14 @@ int fisher_init (
   /* Check whether we need to compute spectra at all */  
   if (pfi->has_fisher == _FALSE_) {
   
-    if (pfi->fisher_verbose > 0)
-      printf("No forecasts requested. Fisher module skipped.\n");
+    printf_log_if (pfi->fisher_verbose, 0, 
+      "No forecasts requested. Fisher module skipped.\n");
   
     return _SUCCESS_;
   }
   else {
-    if (pfi->fisher_verbose > 0)
-      printf("Computing Fisher matrix\n");
+    printf_log_if (pfi->fisher_verbose, 0, 
+      "Computing Fisher matrix\n");
   }
 
 
@@ -435,23 +435,25 @@ int fisher_indices (
   
   /* Print information on the Fisher matrix to be computed */
   if (pfi->fisher_verbose > 0) {
-    printf (" -> Fisher matrix will include %d field%s (",
+    printf_log (" -> Fisher matrix will include %d field%s (",
       pfi->ff_size, (pfi->ff_size!=1)?"s":"");
     for (int index_ff=0; index_ff < (pfi->ff_size-1); ++index_ff)
-      printf ("%s,", pfi->ff_labels[index_ff]);
-    printf ("%s)", pfi->ff_labels[pfi->ff_size-1]);
+      printf_log ("%s,", pfi->ff_labels[index_ff]);
+    printf_log ("%s)", pfi->ff_labels[pfi->ff_size-1]);
     int n_ignored = pbi->bf_size - pfi->ff_size;
-    if (n_ignored > 0)
-      printf (" and ignore %d\n", n_ignored);
-    else
-      printf ("\n");
+    if (n_ignored > 0) {
+      printf_log (" and ignore %d\n", n_ignored);
+    }
+    else {
+      printf_log ("\n");
+    }
     
     if (pfi->squeezed_ratio > 1)
-      printf (" -> only squeezed triangles with L2/L1 > %g\n",
+      printf_log (" -> only squeezed triangles with L2/L1 > %g\n",
         pfi->squeezed_ratio);
 
     if (pfi->squeezed_ratio < -1)
-      printf (" -> only equilateral triangles with L3/L1 < %g\n",
+      printf_log (" -> only equilateral triangles with L3/L1 < %g\n",
         fabs(pfi->squeezed_ratio));
   }
     
@@ -533,11 +535,11 @@ int fisher_indices (
 
   /* Print information on the Fisher matrix to be computed */
   if (pfi->fisher_verbose > 0) {
-    printf (" -> Fisher matrix will have %d row%s: ",
+    printf_log (" -> Fisher matrix will have %d row%s: ",
       pfi->ft_size, (pfi->ft_size!=1)?"s":"");
     for (int index_ft=0; index_ft < (pfi->ft_size-1); ++index_ft)
-      printf ("%s, ", pfi->ft_labels[index_ft]);
-    printf ("%s\n", pfi->ft_labels[pfi->ft_size-1]);
+      printf_log ("%s, ", pfi->ft_labels[index_ft]);
+    printf_log ("%s\n", pfi->ft_labels[pfi->ft_size-1]);
   }
 
 
@@ -898,13 +900,13 @@ int fisher_indices (
       pfi->l_turnover[0] = pbi->l[index_l-1];
     }
 
-    if (pfi->fisher_verbose > 1)
-      printf ("     * mesh_interpolation: l_turnover=%d, n_boxes=[%d,%d], linking lengths=[%g,%g], grouping lengths=[%g,%g]\n",
-        pfi->l_turnover[0],
-        (int)ceil(pfi->l_turnover[0]/ (pfi->link_lengths[0]*(1.+pfi->soft_coeffs[0]))),
-        (int)ceil(pbi->l[pbi->l_size-1] / (pfi->link_lengths[1]*(1.+pfi->soft_coeffs[1]))),
-        pfi->link_lengths[0], pfi->link_lengths[1],
-        pfi->group_lengths[0], pfi->group_lengths[1]);
+    printf_log_if (pfi->fisher_verbose, 1, 
+      "     * mesh_interpolation: l_turnover=%d, n_boxes=[%d,%d], linking lengths=[%g,%g], grouping lengths=[%g,%g]\n",
+      pfi->l_turnover[0],
+      (int)ceil(pfi->l_turnover[0]/ (pfi->link_lengths[0]*(1.+pfi->soft_coeffs[0]))),
+      (int)ceil(pbi->l[pbi->l_size-1] / (pfi->link_lengths[1]*(1.+pfi->soft_coeffs[1]))),
+      pfi->link_lengths[0], pfi->link_lengths[1],
+      pfi->group_lengths[0], pfi->group_lengths[1]);
   
   } // end of if(mesh_interpolation)
 
@@ -926,9 +928,9 @@ int fisher_indices (
   if ((pfi->bispectra_interpolation != mesh_interpolation_3D) 
    && (pfi->bispectra_interpolation != mesh_interpolation_2D)) {
   
-    if (pfi->fisher_verbose > 1)
-      printf(" -> allocating and computing ~ %.3g MB (%ld doubles) of 3j-symbols\n",
-        pbi->n_independent_configurations*sizeof(double)/1e6, pbi->n_independent_configurations);
+    printf_log_if (pfi->fisher_verbose, 1, 
+      " -> allocating and computing ~ %.3g MB (%ld doubles) of 3j-symbols\n",
+      pbi->n_independent_configurations*sizeof(double)/1e6, pbi->n_independent_configurations);
   
     /* Allocate memory for pfi->I_l1_l2_l3 */
     class_alloc (pfi->I_l1_l2_l3, pbi->n_independent_configurations*sizeof(double), pfi->error_message);
@@ -1045,8 +1047,8 @@ int fisher_indices (
     }
   }
 
-  if (pfi->fisher_verbose > 1)
-    printf ("     * %.3g%% of the computed bispectra configurations will be (directly) used to compute the Fisher matrix (%ld not used)\n",
+  printf_log_if (pfi->fisher_verbose, 1, 
+    "     * %.3g%% of the computed bispectra configurations will be (directly) used to compute the Fisher matrix (%ld not used)\n",
     100-count_wasted/(double)(pbi->n_independent_configurations)*100, count_wasted);
 
   /* Initialise info strings */
@@ -1109,21 +1111,21 @@ int fisher_noise (
 
   if (pfi->fisher_verbose > 0) {
 
-    printf (" -> noise model: beam_fwhm=");
+    printf_log (" -> noise model: beam_fwhm=");
     for (int index_channel=0; index_channel < pfi->n_channels-1; ++index_channel)
       printf ("%g,", pfi->beam[index_channel] * 60 * 180./_PI_);
-    printf ("%g", pfi->beam[pfi->n_channels-1] * 60 * 180./_PI_);
-    printf (" (arcmin)");
+    printf_log ("%g", pfi->beam[pfi->n_channels-1] * 60 * 180./_PI_);
+    printf_log (" (arcmin)");
     
     for (int index_ff=0; index_ff < pfi->ff_size; ++index_ff) {
 
-      printf (", sigma_%s=", pfi->ff_labels[index_ff]);
+      printf_log (", sigma_%s=", pfi->ff_labels[index_ff]);
       for (int index_channel=0; index_channel < pfi->n_channels-1; ++index_channel)
-        printf ("%g,", sqrt(noise[index_ff][index_channel]) * 1e6*pba->T_cmb / pfi->beam[index_channel]);
-      printf ("%g", sqrt(noise[index_ff][pfi->n_channels-1]) * 1e6*pba->T_cmb / pfi->beam[pfi->n_channels-1]);
-      printf (" (uK)");
+        printf_log ("%g,", sqrt(noise[index_ff][index_channel]) * 1e6*pba->T_cmb / pfi->beam[index_channel]);
+      printf_log ("%g", sqrt(noise[index_ff][pfi->n_channels-1]) * 1e6*pba->T_cmb / pfi->beam[pfi->n_channels-1]);
+      printf_log (" (uK)");
     }
-    printf ("\n");
+    printf_log ("\n");
   }
 
 
@@ -1245,7 +1247,7 @@ int fisher_compute (
   
   
   /* Print some info */
-  if (pfi->fisher_verbose > 0) {
+  if (pfi->fisher_verbose > 0)  {
 
     char buffer[128];
 
@@ -1260,7 +1262,7 @@ int fisher_compute (
     else if (pfi->bispectra_interpolation == smart_interpolation)
       strcpy (buffer, "smart");
 
-    printf (" -> computing Fisher matrix for l_max = %d with %s interpolation\n",
+    printf_log (" -> computing Fisher matrix for l_max = %d with %s interpolation\n",
       MIN (pfi->l_max_estimator, pfi->l_max), buffer);
     
   }
@@ -1324,8 +1326,8 @@ int fisher_compute (
   of 'fisher_lensing_variance' for further details */ 
   if (pfi->include_lensing_effects == _TRUE_) {
 
-    if (pfi->fisher_verbose > 0)
-      printf (" -> adding lensing-induced noise according to arxiv:1101.2234\n");
+    printf_log_if (pfi->fisher_verbose, 0, 
+      " -> adding lensing-induced noise according to arxiv:1101.2234\n");
 
     // -------------------------------------------------------------------------------------------------
     // -                                   As a function of l_min                                      -
@@ -1375,8 +1377,8 @@ int fisher_compute (
         /* The current l_max for which we will compute the lensing variance correction */
         int l_max = pfi->l1[index_lmax];
 
-        if (pfi->fisher_verbose > 1)
-          printf (" -> adding lensing noise for l_max=%d\n", l_max);
+        printf_log_if (pfi->fisher_verbose, 1, 
+          " -> adding lensing noise for l_max=%d\n", l_max);
         
         /* The function 'fisher_lensing_variance' computes the lensing variance correction based on
         the content of 'pfi->fisher_matrix_CZ_smallest', which represents F_bar as defined in Section 5 of
@@ -1730,7 +1732,8 @@ int fisher_compute (
         sprintf (pfi->info_lensvar, "%s(", pfi->info_lensvar);
       
         for (int index_ft_2=0; index_ft_2 < pfi->ft_size; ++index_ft_2)
-          sprintf (pfi->info_lensvar, "%s %13.6g ", pfi->info_lensvar, 1/pfi->inverse_fisher_matrix_lensvar_lmin[0][index_ft_1][index_ft_2]);
+          sprintf (pfi->info_lensvar, "%s %13.6g ", pfi->info_lensvar,
+          1/pfi->inverse_fisher_matrix_lensvar_lmin[0][index_ft_1][index_ft_2]);
   
         sprintf (pfi->info_lensvar, "%s)\n", pfi->info_lensvar);
       }
@@ -1738,7 +1741,7 @@ int fisher_compute (
   }
   
   /* Print the fnl matrix */
-  if (pfi->fisher_verbose > 0) {
+  if (pfi->fisher_verbose > 0)  {
   
     sprintf (pfi->info, "%sfnl matrix (diagonal: 1/sqrt(F_ii), upper: F_12/F_11, lower: F_12/F_22):\n", pfi->info);
     
@@ -1775,7 +1778,8 @@ int fisher_compute (
   
           /* Diagonal elements = 1/sqrt(F_ii) */ 
           if (index_ft_1==index_ft_2)
-            sprintf (pfi->info_lensvar, "%s %13.6g ", pfi->info_lensvar, 1/sqrt(pfi->fisher_matrix_lensvar_lmin[0][index_ft_1][index_ft_1]));
+            sprintf (pfi->info_lensvar, "%s %13.6g ", pfi->info_lensvar,
+            1/sqrt(pfi->fisher_matrix_lensvar_lmin[0][index_ft_1][index_ft_1]));
           /* Upper triangle = F_12/F_11, lower triangle = F_12/F_22. */
           else
             sprintf (pfi->info_lensvar, "%s %13.6g ", pfi->info_lensvar, pfi->fisher_matrix_lensvar_lmin[0][index_ft_1][index_ft_2]
@@ -1813,15 +1817,15 @@ int fisher_compute (
   }
   
   /* Print to screen the Fisher matrix */
-  printf ("\n");
-  printf ("%s", pfi->info);
-  printf ("\n");
+  printf_log ("\n");
+  printf_log ("%s", pfi->info);
+  printf_log ("\n");
   
   if (pfi->include_lensing_effects == _TRUE_) {
-    printf (" -> optimal estimator including lensing variance:\n");
-    printf ("\n");
-    printf ("%s", pfi->info_lensvar);
-    printf ("\n");
+    printf_log (" -> optimal estimator including lensing variance:\n");
+    printf_log ("\n");
+    printf_log ("%s", pfi->info_lensvar);
+    printf_log ("\n");
   }
     
   /* Free memory */
@@ -1881,8 +1885,8 @@ int fisher_cross_correlate_nodes (
       if ((l1 < pfi->l1_min_global) || (l1 > pfi->l1_max_global))
         continue;
     
-      if (pfi->fisher_verbose > 2)
-        printf ("     * computing Fisher matrix for l1=%d\n", l1);
+      printf_log_if (pfi->fisher_verbose, 2, 
+        "     * computing Fisher matrix for l1=%d\n", l1);
 
       // ------------------------------------------------
       // -                  Sum over l2                 -
@@ -2375,8 +2379,8 @@ int fisher_cross_correlate_mesh (
       /* First l-multipole stored in the above arrays */
       int l3_min_000=0;
     
-      if (pfi->fisher_verbose > 2)
-        printf ("     * computing Fisher matrix for l1=%d\n", l1);
+      printf_log_if (pfi->fisher_verbose, 2, 
+        "     * computing Fisher matrix for l1=%d\n", l1);
 
       // ------------------------------------------------
       // -                  Sum over l2                 -
@@ -2950,8 +2954,8 @@ int fisher_lensing_variance (
           skip = _FALSE_;
 
       if (skip == _TRUE_) {
-        if (pfi->fisher_verbose > 2)
-          printf ("     * skipping the contribution from l1=%d to the lensing variance (Fisher matrix too small)\n", l1);        
+        printf_log_if (pfi->fisher_verbose, 2, 
+          "     * skipping the contribution from l1=%d to the lensing variance (Fisher matrix too small)\n", l1);        
         goto lensing_variance_final_step;
       }
         
@@ -2966,8 +2970,8 @@ int fisher_lensing_variance (
       if (fabs(det) < _MINUSCULE_) {
 
         if (pfi->fisher_verbose > 2) {
-          printf ("     * skipping the contribution from l1=%d to the lensing variance (det=%g too small)\n", l1, det);
-          printf ("     * F_bar matrix:\n");
+          printf_log ("     * skipping the contribution from l1=%d to the lensing variance (det=%g too small)\n", l1, det);
+          printf_log ("     * F_bar matrix:\n");
           PrintMatrix (f_bar, N);
         }
 
@@ -2979,8 +2983,8 @@ int fisher_lensing_variance (
       // -                             Compute l1,C,Z contribution                          -
       // ------------------------------------------------------------------------------------
 
-      if (pfi->fisher_verbose > 2)
-        printf ("     * processing l1=%d...\n", l1);
+      printf_log_if (pfi->fisher_verbose, 2, 
+        "     * processing l1=%d...\n", l1);
 
       /* Contribution to the considered l1 (smallest multipole in the sum) to the Fisher
       matrix, including lensing variance. This quantity will be summed over C and Z. */
@@ -3072,8 +3076,8 @@ int fisher_lensing_variance (
       if (fabs(det) < _MINUSCULE_) {
 
         if (pfi->fisher_verbose > 2) {
-          printf ("     * skipping the contribution from l1=%d to the lensing variance (det=%g too small)\n", l1, det);
-          printf ("     * F_bar^{-1} + noise matrix:\n");
+          printf_log ("     * skipping the contribution from l1=%d to the lensing variance (det=%g too small)\n", l1, det);
+          printf_log ("     * F_bar^{-1} + noise matrix:\n");
           PrintMatrix (inverse_f_bar, N);
         }
 
@@ -3324,16 +3328,16 @@ int fisher_create_3D_interpolation_mesh(
         )
 {
   
-  if (pfi->fisher_verbose > 0)
-    printf (" -> preparing the interpolation mesh for %d bispectr%s\n",
+  printf_log_if (pfi->fisher_verbose, 0, 
+    " -> preparing the interpolation mesh for %d bispectr%s\n",
     pfi->ft_size*pfi->n_probes, ((pfi->ft_size*pfi->n_probes)!=1?"a":"um"));
 
   // ==================================================================================
   // =                                Create meshes                                   =
   // ==================================================================================
 
-  if (pfi->fisher_verbose > 1)
-    printf ("     * allocating memory for values...\n");
+  printf_log_if (pfi->fisher_verbose, 1, 
+    "     * allocating memory for values...\n");
 
   /* Allocate the array that will contain the re-arranged bispectra */
   double ** values;
@@ -3341,8 +3345,8 @@ int fisher_create_3D_interpolation_mesh(
   for (long int index_l1_l2_l3=0; index_l1_l2_l3 < pbi->n_independent_configurations; ++index_l1_l2_l3)
     class_calloc (values[index_l1_l2_l3], 4, sizeof(double), pfi->error_message);
 
-  if (pfi->fisher_verbose > 1)
-    printf ("     * computing actual meshes...\n");  
+  printf_log_if (pfi->fisher_verbose, 1, 
+    "     * computing actual meshes...\n");  
   
   int abort = _FALSE_;
 
@@ -3453,21 +3457,21 @@ int fisher_create_3D_interpolation_mesh(
                 pfi->mesh_workspaces[pfi->first_non_analytical_index_ft][0][0][0][index_mesh]->grid_3D;
             }
 
-            if (pfi->fisher_verbose > 2) 
-              printf ("     * computing mesh for bispectrum %s_%s(%d)\n",
+            printf_log_if (pfi->fisher_verbose, 2,  
+              "     * computing mesh for bispectrum %s_%s(%d)\n",
               pbi->bt_labels[index_bt], pfi->ffff_labels[X][Y][Z], index_mesh);
    
             /* Skip the fine grid if the turnover point is smaller than than the smallest multipole */
             if ((index_mesh == 0) && (pfi->l_turnover[0] <= pbi->l[0])) {
-              if (pfi->fisher_verbose > 2)
-                printf ("      \\ fine grid not needed because l_turnover <= l_min (%d <= %d)\n", pfi->l_turnover[0], pbi->l[0]);
+              printf_log_if (pfi->fisher_verbose, 2, 
+                "      \\ fine grid not needed because l_turnover <= l_min (%d <= %d)\n", pfi->l_turnover[0], pbi->l[0]);
               continue;
             }
 
             /* Skip the coarse grid if the turnover point is larger than than the largest multipole */
             if ((index_mesh == 1) && (pfi->l_turnover[0] > pbi->l[pbi->l_size-1])) {
-              if (pfi->fisher_verbose > 2)
-                printf ("      \\ coarse grid not needed because l_turnover > l_max (%d > %d)\n", pfi->l_turnover[0],
+              printf_log_if (pfi->fisher_verbose, 2, 
+                "      \\ coarse grid not needed because l_turnover > l_max (%d > %d)\n", pfi->l_turnover[0],
                 pbi->l[pbi->l_size-1]);
               continue;
             }
@@ -3479,10 +3483,10 @@ int fisher_create_3D_interpolation_mesh(
               pfi->error_message,
               pfi->error_message);
 
-            if (pfi->fisher_verbose > 2)
-              printf ("      \\ allocated (grid,mesh)=(%g,%g) MBs\n",
-                pfi->mesh_workspaces[index_ft][X][Y][Z][index_mesh]->n_allocated_in_grid*8/1e6,
-                pfi->mesh_workspaces[index_ft][X][Y][Z][index_mesh]->n_allocated_in_mesh*8/1e6);
+            printf_log_if (pfi->fisher_verbose, 2, 
+              "      \\ allocated (grid,mesh)=(%g,%g) MBs\n",
+              pfi->mesh_workspaces[index_ft][X][Y][Z][index_mesh]->n_allocated_in_grid*8/1e6,
+              pfi->mesh_workspaces[index_ft][X][Y][Z][index_mesh]->n_allocated_in_mesh*8/1e6);
 
           } // end of for(index_mesh)
         } // end of for(Z)
@@ -3592,8 +3596,8 @@ int fisher_create_2D_interpolation_mesh(
         )
 {
   
-  if (pfi->fisher_verbose > 2)
-    printf (" -> preparing 2D interpolation mesh for index_l1=%d\n", index_l1);
+  printf_log_if (pfi->fisher_verbose, 2, 
+    " -> preparing 2D interpolation mesh for index_l1=%d\n", index_l1);
 
   int l1 = pbi->l[index_l1];
 
@@ -3606,8 +3610,8 @@ int fisher_create_2D_interpolation_mesh(
       n_points ++;
   }
 
-  if (pfi->fisher_verbose > 3)
-    printf ("     * the l1=%d slice has %ld point%s\n", l1, n_points, ((n_points==1)?"":"s"));
+  printf_log_if (pfi->fisher_verbose, 3, 
+    "     * the l1=%d slice has %ld point%s\n", l1, n_points, ((n_points==1)?"":"s"));
   
   /* Allocate the array that will contain the re-arranged bispectra */
   double ** values;
@@ -3738,22 +3742,23 @@ int fisher_create_2D_interpolation_mesh(
                 mesh_workspaces[pfi->first_non_analytical_index_ft][0][0][0][index_mesh]->grid_2D;
             }
 
-            if (pfi->fisher_verbose > 3) 
-              printf ("     * computing mesh for bispectrum %s_%s(%d)\n",
+            printf_log_if (pfi->fisher_verbose, 3,  
+              "     * computing mesh for bispectrum %s_%s(%d)\n",
               pbi->bt_labels[index_bt], pfi->ffff_labels[X][Y][Z], index_mesh);
    
             /* Skip the fine grid if the turnover point is smaller than than the smallest multipole */
             if ((index_mesh == 0) && (pfi->l_turnover[0] <= pbi->l[0])) {
-              if (pfi->fisher_verbose > 3)
-                printf ("      \\ fine grid not needed because l_turnover <= l_min (%d <= %d)\n", pfi->l_turnover[0], pbi->l[0]);
+              printf_log_if (pfi->fisher_verbose, 3, 
+                "      \\ fine grid not needed because l_turnover <= l_min (%d <= %d)\n",
+                pfi->l_turnover[0], pbi->l[0]);
               continue;
             }
 
             /* Skip the coarse grid if the turnover point is larger than than the largest multipole */
             if ((index_mesh == 1) && (pfi->l_turnover[0] > pbi->l[pbi->l_size-1])) {
-              if (pfi->fisher_verbose > 3)
-                printf ("      \\ coarse grid not needed because l_turnover > l_max (%d > %d)\n", pfi->l_turnover[0],
-                pbi->l[pbi->l_size-1]);
+              printf_log_if (pfi->fisher_verbose, 3, 
+                "      \\ coarse grid not needed because l_turnover > l_max (%d > %d)\n",
+                pfi->l_turnover[0], pbi->l[pbi->l_size-1]);
               continue;
             }
 
@@ -3764,10 +3769,10 @@ int fisher_create_2D_interpolation_mesh(
               pfi->error_message,
               pfi->error_message);
 
-            if (pfi->fisher_verbose > 3)
-              printf ("      \\ allocated (grid,mesh)=(%g,%g) MBs\n",
-                mesh_workspaces[index_ft][X][Y][Z][index_mesh]->n_allocated_in_grid*8/1e6,
-                mesh_workspaces[index_ft][X][Y][Z][index_mesh]->n_allocated_in_mesh*8/1e6);
+            printf_log_if (pfi->fisher_verbose, 3, 
+              "      \\ allocated (grid,mesh)=(%g,%g) MBs\n",
+              mesh_workspaces[index_ft][X][Y][Z][index_mesh]->n_allocated_in_grid*8/1e6,
+              mesh_workspaces[index_ft][X][Y][Z][index_mesh]->n_allocated_in_mesh*8/1e6);
 
           } // end of for(index_mesh)
         } // end of for(Z)

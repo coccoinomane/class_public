@@ -30,3 +30,48 @@ int get_number_of_titles(char * titlestring){
   }
   return number_of_titles;
 }
+
+#ifdef WITH_BISPECTRA
+
+/* Initialise the file pointer to the log file */
+FILE * log_file = NULL;
+
+/**
+ * Print the same message to two streams.
+ *
+ * The first stream is used only if verbose_level>min1, the second only if
+ * verbose_level>min2. 
+ * 
+ * This function can be used to simultaneously print a message to screen
+ * (stream1=stdout) and to an already opened log file (stream2=FILE_pointer).
+ * In this case, using min1<min2 would record more information than what is
+ * printed to screen.
+ */
+void fprintf_twoway(
+  int verbose_level,
+  FILE *stream1,
+  int min1,
+  FILE *stream2,
+  int min2,
+  char *fmt, ...)
+{
+	va_list argp;
+
+  if ((verbose_level > min1) && (stream1 != NULL)) {
+  	va_start(argp, fmt);
+  	vfprintf(stream1, fmt, argp);
+  	va_end(argp);
+  }
+    
+  if ((verbose_level > min2) && (stream2 != NULL)) {
+  	va_start(argp, fmt);
+  	vfprintf(stream2, fmt, argp);
+  	va_end(argp);
+  }
+}
+#endif // WITH_BISPECTRA
+
+
+
+
+
