@@ -129,6 +129,7 @@ extern "C" {
   int bessel_init(
 		  struct precision * ppr,
       struct background * pba,
+      struct thermo * pth,
 			struct transfers * ptr,
 		  struct bessels * pbs
 		  );

@@ -464,6 +464,20 @@ enum k3_extrapolation {
   flat_k3_extrapolation    /**< assume a constant value for the transfer functions */
 };
 
+/**
+ * Possible sampling methods for the r variable in the
+ * bispectrum integral.
+ *
+ * Needs to be in common.h because the extent of the r-sampling determines 
+ * the x-sampling of the Bessel functions.
+ */
+enum bispectra_r_samplings {
+  custom_r_sampling,        /**< Linear r-sampling starting in a custom range [r_min, r_max]  */
+  centred_r_sampling        /**< Linear r-sampling centred at tau0-tau_rec */
+};
+
+
+
 #endif // WITH_BISPECTRA
 
 
@@ -961,11 +975,23 @@ struct precision
   // -                       Bispectrum                           -
   // --------------------------------------------------------------
 
-  /* Upper and lower limits on the integration variable r, appearing as argument
-  of the three Bessel functions in the bispectrum integral */
-  double r_min;
-  double r_max;
-  int r_size;
+  /** What sampling for the r direction of the bispectrum integral? The
+  time-variable r appears as argument of the three Bessel functions in
+  the bispectrum integral. */
+  enum bispectra_r_samplings bispectra_r_sampling;
+
+  int r_size;   /**< Size of the integration grid in r of the bispectrum. */
+
+  double r_min; /**< Lower limit on the bispectrum integration variable r. Used only
+                if the r_sampling is custom. */
+  double r_max; /**< Upper limit on the bispectrum integration variable r. Used only
+                if the r_sampling is custom. */
+
+  double r_left;  /**< The lower limit on the bispectrum integration variable r is given
+                  by tau0-r_left*tau_rec. Used only if the r_sampling is centred. */
+  double r_right; /**< The upper limit on the bispectrum integration variable r is given
+                  by tau0+r_right*tau_rec. Used only if the r_sampling is centred. */
+
 
   /** Which integration scheme should we follow for k3 in the bispectrum integral?
   The k3 range can be extended beyond the hard boundary imposed by the triangular
@@ -981,6 +1007,7 @@ struct precision
 
   /** Grid for odd parity bispectra */
   short compute_only_odd_ls;
+
 
 
   // --------------------------------------------------------------

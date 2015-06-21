@@ -3106,9 +3106,36 @@ int input_read_parameters(
   /* Parameters related to the r-integration in the bispectrum integral  */
   if (pbi->has_bispectra == _TRUE_) {
 
-    class_read_double("r_min", ppr->r_min);
-    class_read_double("r_max", ppr->r_max);
-    class_read_int("r_size", ppr->r_size);
+    class_call(parser_read_string(pfc,"bispectra_r_sampling",&string1,&flag1,errmsg),
+         errmsg,
+         errmsg);  
+
+    if (flag1 == _TRUE_) {
+
+      if (((strstr(string1,"custom") != NULL) || (strstr(string1,"CUSTOM") != NULL)))
+        ppr->bispectra_r_sampling = custom_r_sampling;
+
+      else if (((strstr(string1,"smart") != NULL) || (strstr(string1,"SMART") != NULL))
+              ||((strstr(string1,"centred") != NULL) || (strstr(string1,"CENTRED") != NULL))
+              ||((strstr(string1,"centered") != NULL) || (strstr(string1,"CENTERED") != NULL)))
+        ppr->bispectra_r_sampling = centred_r_sampling;
+    
+      else
+        class_test(1==1,
+          errmsg,         
+          "bispectra_r_sampling=%s not supported; choose between 'custom' and 'centred'", string1);
+    }
+
+    if (ppr->bispectra_r_sampling == custom_r_sampling) {
+      class_read_double("r_min", ppr->r_min);
+      class_read_double("r_max", ppr->r_max);
+      class_read_int("r_size", ppr->r_size);
+    }
+    else if (ppr->bispectra_r_sampling == centred_r_sampling) {
+      class_read_double("r_left", ppr->r_left);
+      class_read_double("r_right", ppr->r_right);
+      class_read_int("r_size", ppr->r_size);
+    }
     
     /* TODO: update x_max to take into account the k3 extrapolation (use following piece of code)*/
     // if (ppr->bispectra_k3_extrapolation != no_k3_extrapolation) {
@@ -4519,9 +4546,12 @@ int input_default_precision ( struct precision * ppr ) {
   ppr->bispectra_k3_extrapolation = flat_k3_extrapolation;
   ppr->extra_k3_oscillations_left = 50;
   ppr->extra_k3_oscillations_right = 50;
+  ppr->bispectra_r_sampling = centred_r_sampling;
+  ppr->r_size = 100;
+  ppr->r_left = 4;
+  ppr->r_right = 4;
   ppr->r_min = 13000;
   ppr->r_max = 15000;
-  ppr->r_size = 100;
 
   /* Bessel module */
   ppr->bessel_x_step = 0.5;
@@ -4813,7 +4843,7 @@ int input_try_unknown_parameters(double * unknown_parameter,
     if (input_verbose>2)
       printf("Stage 8: Bessel functions\n");
     bs.bessels_verbose = 0;
-    class_call(bessel_init(&pr,&ba,&tr,&bs),bs.error_message, errmsg);
+    class_call(bessel_init(&pr,&ba,&th,&tr,&bs),bs.error_message, errmsg);
   }
 
   if (pfzw->required_computation_stage >= cs_bispectra){

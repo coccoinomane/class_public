@@ -8,12 +8,16 @@
 #include "spectra.h"
 #include "slatec_3j_C.h"
 
-/* Allowed types of bispectra */
+/**
+ * Categories of bispectra that SONG can compute.
+ *
+ * For details, see documentation for the bispectra.c file.
+ */
 enum bispectra_types {
-  separable_bispectrum,              /* local, equilateral, orthogonal */
-  non_separable_bispectrum,          /* galileon inflation */
-  analytical_bispectrum,             /* analytical limits, lensing bispectrum */
-  intrinsic_bispectrum
+  separable_bispectrum,     /**< bispectra derived from a separable shape function S(k1,k2,k3) (e.g. local, equilateral, orthogonal)*/
+  non_separable_bispectrum, /**< bispectra derived from an arbitrary shape function S(k1,k2,k3) (e.g. galileon) */
+  analytical_bispectrum,    /**< bispectra described by a closed form (analytical limits, cmb-lensing bispectrum, etc) */
+  intrinsic_bispectrum      /**< bispectra that require second-order transfer functions */
 };
 
 
@@ -591,6 +595,7 @@ extern "C" {
   int bispectra_harmonic(
       struct precision * ppr,
       struct background * pba,
+      struct thermo * pth,
       struct perturbs * ppt,
       struct bessels * pbs,
       struct transfers * ptr,
@@ -604,6 +609,7 @@ extern "C" {
   int bispectra_separable_init(
       struct precision * ppr,
       struct background * pba,
+      struct thermo * pth,
       struct perturbs * ppt,
       struct bessels * pbs,
       struct transfers * ptr,
@@ -616,6 +622,7 @@ extern "C" {
   int bispectra_separable_workspace_init(
       struct precision * ppr,
       struct background * pba,
+      struct thermo * pth,
       struct perturbs * ppt,
       struct bessels * pbs,
       struct transfers * ptr,
@@ -677,6 +684,7 @@ extern "C" {
   int bispectra_non_separable_init(
       struct precision * ppr,
       struct background * pba,
+      struct thermo * pth,
       struct perturbs * ppt,
       struct bessels * pbs,
       struct transfers * ptr,
@@ -689,6 +697,7 @@ extern "C" {
   int bispectra_non_separable_workspace_init(
       struct precision * ppr,
       struct background * pba,
+      struct thermo * pth,
       struct perturbs * ppt,
       struct bessels * pbs,
       struct transfers * ptr,

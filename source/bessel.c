@@ -70,6 +70,7 @@
 int bessel_init(
 		struct precision * ppr,
     struct background * pba,
+    struct thermo * pth,
 		struct transfers * ptr,
 		struct bessels * pbs
 		) {
@@ -91,8 +92,17 @@ int bessel_init(
   /* In the bispectrum integral the upper limit in the time variable is r_max rather
   than tau0. Here we scale the Bessels domain so that it includes the integration domain
   of the bispectrum. */
-  if (pbs->has_bispectra == _TRUE_)
-    pbs->x_max = MAX (pbs->x_max, pbs->x_max*ppr->r_max/pba->conformal_age);
+  if (pbs->has_bispectra == _TRUE_) {
+
+    double r_max;
+
+    if (ppr->bispectra_r_sampling == custom_r_sampling)
+      r_max = ppr->r_max;
+    else if (ppr->bispectra_r_sampling == centred_r_sampling)
+      r_max = (pba->conformal_age-pth->tau_rec) + ppr->r_right*pth->tau_rec;
+        
+    pbs->x_max = MAX (pbs->x_max, pbs->x_max*r_max/pba->conformal_age);
+  }
 
   /** - copy l values from the transfer module and set x_max */
 

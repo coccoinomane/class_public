@@ -127,7 +127,7 @@ int bispectra_init (
   
   /* Compute the three types of CMB bispectra: analytic, separable and non-separable */
   
-  class_call (bispectra_harmonic (ppr,pba,ppt,pbs,ptr,ppm,psp,ple,pbi),
+  class_call (bispectra_harmonic (ppr,pba,pth,ppt,pbs,ptr,ppm,psp,ple,pbi),
     pbi->error_message,
     pbi->error_message);
 
@@ -1404,6 +1404,7 @@ int bispectra_cls (
 int bispectra_harmonic (
     struct precision * ppr,
     struct background * pba,
+    struct thermo * pth,
     struct perturbs * ppt,
     struct bessels * pbs,
     struct transfers * ptr,
@@ -1434,6 +1435,7 @@ int bispectra_harmonic (
     class_call (bispectra_separable_init(
                   ppr,
                   pba,
+                  pth,
                   ppt,
                   pbs,
                   ptr,
@@ -1504,6 +1506,7 @@ int bispectra_harmonic (
     class_call (bispectra_non_separable_init(
                   ppr,
                   pba,
+                  pth,
                   ppt,
                   pbs,
                   ptr,
@@ -1585,6 +1588,7 @@ int bispectra_harmonic (
 int bispectra_separable_workspace_init (
     struct precision * ppr,
     struct background * pba,
+    struct thermo * pth,
     struct perturbs * ppt,
     struct bessels * pbs,
     struct transfers * ptr,
@@ -1598,18 +1602,26 @@ int bispectra_separable_workspace_init (
   // =                                    Prepare integration grid                                     =
   // ===================================================================================================
   
-  /* We set the r-sampling as if it were a time sampling.  We do so because 'r' has the right dimensions, and
-  it always appears in the argument of a Bessel function multiplying a wavemode, just as it was for conformal
-  time in the line-of-sight integral.  This is the only place in the module where the background structure
-  is accessed. */
-  pwb->r_min = ppr->r_min;
-  pwb->r_max = ppr->r_max;
+  /* We set the r-sampling as if it were a time sampling.  We do so because 'r' has the
+  right dimensions, and it always appears in the argument of a Bessel function multiplying
+  a wavemode, just as it was for conformal time in the line-of-sight integral. */
+
   pwb->r_size = ppr->r_size;
+
+  if (ppr->bispectra_r_sampling == custom_r_sampling) {
+    pwb->r_min = ppr->r_min;
+    pwb->r_max = ppr->r_max;
+  }
+  /* Centre the r-grid on tau0-tau_rec */
+  else if (ppr->bispectra_r_sampling == centred_r_sampling) {
+    double centre = pba->conformal_age - pth->tau_rec;
+    pwb->r_min = MAX (0, centre - ppr->r_left*pth->tau_rec);
+    pwb->r_max = centre + ppr->r_right*pth->tau_rec;
+  }
     
-  /* We decide to sample r linearly */
+  /* We sample r linearly */
   class_alloc (pwb->r, pwb->r_size*sizeof(double), pbi->error_message);
-  lin_space (pwb->r, pwb->r_min, pwb->r_max, pwb->r_size);
-  
+  lin_space (pwb->r, pwb->r_min, pwb->r_max, pwb->r_size);  
   
   /* Allocate & fill delta_r, the measure for the trapezoidal integration over r */
   class_alloc (pwb->delta_r, pwb->r_size * sizeof(double), pbi->error_message);
@@ -1621,9 +1633,6 @@ int bispectra_separable_workspace_init (
     pwb->delta_r[index_r] = pwb->r[index_r+1] - pwb->r[index_r-1];
       
   pwb->delta_r[pwb->r_size-1] = pwb->r[pwb->r_size-1] - pwb->r[pwb->r_size-2];
-
-
-
 
 
 
@@ -2199,6 +2208,7 @@ int bispectra_separable_integrate_over_r (
 int bispectra_separable_init (
     struct precision * ppr,
     struct background * pba,
+    struct thermo * pth,
     struct perturbs * ppt,
     struct bessels * pbs,
     struct transfers * ptr,
@@ -2217,6 +2227,7 @@ int bispectra_separable_init (
   class_call (bispectra_separable_workspace_init(
                 ppr,
                 pba,
+                pth,
                 ppt,
                 pbs,
                 ptr,
@@ -2637,6 +2648,7 @@ int bispectra_analytical_init (
 int bispectra_non_separable_init (
     struct precision * ppr,
     struct background * pba,
+    struct thermo * pth,
     struct perturbs * ppt,
     struct bessels * pbs,
     struct transfers * ptr,
@@ -2651,6 +2663,7 @@ int bispectra_non_separable_init (
   class_call (bispectra_non_separable_workspace_init(
                 ppr,
                 pba,
+                pth,
                 ppt,
                 pbs,
                 ptr,
@@ -2797,6 +2810,7 @@ int bispectra_non_separable_init (
 int bispectra_non_separable_workspace_init (
     struct precision * ppr,
     struct background * pba,
+    struct thermo * pth,
     struct perturbs * ppt,
     struct bessels * pbs,
     struct transfers * ptr,
@@ -2817,13 +2831,22 @@ int bispectra_non_separable_workspace_init (
   
   /* We set the r-sampling as if it were a time sampling.  We do so because 'r' has the
   right dimensions, and it always appears in the argument of a Bessel function multiplying
-  a wavemode, just as it was for conformal time in the line-of-sight integral. This is
-  the only place in the module where the background structure is accessed. */
-  pwb->r_min = ppr->r_min;
-  pwb->r_max = ppr->r_max;
+  a wavemode, just as it was for conformal time in the line-of-sight integral. */
+
   pwb->r_size = ppr->r_size;
 
-  /* We decide to sample r linearly */
+  if (ppr->bispectra_r_sampling == custom_r_sampling) {
+    pwb->r_min = ppr->r_min;
+    pwb->r_max = ppr->r_max;
+  }
+  /* Centre the r-grid on tau0-tau_rec */
+  else if (ppr->bispectra_r_sampling == centred_r_sampling) {
+    double centre = pba->conformal_age - pth->tau_rec;
+    pwb->r_min = MAX (0, centre - ppr->r_left*pth->tau_rec);
+    pwb->r_max = centre + ppr->r_right*pth->tau_rec;
+  }
+
+  /* We sample r linearly */
   class_alloc (pwb->r, pwb->r_size*sizeof(double), pbi->error_message);
   lin_space (pwb->r, pwb->r_min, pwb->r_max, pwb->r_size);
     
