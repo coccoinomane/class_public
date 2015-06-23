@@ -151,7 +151,7 @@ int perturb_init(
              "In the synchronous gauge, it is not self-consistent to assume no CDM: the later is used to define the initial timelike hypersurface. You can either add a negligible amount of CDM or switch to newtonian gauge");
 
   class_test ((ppr->tight_coupling_approximation < first_order_MB) ||
-              (ppr->tight_coupling_approximation > compromise_CLASS),
+              (ppr->tight_coupling_approximation > first_order_PITROU),
               ppt->error_message,
               "your tight_coupling_approximation is set to %d, out of range defined in perturbations.h",ppr->tight_coupling_approximation);
 
@@ -6821,6 +6821,20 @@ int perturb_derivs(double tau,
          +R*ppw->tca_slip)/(1.+R)
         +metric_euler;
 
+      if (ppr->tight_coupling_approximation == (int)first_order_PITROU) {
+        
+        double R_pitrou = 1/R;
+        double V_kappadot = ppw->tca_slip;
+
+        /* Euler equation for the baryons. This is the eq. 3 of Pitrou 2011 with c_s=w_s=0
+        and with a multiplicative factor of -k that transforms the dimensionless velocity v
+        in the velocity divergence theta. */
+        dy[pv->index_pt_theta_b] =
+          - a_prime_over_a * theta_b
+          + metric_euler
+          - V_kappadot/R_pitrou*(-k);
+      }
+
     }
 
     /** -> photon temperature higher momenta and photon polarisation (depend on tight-coupling approximation) : */
@@ -7748,12 +7762,45 @@ int perturb_tca_slip_and_shear(double * y,
           -a_prime_over_a*metric_euler);
   }
 
+  /** -----> like Pitrou 2011 (http://arxiv.org/abs/1012.0546) */
+  if (ppr->tight_coupling_approximation == (int)first_order_PITROU) {
+
+    class_test (ppt->gauge == synchronous,
+      ppt->error_message,
+      "the PITROU scheme for tight-coupling is implemented only for Newtonian gauge");
+
+    class_test ((ppt->has_tensors == _TRUE_) || (ppt->has_vectors == _TRUE_),
+      ppt->error_message,
+      "not implemented vector or tensor modes for PITROU tight-coupling scheme");
+
+    double R_pitrou = 1/R;
+    double Hc = a_prime_over_a;
+    double w_plasma = 1/(3+4*R_pitrou);
+    
+    /* The dimensionless velocity v used in Pitrou 2011 is related the the velocity
+    divergence theta by a -k factor. Note that in the paper there is a typo just above
+    Sec. 2: v_s = \hat{v}_s*k and not v_s = hat{v}_s/k */
+    double v_b = -theta_b/k;
+
+    /* We use the TCA0 relations delta_plasma=(1+w_plasma)*delta_b and v_plasma=v_b, because
+    both quantities are multiplied by tau_c in the slip */
+    double v_plasma = v_b;
+    double delta_plasma = (1+w_plasma)*(delta_b);
+
+    /* Compute the dimentionless velocity slip, defined as V = v_b - v_g, multiplied
+    by kappa_dot. This is V as in eq. 13 of Pitrou 2011 at first order in TCA, times
+    kappa_dot. */
+    slip = -R_pitrou/(1+R_pitrou) *
+      (Hc * v_plasma - k * delta_plasma/(3*(1+w_plasma)));
+  }
+
   /** -----> intermediate quantities for 2nd order tca: shear_g at first order in tight-coupling */
   shear_g=16./45.*tau_c*(theta_g+metric_shear);
   /* (Ma & Bertschinger give (1/9)*(4/3) instead of (2/15)*(4/3)
      because they didn't include the contribution of G_gamma0
      and G_gamma2, which are of the same order as sigma_g. This
      was already consistently included in CAMB) */
+
 
   /** -----> intermediate quantities for 2nd order tca: zero order for theta_b' = theta_g' */
   /** perturbed recombination has an impact **/
@@ -7861,6 +7908,40 @@ int perturb_tca_slip_and_shear(double * y,
     /* second-order correction to shear */
     shear_g = (1.-11./6.*dtau_c)*shear_g-11./6.*tau_c*16./45.*tau_c*(theta_prime+metric_shear_prime);
 
+  }
+
+  /** -----> like Pitrou 2011 (http://arxiv.org/abs/1012.0546) */
+  if (ppr->tight_coupling_approximation == (int)first_order_PITROU) {
+
+    /* The following code computes the photon shear using the formulas in
+    Pitrou 2011. It is commented because CLASS shear seems to be good enough;
+    if you want to use Pitrou 2011 uncomment it. Note however that the
+    resulting shear is almost exactly four times smaller than the one computed
+    by CLASS above with the formula:
+      shear_g = 16./45.*tau_c*(theta_g+metric_shear).
+    The difference might be in the way the shear is defined from Pitrou's
+    quadrupole. It leads to an error in the C_l that increases with l,
+    (percent level difference at l=2000) */
+
+    // /* This is eq. 14 of Pitrou 2011 at first order in tau_c. There should be
+    // a tensor contribution for non-scalar modes which we ignore. */
+    // double v_g = -theta_g/k;;
+    // double quadrupole_g = -k*v_g*tau_c*8.0/9.0;
+    //
+    // /* The shear (eq. 22 of Ma & Berty, arXiv) is related to the quadrupole (eq. 2 of
+    // Pitrou) by the following relation:
+    //   (w+1)*shear = 2/15 quadrupole,
+    // which for photons (w=1/3) reads
+    //   shear_g = 1/10 * quadrupole.
+    // There might be an extra 2l+1=5 factor if the quadrupole in Pitrou is defined
+    // with respect to Legendre polynomials rather than spherical harmonics. In
+    // that case, the relation is:
+    //   shear_g = 1/2 * quadrupole. */
+    // shear_g = quadrupole_g/10;
+    
+    /* Debug */
+    // if (pppaw->index_k == 100)
+    //   printf ("shear_g_PITROU = %g\n", shear_g);
   }
 
   /** ---> store tight-coupling values of photon shear and its derivative */
