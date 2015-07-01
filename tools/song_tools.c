@@ -728,10 +728,12 @@ double spherical_bessel_j(
 // ====================================================================================
 
 /**
- * 'C' and 'D' coupling coefficients that appear in the in the Boltzmann hierarchy for the photon
- * temperature (see eqs. A.11 and 2.18 of Beneke & Fidler 2011). They are basically
- * compact forms of 3j symbols that naturally arise when peforming the multipole expansion
- * of Boltzmann equation.
+ * Compute the C_minus coupling coefficient appearing in the in the Boltzmann hierarchy.
+ *
+ * The coupling coefficients are defined in eqs. A.11 and 2.18 of Beneke & Fidler 2011.
+ * They are basically compact forms of 3j symbols that naturally arise when peforming
+ * the multipole expansion of the Boltzmann equation. For their explicit form, refer to
+ * section A.4.1 of http://arxiv.org/abs/1405.2280.
  */
 double coupling_c_minus (int l, int m1, int m) {
 
@@ -768,7 +770,14 @@ double coupling_c_minus (int l, int m1, int m) {
       
 }
 
-
+/**
+ * Compute the C_plus coupling coefficient appearing in the in the Boltzmann hierarchy.
+ *
+ * The coupling coefficients are defined in eqs. A.11 and 2.18 of Beneke & Fidler 2011.
+ * They are basically compact forms of 3j symbols that naturally arise when peforming
+ * the multipole expansion of the Boltzmann equation. For their explicit form, refer to
+ * section A.4.1 of http://arxiv.org/abs/1405.2280.
+ */
 double coupling_c_plus (int l, int m1, int m) {
   
   if ((abs(m1-m)>1) && (abs(m)>l))
@@ -794,6 +803,14 @@ double coupling_c_plus (int l, int m1, int m) {
 }
 
 
+/**
+ * Compute the D_zero coupling coefficient appearing in the in the Boltzmann hierarchy.
+ *
+ * The coupling coefficients are defined in eqs. A.11 and 2.18 of Beneke & Fidler 2011.
+ * They are basically compact forms of 3j symbols that naturally arise when peforming
+ * the multipole expansion of the Boltzmann equation. For their explicit form, refer to
+ * section A.4.1 of http://arxiv.org/abs/1405.2280.
+ */
 double coupling_d_zero (int l, int m1, int m) {
 
   if ((abs(m1-m)>1) && (abs(m)>l))
@@ -829,12 +846,28 @@ double coupling_d_zero (int l, int m1, int m) {
       
 }
 
+/**
+ * Compute the D_minus coupling coefficient appearing in the in the Boltzmann hierarchy.
+ *
+ * The coupling coefficients are defined in eqs. A.11 and 2.18 of Beneke & Fidler 2011.
+ * They are basically compact forms of 3j symbols that naturally arise when peforming
+ * the multipole expansion of the Boltzmann equation. For their explicit form, refer to
+ * section A.4.1 of http://arxiv.org/abs/1405.2280.
+ */
 double coupling_d_minus (int l, int m1, int m) {
   
   return sqrt(l*l-4.)/l * coupling_c_minus(l,m1,m);
   
 }
 
+/**
+ * Compute the D_plus coupling coefficient appearing in the in the Boltzmann hierarchy.
+ *
+ * The coupling coefficients are defined in eqs. A.11 and 2.18 of Beneke & Fidler 2011.
+ * They are basically compact forms of 3j symbols that naturally arise when peforming
+ * the multipole expansion of the Boltzmann equation. For their explicit form, refer to
+ * section A.4.1 of http://arxiv.org/abs/1405.2280.
+ */
 double coupling_d_plus (int l, int m1, int m) {
  
   return sqrt( (l-1.)*(l+3.) )/(l+1.) * coupling_c_plus(l,m1,m);
@@ -844,7 +877,9 @@ double coupling_d_plus (int l, int m1, int m) {
 
 
 /**
- * Compute the Gaunt-like coupling coefficient:
+ * Compute the Gaunt-like coupling coefficients.
+ *
+ * These coefficients are quadratic in the 3j-symbols:
  * 
  *    (-1)^m3 * (2*l3+1) * ( l1  l2  l3 ) * (  l1   l2      l3  )
  *                         ( 0    F  -F )   (  m1   m2  -m1-m2  )
@@ -852,21 +887,29 @@ double coupling_d_plus (int l, int m1, int m) {
  *     = ( l1  l2 | l3 ) * (  l1   l2  |    l3  )
  *       ( 0    F |  F )   (  m1   m2  | m1+m2  )
  *
- * for all allowed values of l1 and m2, with m3=-m1-m2, where (   ) denotes
- * a 3j symbol and (   | ) a Clebsch-Gordan coefficient. The result is stored in
- * 'result' as result[l1-l1_min][m2-m2_min], which should be preallocated, where
+ * and will be computed by this function for all allowed values of l1 and m2.
+ * The result is stored in as result[l1-l1_min][m2-m2_min]; the result array
+ * should be preallocated. , where
  * l1_min and m2_min are outputs of this function.
+
+ *
+ * In the above formula
+ * - m3=-m1-m2
+ * - (   ) denotes a 3j symbol
+ * - (   | ) denotes a Clebsch-Gordan coefficient
  *
  */
 int coupling_general (
   int l2, int l3, int m1, int F,
-  double * three_j_000, /* should be preallocated with at least l2_max doubles */
-  int three_j_000_size,
-  double * three_j_mmm, /* should be preallocated with at least m1_max doubles */
-  int three_j_mmm_size,
-  int * l1_min, int * l1_max,
-  int * m2_min, int * m2_max,
-  double ** result,     /* should be preallocated with at least l2_max*m1_max doubles */
+  double * three_j_000, /**< output, should be preallocated with at least l2_max doubles */
+  int three_j_000_size, /**< input */
+  double * three_j_mmm, /**< output, should be preallocated with at least m1_max doubles */
+  int three_j_mmm_size, /**< input */
+  int * l1_min, /**< output */
+  int * l1_max, /**< output */
+  int * m2_min, /**< output */
+  int * m2_max, /**< output */
+  double ** result,  /**< output, should be preallocated with at least l2_max*m1_max doubles */
   ErrorMsg errmsg 
   )
 {
