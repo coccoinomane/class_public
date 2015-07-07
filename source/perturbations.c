@@ -8614,6 +8614,7 @@ int perturb_song_indices_of_perturbs(
     if (_scalars_) {
 
       /* - Synchronous gauge metric variables */
+
       if (ppt->gauge == synchronous) {        
         ppt->index_qs_eta = index_type++;
         ppt->index_qs_eta_prime = index_type++;
@@ -8626,6 +8627,7 @@ int perturb_song_indices_of_perturbs(
       }
       
       /* - Newtonian gauge metric variables */
+
       if (ppt->gauge == newtonian) {
         ppt->index_qs_psi = index_type++;
         ppt->index_qs_phi = index_type++;
@@ -8634,7 +8636,9 @@ int perturb_song_indices_of_perturbs(
       }
       
       /* - Baryons */
+
       ppt->index_qs_delta_b = index_type++;
+      ppt->index_qs_delta_b_prime = index_type++;
       ppt->index_qs_theta_b = index_type++;
       ppt->index_qs_v_b = index_type++;
       ppt->index_qs_v_b_prime = index_type++;
@@ -8644,6 +8648,7 @@ int perturb_song_indices_of_perturbs(
         ppt->index_qs_delta_Xe = index_type++; /* perturbed fraction of free electrons */ 
       
       /* - Cold dark matter */
+
       if (pba->has_cdm == _TRUE_) {
         ppt->index_qs_delta_cdm = index_type++;
         if (ppt->gauge != synchronous) {
@@ -8656,8 +8661,7 @@ int perturb_song_indices_of_perturbs(
           ppt->index_qs_dipole_cdm = index_type++;
         }
       }
-      
-      
+            
       /* - Photons */
 
       /* CLASS evolves the energy density, velocity and shear rather than the monopole, dipole and quadrupole.
@@ -9085,6 +9089,7 @@ int perturb_song_sources(
     // ------------------------------------------------------------
 
     _set_quadsource_ (ppt->index_qs_delta_b, y[ppw->pv->index_pt_delta_b], "delta_b");
+    _set_quadsource_ (ppt->index_qs_delta_b_prime, dy[ppw->pv->index_pt_delta_b], "delta_b_prime");
     _set_quadsource_ (ppt->index_qs_theta_b, y[ppw->pv->index_pt_theta_b], "theta_b");
     _set_quadsource_ (ppt->index_qs_v_b, -y[ppw->pv->index_pt_theta_b]/k/k, "v_b");
     _set_quadsource_ (ppt->index_qs_v_b_prime, -dy[ppw->pv->index_pt_theta_b]/k/k, "v_b_prime");

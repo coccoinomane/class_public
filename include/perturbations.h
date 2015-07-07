@@ -473,6 +473,7 @@ struct perturbs
 
   /* Baryons */
   int index_qs_delta_b;               /**< index for the baryon density contrast */
+  int index_qs_delta_b_prime;         /**< index for the baryon density contrast */
   int index_qs_theta_b;               /**< index for the baryon velocity divergence */
   int index_qs_v_b;                   /**< index for the baryon velocity */
   int index_qs_v_b_prime;             /**< index for the tau derivative of the baryon velocity */
