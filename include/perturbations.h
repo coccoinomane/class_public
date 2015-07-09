@@ -484,6 +484,7 @@ struct perturb_workspace
   double vector_source_v;
 
   double tca_shear_g; /**< photon shear in tight-coupling approximation */
+  double tca_theta_g; /**< photon velocity in tight-coupling approximation */
   double tca_slip;    /**< photon-baryon slip in tight-coupling approximation */
   double rsa_delta_g; /**< photon density in radiation streaming approximation */
   double rsa_theta_g; /**< photon velocity in radiation streaming approximation */
@@ -784,6 +785,17 @@ extern "C" {
 
   int perturb_prepare_output(struct background * pba,
                              struct perturbs * ppt);
+
+  int perturbs_tca_pitrou (
+    double k,
+    double R,
+    double a_prime_over_a,
+    double theta_b,
+    double delta_b,
+    double tau_c,
+    double * slip,
+    double * theta_g);
+
 
 #ifdef __cplusplus
 }

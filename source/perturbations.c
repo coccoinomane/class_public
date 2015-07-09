@@ -2977,7 +2977,13 @@ int perturb_vector_init(
       ppv->l_max_g = ppr->l_max_g;
 
       class_define_index(ppv->index_pt_delta_g,_TRUE_,index_pt,1); /* photon density */
-      class_define_index(ppv->index_pt_theta_g,_TRUE_,index_pt,1); /* photon velocity */
+
+      /* In Pitrou's scheme for TCA (http://arxiv.org/abs/1012.0546), the photon velocity
+      is immediately obtained from the baryon velocity, without the need to evolve
+      a separate equation for theta_g. */
+      if (!((ppw->approx[ppw->index_ap_tca] == (int)tca_on)
+        && (ppr->tight_coupling_approximation == (int)first_order_PITROU)))
+        class_define_index(ppv->index_pt_theta_g,_TRUE_,index_pt,1); /* photon velocity */
 
       if (ppw->approx[ppw->index_ap_tca] == (int)tca_off) {
 
@@ -3457,8 +3463,11 @@ int perturb_vector_init(
         ppv->y[ppv->index_pt_delta_g] =
           ppw->pv->y[ppw->pv->index_pt_delta_g];
 
-        ppv->y[ppv->index_pt_theta_g] =
-          ppw->pv->y[ppw->pv->index_pt_theta_g];
+        if (ppr->tight_coupling_approximation != (int)first_order_PITROU)
+          ppv->y[ppv->index_pt_theta_g] =
+            ppw->pv->y[ppw->pv->index_pt_theta_g];
+        else 
+          ppv->y[ppv->index_pt_theta_g] = ppw->tca_theta_g;
 
         /* tight-coupling approximation for shear_g (previously
            computed in perturb_derivs: perturb_derivs is always
@@ -3976,7 +3985,7 @@ int perturb_initial_conditions(struct precision * ppr,
   /** - declare local variables */
 
   double a,a_prime_over_a;
-  double delta_ur=0.,theta_ur=0.,shear_ur=0.,l3_ur=0.,eta=0.,delta_cdm=0.,alpha, alpha_prime;
+  double theta_g=0.,delta_ur=0.,theta_ur=0.,shear_ur=0.,l3_ur=0.,eta=0.,delta_cdm=0.,alpha, alpha_prime;
   double delta_dr=0;
   double q,epsilon,k2;
   int index_q,n_ncdm,idx;
@@ -4110,12 +4119,16 @@ int perturb_initial_conditions(struct precision * ppr,
         * ppr->curvature_ini * s2_squared;
 
       /* photon velocity */
-      ppw->pv->y[ppw->pv->index_pt_theta_g] = - k*ktau_three/36. * (1.-3.*(1.+5.*fracb-fracnu)/20./(1.-fracnu)*om*tau)
-        * ppr->curvature_ini * s2_squared;
+      theta_g = - k*ktau_three/36. * (1.-3.*(1.+5.*fracb-fracnu)/20./(1.-fracnu)*om*tau)
+          * ppr->curvature_ini * s2_squared;
+      if (ppr->tight_coupling_approximation != (int)first_order_PITROU)
+        ppw->pv->y[ppw->pv->index_pt_theta_g] = theta_g;
+      else
+        ppw->tca_theta_g = theta_g;
 
       /* tighly-coupled baryons */
       ppw->pv->y[ppw->pv->index_pt_delta_b] = 3./4.*ppw->pv->y[ppw->pv->index_pt_delta_g]; /* baryon density */
-      ppw->pv->y[ppw->pv->index_pt_theta_b] = ppw->pv->y[ppw->pv->index_pt_theta_g]; /* baryon velocity */
+      ppw->pv->y[ppw->pv->index_pt_theta_b] = theta_g; /* baryon velocity */
 
       if (pba->has_cdm == _TRUE_) {
         ppw->pv->y[ppw->pv->index_pt_delta_cdm] = 3./4.*ppw->pv->y[ppw->pv->index_pt_delta_g]; /* cdm density */
@@ -4345,14 +4358,18 @@ int perturb_initial_conditions(struct precision * ppr,
 
       delta_tot = (fracg*ppw->pv->y[ppw->pv->index_pt_delta_g]+fracnu*delta_ur+rho_m_over_rho_r*(fracb*ppw->pv->y[ppw->pv->index_pt_delta_b]+fraccdm*delta_cdm))/(1.+rho_m_over_rho_r);
 
-      velocity_tot = ((4./3.)*(fracg*ppw->pv->y[ppw->pv->index_pt_theta_g]+fracnu*theta_ur) + rho_m_over_rho_r*fracb*ppw->pv->y[ppw->pv->index_pt_theta_b])/(1.+rho_m_over_rho_r);
+      velocity_tot = ((4./3.)*(fracg*theta_g+fracnu*theta_ur) + rho_m_over_rho_r*fracb*ppw->pv->y[ppw->pv->index_pt_theta_b])/(1.+rho_m_over_rho_r);
 
       alpha = (eta + 3./2.*a_prime_over_a*a_prime_over_a/k/k/s2_squared*(delta_tot + 3.*a_prime_over_a/k/k*velocity_tot))/a_prime_over_a;
 
       ppw->pv->y[ppw->pv->index_pt_phi] = eta - a_prime_over_a*alpha;
 
       ppw->pv->y[ppw->pv->index_pt_delta_g] -= 4.*a_prime_over_a*alpha;
-      ppw->pv->y[ppw->pv->index_pt_theta_g] += k*k*alpha;
+      theta_g += k*k*alpha;
+      if (ppr->tight_coupling_approximation != (int)first_order_PITROU)
+        ppw->pv->y[ppw->pv->index_pt_theta_g] = theta_g;
+      else
+        ppw->tca_theta_g = theta_g;
 
       ppw->pv->y[ppw->pv->index_pt_delta_b] -= 3.*a_prime_over_a*alpha;
       ppw->pv->y[ppw->pv->index_pt_theta_b] += k*k*alpha;
@@ -5104,8 +5121,35 @@ int perturb_einstein(
       /* eventually, infer first-order tight-coupling approximation for photon
          shear, then correct the total shear */
       if (ppw->approx[ppw->index_ap_tca] == (int)tca_on) {
+        
+        double theta_g;
+        
+        if (ppr->tight_coupling_approximation == (int)first_order_PITROU) {
 
-        shear_g = 16./45./ppw->pvecthermo[pth->index_th_dkappa]*(y[ppw->pv->index_pt_theta_g]+k2*ppw->pvecmetric[ppw->index_mt_alpha]);
+          /* In Pitrou's scheme the photon velocity is not evolved, but
+          computed as theta_b minus the velocity slip. */
+          double slip;
+          double R = 4/3.*ppw->pvecback[pba->index_bg_rho_g]/ppw->pvecback[pba->index_bg_rho_b];
+          double tau_c = 1/ppw->pvecthermo[pth->index_th_dkappa];
+          double a_prime_over_a = ppw->pvecback[pba->index_bg_a] * ppw->pvecback[pba->index_bg_H];
+          class_call (perturbs_tca_pitrou(
+                        k,
+                        R,
+                        a_prime_over_a,
+                        y[ppw->pv->index_pt_theta_b],
+                        y[ppw->pv->index_pt_delta_b],
+                        tau_c,
+                        &slip,
+                        &theta_g),
+            ppt->error_message,
+            ppt->error_message);
+            
+        }
+        else {
+          theta_g = y[ppw->pv->index_pt_theta_g];
+        }
+
+        shear_g = 16./45./ppw->pvecthermo[pth->index_th_dkappa]*(theta_g+k2*ppw->pvecmetric[ppw->index_mt_alpha]);
 
         ppw->rho_plus_p_shear += 4./3.*ppw->pvecback[pba->index_bg_rho_g]*shear_g;
 
@@ -5252,11 +5296,34 @@ int perturb_total_stress_energy(
       /** (a.1.3) tight coupling approximation */
 
       delta_g = y[ppw->pv->index_pt_delta_g];
-      theta_g = y[ppw->pv->index_pt_theta_g];
+
+      if (ppr->tight_coupling_approximation == (int)first_order_PITROU) {
+      
+        /* In Pitrou's scheme the photon velocity is not evolved, but
+        computed as theta_b minus the velocity slip. */
+        double slip;
+        double R = 4/3.*ppw->pvecback[pba->index_bg_rho_g]/ppw->pvecback[pba->index_bg_rho_b];
+        double tau_c = 1/ppw->pvecthermo[pth->index_th_dkappa];
+        double a_prime_over_a = ppw->pvecback[pba->index_bg_a] * ppw->pvecback[pba->index_bg_H];
+        class_call (perturbs_tca_pitrou(
+                      k,
+                      R,
+                      a_prime_over_a,
+                      y[ppw->pv->index_pt_theta_b],
+                      y[ppw->pv->index_pt_delta_b],
+                      tau_c,
+                      &slip,
+                      &theta_g),
+          ppt->error_message,
+          ppt->error_message);
+      }
+      else {
+        theta_g = y[ppw->pv->index_pt_theta_g];
+      }
 
       /* first-order tight-coupling approximation for photon shear */
       if (ppt->gauge == newtonian) {
-        shear_g = 16./45./ppw->pvecthermo[pth->index_th_dkappa]*y[ppw->pv->index_pt_theta_g];
+        shear_g = 16./45./ppw->pvecthermo[pth->index_th_dkappa]*theta_g;
       }
       else {
         shear_g = 0.; /* in the synchronous gauge, the expression of
@@ -5770,6 +5837,18 @@ int perturb_sources(
                                 ppw),
                ppt->error_message,
                error_message);
+
+    /** - get quantities related to the tight coupling approximation (photon shear, velocity slip).
+    Must be after perturb_einstein(). */
+
+    if (ppw->approx[ppw->index_ap_tca] == (int)tca_on) {
+      class_call(perturb_tca_slip_and_shear(y,
+                                            parameters_and_workspace,
+                                            error_message),
+                 error_message,
+                 error_message);
+    }
+
 
     /** - compute quantities depending on approximation schemes */
 
@@ -6651,6 +6730,7 @@ int perturb_derivs(double tau,
              pth->error_message,
              error_message);
 
+
   /** get metric perturbations with perturb_einstein() */
   class_call(perturb_einstein(ppr,
                               pba,
@@ -6663,6 +6743,16 @@ int perturb_derivs(double tau,
                               ppw),
              ppt->error_message,
              error_message);
+
+
+  /** get quantities related to the tight coupling approximation (photon shear, velocity slip) */
+  if ((ppw->approx[ppw->index_ap_tca] == (int)tca_on) && (_scalars_))
+    class_call(perturb_tca_slip_and_shear(y,
+                                          pppaw,
+                                          error_message),
+               error_message,
+               error_message);
+
 
   /** - compute related background quantities */
 
@@ -6692,7 +6782,13 @@ int perturb_derivs(double tau,
     /** (a) define short-cut notations for the scalar perturbations */
     if (ppw->approx[ppw->index_ap_rsa] == (int)rsa_off) {
       delta_g = y[pv->index_pt_delta_g];
-      theta_g = y[pv->index_pt_theta_g];
+
+      /* In Pitrou's scheme, theta_g is immediately obtained from theta_b */
+      if ((ppw->approx[ppw->index_ap_tca] == (int)tca_on)
+        &&(ppr->tight_coupling_approximation == (int)first_order_PITROU))
+          theta_g = ppw->tca_theta_g;
+      else
+        theta_g = y[pv->index_pt_theta_g];
     }
     delta_b = y[pv->index_pt_delta_b];
     theta_b = y[pv->index_pt_theta_b];
@@ -6809,11 +6905,6 @@ int perturb_derivs(double tau,
 
     else {
 
-      /* with tca */
-      class_call(perturb_tca_slip_and_shear(y,pppaw,error_message),
-                 error_message,
-                 error_message);
-
       /** perturbed recombination has an impact **/
       dy[pv->index_pt_theta_b] =
         (-a_prime_over_a*theta_b
@@ -6919,13 +7010,14 @@ int perturb_derivs(double tau,
 
       else {
 
-        /** ----> in that case, only need photon velocity */
+        /** ----> in that case, only need photon velocity, unless we use
+        Pitrou's scheme */
 
-
-        /** perturbed recombination has an impact **/
-        dy[pv->index_pt_theta_g] =
-          -(dy[pv->index_pt_theta_b]+a_prime_over_a*theta_b-cb2*k2*(delta_b+delta_temp))/R
-          +k2*(0.25*delta_g-s2_squared*ppw->tca_shear_g)+(1.+R)/R*metric_euler;
+        if (ppr->tight_coupling_approximation != (int)first_order_PITROU)
+          /** perturbed recombination has an impact **/
+          dy[pv->index_pt_theta_g] =
+            -(dy[pv->index_pt_theta_b]+a_prime_over_a*theta_b-cb2*k2*(delta_b+delta_temp))/R
+            +k2*(0.25*delta_g-s2_squared*ppw->tca_shear_g)+(1.+R)/R*metric_euler;
       }
     }
 
@@ -7663,7 +7755,8 @@ int perturb_tca_slip_and_shear(double * y,
   /** (a) define short-cut notations for the scalar perturbations */
   if (ppw->approx[ppw->index_ap_rsa] == (int)rsa_off) {
     delta_g = y[pv->index_pt_delta_g];
-    theta_g = y[pv->index_pt_theta_g];
+    if (ppr->tight_coupling_approximation != (int)first_order_PITROU)
+      theta_g = y[pv->index_pt_theta_g];
   }
   delta_b = y[pv->index_pt_delta_b];
   theta_b = y[pv->index_pt_theta_b];
@@ -7769,30 +7862,33 @@ int perturb_tca_slip_and_shear(double * y,
       ppt->error_message,
       "the PITROU scheme for tight-coupling is implemented only for Newtonian gauge");
 
+    class_test (ppt->has_perturbed_recombination == _TRUE_,
+      ppt->error_message,
+      "the PITROU scheme for tight-coupling does not support perturbed recombination yet'");
+
     class_test ((ppt->has_tensors == _TRUE_) || (ppt->has_vectors == _TRUE_),
       ppt->error_message,
       "not implemented vector or tensor modes for PITROU tight-coupling scheme");
 
-    double R_pitrou = 1/R;
-    double Hc = a_prime_over_a;
-    double w_plasma = 1/(3+4*R_pitrou);
-    
-    /* The dimensionless velocity v used in Pitrou 2011 is related the the velocity
-    divergence theta by a -k factor. Note that in the paper there is a typo just above
-    Sec. 2: v_s = \hat{v}_s*k and not v_s = hat{v}_s/k */
-    double v_b = -theta_b/k;
+    class_test ((ppt->has_ad==_FALSE_) || (ppt->ic_size[ppt->index_md_scalars]>1),
+      ppt->error_message,
+      "the PITROU scheme for tight-coupling is implemented only for Newtonian gauge");
 
-    /* We use the TCA0 relations delta_plasma=(1+w_plasma)*delta_b and v_plasma=v_b, because
-    both quantities are multiplied by tau_c in the slip */
-    double v_plasma = v_b;
-    double delta_plasma = (1+w_plasma)*(delta_b);
-
-    /* Compute the dimentionless velocity slip, defined as V = v_b - v_g, multiplied
-    by kappa_dot. This is V as in eq. 13 of Pitrou 2011 at first order in TCA, times
-    kappa_dot. */
-    slip = -R_pitrou/(1+R_pitrou) *
-      (Hc * v_plasma - k * delta_plasma/(3*(1+w_plasma)));
+    /* Compute the value of the velocity slip kappa_dot*(v_b-v_g) and 
+    of the velocity divergence theta_g=-k*v_g, where v_g = v_b - slip/kappa_dot */
+    class_call (perturbs_tca_pitrou(
+                  k,
+                  R,
+                  a_prime_over_a,
+                  theta_b,
+                  delta_b,
+                  tau_c,
+                  &slip,
+                  &theta_g),
+      ppt->error_message,
+      ppt->error_message);
   }
+
 
   /** -----> intermediate quantities for 2nd order tca: shear_g at first order in tight-coupling */
   shear_g=16./45.*tau_c*(theta_g+metric_shear);
@@ -7948,6 +8044,7 @@ int perturb_tca_slip_and_shear(double * y,
 
   ppw->tca_shear_g = shear_g;
   ppw->tca_slip = slip;
+  ppw->tca_theta_g = theta_g;
 
 
   return _SUCCESS_;
@@ -8068,3 +8165,62 @@ int perturb_rsa_delta_and_theta(
   return _SUCCESS_;
 
 }
+
+/**
+ * Compute the velocity slip and photon velocity in the tight coupling scheme
+ * by Pitrou 2011 (http://arxiv.org/abs/1012.0546).
+ *
+ * We take the velocity slip V from eq. 13 and compute the photon velocity as
+ * v_g = v_b - V. We output the slip V times the interaction rate kappa_dot
+ * and the photon velocity divergence theta_g = -k*v_g.
+ *
+ * All quantities outputted by this function are first order in the tight 
+ * coupling approximation, that is, they are O(tau_c) where tau_c=1/kappa_dot.
+ */
+
+int perturbs_tca_pitrou (
+                         double k,
+                         double R,
+                         double a_prime_over_a,
+                         double theta_b,
+                         double delta_b,
+                         double tau_c,
+                         double * slip, /**< output, velocity slip V=v_b-v_g times kappa_dot */
+                         double * theta_g  /**< output, velocity divergence for the photons */
+                        )
+{
+  
+  double R_pitrou = 1/R;
+  double Hc = a_prime_over_a;
+  double w_plasma = 1/(3+4*R_pitrou);
+  
+  /* The dimensionless velocity v used in Pitrou 2011 is related the the velocity
+  divergence theta by a -k factor. Note that in the paper there is a typo just above
+  Sec. 2: v_s = \hat{v}_s*k and not v_s = hat{v}_s/k */
+  double v_b = -theta_b/k;
+
+  /* We use the TCA0 relations delta_plasma=(1+w_plasma)*delta_b and v_plasma=v_b, because
+  both quantities are multiplied by tau_c in the slip */
+  double v_plasma = v_b;
+  double delta_plasma = (1+w_plasma)*(delta_b);
+
+  /* Compute the dimensionless velocity slip, defined as V = v_b - v_g, multiplied
+  by kappa_dot. This is V as in eq. 13 of Pitrou 2011 at first order in TCA, times
+  kappa_dot. */
+  *slip = -R_pitrou/(1+R_pitrou) *
+    (Hc * v_plasma - k * delta_plasma/(3*(1+w_plasma)));
+  
+  /* In Pitrou's scheme, the slip V is the difference in the velocities, while
+  using the other TCA schemes in CLASS, the slip is the difference in the time
+  derivatives of the velocities. This means that in Pitrou's scheme we can
+  avoid evolving the photon velocity as it is directly related to the baryon
+  one by v_g = v_b - V. */
+  double V = tau_c*(*slip);
+  double v_g = v_b - V;
+  *theta_g = -k * v_g; /* this line is necessary */
+  
+  return _SUCCESS_;
+  
+}
+
+
