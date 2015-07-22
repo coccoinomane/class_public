@@ -93,7 +93,9 @@ int bispectra_init (
 {
 
   /* Check whether we need to compute bispectra at all */  
-  if (pbi->has_bispectra == _FALSE_) {
+  if (ppt->has_bispectra == _FALSE_) {
+
+    pbi->has_bispectra = _FALSE_;
 
     printf_log_if (pbi->bispectra_verbose, 0,
       "No bispectra requested. Bispectra module skipped.\n");
@@ -103,6 +105,9 @@ int bispectra_init (
     return _SUCCESS_;
   }
   else {
+    
+    pbi->has_bispectra = _TRUE_;
+    
     printf_log_if (pbi->bispectra_verbose, 0,
       "Computing bispectra.\n");
   }

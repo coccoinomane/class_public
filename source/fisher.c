@@ -24,7 +24,9 @@ int fisher_init (
 
 
   /* Check whether we need to compute spectra at all */  
-  if (pfi->has_fisher == _FALSE_) {
+  if ((pbi->has_bispectra == _FALSE_) || (pfi->has_fisher == _FALSE_)) {
+  
+    pfi->has_fisher = _FALSE_;
   
     printf_log_if (pfi->fisher_verbose, 0, 
       "No forecasts requested. Fisher module skipped.\n");
@@ -832,8 +834,8 @@ int fisher_indices (
   if (pfi->first_non_analytical_index_ft == pfi->ft_size)
     pfi->has_only_analytical_bispectra = _TRUE_;
   
-  if ((pfi->bispectra_interpolation == mesh_interpolation_3D)
-  || (pfi->bispectra_interpolation == mesh_interpolation_2D)
+  if (((pfi->bispectra_interpolation == mesh_interpolation_3D)
+  || (pfi->bispectra_interpolation == mesh_interpolation_2D))
   && (pfi->has_only_analytical_bispectra == _FALSE_)) {
   
     /* TODO: generalize this, or modify the mesh_sort/mesh_int functions */

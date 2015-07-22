@@ -73,9 +73,21 @@ int bessel_init(
     struct thermo * pth,
 		struct transfers * ptr,
 		struct bessels * pbs
-		) {
+		)
+{
 
-  /** Summary: */
+  if ((pbs->l_max==0) || (ptr->has_cls==_FALSE_)) {
+
+    if (pbs->bessels_verbose > 0)
+      printf_log("Bessel module skipped.\n");
+
+    return _SUCCESS_;
+  }
+  else {
+    printf_log_if (pbs->bessels_verbose, 0, 
+      "Computing bessels\n");
+  }
+
 
   /** - define local variables */
 
@@ -83,9 +95,6 @@ int bessel_init(
   int index_l;
   int num_j;
   int abort;
-
-  printf_log_if (pbs->bessels_verbose, 0, 
-    "Computing bessels\n");
 
   /** - update the value of pbs->x_max of j_l(x) */
   

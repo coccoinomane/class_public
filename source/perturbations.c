@@ -1253,7 +1253,8 @@ int perturb_timesampling_for_sources(
 
 #ifdef WITH_SONG_SUPPORT
 
-  /* Uncomment the following lines in order to use a custom time sampling */
+  /* Uncomment the following lines in order to use a custom time sampling for the line
+  of sight sources */
   // double tau_end = 1000;
   // int index_tau_end = 0;
   // while (ppt->tau_sampling[index_tau_end] < tau_end)
@@ -1266,10 +1267,10 @@ int perturb_timesampling_for_sources(
   // printf("\n");
   
   /* In principle, we should now determine the time sampling for the array ppt->quadsources,
-  containing the first-order quantities needed to solve the second-order system. However,
-  the time-sampling for the quadratic sources (ppt->tau_sampling_quadsources) was computed
-  by the function in perturb2_timesampling_for_sources() in the perturbations2.c module.
-  If we are here, perturb2_timesampling_for_sources() has already been called and the
+  containing the first-order quantities needed to solve the second-order system in SONG.
+  However, the time-sampling for the quadratic sources (ppt->tau_sampling_quadsources) was
+  computed by the function in perturb2_timesampling_for_sources() in the perturbations2.c
+  module. If we are here, perturb2_timesampling_for_sources() has already been called and the
   time-sampling has already been determined. Therefore, what is left to do is to allocate
   the ppt->quadsources array based on the size of ppt->tau_sampling_quadsources. */
 
@@ -2113,11 +2114,6 @@ int perturb_workspace_init(
   if (_scalars_) {
 
     ppw->approx[ppw->index_ap_tca]=(int)tca_on;
-#ifdef WITH_BISPECTRA
-    /* TODO: why does SONG have this line? */
-    /* By default, assume TCA is off (this does not have any effect) */
-    // ppw->approx[ppw->index_ap_tca]=(int)tca_off;
-#endif // WITH_BISPECTRA
     ppw->approx[ppw->index_ap_rsa]=(int)rsa_off;
     if (pba->has_ur == _TRUE_) {
       ppw->approx[ppw->index_ap_ufa]=(int)ufa_off;
@@ -2130,11 +2126,6 @@ int perturb_workspace_init(
   if (_tensors_) {
 
     ppw->approx[ppw->index_ap_tca]=(int)tca_on;
-#ifdef WITH_BISPECTRA
-    /* TODO: why does SONG have this line? */
-    /* By default, assume TCA is off (this does not have any effect) */
-    // ppw->approx[ppw->index_ap_tca]=(int)tca_off;
-#endif // WITH_BISPECTRA
     ppw->approx[ppw->index_ap_rsa]=(int)rsa_off;
   }
 
@@ -8577,14 +8568,21 @@ int perturb_rsa_delta_and_theta(
 /**
  * Determine which perturbations will be needed by SONG.
  * 
- * In order to solve the Einstein-Boltzmann system at second order, SONG requres many perturbations
- * from this module. Here we determine which ones. We do so by defining a series of indices labelled
- * index_qs_XXX, where qs stands for quadratic sources and XXX is the name of the perturbation; for
- * example index_qs_phi is the index for the curvature potential phi.
+ * In order to solve the Einstein-Boltzmann system at second order, SONG requres many
+ * perturbations from this module. Here we determine which ones. We do so by defining
+ * a series of indices labelled index_qs_XXX, where qs stands for quadratic sources
+ * and XXX is the name of the perturbation; for example index_qs_phi is the index for
+ * the curvature potential phi.
  * 
- * The perturbations chosen in this function will be later stored in the array ppt->quadsources,
- * which is indexed in the same way as ppt->sources; here we also allocate its first two levels.
+ * The perturbations chosen in this function will be later stored in the array
+ * ppt->quadsources, which is indexed in the same way as ppt->sources; here we also
+ * allocate its first two levels.
  *
+ * Note that CLASS evolves the energy density, velocity and shear while SONG evolves
+ * the monopole, dipole and quadrupole. In this function we shall keep both the three
+ * fluid moments and the full hierarchy of kinetic moments, even though the former can
+ * be easily obtained from the latter (see for example eq. 4.50 of
+ * http://arxiv.org/abs/1405.2280).
  */
 int perturb_song_indices_of_perturbs(
         struct precision * ppr,
@@ -8605,15 +8603,50 @@ int perturb_song_indices_of_perturbs(
   /* Allocate memory for the labels for the quadsource types */
   class_alloc(ppt->qs_labels, ppt->md_size*sizeof(char **), ppt->error_message);
 
-  /* Loop over modes.  Not really needed, because for now we set the vector and tensor modes at first-order
-  to be vanishing. */
+  /* Loop over modes.  Not really needed, because for now we set the vector and tensor modes
+  at first-order to be vanishing. */
   for (int index_md = 0; index_md < ppt->md_size; index_md++) {
 
     int index_type = 0;
 
     if (_scalars_) {
 
-      /* - Synchronous gauge metric variables */
+      /* Densities and velocities of the four species. These sources are needed for the tight
+      coupling approximation at second order and as such need to be always available for
+      interpolation. This is why we put them in the first group of sources. */
+
+      ppt->index_qs_delta_g = index_type++;
+      ppt->index_qs_v_g = index_type++;
+
+      ppt->index_qs_delta_b = index_type++;
+      ppt->index_qs_delta_b_prime = index_type++;
+      ppt->index_qs_v_b = index_type++;
+      ppt->index_qs_v_b_prime = index_type++;
+
+      if (pba->has_cdm == _TRUE_) {
+        ppt->index_qs_delta_cdm = index_type++;
+        if (ppt->gauge != synchronous) {
+          ppt->index_qs_v_cdm = index_type++;
+          ppt->index_qs_v_cdm_prime = index_type++;
+        }
+      }
+      
+      if (pba->has_ur == _TRUE_) {
+        ppt->index_qs_delta_ur = index_type++;
+        ppt->index_qs_v_ur = index_type++;
+      }
+
+      ppt->qs_size_short = index_type;
+
+
+      /* More fluid variables, plus all metric variables. */
+
+      if (ppt->gauge == newtonian) {
+        ppt->index_qs_psi = index_type++;
+        ppt->index_qs_phi = index_type++;
+        ppt->index_qs_phi_prime = index_type++;
+        ppt->index_qs_psi_prime = index_type++;
+      }
 
       if (ppt->gauge == synchronous) {        
         ppt->index_qs_eta = index_type++;
@@ -8622,69 +8655,41 @@ int perturb_song_indices_of_perturbs(
         ppt->index_qs_h = index_type++;
         ppt->index_qs_h_prime = index_type++;
         ppt->index_qs_h_prime_prime = index_type++;
-        ppt->index_qs_phi = index_type++; /* Bardeen potential, will use gauge transformation */
-        ppt->index_qs_psi = index_type++; /* Bardeen potential, will use gauge transformation */                                
-      }
-      
-      /* - Newtonian gauge metric variables */
-
-      if (ppt->gauge == newtonian) {
-        ppt->index_qs_psi = index_type++;
         ppt->index_qs_phi = index_type++;
-        ppt->index_qs_phi_prime = index_type++;
-        ppt->index_qs_psi_prime = index_type++;
+        ppt->index_qs_psi = index_type++;
       }
       
-      /* - Baryons */
-
-      ppt->index_qs_delta_b = index_type++;
-      ppt->index_qs_delta_b_prime = index_type++;
-      ppt->index_qs_theta_b = index_type++;
-      ppt->index_qs_v_b = index_type++;
-      ppt->index_qs_v_b_prime = index_type++;
-      ppt->index_qs_monopole_b = index_type++;
-      ppt->index_qs_dipole_b = index_type++;      
-      if (ppt->has_perturbed_recombination_stz)
-        ppt->index_qs_delta_Xe = index_type++; /* perturbed fraction of free electrons */ 
-      
-      /* - Cold dark matter */
-
-      if (pba->has_cdm == _TRUE_) {
-        ppt->index_qs_delta_cdm = index_type++;
-        if (ppt->gauge != synchronous) {
-          ppt->index_qs_theta_cdm = index_type++;
-          ppt->index_qs_v_cdm = index_type++;
-          ppt->index_qs_v_cdm_prime = index_type++;
-        }
-        ppt->index_qs_monopole_cdm = index_type++;
-        if (ppt->gauge != synchronous) {
-          ppt->index_qs_dipole_cdm = index_type++;
-        }
-      }
-            
-      /* - Photons */
-
-      /* CLASS evolves the energy density, velocity and shear rather than the monopole, dipole and quadrupole.
-      We shall keep both the three fluid moments and the full hierarchy of kinetic moments, even though the
-      former can be easily obtained from the latter (see for example eq. 4.50 of http://arxiv.org/abs/1405.2280). */
-      ppt->index_qs_delta_g = index_type++;
       ppt->index_qs_theta_g = index_type++;
-      ppt->index_qs_v_g = index_type++;
       ppt->index_qs_shear_g = index_type++;
+      
+      ppt->index_qs_theta_b = index_type++;
+      if (ppt->has_perturbed_recombination_stz)
+        ppt->index_qs_delta_Xe = index_type++;
 
-      /* The photon temperature multipoles start from ppt->index_qs_monopole_g 
-      and there are l_max_g of them */
-      /* TODO: do we really need all of them? We could just store them up to l_max_quadsources... */
-      ppt->index_qs_monopole_g = index_type++;
-      index_type += ppr->l_max_g;
+      if (pba->has_cdm == _TRUE_)
+        if (ppt->gauge != synchronous)
+          ppt->index_qs_theta_cdm = index_type++;
+            
+      if (pba->has_ur == _TRUE_) {
+        ppt->index_qs_theta_ur = index_type++;
+        ppt->index_qs_shear_ur = index_type++;
+      }
 
-      /* Temperature collision term */
+      ppt->qs_size_normal = index_type;
+
+
+      /* Full Boltzmann hierarchies of the four species. SONG needs these to build the sources
+      in the second-order differential system. They are only interpolated once by the 
+      function perturb2_quadratic_sources() and therefore they can be put in the last
+      group of sources. */
+
+      ppt->index_qs_monopole_g = index_type++; 
+      index_type += ppr->l_max_g; /* TODO: do we really need all of them? We could just
+                                  store them up to l_max_quadsources... */
+
       ppt->index_qs_monopole_collision_g = index_type++;
       index_type += ppr->l_max_g;
 
-      /* We store the photon polarization multipoles from index_qs_monopole_E to
-      index_qs_monopole_E+l_max_pol_g. Note that the l=0 and l=1 moments are going to be
-      identically zero as E-modes do not have a monopole or a dipole. */
       if ((ppt->has_perturbations2 == _TRUE_) && (ppt->has_polarization2 == _TRUE_)) {
         ppt->index_qs_monopole_E = index_type++;
         index_type += ppr->l_max_pol_g;
@@ -8693,18 +8698,17 @@ int perturb_song_indices_of_perturbs(
         index_type += ppr->l_max_pol_g;
       }
 
+      ppt->index_qs_monopole_b = index_type++;
+      ppt->index_qs_dipole_b = index_type++;      
 
-      /* - Neutrinos */
+      if (pba->has_cdm == _TRUE_) {
+        ppt->index_qs_monopole_cdm = index_type++;
+        if (ppt->gauge != synchronous) {
+          ppt->index_qs_dipole_cdm = index_type++;
+        }
+      }      
+
       if (pba->has_ur == _TRUE_) {
-
-        /* Fluid variables */
-        ppt->index_qs_delta_ur = index_type++;
-        ppt->index_qs_theta_ur = index_type++;
-        ppt->index_qs_v_ur = index_type++;
-        ppt->index_qs_shear_ur = index_type++;
-
-        /* The neutrino multipoles start from ppt->index_qs_monopole_g and there are
-        l_max_ur of them */
         ppt->index_qs_monopole_ur = index_type++;
         index_type += ppr->l_max_ur;
       }
@@ -9365,6 +9369,18 @@ int perturb_compute_psi_prime(
   * 
   * This function is just a wrapper that chooses whether to use linear or spline
   * interpolation according to the option ppr->quadsources_time_interpolation.
+  *
+  * In order to save time, perturb_song_sources_at_tau() can be called in three
+  * modes: short_info, normal_info, long_info (returning only essential
+  * quantities, or useful quantitites, or rarely useful
+  * quantities). Each line in the interpolation table is a vector which
+  * first few elements correspond to the short_info format; a larger
+  * fraction contribute to the normal format; and the full vector
+  * corresponds to the long format. The guideline is that short_info
+  * returns only geometric quantitites like a, H, H'; normal format
+  * returns quantities strictly needed at each step in the integration
+  * of perturbations; long_info returns quantitites needed only
+  * occasionally.
   */
 int perturb_song_sources_at_tau (
          struct precision * ppr,
@@ -9373,6 +9389,7 @@ int perturb_song_sources_at_tau (
          int index_ic, /**< initial condition index (adiabatic, isocurvature, ...)*/
          int index_k, /**< requested wavemode for the interpolation; points to an element of ppt->k[index_mode] */
          double tau, /**< requested time for the interpolation; must be in the same range of ppt->tau_sampling_quadsources */ 
+         int result_size, /**< how many columns to interpolate? */
          short intermode, /**< type of interpolation (either ppt->inter_closeby or ppt->inter_normal) */
 		     int * last_index, /**< last time index in interpolation table; only relevant if using ppt->inter_closeby */
          double * psource /**< output array indexed by ppt->index_qs_XXX */
@@ -9388,6 +9405,7 @@ int perturb_song_sources_at_tau (
                  index_ic,
                  index_k,
                  tau,
+                 result_size,
                  psource
                  ),
       ppt->error_message,
@@ -9403,6 +9421,7 @@ int perturb_song_sources_at_tau (
                  index_ic,
                  index_k,
                  tau,
+                 result_size,
                  intermode,
                  last_index,
                  psource
@@ -9426,6 +9445,7 @@ int perturb_song_sources_at_tau_linear (
         int index_ic, /**< initial condition index (adiabatic, isocurvature, ...)*/
         int index_k, /**< requested wavemode for the interpolation; points to an element of ppt->k[index_mode] */
         double tau, /**< requested time for the interpolation; must be in the same range of ppt->tau_sampling_quadsources */ 
+        int result_size, /**< how many columns to interpolate? */
         double * psource /**< output array indexed by ppt->index_qs_XXX */
         )
 {
@@ -9519,11 +9539,13 @@ int perturb_song_sources_at_tau_linear (
   int qs_size = ppt->qs_size[index_mode];
   
   /* Loop over types */
-  for (int index_type=0; index_type < qs_size; ++index_type) {
+  for (int index_type=0; index_type < result_size; ++index_type) {
 
     /* Values of the function at the nodes around tau */
-    double source_left = ppt->quadsources[index_mode][index_ic*qs_size + index_type][index_tau*ppt->k_size[index_mode] + index_k];
-    double source_right = ppt->quadsources[index_mode][index_ic*qs_size + index_type][(index_tau+1)*ppt->k_size[index_mode] + index_k];
+    double source_left = ppt->quadsources[index_mode][index_ic*qs_size + index_type]
+                                         [index_tau*ppt->k_size[index_mode] + index_k];
+    double source_right = ppt->quadsources[index_mode][index_ic*qs_size + index_type]
+                                          [(index_tau+1)*ppt->k_size[index_mode] + index_k];
     
     /* Finally, the linear interpolation */
     psource[index_type] = a*source_left + (1-a)*source_right;
@@ -9555,6 +9577,7 @@ int perturb_song_sources_at_tau_spline (
          int index_ic, /**< initial condition index (adiabatic, isocurvature, ...)*/
          int index_k, /**< requested wavemode for the interpolation; points to an element of ppt->k[index_mode] */
          double tau, /**< requested time for the interpolation; must be in the same range of ppt->tau_sampling_quadsources */ 
+         int result_size, /**< how many columns to interpolate? */
          short intermode, /**< type of interpolation (either ppt->inter_closeby or ppt->inter_normal) */
 		     int * last_index, /**< last time index in interpolation table; only relevant if using ppt->inter_closeby */
          double * psource /**< output array indexed by ppt->index_qs_XXX */
@@ -9577,7 +9600,7 @@ int perturb_song_sources_at_tau_spline (
              tau,
              last_index,
              psource,
-             ppt->qs_size[index_mode],
+             result_size,
              index_mode,
              index_ic,           
              index_k,
@@ -9596,7 +9619,7 @@ int perturb_song_sources_at_tau_spline (
              tau,
              last_index,
              psource,
-             ppt->qs_size[index_mode],
+             result_size,
              index_mode,
              index_ic,           
              index_k,

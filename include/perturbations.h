@@ -395,9 +395,9 @@ struct perturbs
   short has_bi_cmb_polarization;      /**< do we need bispectra for CMB polarization? */
 
   short has_cl_cmb_zeta;              /**< do we need Cl's for the primordial curvature perturbation zeta?
-                                           This is needed to reproduce the analytical approximation of the
-                                           squeezed temperature bispectrum in Lewis
-                                           2012 (arxiv.org/abs/1204.5018). */
+                                      This is needed to reproduce the analytical approximation of the
+                                      squeezed temperature bispectrum in Lewis
+                                      2012 (arxiv.org/abs/1204.5018). */
   short has_source_zeta; /**< do we need source for the primordial curvature perturbation zeta? */
   short recombination_only_zeta;      /**< should the curvature perturbation zeta only include contributions */  
   int index_tp_zeta; /**< index value for the primordial curvature perturbation zeta */
@@ -423,29 +423,31 @@ struct perturbs
   short has_perturbations2;   /**< Do we need to store the sources for Song? */
   short has_polarization2;    /**< Do we need to compute the E polarisation for Song? */
   short has_perturbed_recombination_stz; /**< Shall we compute perturbed ionization fraction as in Senatore,
-                                            Tassev, Zaldarriaga, 2009 (http://arxiv.org/abs/0812.3652)? We
-                                            describe our approach in sec. 5.3.4 of http://arxiv.org/abs/1405.2280. */
+                                         Tassev, Zaldarriaga, 2009 (http://arxiv.org/abs/0812.3652)? We
+                                         describe our approach in sec. 5.3.4 of http://arxiv.org/abs/1405.2280. */
 
 
-  double *** quadsources; /**< The ppt->quadsources array is used to store the first-order transfer
-                               functions needed by the second-order module.  While ppt->sources is
-                               used to store the line-of-sight sources, ppt->quadsources is only used
-                               to solve the second-order system. The array is addressed with the index_qs
-                               indexes in the same way as ppt->sources:
+  double *** quadsources; /**< The ppt->quadsources array is used to store the first-order
+                          perturbations needed by the second-order module.  While ppt->sources is
+                          used to store the line-of-sight sources, ppt->quadsources is only used
+                          to solve the second-order system. The array is addressed with the index_qs
+                          indexes in the same way as ppt->sources:
 
                                quadsources[index_mode]
-                               		 [index_ic * ppt->tr_size[index_mode] + index_tr]
+                               		 [index_ic * ppt->qs_size[index_mode] + index_qs]
                                		 [index_tau * ppt->k_size[index_mode] + index_k] */
 
 
   double *** dd_quadsources; /**< Array to store the second derivatives of the quadsources at the
                                   node points, to be used for spline interpolation */
 
-  int * qs_size; /**< Number of types qs_size[index_mode] included in computation for each mode */
+  int qs_size_short;  /**< Size of the SONG sources vector in the "short format" */
+  int qs_size_normal; /**< Size of the SONG sources vector in the "normal format" */
+  int * qs_size;      /**< Number of SONG sources, indexed as qs_size[index_mode] */
 
   char *** qs_labels; /**< Array of strings that contain the labels of the various types
-                           For example,  qs_labels[index_md_scalar][index_tp_phi] is equal
-                           to "phi" */
+                      For example,  qs_labels[index_md_scalar][index_tp_phi] is equal
+                      to "phi" */
 
   /* Synchronous gauge */
   int index_qs_eta;                 /**< index for the synchronous gauge eta potential */
@@ -464,10 +466,11 @@ struct perturbs
   /* Photons */
   int index_qs_delta_g;               /**< index for the photon temperature density contrast */
   int index_qs_theta_g;               /**< index for the photon temperature velocity divergence */
-  int index_qs_v_g;                   /**< index for the photon temperature velocity */
+  int index_qs_v_g;                   /**< index for the scalar potential of photon velocity: v_i = d(v_g)/dx^i */
   int index_qs_shear_g;               /**< index for the photon temperature shear */
-  int index_qs_monopole_g;            /**< index for the photon temperature monopole */
-  int index_qs_monopole_E;            /**< index for the photon E-polarisation monopole */
+  int index_qs_monopole_g;            /**< index for the beginning of the photon temperature multipoles */
+  int index_qs_monopole_E;            /**< index for the start of the photon E-polarisation multipoles; the
+                                      the l=0 and l=1 moments vanish as E-modes do not have a monopole or a dipole. */
   int index_qs_monopole_collision_g;  /**< index for the photon temperature collision term */
   int index_qs_monopole_collision_E;  /**< index for the photon E-polarisation collision term */
 
@@ -475,16 +478,16 @@ struct perturbs
   int index_qs_delta_b;               /**< index for the baryon density contrast */
   int index_qs_delta_b_prime;         /**< index for the baryon density contrast */
   int index_qs_theta_b;               /**< index for the baryon velocity divergence */
-  int index_qs_v_b;                   /**< index for the baryon velocity */
-  int index_qs_v_b_prime;             /**< index for the tau derivative of the baryon velocity */
+  int index_qs_v_b;                   /**< index for the scalar potential of the baryon velocity: v_i = d(v_b)/dx^i */
+  int index_qs_v_b_prime;             /**< index for the tau derivative of the scalar potential of the baryon velocity */
   int index_qs_monopole_b;            /**< index for the baryon monopole */
   int index_qs_dipole_b;              /**< index for the baryon dipole */
-  int index_qs_delta_Xe;  /**< index for the perturbation in the fraction of free electrons */
+  int index_qs_delta_Xe;              /**< index for the perturbation in the fraction of free electrons */
   
   /* Cold dark matter */
   int index_qs_delta_cdm;             /**< index for the cold dark matter density contrast */
   int index_qs_theta_cdm;             /**< index for the cold dark matter velocity divergence */
-  int index_qs_v_cdm;                 /**< index for the cold dark matter velocity */
+  int index_qs_v_cdm;                 /**< index for the scalar potential of cold dark matter velocity: v_i = d(v_cdm)/dx^i */
   int index_qs_v_cdm_prime;           /**< index for the tau derivative of the cold dark matter velocity */
   int index_qs_monopole_cdm;          /**< index for the cold dark matter monopole */
   int index_qs_dipole_cdm;            /**< index for the cold dark matter dipole */
@@ -492,7 +495,7 @@ struct perturbs
   /* Neutrinos */
   int index_qs_delta_ur;              /**< index for the neutrino density contrast */
   int index_qs_theta_ur;              /**< index for the neutrino velocity divergence */
-  int index_qs_v_ur;                  /**< index for the neutrino velocity */
+  int index_qs_v_ur;                  /**< index for the scalar potential of neutrino velocity: v_i = d(v_ur)/dx^i */
   int index_qs_shear_ur;              /**< index for the neutrino temperature shear */
   int index_qs_monopole_ur;           /**< index for the neutrino temperature monopole */
 
@@ -1013,6 +1016,7 @@ extern "C" {
              int index_ic,
              int index_k,
              double tau,
+             int result_size,
              short intermode,
              int * last_index,
              double * psource
@@ -1024,6 +1028,7 @@ extern "C" {
              int index_ic,
              int index_k,
              double tau,
+             int result_size,
              short intermode,
              int * last_index,
              double * pvecsources
@@ -1035,6 +1040,7 @@ extern "C" {
             int index_ic,
             int index_k,
             double tau,
+            int result_size,
             double * psource
             );
             

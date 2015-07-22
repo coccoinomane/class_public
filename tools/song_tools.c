@@ -2699,8 +2699,8 @@ int spline_sources_interpolate_growing_closeby(
 
   inf = *last_index;
   class_test(inf<0 || inf>(tau_size-1),
-      errmsg,
-      "*lastindex=%d out of range [0:%d]\n",inf,tau_size-1);
+    errmsg,
+    "*lastindex=%d out of range [0:%d]\n",inf,tau_size-1);
       
   // *** Look at the left of last_index
   while (x < x_array[inf]) {
