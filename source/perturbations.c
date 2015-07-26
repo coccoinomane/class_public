@@ -2601,23 +2601,32 @@ int perturb_solve(
 
     for (index_interval=0; index_interval<interval_number; index_interval++) {
 
-      /** (a) fix the approximation scheme */
-
+      /* Update the approximation array in the ppw structure with whatever
+      approximations are turned on in the considered time interval */
       for (index_ap=0; index_ap<ppw->ap_size; index_ap++)
         ppw->approx[index_ap] = interval_approx[index_interval][index_ap];
 
       /* Maximum time we are interested in, that is, the last time where we need
-      to compute the quadratic sources for the second-order system */
+      to compute the quadratic sources for the second-order system. This is not
+      necessarily equal to the time where the evolver will stop. By default, the
+      evolver will go all the way to today (tau_0) while we might only be interested
+      in the sources at recombination. */
       double tau_max = ppt->tau_sampling_quadsources[ppt->tau_size_quadsources-1];
 
-      /* Skip integration intervals that are not needed */
-      if (interval_limit[index_interval] > tau_max)
-        continue;
+      /* If we have already sampled all the times we are interested in, then we
+      can stop evolving the system. This is NOT an optimisation adjustment:
+      if you comment this line you will end up with quadratic sources with
+      a few repeated points at the end. Also make sure that the relation is
+      >= (greater or equal than) and not a simple > (greater than). */
+      if (interval_limit[index_interval] >= tau_max) {
+        break;
+      }
 
-      /* Stop integrating the system when we have reached tau_max */
+      /* Stop integrating the system when we have reached tau_max. This is an 
+      optimisation flag, feel free to comment it. */
       interval_limit[index_interval+1] = MIN (interval_limit[index_interval+1], tau_max);
 
-      /** (b) get the previous approximation scheme. If the current
+      /* Get the previous approximation scheme. If the current
       interval starts from the initial time tau_ini, the previous
       approximation is set to be a NULL pointer, so that the
       function perturb_vector_init() knows that perturbations must
@@ -2630,7 +2639,7 @@ int perturb_solve(
         previous_approx=interval_approx[index_interval-1];
       }
 
-      /** (c) define the vector of perturbations to be integrated
+      /** Dfine the vector of perturbations to be integrated
       over. If the current interval starts from the initial time
       tau_ini, fill the vector with initial conditions for each
       mode. If it starts from an approximation switching point,
@@ -2651,7 +2660,7 @@ int perturb_solve(
         ppt->error_message);
 
 
-      /** (d) integrate the perturbations over the current interval. */
+      /* Integrate the perturbations over the current interval. */
 
       class_call(generic_evolver(perturb_derivs,
                                  interval_limit[index_interval],
@@ -2672,7 +2681,7 @@ int perturb_solve(
                                  ppt->error_message),
         ppt->error_message,
         ppt->error_message);
-              
+
     } // end of for(index_interval)
   } // end of if(has_perturbations2) 
 
@@ -8804,7 +8813,10 @@ int perturb_song_sources(
   class_test (_vectors_ || _tensors_,
     ppt->error_message,
     "at first order, SONG supports only scalar modes");
-
+  
+  class_test (index_tau >= ppt->tau_size_quadsources,
+    ppt->error_message,
+    "time index cannot be larger than size of time array for quadsources");
 
   // ===============================================================================================
   // =                                      Interpolate at tau                                     =
