@@ -2963,6 +2963,43 @@ int input_read_parameters(
   /* ppt needs to know the interpolation method in order to correctly free ppt->dd_quadsources */
   ppt->quadsources_time_interpolation = ppr->quadsources_time_interpolation;
 
+
+  /** i.1.3. Evolution of the differential system */
+  
+  class_call(parser_read_string(pfc,
+                                "phi_equation",
+                                &(string1),
+                                &(flag1),
+                                errmsg),
+             errmsg,
+             errmsg);
+
+  if (flag1 == _TRUE_) {
+  
+    if ( (strcmp(string1,"poisson") == 0) || (strcmp(string1,"POISSON") == 0)||
+         (strcmp(string1,"Poisson") == 0) || (strcmp(string1,"P") == 0) ||
+         (strcmp(string1,"p") == 0) ) {
+      ppt->phi_eq = poisson;
+      class_stop (errmsg, "poisson equation not implemented yet in CLASS");
+    }
+    else if ( (strcmp(string1,"longitudinal") == 0) || (strcmp(string1,"LONGITUDINAL") == 0)||
+              (strcmp(string1,"Longitudinal") == 0) || (strcmp(string1,"L") == 0) ||
+              (strcmp(string1,"l") == 0) ) {
+      ppt->phi_eq = longitudinal;
+    }
+    else if ( (strcmp(string1,"huang") == 0) || (strcmp(string1,"HUANG") == 0)||
+              (strcmp(string1,"Huang") == 0) || (strcmp(string1,"H") == 0) ||
+              (strcmp(string1,"h") == 0) || (strcmp(string1,"Z") == 0) ) {
+      ppt->phi_eq = huang;
+    }
+    else {
+      class_stop (errmsg,
+      "phi_equation=%s not supported, choose between poisson, longitudinal and huang",
+      string1);
+    }
+  }
+  
+
 #endif // WITH_SONG_SUPPORT
 
   /** i.2 parameters in the bessels module */
@@ -3803,7 +3840,7 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
   /* If the user asks to output the perturbations at some values of k, CLASS adds
   these values to the k-sampling (ppt->k). Here we turn off this this mechanism
   because SONG relies on the k-sampling being unaltered after it is set. */
-  if (ppt->has_perturbations2) {
+  if (ppt->has_perturbations2 == _TRUE_) {
     ppt->k_output_values_num = 0;
     ppt->store_perturbations = _FALSE_;
     pop->write_perturbations = _FALSE_;
@@ -4239,6 +4276,8 @@ int input_default_params(
 
   ppt->has_perturbations2 = _FALSE_;
   ppt->has_polarization2  = _FALSE_;
+
+  ppt->phi_eq = longitudinal;
 
   ppt->has_custom_timesampling_for_quadsources = _FALSE_;
   ppt->custom_tau_ini_quadsources  = 0.1;
