@@ -938,7 +938,7 @@ struct precision
   
   double k_logstep_super; /**< logarithmic step in k space, used to best sample the largest k's */
   double perturb_sampling_stepsize_quadsources; /**< sampling frequency for the quadratic sources (overridden if using a custom sampling) */
-  
+  double l_max_boltzmann; /**< maximum number of multipoles to keep in any of the Boltzmann hierarchies */
   
   // --------------------------------------------------------------
   // -                      Interpolation                         -

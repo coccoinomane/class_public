@@ -2992,6 +2992,20 @@ int input_read_parameters(
         "bessels_interpolation=%s, not supported. Choose between 'linear' and 'cubic'",string1);
   }
 
+  /* Compute ppr->l_max_boltzmann, the maximum l_max for the Boltzmann hierarchy. */
+  ppr->l_max_boltzmann = 0;  
+  ppr->l_max_boltzmann = MAX (ppr->l_max_boltzmann, ppr->l_max_g);
+  ppr->l_max_boltzmann = MAX (ppr->l_max_boltzmann, ppr->l_max_pol_g);
+  if (ppt->has_tensors==_TRUE_) {
+    ppr->l_max_boltzmann = MAX (ppr->l_max_boltzmann, ppr->l_max_g_ten);
+    ppr->l_max_boltzmann = MAX (ppr->l_max_boltzmann, ppr->l_max_pol_g_ten);
+  }
+  if (pba->Omega0_ur!=0)
+    ppr->l_max_boltzmann = MAX (ppr->l_max_boltzmann, ppr->l_max_ur);
+  if (pba->N_ncdm>0)
+    ppr->l_max_boltzmann = MAX (ppr->l_max_boltzmann, ppr->l_max_ncdm);  
+
+
   /* Compute pbs->l_max, the largest l we shall compute an observable for. The code below is
   copied from transfer.c, make sure to update it if you update transfer.c. */
   int l_max = 0;
@@ -3015,6 +3029,7 @@ int input_read_parameters(
   }
 
   pbs->l_max = l_max;
+  
 
   /* Determine pbs->x_max, the upper limit of the x-domain of the Bessel functions j_l(x).
   These appear in the bispectrum integral with argument x = k*(tau0-tau), therefore we set
