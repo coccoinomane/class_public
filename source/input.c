@@ -3601,8 +3601,9 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
   file using a relative path with respect to ppr->run_dir.
   
     For example, let's say the user has used SONG to compute a forecast for
-  an ideal experiment, and stored it in the folder `huge_run`. Now they want to get
-  a forecast for the Prism experiment.
+  an ideal experiment, and stored it in the folder `huge_run`. Now s/he wants
+  to get forecasts for more experiments, say Planck, WMAP and the Prism experiment,
+  without having to re-run SONG from scratch.
     
     The bispectrum computed in `huge_run` can be recycled for this new forecast.
   To avoid a useless recomputation of the bispectrum, the user needs to create a subfolder

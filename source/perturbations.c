@@ -2037,7 +2037,7 @@ int perturb_workspace_init(
       class_define_index(ppw->index_mt_psi,_TRUE_,index_mt,1); /* psi */
       class_define_index(ppw->index_mt_phi_prime,_TRUE_,index_mt,1); /* phi' */
 #ifdef WITH_SONG_SUPPORT
-      class_define_index(ppw->index_mt_phi_prime_prime,ppt->phi_eq==huang,index_mt,1); /* phi' */
+      class_define_index(ppw->index_mt_phi_prime_prime,_TRUE_,index_mt,1); /* phi' */
 #endif // WITH_SONG_SUPPORT
     }
 
@@ -3466,7 +3466,8 @@ int perturb_vector_init(
        equation for phi. That is, in Huang's approach also phi_prime is an evolved
        quantity, and index_pt_phi_prime is the corresponding index in the vectors
        y and dy.  */
-    class_define_index(ppv->index_pt_phi_prime,(ppt->gauge==newtonian)&&(ppt->phi_eq==huang),index_pt,1);
+    if (ppt->phi_eq == huang)
+      class_define_index(ppv->index_pt_phi_prime,ppt->gauge == newtonian,index_pt,1);
 
 #endif // WITH_SONG_SUPPORT
     
@@ -4824,7 +4825,8 @@ int perturb_initial_conditions(struct precision * ppr,
 
 #ifdef WITH_SONG_SUPPORT
       
-      /* Set initial condition for phi_prime using the time-space Einstein equation */
+      /* Set initial condition for phi_prime starting from psi, using the space-time
+      Einstein equation */
       if (ppt->phi_eq == huang) {
 
         double rho_plus_p_theta = 0;
@@ -4835,7 +4837,10 @@ int perturb_initial_conditions(struct precision * ppr,
         if (pba->has_ur == _TRUE_)
           rho_plus_p_theta += 4/3.*ppw->pvecback[pba->index_bg_rho_ur]*theta_ur;
 
+        /* Initial conditions for time potential psi from Ma & Bertschinger */
         double psi = 10 / (15 + 4*fracnu);
+        
+        /* Use the space-time Einstein equation to find initial conditions for phi_prime */
         double phi_prime = -a_prime_over_a * psi + 1.5 * a*a/(k*k) * rho_plus_p_theta;
 
         ppw->pv->y[ppw->pv->index_pt_phi_prime] = phi_prime;
@@ -5510,46 +5515,41 @@ int perturb_einstein(
 
 #ifdef WITH_SONG_SUPPORT
       
+      /* If we are to evolve phi using the phi'' equation, then set the value of phi_prime
+      in ppw->pvecmetric directly from the vector of evolved  perturbations, rather than
+      computing it from a constraint equation */
+      if (ppt->phi_eq == huang)
+        ppw->pvecmetric[ppw->index_mt_phi_prime] = y[ppw->pv->index_pt_phi_prime];
+      
+      /* Extract metric perturbations required to compute phi''. Also psi_prime is required,
+      but we cannot compute it here because it requires in turn the time derivatives of y.
+      The dy vector however is not availabe because perturb2_einstein() is called by
+      perturb2_derivs() right before filling dy. Therefore, for the time being, we set
+      psi_prime to zero. */
+      double psi_prime = 0;
+      double psi = ppw->pvecmetric[ppw->index_mt_psi];
+      double phi = y[ppw->pv->index_pt_phi];
+      double phi_prime = ppw->pvecmetric[ppw->index_mt_phi_prime];
+
+      /* Compute Hubble parameter in conformal time */
+      double Hc = a_prime_over_a; 
+      double Hc_prime = a*ppw->pvecback[pba->index_bg_H_prime] + (a*Hc)*ppw->pvecback[pba->index_bg_H]; 
+
+      /* Compute the density contrasts of baryons and CDM */
+      double rho_monopole_b=0, rho_monopole_cdm=0;
+      rho_monopole_b = ppw->pvecback[pba->index_bg_rho_b]*y[ppw->pv->index_pt_delta_b];
+      if (pba->has_cdm == _TRUE_)
+        rho_monopole_cdm = ppw->pvecback[pba->index_bg_rho_cdm]*y[ppw->pv->index_pt_delta_cdm];
+      
       /* Compute Phi'' inserting the time-time equation in the trace equation. The resulting
       equation includes only the cold species monopoles because the matter part of the trace
       equation only includes the hot species. This equation is essentially the same as eq.
       2.30 of Huang 2012 (http://arxiv.org/abs/1201.5961). */
-
-      if (ppt->phi_eq == huang) {
-
-        /* Compute Hubble parameter in conformal time */
-        double Hc = a_prime_over_a; 
-        double Hc_prime = a*ppw->pvecback[pba->index_bg_H_prime]
-          + (a*Hc)*ppw->pvecback[pba->index_bg_H]; 
-
-        /* Compute the density contrasts of baryons and CDM */
-        double rho_monopole_b=0, rho_monopole_cdm=0;
-        rho_monopole_b = ppw->pvecback[pba->index_bg_rho_b]*y[ppw->pv->index_pt_delta_b];
-        if (pba->has_cdm == _TRUE_)
-          rho_monopole_cdm = ppw->pvecback[pba->index_bg_rho_cdm]*y[ppw->pv->index_pt_delta_cdm];
-
-        /* Extract metric perturbations */
-        double psi = ppw->pvecmetric[ppw->index_mt_psi];
-        double phi = y[ppw->pv->index_pt_phi];
-        double phi_prime = y[ppw->pv->index_pt_phi_prime];
-        
-        /* The equation for phi'' requires psi_prime, but we cannot compute it here because
-        it requires in turn the time derivatives of y. The dy vector however is not availabe
-        because perturb_einstein() is called by perturb_derivs() right before filling dy. 
-        Therefore, for the time being, we set psi_prime to zero.  */
-        double psi_prime = 0;
-
-        /* Set the value of phi_prime in ppw->pvecmetric from the vector of evolved
-        perturbations, rather than computing it from a constraint equation */
-        ppw->pvecmetric[ppw->index_mt_phi_prime] = phi_prime;
-
-        /* Equation for phi'' */
-        ppw->pvecmetric[ppw->index_mt_phi_prime_prime] = 
-          + k2/3 * (psi - 2*phi)
-          - Hc * (psi_prime + 3*phi_prime)
-          - 2*psi * (Hc*Hc + Hc_prime)
-          - a2/2 * (rho_monopole_b + rho_monopole_cdm);
-      }
+      ppw->pvecmetric[ppw->index_mt_phi_prime_prime] = 
+        + k2/3 * (psi - 2*phi)
+        - Hc * (psi_prime + 3*phi_prime)
+        - 2*psi * (Hc*Hc + Hc_prime)
+        - a2/2 * (rho_monopole_b + rho_monopole_cdm);
 
 #endif // WITH_SONG_SUPPORT
 
@@ -7851,6 +7851,23 @@ int perturb_derivs(double tau,
         }
       }
     }
+    
+
+    /** -> metric */
+
+    /** --> eta of synchronous gauge */
+
+    if (ppt->gauge == synchronous) {
+
+      dy[pv->index_pt_eta] = pvecmetric[ppw->index_mt_eta_prime];
+
+    }
+
+    if (ppt->gauge == newtonian) {
+
+      dy[pv->index_pt_phi] = pvecmetric[ppw->index_mt_phi_prime];
+
+    }
 
 
 #ifdef WITH_SONG_SUPPORT
@@ -7922,11 +7939,18 @@ int perturb_derivs(double tau,
     
     }  // end of if(has_polarization2)
     
-    
-    if ((ppt->gauge == newtonian) && (ppt->phi_eq == huang)) {
+    /* Compute the second derivative of the curvature potential, phi''. In SONG you can
+    choose to compute phi by either solving a first-order differential equation
+    (phi_eq==longitudinal) or a second-order one (phi_eq==huang). */
+    if (ppt->gauge == newtonian) {
       
+      /* To compute phi'' we use the equation from Huang 2012 (http://arxiv.org/abs/1201.5961),
+      which requires the time derivative of the time potential psi. This could not be computed
+      in perturb_einstein(), so we do it here and add it to the equation for phi_prime_prime. */
       double psi_prime;
       
+      /* This call must be after the quadrupoles in the dy vector have been filled,
+      otherwise you will get inconsistent results. */
       class_call (perturb_compute_psi_prime (
                    ppr,
                    pba,
@@ -7940,28 +7964,17 @@ int perturb_derivs(double tau,
         ppt->error_message,
         error_message);
 
-      dy[ppw->pv->index_pt_phi_prime] =
-          pvecmetric[ppw->index_mt_phi_prime_prime] - a_prime_over_a * psi_prime; 
-    }
+      /* Add the missing piece to the expression for phi'' */
+      pvecmetric[ppw->index_mt_phi_prime_prime] += - a_prime_over_a * psi_prime;
       
+      /* If we are using phi'' to evolve the curvature potential, then store
+      its value in the dy array */
+      if (ppt->phi_eq == huang)
+        dy[ppw->pv->index_pt_phi_prime] = pvecmetric[ppw->index_mt_phi_prime_prime];
+
+    }
     
 #endif // WITH_SONG_SUPPORT
-
-    /** -> metric */
-
-    /** --> eta of synchronous gauge */
-
-    if (ppt->gauge == synchronous) {
-
-      dy[pv->index_pt_eta] = pvecmetric[ppw->index_mt_eta_prime];
-
-    }
-
-    if (ppt->gauge == newtonian) {
-
-      dy[pv->index_pt_phi] = pvecmetric[ppw->index_mt_phi_prime];
-
-    }
 
   }
 
@@ -8770,8 +8783,7 @@ int perturb_song_indices_of_perturbs(
         ppt->index_qs_psi = index_type++;
         ppt->index_qs_phi = index_type++;
         ppt->index_qs_phi_prime = index_type++;
-        if (ppt->phi_eq == huang)
-          ppt->index_qs_phi_prime_prime = index_type++;
+        ppt->index_qs_phi_prime_prime = index_type++;
         ppt->index_qs_psi_prime = index_type++;
       }
 
@@ -9214,8 +9226,7 @@ int perturb_song_sources(
       _set_quadsource_ (ppt->index_qs_psi, pvecmetric[ppw->index_mt_psi], "psi");    
       _set_quadsource_ (ppt->index_qs_phi, y[ppw->pv->index_pt_phi], "phi");    
       _set_quadsource_ (ppt->index_qs_phi_prime, pvecmetric[ppw->index_mt_phi_prime], "phi'");
-      if (ppt->phi_eq == huang)
-        _set_quadsource_ (ppt->index_qs_phi_prime_prime, pvecmetric[ppw->index_mt_phi_prime_prime], "phi''");
+      _set_quadsource_ (ppt->index_qs_phi_prime_prime, pvecmetric[ppw->index_mt_phi_prime_prime], "phi''");
       _set_quadsource_ (ppt->index_qs_psi_prime, psi_prime, "psi'");    
     }
 
@@ -9484,8 +9495,8 @@ int perturb_compute_psi_prime(
   // ==================================================================
 
   /* The derivative of the gravitational potential psi, needed to compute the ISW effect */
-  *psi_prime = ppw->pvecmetric[ppw->index_mt_phi_prime] - 4.5 * (a2/k2)
-    * (rho_plus_p_shear_prime - 2*a_prime_over_a*rho_plus_p_shear);
+  *psi_prime = ppw->pvecmetric[ppw->index_mt_phi_prime]
+             - 4.5 * (a2/k2) * (rho_plus_p_shear_prime - 2*a_prime_over_a*rho_plus_p_shear);
 
   /* Debug - print psi_prime together with psi */
   // if (ppw->index_k == 200)
