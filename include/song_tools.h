@@ -184,7 +184,7 @@ extern "C" {
 			     ErrorMsg errmsg
            );
            
-  int spline_sources_derivs_two_levels(
+  int spline_derivs_two_levels(
   			     double * x, /* vector of size tau_size */
   			     int tau_size,
   			     double ** y_array,
@@ -194,7 +194,7 @@ extern "C" {
   			     ErrorMsg errmsg
              );
 
-  int spline_sources_interpolate_two_levels(
+  int spline_interpolate_two_levels(
   			     double * x_array,
   			     int tau_size,
   			     double ** y_array,
@@ -224,7 +224,7 @@ extern "C" {
   			     ErrorMsg errmsg
   			     );
            
-  int spline_sources_interpolate_two_levels_growing_closeby(
+  int spline_interpolate_two_levels_growing_closeby(
   			     double * x_array,
   			     int tau_size,
   			     double ** y_array,
@@ -254,7 +254,7 @@ extern "C" {
   			     ErrorMsg errmsg
              );
 
-  int array_interpolate_spline_fake(
+  int array_interpolate_linear_nospline(
 			       double * x_array,
 			       int n_lines,
 			       double * array,

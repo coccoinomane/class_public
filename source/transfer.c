@@ -468,7 +468,7 @@ int transfer_free(
     free(ptr->l_size);
     free(ptr->l);
 #ifdef WITH_BISPECTRA
-  free (ptr->index_l);
+    free (ptr->index_l);
 #endif // WITH_BISPECTRA
     free(ptr->q);
     free(ptr->k);
@@ -999,7 +999,7 @@ int transfer_get_l_list(
   /* Find out the index in ptr->l corresponding to a given l. */
   
   class_alloc (ptr->index_l, (ptr->l[ptr->l_size_max-1]+1)*sizeof(int), ptr->error_message);
-  
+
   for(int l=0; l<=ptr->l[ptr->l_size_max-1]; ++l) {
   
     ptr->index_l[l] = -1;

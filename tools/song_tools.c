@@ -1978,13 +1978,416 @@ int size_n_l_indexm (int n_max, int l_max, int * m_vec, int m_size) {
 // =====================================================================================
   
   
-  
 /**
- * Function to calculate second derivatives of ppt->sources at the nodes.
- * This function reflects the very specific indexing pattern of ppt->sources, and therefore
- * is not easily recycleable outside CLASS.
+ * Compute and store the second derivatives at the node points of an array
+ * indexed like ppt->sources, in view of spline interpolation.
+ *
+ * This function is a readaptation of CLASS1 array_spline_table_lines() that takes
+ * into account the  unusual indexing used for the ppt->sources array, that is:
+ *
+ *  sources[index_mode]
+ *    [index_ic * ppt->tp_size[index_mode] + index_type]
+ *    [index_tau * ppt->k_size[index_mode] + index_k]
+ * 
+ * Note that ppt->dd_sources has the same kind of indexing.
  */
-int spline_sources_derivs_two_levels(
+
+int spline_sources_derivs(
+			     double * x, /* vector of size tau_size */
+			     int tau_size,
+			     double *** y_array, /* array of size tau_size*tp_size with elements 
+						  y_array[index_tau*tp_size+index_tp] */
+			     int tp_size,   
+			     double *** ddy_array, /* array of size tau_size*tp_size */
+			     short spline_mode,
+           int index_mode,
+           int index_ic,           
+           int index_k,
+           int k_size,
+			     ErrorMsg errmsg
+			     )
+{
+
+  double * p;
+  double * qn;
+  double * un; 
+  double * u;
+  double sig;
+  int index_tau;
+  int index_tp;
+  double dy_first;
+  double dy_last;
+
+  u = malloc((tau_size-1) * tp_size * sizeof(double));
+  p = malloc(tp_size * sizeof(double));
+  qn = malloc(tp_size * sizeof(double));
+  un = malloc(tp_size * sizeof(double));
+
+#ifdef DEBUG
+  if (u == NULL) {
+    sprintf(errmsg,"%s(L:%d) Cannot allocate u",__func__,__LINE__);
+    return _FAILURE_;
+  }
+  if (p == NULL) {
+    sprintf(errmsg,"%s(L:%d) Cannot allocate p",__func__,__LINE__);
+    return _FAILURE_;
+  }
+  if (qn == NULL) {
+    sprintf(errmsg,"%s(L:%d) Cannot allocate qn",__func__,__LINE__);
+    return _FAILURE_;
+  }
+  if (un == NULL) {
+    sprintf(errmsg,"%s(L:%d) Cannot allocate un",__func__,__LINE__);
+    return _FAILURE_;
+  }
+#endif
+  
+  /* Print some debug info */
+  // printf("tp_size = %d, index_mode = %d, index_ic = %d, index_k = %d\n",
+  //   tp_size, index_mode, index_ic, index_k);
+  // printf("Allocated vectors u, p, qn, un\n");
+
+  index_tau=0;
+
+  if (spline_mode == _SPLINE_NATURAL_) {
+
+    for (index_tp=0; index_tp < tp_size; index_tp++) {
+      // ddy_array[index_tau*tp_size+index_tp] = u[index_tau*tp_size+index_tp] = 0.0;
+      ddy_array[index_mode][index_ic*tp_size + index_tp][index_tau*k_size+index_k]
+        = u[index_tau*tp_size+index_tp] = 0.0;
+    }
+  }
+  else if (spline_mode == _SPLINE_EST_DERIV_) {
+
+    for (index_tp=0; index_tp < tp_size; index_tp++) {
+
+    	dy_first = 
+    	  ((x[2]-x[0])*(x[2]-x[0])*
+         // (y_array[1*tp_size+index_tp]-y_array[0*tp_size+index_tp])-
+    	   (y_array[index_mode][index_ic*tp_size + index_tp][1*k_size+index_k]
+    	    - y_array[index_mode][index_ic*tp_size + index_tp][0*k_size+index_k]) -
+    	   (x[1]-x[0])*(x[1]-x[0])*
+         // (y_array[2*tp_size+index_tp]-y_array[0*tp_size+index_tp]))/
+         (y_array[index_mode][index_ic*tp_size + index_tp][2*k_size+index_k] - 
+           y_array[index_mode][index_ic*tp_size + index_tp][0*k_size+index_k]))/           
+    	  ((x[2]-x[0])*(x[1]-x[0])*(x[2]-x[1]));
+
+      // ddy_array[index_tau*tp_size+index_tp] = -0.5;
+    	ddy_array[index_mode][index_ic*tp_size + index_tp][index_tau*k_size+index_k] = -0.5;        
+
+    	u[index_tau*tp_size+index_tp] = 
+    	  (3./(x[1] -  x[0]))*
+        // ((y_array[1*tp_size+index_tp]-y_array[0*tp_size+index_tp])/
+    	  ((y_array[index_mode][index_ic*tp_size + index_tp][1*k_size+index_k] - 
+    	    y_array[index_mode][index_ic*tp_size + index_tp][0*k_size+index_k])/          
+    	   (x[1] - x[0])-dy_first);
+
+    }
+  }
+  else {
+      sprintf(errmsg,"%s(L:%d) Spline mode not identified: %d",__func__,__LINE__,spline_mode);
+      return _FAILURE_;
+  }
+
+
+  for (index_tau=1; index_tau < tau_size-1; index_tau++) {
+
+    sig = (x[index_tau] - x[index_tau-1])/(x[index_tau+1] - x[index_tau-1]);
+
+    for (index_tp=0; index_tp < tp_size; index_tp++) {
+
+      // p[index_tp] = sig * ddy_array[(index_tau-1)*tp_size+index_tp] + 2.0;
+      p[index_tp] = sig * ddy_array[index_mode][index_ic*tp_size + index_tp][(index_tau-1)*k_size+index_k] + 2.0;        
+
+      // ddy_array[index_tau*tp_size+index_tp] = (sig-1.0)/p[index_tp];
+      ddy_array[index_mode][index_ic*tp_size + index_tp][index_tau*k_size+index_k] = (sig-1.0)/p[index_tp];        
+
+      u[index_tau*tp_size+index_tp] = 
+        // (y_array[(index_tau+1)*tp_size+index_tp] - y_array[index_tau*tp_size+index_tp])
+        (y_array[index_mode][index_ic*tp_size + index_tp][(index_tau+1)*k_size+index_k] -
+         y_array[index_mode][index_ic*tp_size + index_tp][index_tau*k_size+index_k])
+        / (x[index_tau+1] - x[index_tau])
+        // - (y_array[index_tau*tp_size+index_tp] - y_array[(index_tau-1)*tp_size+index_tp])
+        - (y_array[index_mode][index_ic*tp_size + index_tp][index_tau*k_size+index_k] -
+           y_array[index_mode][index_ic*tp_size + index_tp][(index_tau-1)*k_size+index_k])
+        / (x[index_tau] - x[index_tau-1]);
+
+      u[index_tau*tp_size+index_tp] = (6.0 * u[index_tau*tp_size+index_tp] /
+        (x[index_tau+1] - x[index_tau-1]) 
+        - sig * u[(index_tau-1)*tp_size+index_tp]) / p[index_tp];
+    }
+  }
+
+  if (spline_mode == _SPLINE_NATURAL_) {
+
+    for (index_tp=0; index_tp < tp_size; index_tp++) {
+      qn[index_tp]=un[index_tp]=0.0;
+    }
+
+  }
+  else {
+    if (spline_mode == _SPLINE_EST_DERIV_) {
+
+      for (index_tp=0; index_tp < tp_size; index_tp++) {
+
+        dy_last = 
+          ((x[tau_size-3]-x[tau_size-1])*(x[tau_size-3]-x[tau_size-1])*
+           // (y_array[(tau_size-2)*tp_size+index_tp]-y_array[(tau_size-1)*tp_size+index_tp])-
+           (y_array[index_mode][index_ic*tp_size + index_tp][(tau_size-2)*k_size+index_k]
+           - y_array[index_mode][index_ic*tp_size + index_tp][(tau_size-1)*k_size+index_k])-     
+           (x[tau_size-2]-x[tau_size-1])*(x[tau_size-2]-x[tau_size-1])*
+           // (y_array[(tau_size-3)*tp_size+index_tp]-y_array[(tau_size-1)*tp_size+index_tp]))/
+           (y_array[index_mode][index_ic*tp_size + index_tp][(tau_size-3)*k_size+index_k]
+           - y_array[index_mode][index_ic*tp_size + index_tp][(tau_size-1)*k_size+index_k]))/
+          ((x[tau_size-3]-x[tau_size-1])*(x[tau_size-2]-x[tau_size-1])*(x[tau_size-3]-x[tau_size-2]));
+
+        qn[index_tp]=0.5;
+
+        un[index_tp]=
+          (3./(x[tau_size-1] - x[tau_size-2]))*
+          // (dy_last-(y_array[(tau_size-1)*tp_size+index_tp] - y_array[(tau_size-2)*tp_size+index_tp])/
+          (dy_last-(y_array[index_mode][index_ic*tp_size + index_tp][(tau_size-1)*k_size+index_k]
+                    - y_array[index_mode][index_ic*tp_size + index_tp][(tau_size-2)*k_size+index_k])/
+           (x[tau_size-1] - x[tau_size-2])); 
+
+      }
+    }
+    else {
+      sprintf(errmsg,"%s(L:%d) Spline mode not identified: %d",__func__,__LINE__,spline_mode);
+      return _FAILURE_;
+    }
+  }
+  
+  index_tau=tau_size-1;
+
+  for (index_tp=0; index_tp < tp_size; index_tp++) {
+    // ddy_array[index_tau*tp_size+index_tp] = 
+    ddy_array[index_mode][index_ic*tp_size + index_tp][index_tau*k_size+index_k] =
+      (un[index_tp] - qn[index_tp] * u[(index_tau-1)*tp_size+index_tp]) /
+      // (qn[index_tp] * ddy_array[(index_tau-1)*tp_size+index_tp] + 1.0);
+      (qn[index_tp] * ddy_array[index_mode][index_ic*tp_size + index_tp][(index_tau-1)*k_size+index_k] + 1.0);        
+  }
+
+  for (index_tau=tau_size-2; index_tau >= 0; index_tau--) {
+    for (index_tp=0; index_tp < tp_size; index_tp++) {
+
+      // ddy_array[index_tau*tp_size+index_tp] = ddy_array[index_tau*tp_size+index_tp]
+      // * ddy_array[(index_tau+1)*tp_size+index_tp] + u[index_tau*tp_size+index_tp];
+      ddy_array[index_mode][index_ic*tp_size + index_tp][index_tau*k_size+index_k] =
+        ddy_array[index_mode][index_ic*tp_size + index_tp][index_tau*k_size+index_k]
+        * ddy_array[index_mode][index_ic*tp_size + index_tp][(index_tau+1)*k_size+index_k]
+        + u[index_tau*tp_size+index_tp];
+
+
+    }
+  }
+
+  free(qn);
+  free(un);
+  free(p);
+  free(u);
+
+  return _SUCCESS_;
+}
+ 
+/**
+ * Interpolate a precomputed array indexed like ppt->sources using spline
+ * interpolation.
+ *
+ * The array with the second derivatives at the nodes (double *** dd_array) must
+ * have been already computed with spline_sources_derivs().
+ *
+ * This function is a readaptation of CLASS1 array_interpolate_spline() that takes
+ * into account the unusual indexing used for the ppt->sources array, that is:
+ *   sources[index_mode]
+ *     [index_ic * ppt->tp_size[index_mode] + index_type]
+ *     [index_tau * ppt->k_size[index_mode] + index_k]
+ */
+int spline_sources_interpolate(
+			     double * x_array,
+			     int tau_size,
+			     double *** y_array,
+			     double *** ddy_array,
+			     int tp_size,
+			     double x,
+			     int * last_index,
+			     double * result,
+			     int result_size, /** from 1 to tp_size */
+           int index_mode,
+           int index_ic,           
+           int index_k,
+           int k_size,
+			     ErrorMsg errmsg
+			     )
+{
+ 
+  int inf,sup,mid;
+  double h,a,b;
+  
+  inf=0;
+  sup=tau_size-1;
+  
+
+  /* - Table look-up */
+
+  if (x_array[inf] < x_array[sup]){
+
+#ifdef DEBUG
+    if (x < x_array[inf]) {
+      sprintf(errmsg,"%s(L:%d) : x=%e < x_min=%e",__func__,__LINE__,x,x_array[inf]);
+      return _FAILURE_;
+    }
+
+    if (x > x_array[sup]) {
+      sprintf(errmsg,"%s(L:%d) : x=%e > x_max=%e",__func__,__LINE__,x,x_array[sup]);
+      return _FAILURE_;
+    }
+#endif
+
+    // Table lookup with bisection
+    while (sup-inf > 1) {
+      mid=(int)(0.5*(inf+sup));
+      if (x < x_array[mid]) {sup=mid;}
+      else {inf=mid;}
+    }
+  }
+  else {
+
+#ifdef DEBUG
+    if (x < x_array[sup]) {
+      sprintf(errmsg,"%s(L:%d) : x=%e < x_min=%e",__func__,__LINE__,x,x_array[sup]);
+      return _FAILURE_;
+    }
+    if (x > x_array[inf]) {
+      sprintf(errmsg,"%s(L:%d) : x=%e > x_max=%e",__func__,__LINE__,x,x_array[inf]);
+      return _FAILURE_;
+    }
+#endif
+    
+    // Table lookup with bisection
+    while (sup-inf > 1) {
+      mid=(int)(0.5*(inf+sup));
+      if (x > x_array[mid]) {sup=mid;}
+      else {inf=mid;}
+
+    }
+  }
+
+
+  /* - Actual interpolation */
+
+  /* Store the index for use in the next call of the closeby function */
+  *last_index = inf;
+
+  h = x_array[sup] - x_array[inf];
+  b = (x-x_array[inf])/h;
+  a = 1-b;
+
+  int index_tp;
+  for (index_tp=0; index_tp<result_size; index_tp++) {
+
+    /* Cubic interpolation, see eq. 3.3.3 of Numerical Recipes in C.
+    To use plain linear interpolation, comment the last two lines. */
+    result[index_tp] = 
+      a * y_array[index_mode][index_ic*tp_size + index_tp][inf*k_size+index_k] +
+      b * y_array[index_mode][index_ic*tp_size + index_tp][sup*k_size+index_k] +
+      ((a*a*a-a)* ddy_array[index_mode][index_ic*tp_size + index_tp][inf*k_size+index_k] + 
+       (b*b*b-b)* ddy_array[index_mode][index_ic*tp_size + index_tp][sup*k_size+index_k])*h*h/6.;
+
+
+  }
+  
+  return _SUCCESS_;
+}
+ 
+ 
+ 
+ 
+/**
+ * Find the value of all sources at the give time by spline-interpolating the
+ * precomputed table.
+ *
+ * Same as spline_sources_interpolate(), but with faster look-up if x is arranged
+ * in growing order, and the requested point x is close to the previous point x
+ * from the last call of this function.
+ */
+int spline_sources_interpolate_growing_closeby(
+			     double * x_array,
+			     int tau_size,
+			     double *** y_array,
+			     double *** ddy_array,
+			     int tp_size,
+			     double x,
+			     int * last_index,
+			     double * result,
+			     int result_size, /** from 1 to tp_size */
+           int index_mode,
+           int index_ic,           
+           int index_k,
+           int k_size,
+			     ErrorMsg errmsg
+			     ) {
+
+  int inf,sup;
+  double h,a,b;
+
+  inf = *last_index;
+  class_test(inf<0 || inf>(tau_size-1),
+    errmsg,
+    "*lastindex=%d out of range [0:%d]\n",inf,tau_size-1);
+      
+  // *** Look at the left of last_index
+  while (x < x_array[inf]) {
+    inf--;
+    if (inf < 0) {
+      sprintf(errmsg,"%s(L:%d) : x=%e < x_min=%e",__func__,__LINE__,
+       x,x_array[0]);
+      return _FAILURE_;
+    }
+  }
+  sup = inf+1;
+  // *** Look at the right of last_index
+  while (x > x_array[sup]) {
+    sup++;
+    if (sup > (tau_size-1)) {
+      sprintf(errmsg,"%s(L:%d) : x=%e > x_max=%e",__func__,__LINE__,
+       x,x_array[tau_size-1]);
+      return _FAILURE_;
+    }
+  }
+  inf = sup-1;
+  
+  // *** Store the position for later use
+  *last_index = inf;
+
+  // *** Actual interpolation
+  h = x_array[sup] - x_array[inf];
+  b = (x-x_array[inf])/h;
+  a = 1-b;
+
+  int index_tp;
+  for (index_tp=0; index_tp<result_size; index_tp++) {
+    
+    // Cubic interpolation, see eq. 3.3.3 of Numerical Recipes in C.
+    // To have plain linear interpolation, comment the last two lines.
+    result[index_tp] = 
+      a * y_array[index_mode][index_ic*tp_size + index_tp][inf*k_size+index_k] +
+      b * y_array[index_mode][index_ic*tp_size + index_tp][sup*k_size+index_k] +
+      ((a*a*a-a)* ddy_array[index_mode][index_ic*tp_size + index_tp][inf*k_size+index_k] + 
+       (b*b*b-b)* ddy_array[index_mode][index_ic*tp_size + index_tp][sup*k_size+index_k])*h*h/6.;
+
+  }
+
+  return _SUCCESS_;
+}
+
+
+/**
+ * Calculate second derivatives with respect to x of an array indexed as
+ * y_array[index_tp][index_x], for all values of index_tp.
+ */
+
+int spline_derivs_two_levels(
 			     double * x, /* vector of size tau_size */
 			     int tau_size,
 			     double ** y_array,
@@ -2010,6 +2413,7 @@ int spline_sources_derivs_two_levels(
   qn = malloc(tp_size * sizeof(double));
   un = malloc(tp_size * sizeof(double));
 
+#ifdef DEBUG
   if (u == NULL) {
     sprintf(errmsg,"%s(L:%d) Cannot allocate u",__func__,__LINE__);
     return _FAILURE_;
@@ -2026,12 +2430,12 @@ int spline_sources_derivs_two_levels(
     sprintf(errmsg,"%s(L:%d) Cannot allocate un",__func__,__LINE__);
     return _FAILURE_;
   }
-
-  // *** Print some debug info
+#endif
+  
+  /* Print some debug info */
   // printf("tp_size = %d\n", tp_size);
   // printf("Allocated vectors u, p, qn, un\n");
   
-  // Equivalent to index_tau, while index_tp is equivalent to index_tp
   index_tau=0;
 
   if (spline_mode == _SPLINE_NATURAL_) {
@@ -2040,7 +2444,6 @@ int spline_sources_derivs_two_levels(
       // ddy_array[index_tau*tp_size+index_tp] = u[index_tau*tp_size+index_tp] = 0.0;
       ddy_array[index_tp][index_tau] = u[index_tau*tp_size+index_tp] = 0.0;
     }
-      printf("DONE ***");    
   }
   else if (spline_mode == _SPLINE_EST_DERIV_) {
 
@@ -2105,7 +2508,6 @@ int spline_sources_derivs_two_levels(
       // printf("y_array[index_tp][index_tau] = %g\n", y_array[index_tp][index_tau]);
         
     }
-
   }
 
   if (spline_mode == _SPLINE_NATURAL_) {
@@ -2184,8 +2586,17 @@ int spline_sources_derivs_two_levels(
   
   
   
-  
-int spline_sources_interpolate_two_levels(
+/**
+ * Interpolate a precomputed two-level array y_array[index_tp][index_x] using spline
+ * interpolation.
+ *
+ * The array with the second derivatives at the nodes (double *** dd_array) must
+ * have been already computed with spline_derivs_two_levels().
+ *
+ * This function is a readaptation of CLASS1 array_interpolate_spline().
+ */
+
+int spline_interpolate_two_levels(
 			     double * x_array,
 			     int tau_size,
 			     double ** y_array,
@@ -2282,8 +2693,16 @@ int spline_sources_interpolate_two_levels(
   
   
   
-  
-int spline_sources_interpolate_two_levels_growing_closeby(
+/**
+ * Interpolate a precomputed two-level array y_array[index_tp][index_x] using spline
+ * interpolation.
+ *
+ * Same as spline_sources_interpolate(), but with faster look-up if x is arranged
+ * in growing order, and the requested point x is close to the previous point x
+ * from the last call of this function.
+ */
+
+int spline_interpolate_two_levels_growing_closeby(
 			     double * x_array,
 			     int tau_size,
 			     double ** y_array,
@@ -2350,413 +2769,15 @@ int spline_sources_interpolate_two_levels_growing_closeby(
   return _SUCCESS_;
 }
   
-  
-  
-  
 
 
 /**
- * Compute and store the second-derivatives at the node points, needed for later cubic spline interpolation.
- * This function is a readaptation of CLASS1 "array_spline_table_lines" that takes into account the 
- * unusual indexing used for the ppt->sources array, that is:
- *  sources[index_mode]
- *    [index_ic * ppt->tp_size[index_mode] + index_type]
- *    [index_tau * ppt->k_size[index_mode] + index_k]
- * 
- * Note that ppt->dd_sources has the same kind of indexing.
- */
-
-int spline_sources_derivs(
-			     double * x, /* vector of size tau_size */
-			     int tau_size,
-			     double *** y_array, /* array of size tau_size*tp_size with elements 
-						  y_array[index_tau*tp_size+index_tp] */
-			     int tp_size,   
-			     double *** ddy_array, /* array of size tau_size*tp_size */
-			     short spline_mode,
-           int index_mode,
-           int index_ic,           
-           int index_k,
-           int k_size,
-			     ErrorMsg errmsg
-			     )
-{
-
-  double * p;
-  double * qn;
-  double * un; 
-  double * u;
-  double sig;
-  int index_tau;
-  int index_tp;
-  double dy_first;
-  double dy_last;
-
-  u = malloc((tau_size-1) * tp_size * sizeof(double));
-  p = malloc(tp_size * sizeof(double));
-  qn = malloc(tp_size * sizeof(double));
-  un = malloc(tp_size * sizeof(double));
-
-  if (u == NULL) {
-    sprintf(errmsg,"%s(L:%d) Cannot allocate u",__func__,__LINE__);
-    return _FAILURE_;
-  }
-  if (p == NULL) {
-    sprintf(errmsg,"%s(L:%d) Cannot allocate p",__func__,__LINE__);
-    return _FAILURE_;
-  }
-  if (qn == NULL) {
-    sprintf(errmsg,"%s(L:%d) Cannot allocate qn",__func__,__LINE__);
-    return _FAILURE_;
-  }
-  if (un == NULL) {
-    sprintf(errmsg,"%s(L:%d) Cannot allocate un",__func__,__LINE__);
-    return _FAILURE_;
-  }
-
-  // *** Print some debug info
-  // printf("tp_size = %d, index_mode = %d, index_ic = %d, index_k = %d\n", tp_size, index_mode, index_ic, index_k);
-  // printf("Allocated vectors u, p, qn, un\n");
-  
-  // Equivalent to index_tau, while index_tp is equivalent to index_tp
-  index_tau=0;
-
-  if (spline_mode == _SPLINE_NATURAL_) {
-
-    for (index_tp=0; index_tp < tp_size; index_tp++) {
-      // ddy_array[index_tau*tp_size+index_tp] = u[index_tau*tp_size+index_tp] = 0.0;
-      ddy_array[index_mode][index_ic*tp_size + index_tp][index_tau*k_size+index_k] = u[index_tau*tp_size+index_tp] = 0.0;
-    }
-      printf("DONE ***");    
-  }
-  else if (spline_mode == _SPLINE_EST_DERIV_) {
-
-    for (index_tp=0; index_tp < tp_size; index_tp++) {
-
-    	dy_first = 
-    	  ((x[2]-x[0])*(x[2]-x[0])*
-         // (y_array[1*tp_size+index_tp]-y_array[0*tp_size+index_tp])-
-    	   (y_array[index_mode][index_ic*tp_size + index_tp][1*k_size+index_k]
-    	    - y_array[index_mode][index_ic*tp_size + index_tp][0*k_size+index_k]) -
-    	   (x[1]-x[0])*(x[1]-x[0])*
-         // (y_array[2*tp_size+index_tp]-y_array[0*tp_size+index_tp]))/
-         (y_array[index_mode][index_ic*tp_size + index_tp][2*k_size+index_k] - 
-           y_array[index_mode][index_ic*tp_size + index_tp][0*k_size+index_k]))/           
-    	  ((x[2]-x[0])*(x[1]-x[0])*(x[2]-x[1]));
-
-      // ddy_array[index_tau*tp_size+index_tp] = -0.5;
-    	ddy_array[index_mode][index_ic*tp_size + index_tp][index_tau*k_size+index_k] = -0.5;        
-
-    	u[index_tau*tp_size+index_tp] = 
-    	  (3./(x[1] -  x[0]))*
-        // ((y_array[1*tp_size+index_tp]-y_array[0*tp_size+index_tp])/
-    	  ((y_array[index_mode][index_ic*tp_size + index_tp][1*k_size+index_k] - 
-    	    y_array[index_mode][index_ic*tp_size + index_tp][0*k_size+index_k])/          
-    	   (x[1] - x[0])-dy_first);
-
-    }
-  }
-  else {
-      sprintf(errmsg,"%s(L:%d) Spline mode not identified: %d",__func__,__LINE__,spline_mode);
-      return _FAILURE_;
-  }
-
-
-  for (index_tau=1; index_tau < tau_size-1; index_tau++) {
-
-    sig = (x[index_tau] - x[index_tau-1])/(x[index_tau+1] - x[index_tau-1]);
-
-    for (index_tp=0; index_tp < tp_size; index_tp++) {
-
-      // p[index_tp] = sig * ddy_array[(index_tau-1)*tp_size+index_tp] + 2.0;
-      p[index_tp] = sig * ddy_array[index_mode][index_ic*tp_size + index_tp][(index_tau-1)*k_size+index_k] + 2.0;        
-
-      // ddy_array[index_tau*tp_size+index_tp] = (sig-1.0)/p[index_tp];
-      ddy_array[index_mode][index_ic*tp_size + index_tp][index_tau*k_size+index_k] = (sig-1.0)/p[index_tp];        
-
-      u[index_tau*tp_size+index_tp] = 
-        // (y_array[(index_tau+1)*tp_size+index_tp] - y_array[index_tau*tp_size+index_tp])
-        (y_array[index_mode][index_ic*tp_size + index_tp][(index_tau+1)*k_size+index_k] -
-         y_array[index_mode][index_ic*tp_size + index_tp][index_tau*k_size+index_k])
-        / (x[index_tau+1] - x[index_tau])
-        // - (y_array[index_tau*tp_size+index_tp] - y_array[(index_tau-1)*tp_size+index_tp])
-        - (y_array[index_mode][index_ic*tp_size + index_tp][index_tau*k_size+index_k] -
-           y_array[index_mode][index_ic*tp_size + index_tp][(index_tau-1)*k_size+index_k])
-        / (x[index_tau] - x[index_tau-1]);
-
-      u[index_tau*tp_size+index_tp] = (6.0 * u[index_tau*tp_size+index_tp] /
-        (x[index_tau+1] - x[index_tau-1]) 
-        - sig * u[(index_tau-1)*tp_size+index_tp]) / p[index_tp];
-    }
-
-  }
-
-  if (spline_mode == _SPLINE_NATURAL_) {
-
-    for (index_tp=0; index_tp < tp_size; index_tp++) {
-      qn[index_tp]=un[index_tp]=0.0;
-    }
-
-  }
-  else {
-    if (spline_mode == _SPLINE_EST_DERIV_) {
-
-      for (index_tp=0; index_tp < tp_size; index_tp++) {
-
-        dy_last = 
-          ((x[tau_size-3]-x[tau_size-1])*(x[tau_size-3]-x[tau_size-1])*
-           // (y_array[(tau_size-2)*tp_size+index_tp]-y_array[(tau_size-1)*tp_size+index_tp])-
-           (y_array[index_mode][index_ic*tp_size + index_tp][(tau_size-2)*k_size+index_k]
-           - y_array[index_mode][index_ic*tp_size + index_tp][(tau_size-1)*k_size+index_k])-     
-           (x[tau_size-2]-x[tau_size-1])*(x[tau_size-2]-x[tau_size-1])*
-           // (y_array[(tau_size-3)*tp_size+index_tp]-y_array[(tau_size-1)*tp_size+index_tp]))/
-           (y_array[index_mode][index_ic*tp_size + index_tp][(tau_size-3)*k_size+index_k]
-           - y_array[index_mode][index_ic*tp_size + index_tp][(tau_size-1)*k_size+index_k]))/
-          ((x[tau_size-3]-x[tau_size-1])*(x[tau_size-2]-x[tau_size-1])*(x[tau_size-3]-x[tau_size-2]));
-
-        qn[index_tp]=0.5;
-
-        un[index_tp]=
-          (3./(x[tau_size-1] - x[tau_size-2]))*
-          // (dy_last-(y_array[(tau_size-1)*tp_size+index_tp] - y_array[(tau_size-2)*tp_size+index_tp])/
-          (dy_last-(y_array[index_mode][index_ic*tp_size + index_tp][(tau_size-1)*k_size+index_k]
-                    - y_array[index_mode][index_ic*tp_size + index_tp][(tau_size-2)*k_size+index_k])/
-           (x[tau_size-1] - x[tau_size-2])); 
-
-      }
-    }
-    else {
-      sprintf(errmsg,"%s(L:%d) Spline mode not identified: %d",__func__,__LINE__,spline_mode);
-      return _FAILURE_;
-    }
-  }
-  
-  index_tau=tau_size-1;
-
-  for (index_tp=0; index_tp < tp_size; index_tp++) {
-    // ddy_array[index_tau*tp_size+index_tp] = 
-    ddy_array[index_mode][index_ic*tp_size + index_tp][index_tau*k_size+index_k] =
-      (un[index_tp] - qn[index_tp] * u[(index_tau-1)*tp_size+index_tp]) /
-      // (qn[index_tp] * ddy_array[(index_tau-1)*tp_size+index_tp] + 1.0);
-      (qn[index_tp] * ddy_array[index_mode][index_ic*tp_size + index_tp][(index_tau-1)*k_size+index_k] + 1.0);        
-  }
-
-  for (index_tau=tau_size-2; index_tau >= 0; index_tau--) {
-    for (index_tp=0; index_tp < tp_size; index_tp++) {
-
-      // ddy_array[index_tau*tp_size+index_tp] = ddy_array[index_tau*tp_size+index_tp]
-      // * ddy_array[(index_tau+1)*tp_size+index_tp] + u[index_tau*tp_size+index_tp];
-      ddy_array[index_mode][index_ic*tp_size + index_tp][index_tau*k_size+index_k] =
-        ddy_array[index_mode][index_ic*tp_size + index_tp][index_tau*k_size+index_k]
-        * ddy_array[index_mode][index_ic*tp_size + index_tp][(index_tau+1)*k_size+index_k]
-        + u[index_tau*tp_size+index_tp];
-
-
-    }
-  }
-
-  free(qn);
-  free(un);
-  free(p);
-  free(u);
-
-  return _SUCCESS_;
-}
- 
- 
-/**
- * Find the interpolated value of all the sources at a certain time.  The array with the second derivatives
- * at the nodes (double *** dd_array) must have been already computed by using the function
- * "spline_sources_derivs". This function is a readaptation of CLASS1 "array_interpolate_spline" that takes
- * into account the unusual indexing used for the ppt->sources array, that is:
- *   sources[index_mode]
- *     [index_ic * ppt->tp_size[index_mode] + index_type]
- *     [index_tau * ppt->k_size[index_mode] + index_k]
- */
-int spline_sources_interpolate(
-			     double * x_array,
-			     int tau_size,
-			     double *** y_array,
-			     double *** ddy_array,
-			     int tp_size,
-			     double x,
-			     int * last_index,
-			     double * result,
-			     int result_size, /** from 1 to tp_size */
-           int index_mode,
-           int index_ic,           
-           int index_k,
-           int k_size,
-			     ErrorMsg errmsg
-			     )
-{
- 
-  int inf,sup,mid;
-  double h,a,b;
-  
-  inf=0;
-  sup=tau_size-1;
-  
-
-  // =================
-  // = Table look-up =
-  // =================
-  if (x_array[inf] < x_array[sup]){
-
-    if (x < x_array[inf]) {
-      sprintf(errmsg,"%s(L:%d) : x=%e < x_min=%e",__func__,__LINE__,x,x_array[inf]);
-      return _FAILURE_;
-    }
-
-    if (x > x_array[sup]) {
-      sprintf(errmsg,"%s(L:%d) : x=%e > x_max=%e",__func__,__LINE__,x,x_array[sup]);
-      return _FAILURE_;
-    }
-
-    // Table lookup with bisection
-    while (sup-inf > 1) {
-      mid=(int)(0.5*(inf+sup));
-      if (x < x_array[mid]) {sup=mid;}
-      else {inf=mid;}
-    }
-  }
-  else {
-
-    if (x < x_array[sup]) {
-      sprintf(errmsg,"%s(L:%d) : x=%e < x_min=%e",__func__,__LINE__,x,x_array[sup]);
-      return _FAILURE_;
-    }
-    if (x > x_array[inf]) {
-      sprintf(errmsg,"%s(L:%d) : x=%e > x_max=%e",__func__,__LINE__,x,x_array[inf]);
-      return _FAILURE_;
-    }
-
-    // Table lookup with bisection
-    while (sup-inf > 1) {
-      mid=(int)(0.5*(inf+sup));
-      if (x > x_array[mid]) {sup=mid;}
-      else {inf=mid;}
-
-    }
-  }
-
-
-  // =================
-  // = Interpolation =
-  // =================
-
-  /* Store the index for use in the next call of the closeby function */
-  *last_index = inf;
-
-  h = x_array[sup] - x_array[inf];
-  b = (x-x_array[inf])/h;
-  a = 1-b;
-
-  int index_tp;
-  for (index_tp=0; index_tp<result_size; index_tp++) {
-
-    /* Cubic interpolation, see eq. 3.3.3 of Numerical Recipes in C.
-      To have plain linear interpolation, comment the last two lines. */
-    result[index_tp] = 
-      a * y_array[index_mode][index_ic*tp_size + index_tp][inf*k_size+index_k] +
-      b * y_array[index_mode][index_ic*tp_size + index_tp][sup*k_size+index_k] +
-      ((a*a*a-a)* ddy_array[index_mode][index_ic*tp_size + index_tp][inf*k_size+index_k] + 
-       (b*b*b-b)* ddy_array[index_mode][index_ic*tp_size + index_tp][sup*k_size+index_k])*h*h/6.;
-
-
-  }
-  
-  return _SUCCESS_;
-}
- 
- 
- 
- 
-/**
- * Same as spline_sources_interpolate, but faster if x is arranged in growing order,
- * and the point x is presumably very close to the previous point x from the last 
- * call of this function.
- */
-int spline_sources_interpolate_growing_closeby(
-			     double * x_array,
-			     int tau_size,
-			     double *** y_array,
-			     double *** ddy_array,
-			     int tp_size,
-			     double x,
-			     int * last_index,
-			     double * result,
-			     int result_size, /** from 1 to tp_size */
-           int index_mode,
-           int index_ic,           
-           int index_k,
-           int k_size,
-			     ErrorMsg errmsg
-			     ) {
-
-  int inf,sup;
-  double h,a,b;
-
-  inf = *last_index;
-  class_test(inf<0 || inf>(tau_size-1),
-    errmsg,
-    "*lastindex=%d out of range [0:%d]\n",inf,tau_size-1);
-      
-  // *** Look at the left of last_index
-  while (x < x_array[inf]) {
-    inf--;
-    if (inf < 0) {
-      sprintf(errmsg,"%s(L:%d) : x=%e < x_min=%e",__func__,__LINE__,
-       x,x_array[0]);
-      return _FAILURE_;
-    }
-  }
-  sup = inf+1;
-  // *** Look at the right of last_index
-  while (x > x_array[sup]) {
-    sup++;
-    if (sup > (tau_size-1)) {
-      sprintf(errmsg,"%s(L:%d) : x=%e > x_max=%e",__func__,__LINE__,
-       x,x_array[tau_size-1]);
-      return _FAILURE_;
-    }
-  }
-  inf = sup-1;
-  
-  // *** Store the position for later use
-  *last_index = inf;
-
-  // *** Actual interpolation
-  h = x_array[sup] - x_array[inf];
-  b = (x-x_array[inf])/h;
-  a = 1-b;
-
-  int index_tp;
-  for (index_tp=0; index_tp<result_size; index_tp++) {
-    
-    // Cubic interpolation, see eq. 3.3.3 of Numerical Recipes in C.
-    // To have plain linear interpolation, comment the last two lines.
-    result[index_tp] = 
-      a * y_array[index_mode][index_ic*tp_size + index_tp][inf*k_size+index_k] +
-      b * y_array[index_mode][index_ic*tp_size + index_tp][sup*k_size+index_k] +
-      ((a*a*a-a)* ddy_array[index_mode][index_ic*tp_size + index_tp][inf*k_size+index_k] + 
-       (b*b*b-b)* ddy_array[index_mode][index_ic*tp_size + index_tp][sup*k_size+index_k])*h*h/6.;
-
-  }
-
-  return _SUCCESS_;
-}
-
-
-
-
-/**
- * Takes the same input as 'array_interpolate_spline' but does linear interpolation, by
- * ignoring the spline matrix. Useful for debugging the splines thoroughout CLASS.
+ * Like array_interpolate_spline() in array.c, but uses linear interpolation
+ * instead of spline interpolation.
  *
- * Called by background_at_eta(); background_eta_of_z(); background_solve(); thermodynamics_at_z().
+ * Useful for debugging the splines thoroughout CLASS.
  */
-int array_interpolate_spline_fake(
+int array_interpolate_linear_nospline(
 			     double * x_array,
 			     int n_lines,
 			     double * array,
@@ -2834,9 +2855,11 @@ int array_interpolate_spline_fake(
 
  
 /**
- * Compute the first derivative of all the columns of an array (y_array) with respect to x,
- * using the precomputed second derivative array (ddy_array), and store the result into an
- * output array (dy_array). The number of columns of the input array must be given by y_size.
+ * Compute the first derivative of all the columns of an array (y_array) with
+ * respect to x, using the precomputed second derivative array (ddy_array), and
+ * store the result into an output array (dy_array).
+ *
+ * The number of columns of the input array is y_size.
  */
 
 int array_spline_derive_table_lines(

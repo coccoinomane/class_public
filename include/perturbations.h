@@ -67,21 +67,28 @@ enum possible_gauges {
 
 //@}
 
+
 #ifdef WITH_SONG_SUPPORT
 
 /**
  * Possible time-sampling methods for the quadratic sources.
  */
-
-//@{
-
 enum sources_tau_samplings {
   lin_tau_sampling,                  /**< Linear time sampling */
   log_tau_sampling,                  /**< Logarithmic time sampling */
   class_tau_sampling                 /**< Time sampling adopted in CLASS for the array ppt->tau_sampling */
 };
 
-//@}
+
+/**
+ * Which Einstein equation to evolve for the Newtonian potential phi?
+ */
+enum phi_equation {
+  poisson,      /**< Use Poisson equation (eq 5.2 of http://arxiv.org/abs/1405.2280) */
+  longitudinal, /**< Use the longitudinal equation (eq 3.98 of http://arxiv.org/abs/1405.2280) */
+  huang,        /**< Use the combination of the trace and time-time equation, as in Huang 2012 (http://arxiv.org/abs/1201.5961) */
+};
+
 
 /** Macro to quickly write in the array ppt->quadsoruces */
 #define _set_quadsource_(index,value,args...) {                                      \
@@ -91,6 +98,7 @@ enum sources_tau_samplings {
   }
 
 #endif // WITH_SONG_SUPPORT
+
 
 //@{
 
@@ -430,17 +438,22 @@ struct perturbs
                                          Tassev, Zaldarriaga, 2009 (http://arxiv.org/abs/0812.3652)? We
                                          describe our approach in sec. 5.3.4 of http://arxiv.org/abs/1405.2280. */
 
+  /** Which equation should we use to evolve the curvature potential phi in Newtonian gauge? Current options are:
+   - "poisson" to use the time-time Einstein equation;
+   - "longitudinal" for the time-space Einstein equation;
+   - "huang" to use a combination of the trace and time-time equation, as in Huang 2012 (http://arxiv.org/abs/1201.5961).
+  Default values (and default CLASS) is "longitudinal". */
+  enum phi_equation phi_eq;
 
-  double *** quadsources; /**< The ppt->quadsources array is used to store the first-order
-                          perturbations needed by the second-order module.  While ppt->sources is
-                          used to store the line-of-sight sources, ppt->quadsources is only used
-                          to solve the second-order system. The array is addressed with the index_qs
-                          indexes in the same way as ppt->sources:
-
-                               quadsources[index_mode]
-                               		 [index_ic * ppt->qs_size[index_mode] + index_qs]
-                               		 [index_tau * ppt->k_size[index_mode] + index_k] */
-
+  /** The ppt->quadsources array is used to store the first-order
+  perturbations needed by the second-order module.  While ppt->sources is
+  used to store the line-of-sight sources, ppt->quadsources is only used
+  to solve the second-order system. The array is addressed with the index_qs
+  indexes in the same way as ppt->sources:
+    ppt->quadsources[index_mode]
+                    [index_ic * ppt->qs_size[index_mode] + index_qs]
+                    [index_tau * ppt->k_size[index_mode] + index_k] */
+  double *** quadsources; 
 
   double *** dd_quadsources; /**< Array to store the second derivatives of the quadsources at the
                                   node points, to be used for spline interpolation */
@@ -465,6 +478,7 @@ struct perturbs
   int index_qs_phi;                 /**< index for the Newtonian gauge curvature potential */
   int index_qs_psi;                 /**< index for the Newtonian gauge time potential */
   int index_qs_phi_prime;           /**< index for the tau derivative of the Newtonian gauge curvature potential */
+  int index_qs_phi_prime_prime;     /**< index for the second tau derivative of the Newtonian gauge curvature potential, defined only if ppt->phi_eq==huang */
   int index_qs_psi_prime;           /**< index for the tau derivative of the Newtonian gauge time potential */
                                    
   /* Photons */
@@ -623,15 +637,22 @@ struct perturb_vector
 
 #ifdef WITH_SONG_SUPPORT
 
+  /** CLASS by default evolves the curvature potential phi using its first-order 
+  derivative from the space-time Einstein equation, called the longitudinal 
+  equation. Huang 2012 (http://arxiv.org/abs/1201.5961) uses instead the trace
+  equation combined with the time-time equation to find a second-order differential
+  equation for phi. That is, in Huang's approach also phi_prime is an evolved
+  quantity, and index_pt_phi_prime is the corresponding index in the vectors
+  y and dy.  */
+  int index_pt_phi_prime;
+
   /* E-mode polarization (not computed in original CLASS) */
   /* TODO: Rather than evolve a separate hierarchy, use instead
   Tram & Lesgourgues, 2013 (http://arxiv.org/abs/1305.3261) */
 
   int index_pt_monopole_E; /**< index where the E-mode polarization hierarchy starts;
-                              note that the monopole and dipole always vanish for E-modes. */
-  
-  int l_max_E; /**< max momentum in Boltzmann hierarchy (at least 3) */
-
+                              note that the monopole and dipole always vanish for E-modes. */  
+  int l_max_E;             /**< max momentum in Boltzmann hierarchy (at least 3) */
   int index_pt_delta_Xe;   /**< index for the perturbed density of free electrons */
 
 #endif // WITH_SONG_SUPPORT
@@ -668,6 +689,10 @@ struct perturb_workspace
   int index_mt_V_prime;       /**< derivative of Newtonian gauge vector metric perturbation V */
   int index_mt_hv_prime_prime;/**< Second derivative of Synchronous gauge vector metric perturbation h_v */
   int mt_size;                /**< size of metric perturbation vector */
+
+#ifdef WITH_SONG_SUPPORT
+  int index_mt_phi_prime_prime; /**< (d^2 phi/d conf.time^2) in longitudinal gauge; see documentation for pv->index_pt_phi_prime */
+#endif // WITH_SONG_SUPPORT
 
   //@}
 

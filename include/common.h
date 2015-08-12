@@ -341,6 +341,8 @@ enum file_format {class_format,camb_format};
 #define _EPS_ 0.01 /**< Constant used to cast a float to an integer. Must be smaller than 0.5 */
 #define _SMALL_ (1e-7) /**< Constant used for relative floating point comparisons (only debug) */
 
+#define _MAX_NUM_LABELS_ 1000 /**< Maximum number of labels for a give index type. This number is totally arbitrary
+                              and will not affect any result. */
 #define _MAX_LENGTH_LABEL_ 64 /**< Maximum length allowed for the label strings (e.g. for the perturbation variables such as 'phi', 'psi') */
 #define _MAX_NUM_BISPECTRA_ 32 /**< Maximum number of bispectra that can be computed */
 #define _MAX_NUM_FIELDS_ 16 /**< Maximum number of fields (T, E, B...) that can be computed */
@@ -938,7 +940,7 @@ struct precision
   
   double k_logstep_super; /**< logarithmic step in k space, used to best sample the largest k's */
   double perturb_sampling_stepsize_quadsources; /**< sampling frequency for the quadratic sources (overridden if using a custom sampling) */
-  
+  double l_max_boltzmann; /**< maximum number of multipoles to keep in any of the Boltzmann hierarchies */
   
   // --------------------------------------------------------------
   // -                      Interpolation                         -
