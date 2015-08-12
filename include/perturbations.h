@@ -159,6 +159,7 @@ struct perturbs
   short has_cl_cmb_temperature;       /**< do we need Cl's for CMB temperature? */
   short has_cl_cmb_polarization;      /**< do we need Cl's for CMB polarization? */
   short has_cl_cmb_lensing_potential; /**< do we need Cl's for CMB lensing potential? */
+  short has_cl_cmb_reionisation_potential; /**< do we need Cl's for CMB reionisation potential? */
   short has_cl_lensing_potential;     /**< do we need Cl's for galaxy lensing potential? */
   short has_cl_number_count;          /**< do we need Cl's for density number count? */
   short has_pk_matter;                /**< do we need matter Fourier spectrum? */
@@ -285,6 +286,7 @@ struct perturbs
   short has_source_phi;          /**< do we need source for metric fluctuation phi? */
   short has_source_phi_prime;    /**< do we need source for metric fluctuation phi'? */
   short has_source_phi_plus_psi; /**< do we need source for metric fluctuation (phi+psi)? */
+  short has_source_reionisation; /**< do we need source for reionisation */
   short has_source_psi;          /**< do we need source for metric fluctuation psi? */
 
   /* remember that the temperature source function includes three
@@ -322,6 +324,8 @@ struct perturbs
   int index_tp_phi;          /**< index value for metric fluctuation phi */
   int index_tp_phi_prime;    /**< index value for metric fluctuation phi' */
   int index_tp_phi_plus_psi; /**< index value for metric fluctuation phi+psi */
+  int index_tp_reionisation0; /**< index value for reionisation sources */
+  int index_tp_reionisation1; /**< index value for reionisation sources */
   int index_tp_psi;          /**< index value for metric fluctuation psi */
 
   int * tp_size; /**< number of types tp_size[index_md] included in computation for each mode */

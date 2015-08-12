@@ -58,6 +58,9 @@ struct spectra {
   int has_pp; /**< do we want C_l^phi-phi ? (phi = CMB lensing potential) */
   int has_tp; /**< do we want C_l^T-phi ? */
   int has_ep; /**< do we want C_l^E-phi ? */
+	int has_rr; /**< do we want C_l^r ? (CMB reionisation potential) */
+  int has_tr; /**< do we want C_l^T-r ? */
+  int has_er; /**< do we want C_l^E-r ? */
   int has_dd; /**< do we want C_l^dd ? (d = density) */
   int has_td; /**< do we want C_l^Td ? */
   int has_pd; /**< do we want C_l^phi-d ? */
@@ -76,6 +79,9 @@ struct spectra {
   int index_ct_pp; /**< index for type C_l^phi-phi */
   int index_ct_tp; /**< index for type C_l^T-phi */
   int index_ct_ep; /**< index for type C_l^E-phi */
+  int index_ct_rr; /**< index for type C_l^rr */
+  int index_ct_tr; /**< index for type C_l^T-r */
+  int index_ct_er; /**< index for type C_l^E-r */
   int index_ct_dd; /**< first index for type C_l^dd ((d_size*d_size-(d_size-non_diag)*(d_size-non_diag-1)/2) values) */
   int index_ct_td; /**< first index for type C_l^Td (d_size values) */
   int index_ct_pd; /**< first index for type C_l^pd (d_size values) */

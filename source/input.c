@@ -1357,6 +1357,12 @@ int input_read_parameters(
       ppt->has_perturbations = _TRUE_;
       ppt->has_cls = _TRUE_;
     }
+    
+    if ((strstr(string1,"rCl") != NULL) || (strstr(string1,"RCl") != NULL) || (strstr(string1,"RCL") != NULL)) {
+      ppt->has_cl_cmb_reionisation_potential = _TRUE_;
+      ppt->has_perturbations = _TRUE_;
+      ppt->has_cls = _TRUE_;
+    }
 
     if ((strstr(string1,"nCl") != NULL) || (strstr(string1,"NCl") != NULL) || (strstr(string1,"NCL") != NULL) ||
         (strstr(string1,"dCl") != NULL) || (strstr(string1,"DCl") != NULL) || (strstr(string1,"DCL") != NULL)) {
@@ -1695,6 +1701,10 @@ int input_read_parameters(
       class_test(ppt->has_cl_cmb_lensing_potential == _TRUE_,
                  errmsg,
                  "Inconsistency: you want C_l's for cmb lensing potential, but no scalar modes\n");
+                 
+    	class_test(ppt->has_cl_cmb_reionisation_potential == _TRUE_,
+                 errmsg,
+                 "Inconsistency: you want C_l's for cmb reionisation potential, but no scalar modes\n");
 
       class_test(ppt->has_pk_matter == _TRUE_,
                  errmsg,
@@ -2233,7 +2243,8 @@ int input_read_parameters(
     if (ppt->has_scalars == _TRUE_) {
       if ((ppt->has_cl_cmb_temperature == _TRUE_) ||
           (ppt->has_cl_cmb_polarization == _TRUE_) ||
-          (ppt->has_cl_cmb_lensing_potential == _TRUE_))
+          (ppt->has_cl_cmb_lensing_potential == _TRUE_) ||
+          (ppt->has_cl_cmb_reionisation_potential == _TRUE_))
         class_read_double("l_max_scalars",ppt->l_scalar_max);
 
       if ((ppt->has_cl_lensing_potential == _TRUE_) || (ppt->has_cl_number_count == _TRUE_))
@@ -3002,7 +3013,8 @@ int input_read_parameters(
 
       if ((ppt->has_cl_cmb_temperature == _TRUE_) ||
           (ppt->has_cl_cmb_polarization == _TRUE_) ||
-          (ppt->has_cl_cmb_lensing_potential == _TRUE_))
+          (ppt->has_cl_cmb_lensing_potential == _TRUE_) ||
+          (ppt->has_cl_cmb_reionisation_potential == _TRUE_))
         l_max=MAX(ppt->l_scalar_max,l_max);
 
       if ((ppt->has_cl_lensing_potential == _TRUE_) ||
@@ -3959,6 +3971,7 @@ int input_default_params(
   ppt->has_cl_cmb_temperature = _FALSE_;
   ppt->has_cl_cmb_polarization = _FALSE_;
   ppt->has_cl_cmb_lensing_potential = _FALSE_;
+  ppt->has_cl_cmb_reionisation_potential = _FALSE_;
   ppt->has_cl_number_count = _FALSE_;
   ppt->has_cl_lensing_potential = _FALSE_;
   ppt->has_pk_matter = _FALSE_;

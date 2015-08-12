@@ -1752,10 +1752,10 @@ int thermodynamics_reionization(
 
     }
 
-#ifdef WITH_BISPECTRA
+
     /* Pass to the thermodynamics structure the redshift where reionization starts */
     pth->z_reio_start = preio->reionization_parameters[preio->index_reio_start];
-#endif // WITH_BISPECTRA
+
     
     free(preio->reionization_parameters);
 
@@ -1840,10 +1840,10 @@ int thermodynamics_reionization(
 
     pth->tau_reio=preio->reionization_optical_depth;
 
-#ifdef WITH_BISPECTRA
+
     /* Pass to the thermodynamics structure the redshift where reionization starts */
     pth->z_reio_start = preio->reionization_parameters[preio->index_reio_start];
-#endif // WITH_BISPECTRA
+
 
     return _SUCCESS_;
 

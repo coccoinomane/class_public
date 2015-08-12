@@ -201,6 +201,8 @@ int transfer_init(
 
   tau0 = pba->conformal_age;
   tau_rec = pth->tau_rec;
+  
+	ptr->z_reio_start = pth->z_reio_start;
 
   /** - correspondance between k and l depend on angular diameter
       diatance, i.e. on curvature. */
@@ -542,6 +544,8 @@ int transfer_indices_of_transfers(
     class_define_index(ptr->index_tt_t0,     ppt->has_cl_cmb_temperature,      index_tt,1);
     class_define_index(ptr->index_tt_t1,     ppt->has_cl_cmb_temperature,      index_tt,1);
     class_define_index(ptr->index_tt_lcmb,   ppt->has_cl_cmb_lensing_potential,index_tt,1);
+    class_define_index(ptr->index_tt_rcmb0,   ppt->has_cl_cmb_reionisation_potential,index_tt,1);
+    class_define_index(ptr->index_tt_rcmb1,   ppt->has_cl_cmb_reionisation_potential,index_tt,1);
     class_define_index(ptr->index_tt_density,ppt->has_nc_density,              index_tt,ppt->selection_num);
     class_define_index(ptr->index_tt_rsd,    ppt->has_nc_rsd,                  index_tt,ppt->selection_num);
     class_define_index(ptr->index_tt_d0,     ppt->has_nc_rsd,                  index_tt,ppt->selection_num);
@@ -850,7 +854,8 @@ int transfer_get_l_list(
 
       if ((ppt->has_cl_cmb_temperature == _TRUE_) ||
           (ppt->has_cl_cmb_polarization == _TRUE_) ||
-          (ppt->has_cl_cmb_lensing_potential == _TRUE_))
+          (ppt->has_cl_cmb_lensing_potential == _TRUE_) ||
+          (ppt->has_cl_cmb_reionisation_potential == _TRUE_))
         l_max=MAX(ppt->l_scalar_max,l_max);
 
       if ((ppt->has_cl_lensing_potential == _TRUE_) ||
@@ -1044,6 +1049,12 @@ int transfer_get_l_list(
           l_max=ppt->l_scalar_max;
 
         if ((ppt->has_cl_cmb_lensing_potential == _TRUE_) && (index_tt == ptr->index_tt_lcmb))
+          l_max=ppt->l_scalar_max;
+
+				if ((ppt->has_cl_cmb_reionisation_potential == _TRUE_) && (index_tt == ptr->index_tt_rcmb0))
+          l_max=ppt->l_scalar_max;
+				
+				if ((ppt->has_cl_cmb_reionisation_potential == _TRUE_) && (index_tt == ptr->index_tt_rcmb1))
           l_max=ppt->l_scalar_max;
 
         if ((_index_tt_in_range_(ptr->index_tt_density, ppt->selection_num, ppt->has_nc_density)) ||
@@ -1458,6 +1469,12 @@ int transfer_get_source_correspondence(
 
         if ((ppt->has_cl_cmb_lensing_potential == _TRUE_) && (index_tt == ptr->index_tt_lcmb))
           tp_of_tt[index_md][index_tt]=ppt->index_tp_phi_plus_psi;
+          
+        if ((ppt->has_cl_cmb_reionisation_potential == _TRUE_) && (index_tt == ptr->index_tt_rcmb0))
+          tp_of_tt[index_md][index_tt]=ppt->index_tp_reionisation0;
+          
+      	if ((ppt->has_cl_cmb_reionisation_potential == _TRUE_) && (index_tt == ptr->index_tt_rcmb1))
+          tp_of_tt[index_md][index_tt]=ppt->index_tp_reionisation1;
 
         if (_index_tt_in_range_(ptr->index_tt_density, ppt->selection_num, ppt->has_nc_density))
           tp_of_tt[index_md][index_tt]=ppt->index_tp_delta_m;
@@ -1657,7 +1674,26 @@ int transfer_source_tau_size(
       /* infer number of time steps after removing early times */
       *tau_size = ppt->tau_size-index_tau_min;
     }
+		
+		if ((ppt->has_cl_cmb_reionisation_potential == _TRUE_) && (index_tt == ptr->index_tt_rcmb0 || index_tt == ptr->index_tt_rcmb1)) {
 
+			
+			double tau_reio;
+			class_call(background_tau_of_z(pba,
+                                 ptr->z_reio_start,
+                                 &tau_reio),
+             pba->error_message,
+             ppt->error_message);
+      // printf("reionisation starts at tau = %f or z = %f\n",tau_reio, ptr->z_reio_start);
+      /* find times after beginning of reionisation */
+      int index_tau_min = 0;
+      while (ppt->tau_sampling[index_tau_min] < tau_reio) index_tau_min++;
+      
+      /* infer number of time steps after removing early times */
+      *tau_size = ppt->tau_size-index_tau_min;
+    }	
+    
+   
 #ifdef WITH_BISPECTRA
     if ((ppt->has_cl_cmb_zeta == _TRUE_) && (index_tt == ptr->index_tt_zeta))
       *tau_size = ppt->tau_size;
@@ -2251,6 +2287,7 @@ int transfer_sources(
   /* array of time sampling for lensing source selection function */
   double * tau0_minus_tau_lensing_sources;
 
+
   /* trapezoidal weights for lensing source selection function */
   double * w_trapz_lensing_sources;
 
@@ -2280,6 +2317,11 @@ int transfer_sources(
     /* cmb lensing potential */
     if ((ppt->has_cl_cmb_lensing_potential == _TRUE_) && (index_tt == ptr->index_tt_lcmb))
       redefine_source = _TRUE_;
+      
+    /* reionisation potential */
+    if ((ppt->has_cl_cmb_reionisation_potential == _TRUE_) && (index_tt == ptr->index_tt_rcmb0 || index_tt == ptr->index_tt_rcmb1))
+      redefine_source = _TRUE_;
+
 
     /* number count Cl's */
     if ((_index_tt_in_range_(ptr->index_tt_density, ppt->selection_num, ppt->has_nc_density)) ||
@@ -2377,6 +2419,7 @@ int transfer_sources(
 
           /* store value of (tau0-tau) */
           tau0_minus_tau[index_tau-index_tau_min] = tau0 - tau;
+					
 
         }
 
@@ -2388,7 +2431,41 @@ int transfer_sources(
                    ptr->error_message,
                    ptr->error_message);
       }
+      
+      /* reionisation source: throw away times before reionisation*/
 
+      if ((ppt->has_cl_cmb_reionisation_potential == _TRUE_) && (index_tt == ptr->index_tt_rcmb0 || index_tt == ptr->index_tt_rcmb1)) {
+
+        /* first time step after removing early times */
+        index_tau_min =  ppt->tau_size - tau_size;
+
+        /* loop over time and rescale */
+        for (index_tau = index_tau_min; index_tau < ppt->tau_size; index_tau++) {
+
+          /* conformal time */
+          tau = ppt->tau_sampling[index_tau];
+
+
+          /* copy from input array to output array */
+          sources[index_tau-index_tau_min] =
+            interpolated_sources[index_tau];
+
+          /* store value of (tau0-tau) */
+          tau0_minus_tau[index_tau-index_tau_min] = tau0 - tau;
+
+        }
+
+        /* Compute trapezoidal weights for integration over tau */
+        class_call(array_trapezoidal_mweights(tau0_minus_tau,
+                                              tau_size,
+                                              w_trapz,
+                                              ptr->error_message),
+                   ptr->error_message,
+                   ptr->error_message);
+      }
+      
+			
+      
       /* density source: redefine the time sampling, multiply by
          coefficient of Poisson equation, and multiply by selection
          function */
@@ -3631,6 +3708,8 @@ int transfer_compute_for_each_l(
                           * ptr->q_size + index_q]
     = transfer_function;
 
+//	if (index_tt == ptr->index_tt_lcmb && index_l == 10 && index_q == 100) {printf("lens = %g\n",transfer_function);}
+//	if (index_tt == ptr->index_tt_rcmb && index_l == 10 && index_q == 100) {printf("reio = %g\n",transfer_function);}
 
   return _SUCCESS_;
 
@@ -3665,6 +3744,15 @@ int transfer_use_limber(
       if ((ppt->has_cl_cmb_lensing_potential == _TRUE_) && (index_tt == ptr->index_tt_lcmb) && (l>ppr->l_switch_limber)) {
         *use_limber = _TRUE_;
       }
+      
+      if ((ppt->has_cl_cmb_reionisation_potential == _TRUE_) && (index_tt == ptr->index_tt_rcmb0) && (l>ppr->l_switch_limber)) {
+        *use_limber = _TRUE_;
+      }
+      
+      if ((ppt->has_cl_cmb_reionisation_potential == _TRUE_) && (index_tt == ptr->index_tt_rcmb1) && (l>ppr->l_switch_limber)) {
+        *use_limber = _TRUE_;
+      }
+      
       if (_index_tt_in_range_(ptr->index_tt_density, ppt->selection_num, ppt->has_nc_density) && (l>=ppr->l_switch_limber_for_cl_density_over_z*ppt->selection_mean[index_tt-ptr->index_tt_density])) {
         if (ppt->selection != dirac) *use_limber = _TRUE_;
       }
@@ -4623,6 +4711,17 @@ int transfer_select_radial_function(
         *radial_type = SCALAR_TEMPERATURE_2;
       }
 
+    }
+
+		if (ppt->has_cl_cmb_reionisation_potential == _TRUE_) {
+
+      if (index_tt == ptr->index_tt_rcmb0) {
+        *radial_type = SCALAR_TEMPERATURE_0;
+      }
+      if (index_tt == ptr->index_tt_rcmb1) {
+        *radial_type = SCALAR_TEMPERATURE_1;
+      }
+      
     }
 
     if (ppt->has_cl_cmb_polarization == _TRUE_) {

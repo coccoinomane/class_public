@@ -1938,6 +1938,9 @@ int output_open_cl_file(
       class_fprintf_columntitle(*clfile,"phiphi",psp->has_pp,colnum);
       class_fprintf_columntitle(*clfile,"TPhi",psp->has_tp,colnum);
       class_fprintf_columntitle(*clfile,"Ephi",psp->has_ep,colnum);
+      class_fprintf_columntitle(*clfile,"RR",psp->has_rr,colnum);
+      class_fprintf_columntitle(*clfile,"TR",psp->has_tr,colnum);
+      class_fprintf_columntitle(*clfile,"ER",psp->has_er,colnum);
     }
     else if (pop->output_format == camb_format) {
       class_fprintf_columntitle(*clfile,"TT",psp->has_tt,colnum);
@@ -1947,6 +1950,9 @@ int output_open_cl_file(
       class_fprintf_columntitle(*clfile,"dd",psp->has_pp,colnum);
       class_fprintf_columntitle(*clfile,"dT",psp->has_tp,colnum);
       class_fprintf_columntitle(*clfile,"dE",psp->has_ep,colnum);
+      class_fprintf_columntitle(*clfile,"rr",psp->has_rr,colnum);
+      class_fprintf_columntitle(*clfile,"rT",psp->has_tr,colnum);
+      class_fprintf_columntitle(*clfile,"rE",psp->has_er,colnum);
     }
 
     /** Rest of the entries are independent of format type */
@@ -2075,6 +2081,10 @@ int output_one_line_of_cl(
     class_fprintf_double(clfile, l*(l+1)*factor*cl[psp->index_ct_pp], psp->has_pp);
     class_fprintf_double(clfile, sqrt(l*(l+1))*factor*pba->T_cmb*1.e6*cl[psp->index_ct_tp], psp->has_tp);
     class_fprintf_double(clfile, sqrt(l*(l+1))*factor*pba->T_cmb*1.e6*cl[psp->index_ct_ep], psp->has_ep);
+    /*do we want these factors?? CHR */
+    class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_rr], psp->has_rr);
+    class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_tr], psp->has_tr);
+    class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_er], psp->has_er);
     index_ct_rest = 0;
     if (psp->has_tt == _TRUE_)
       index_ct_rest++;
@@ -2089,6 +2099,12 @@ int output_one_line_of_cl(
     if (psp->has_tp == _TRUE_)
       index_ct_rest++;
     if (psp->has_ep == _TRUE_)
+      index_ct_rest++;
+    if (psp->has_rr == _TRUE_)
+      index_ct_rest++;
+    if (psp->has_tr == _TRUE_)
+      index_ct_rest++;
+    if (psp->has_er == _TRUE_)
       index_ct_rest++;
     /** Now print the remaining (if any) entries:*/
     for (index_ct=index_ct_rest; index_ct < ct_size; index_ct++) {

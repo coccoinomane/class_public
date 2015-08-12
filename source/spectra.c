@@ -1826,6 +1826,15 @@ int spectra_indices(
       psp->has_pp = _FALSE_;
     }
 
+		if ((ppt->has_cl_cmb_reionisation_potential == _TRUE_) && (ppt->has_scalars == _TRUE_)) {
+      psp->has_rr = _TRUE_;
+      psp->index_ct_rr=index_ct;
+      index_ct++;
+    }
+    else {
+      psp->has_rr = _FALSE_;
+    }
+
     if ((ppt->has_cl_cmb_temperature == _TRUE_) && (ppt->has_cl_cmb_lensing_potential == _TRUE_) && (ppt->has_scalars == _TRUE_)) {
       psp->has_tp = _TRUE_;
       psp->index_ct_tp=index_ct;
@@ -1835,6 +1844,15 @@ int spectra_indices(
       psp->has_tp = _FALSE_;
     }
 
+		if ((ppt->has_cl_cmb_temperature == _TRUE_) && (ppt->has_cl_cmb_reionisation_potential == _TRUE_) && (ppt->has_scalars == _TRUE_)) {
+      psp->has_tr = _TRUE_;
+      psp->index_ct_tr=index_ct;
+      index_ct++;
+    }
+    else {
+      psp->has_tr = _FALSE_;
+    }
+    
     psp->ct_size = index_ct;
 
     if ((ppt->has_cl_cmb_polarization == _TRUE_) && (ppt->has_cl_cmb_lensing_potential == _TRUE_) && (ppt->has_scalars == _TRUE_)) {
@@ -1844,6 +1862,15 @@ int spectra_indices(
     }
     else {
       psp->has_ep = _FALSE_;
+    }
+
+		if ((ppt->has_cl_cmb_polarization == _TRUE_) && (ppt->has_cl_cmb_reionisation_potential == _TRUE_) && (ppt->has_scalars == _TRUE_)) {
+      psp->has_er = _TRUE_;
+      psp->index_ct_er=index_ct;
+      index_ct++;
+    }
+    else {
+      psp->has_er = _FALSE_;
     }
 
     if ((ppt->has_scalars == _TRUE_) &&
@@ -1969,6 +1996,9 @@ int spectra_indices(
       if (psp->has_pp == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_pp] = ppt->l_scalar_max;
       if (psp->has_tp == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_tp] = ppt->l_scalar_max;
       if (psp->has_ep == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_ep] = ppt->l_scalar_max;
+      if (psp->has_rr == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_rr] = ppt->l_scalar_max;
+      if (psp->has_tr == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_tr] = ppt->l_scalar_max;
+      if (psp->has_er == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_er] = ppt->l_scalar_max;
 #ifdef WITH_BISPECTRA
       if (psp->has_tz == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_tz] = ppt->l_scalar_max;
       if (psp->has_ez == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_ez] = ppt->l_scalar_max;
@@ -2417,7 +2447,9 @@ int spectra_compute_cl(
   int index_ic1_ic2;
   double transfer_ic1_temp=0.;
   double transfer_ic2_temp=0.;
-  double * transfer_ic1_nc=NULL;
+  double transfer_rc1_temp=0.;
+  double transfer_rc2_temp=0.;
+	double * transfer_ic1_nc=NULL;
   double * transfer_ic2_nc=NULL;
   double factor;
   int index_q_spline=0;
@@ -2469,6 +2501,8 @@ int spectra_compute_cl(
 
         transfer_ic1_temp = transfer_ic1[ptr->index_tt_t0] + transfer_ic1[ptr->index_tt_t1] + transfer_ic1[ptr->index_tt_t2];
         transfer_ic2_temp = transfer_ic2[ptr->index_tt_t0] + transfer_ic2[ptr->index_tt_t1] + transfer_ic2[ptr->index_tt_t2];
+				transfer_rc1_temp = transfer_ic1[ptr->index_tt_rcmb0] + transfer_ic1[ptr->index_tt_rcmb1];
+        transfer_rc2_temp = transfer_ic2[ptr->index_tt_rcmb0] + transfer_ic2[ptr->index_tt_rcmb1];
 
       }
 
@@ -2615,11 +2649,25 @@ int spectra_compute_cl(
         * transfer_ic2[ptr->index_tt_lcmb]
         * factor;
 
+		if (_scalars_ && (psp->has_rr == _TRUE_))
+      cl_integrand[index_q*cl_integrand_num_columns+1+psp->index_ct_rr]=
+        primordial_pk[index_ic1_ic2]
+        * transfer_rc1_temp
+        * transfer_rc2_temp
+        * factor;
+
     if (_scalars_ && (psp->has_tp == _TRUE_))
       cl_integrand[index_q*cl_integrand_num_columns+1+psp->index_ct_tp]=
         primordial_pk[index_ic1_ic2]
         * 0.5*(transfer_ic1_temp * transfer_ic2[ptr->index_tt_lcmb] +
                transfer_ic1[ptr->index_tt_lcmb] * transfer_ic2_temp)
+        * factor;
+
+    if (_scalars_ && (psp->has_tr == _TRUE_))
+      cl_integrand[index_q*cl_integrand_num_columns+1+psp->index_ct_tr]=
+        primordial_pk[index_ic1_ic2]
+        * 0.5*(transfer_ic1_temp * transfer_rc2_temp +
+               transfer_rc1_temp * transfer_ic2_temp)
         * factor;
 
     if (_scalars_ && (psp->has_ep == _TRUE_))
@@ -2628,6 +2676,14 @@ int spectra_compute_cl(
         * 0.5*(transfer_ic1[ptr->index_tt_e] * transfer_ic2[ptr->index_tt_lcmb] +
                transfer_ic1[ptr->index_tt_lcmb] * transfer_ic2[ptr->index_tt_e])
         * factor;
+
+		if (_scalars_ && (psp->has_er == _TRUE_))
+      cl_integrand[index_q*cl_integrand_num_columns+1+psp->index_ct_er]=
+        primordial_pk[index_ic1_ic2]
+        * 0.5*(transfer_ic1[ptr->index_tt_e] * transfer_rc2_temp +
+               transfer_rc1_temp * transfer_ic2[ptr->index_tt_e])
+        * factor;
+
 
     if (_scalars_ && (psp->has_dd == _TRUE_)) {
       index_ct=0;
@@ -2731,8 +2787,11 @@ int spectra_compute_cl(
 
     if ((_scalars_ && (psp->has_bb == _TRUE_) && (index_ct == psp->index_ct_bb)) ||
         (_tensors_ && (psp->has_pp == _TRUE_) && (index_ct == psp->index_ct_pp)) ||
+        (_tensors_ && (psp->has_rr == _TRUE_) && (index_ct == psp->index_ct_rr)) ||
         (_tensors_ && (psp->has_tp == _TRUE_) && (index_ct == psp->index_ct_tp)) ||
         (_tensors_ && (psp->has_ep == _TRUE_) && (index_ct == psp->index_ct_ep)) ||
+        (_tensors_ && (psp->has_tr == _TRUE_) && (index_ct == psp->index_ct_tr)) ||
+        (_tensors_ && (psp->has_er == _TRUE_) && (index_ct == psp->index_ct_er)) ||
         (_tensors_ && (psp->has_dd == _TRUE_) && (index_ct == psp->index_ct_dd)) ||
         (_tensors_ && (psp->has_td == _TRUE_) && (index_ct == psp->index_ct_td)) ||
         (_tensors_ && (psp->has_pd == _TRUE_) && (index_ct == psp->index_ct_pd)) ||

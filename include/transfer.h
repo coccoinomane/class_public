@@ -95,6 +95,8 @@ struct transfers {
   int index_tt_e;       /**< index for transfer type = E-polarization */
   int index_tt_b;       /**< index for transfer type = B-polarization */
   int index_tt_lcmb;    /**< index for transfer type = CMB lensing */
+  int index_tt_rcmb0;    	/**< index for transfer type = CMB reionisation */
+  int index_tt_rcmb1;    	/**< index for transfer type = CMB reionisation */
   int index_tt_density; /**< index for first bin of transfer type = matter density */
   int index_tt_lensing; /**< index for first bin of transfer type = galaxy lensing */
 
@@ -137,6 +139,8 @@ struct transfers {
   //int * l_size_bessel; /**< for each wavenumber, maximum value of l at which bessel functions must be evaluated */
 
   double angular_rescaling; /**< correction between l and k space due to curvature (= comoving angular diameter distance to recombination / comoving radius to recombination) */
+
+	double z_reio_start;
 
   //@}
 

@@ -630,6 +630,7 @@ int perturb_indices_of_perturbs(
   ppt->has_source_phi = _FALSE_;
   ppt->has_source_phi_prime = _FALSE_;
   ppt->has_source_phi_plus_psi = _FALSE_;
+  ppt->has_source_reionisation = _FALSE_;
   ppt->has_source_psi = _FALSE_;
 #ifdef WITH_BISPECTRA
   ppt->has_source_zeta = _FALSE_;
@@ -698,6 +699,10 @@ int perturb_indices_of_perturbs(
       if ((ppt->has_cl_cmb_lensing_potential == _TRUE_) || (ppt->has_cl_lensing_potential)) {
         ppt->has_lss = _TRUE_;
         ppt->has_source_phi_plus_psi = _TRUE_;
+      }
+
+			if ((ppt->has_cl_cmb_reionisation_potential == _TRUE_)) {
+        ppt->has_source_reionisation = _TRUE_;
       }
 
       if ((ppt->has_pk_matter == _TRUE_) || (ppt->has_nl_corrections_based_on_delta_m)) {
@@ -796,6 +801,8 @@ int perturb_indices_of_perturbs(
       class_define_index(ppt->index_tp_phi,        ppt->has_source_phi,       index_type,1);
       class_define_index(ppt->index_tp_phi_prime,  ppt->has_source_phi_prime, index_type,1);
       class_define_index(ppt->index_tp_phi_plus_psi,ppt->has_source_phi_plus_psi,index_type,1);
+      class_define_index(ppt->index_tp_reionisation0,ppt->has_source_reionisation,index_type,1);
+      class_define_index(ppt->index_tp_reionisation1,ppt->has_source_reionisation,index_type,1);
       class_define_index(ppt->index_tp_psi,        ppt->has_source_psi,       index_type,1);
 #ifdef WITH_BISPECTRA
       class_define_index(ppt->index_tp_zeta,       ppt->has_source_zeta,      index_type,1);
@@ -6374,6 +6381,20 @@ int perturb_sources(
         _set_source_(ppt->index_tp_phi_plus_psi) =
           y[ppw->pv->index_pt_eta] + pvecmetric[ppw->index_mt_alpha_prime];
 
+    }
+    
+    if (ppt->has_source_reionisation == _TRUE_) {
+
+      if (ppt->gauge == newtonian){
+      
+        
+        _set_source_(ppt->index_tp_reionisation0) =
+          pvecthermo[pth->index_th_dkappa] * (pvecmetric[ppw->index_mt_psi] - y[ppw->pv->index_pt_delta_b] );
+        _set_source_(ppt->index_tp_reionisation1) =
+          pvecthermo[pth->index_th_dkappa] * y[ppw->pv->index_pt_theta_b]/k;
+        
+        }
+			
     }
 
     /* Bardeen potential PHI_A = psi in newtonian gauge */
