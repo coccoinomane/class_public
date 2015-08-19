@@ -143,6 +143,16 @@ int compute_cls(
     ple->error_message,
     error_message);
 
+  /* Skip output of bispectra and Fisher matrices, because they haven't been
+  computed yet. */
+  bi.has_bispectra = _FALSE_;
+  fi.has_fisher = _FALSE_;
+
+  class_call (output_init(pba,pth,&pt,&pm,&tr,psp,&nl,ple,&bi,&fi,&op),
+    op.error_message,
+    error_message);
+
+
 
   // =================================================================================
   // =                                  Free memory                                  =
