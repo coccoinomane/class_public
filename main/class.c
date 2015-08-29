@@ -35,6 +35,14 @@ int main(int argc, char **argv) {
   }
 #endif // WITH_BISPECTRA
 
+#ifdef WITH_SONG_SUPPORT
+  /* This file is meant only for computations that involve first-order perturbations */
+  if (pt.has_perturbations2 == _TRUE_) {
+    printf ("\nThe computation you requested is non-linear. Use 'song' rather than 'class'.\n");
+    return _FAILURE_;
+  }
+#endif // WITH_SONG_SUPPORT
+
   if (background_init(&pr,&ba) == _FAILURE_) {
     printf("\n\nError running background_init \n=>%s\n",ba.error_message);
     return _FAILURE_;
