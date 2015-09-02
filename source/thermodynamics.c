@@ -572,6 +572,39 @@ int thermodynamics_init(
                pth->error_message);
   }
 
+#ifdef WITH_SONG_SUPPORT
+
+  /** -> derivatives of baryon sound speed (only computed if some non-minimal tight-coupling schemes is requested) */
+  if (pth->compute_xe_derivatives == _TRUE_) {
+
+    /** -> compute_xe_derivatives respect to tau of cb2 */
+    class_call(array_spline_table_line_to_line(tau_table,
+                 pth->tt_size,
+                 pth->thermodynamics_table,
+                 pth->th_size,
+                 pth->index_th_xe,
+                 pth->index_th_ddxe,
+                 _SPLINE_EST_DERIV_,
+                 pth->error_message),
+         pth->error_message,
+         pth->error_message);
+    
+    
+    /** -> first derivative with respect to tau of cb2 (using spline interpolation) */
+    class_call(array_derive_spline_table_line_to_line(tau_table,
+                  pth->tt_size,
+                  pth->thermodynamics_table,
+                  pth->th_size,
+                  pth->index_th_xe,
+                  pth->index_th_ddxe,
+                  pth->index_th_dxe,
+                  pth->error_message),
+         pth->error_message,
+         pth->error_message);
+  }
+
+#endif // WITH_SONG_SUPPORT
+
   free(tau_table);
 
   /** -> compute visibility : \f$ g= (d \kappa/d \tau) e^{- \kappa} */
@@ -881,7 +914,7 @@ int thermodynamics_indices(
   /* Derivatives of ionization fraction (needed for the approximated perturbed recombination) */  
   if (pth->compute_xe_derivatives == _TRUE_) {
 
-    pth->index_th_dxe=index++;
+    pth->index_th_dxe = index++;
     pth->index_th_ddxe = index++;
   }
 
