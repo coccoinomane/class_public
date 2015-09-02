@@ -76,7 +76,6 @@ enum possible_gauges {
 enum sources_tau_samplings {
   lin_tau_sampling,                  /**< Linear time sampling */
   log_tau_sampling,                  /**< Logarithmic time sampling */
-  class_tau_sampling                 /**< Time sampling adopted in CLASS for the array ppt->tau_sampling */
 };
 
 
@@ -522,32 +521,42 @@ struct perturbs
                             in interpolation table starting from previous position in previous
                             call */
 
-  /** Time-sampling for the quadratic sources in ppt->quadsources.  Note that this is not the same as the sampling
-  for the line-of-sight sources ppt->sources.  The latter need to catch the evolution of the first-order quantities
-  only around specific times, usually at recombination (in the visibility function regime) and when dark
-  energy becomes important (to catch the evolution of the potentials that give rise to the late ISW effect).
-  On the other hand, the quadratic sources are needed to solve the second-order system and they need to be
-  sampled whenever we the first-order perturbations have an evolution. This is why by default we sample the quadratic
-  sources based on the typical (conformal) timescale of the system, that is 1/aH (see function
-  perturb2_timesampling_for_sources()).
-  
-  IMPORTANT: this array is filled by the 'perturb2_timesampling_for_sources' function, that belongs to the
-  perturbation2 module. */
-  double * tau_sampling_quadsources;
-  int tau_size_quadsources;
+  /**
+   * Variables related to the time-sampling of the quadratic sources.
+   * 
+   * The second-order differential system is sourced by quadratic combinations of
+   * first-order perturbations. We sample these quadratic sources with the timescale
+   * of the differential system, which is given by the Hubble time, 1/aH. Since
+   * 1/aH~tau, this choice roughly corresponds to a logarithmic sampling in tau.
+   * 
+   * Note that for the line-of-sight sources (ppt->sources and ppt2->sources), we
+   * need to use a more densely sampled time-grid in order to follow the evolution
+   * of the visibility function at recombination and reionisation.
+   */
+  //@{
 
-  double tau_start_sampling_quadsources; /**< When to start the sampling of the quadratic sources for the
-                                              second-order system? */
+  double * tau_sampling_quadsources; /**< Array with the time values where the line-of-sight sources will be computed;
+                                     it is filled in the perturb2_timesampling_for_sources() function. */
+  int tau_size_quadsources; /**< Size of the ppt->tau_sampling_quadsources array; 
+                            it is filled in the perturb2_timesampling_for_sources() function. */
 
-  short  has_custom_timesampling_for_quadsources; /**< Should we adopt a custom time sampling for the quadratic sources
-                                                       in ppt->quadsources? */
-  enum   sources_tau_samplings custom_tau_mode_quadsources;  /**< lin, log or sampling for ppt->quadsources? */
-  double custom_tau_ini_quadsources;           /**< Initial time for the sampling of 2nd-order eqs source terms */
-  double custom_tau_end_quadsources;           /**< Final time for the sampling of 2nd-order eqs source terms */
-  int    custom_tau_size_quadsources;          /**< Number of points where to sample the source terms */
-                                                
-  double custom_tau_step_quadsources;          /**< Step in ppt->tau_sampling_quadsources. Defined only if the mode is lin or log */
-  double custom_log_tau_ini_quadsources;       /**< Logarithm of ppt->tau_sampling[0], needed for interpolation purposes only */
+  short  has_custom_timesampling_for_quadsources; /**< Should we use use the user-given parameters, rather than SONG algorithm,
+                                                  to compute the time sampling of the quadratic sources? Useful for debugging. */
+  double custom_tau_ini_quadsources;                         /**< Initial time for the time sampling of the quadratic sources
+                                                             (used only if ppt->has_custom_timesampling_for_quadsources==_TRUE_) */
+  double custom_tau_end_quadsources;                         /**< Final time for the time sampling of the quadratic sources
+                                                             (used only if ppt->has_custom_timesampling_for_quadsources==_TRUE_) */
+  int    custom_tau_size_quadsources;                        /**< Number of points in the time sampling of the quadratic sources
+                                                             (used only if ppt->has_custom_timesampling_for_quadsources==_TRUE_) */
+  enum   sources_tau_samplings custom_tau_mode_quadsources;  /**< Sampling method for the time grid of the quadratic sources
+                                                             (used only if ppt->has_custom_timesampling_for_quadsources==_TRUE_). See
+                                                             documentation for sources_tau_samplings in perturbations.c. */
+  double custom_tau_step_quadsources;       /**< Linear/logarithmic step in ppt->tau_sampling_quadsources
+                                            (used only if ppt->has_custom_timesampling_for_quadsources==_TRUE_). */
+  double custom_log_tau_ini_quadsources;    /**< Logarithm of ppt->custom_tau_ini_quadsources
+                                            (used only if ppt->has_custom_timesampling_for_quadsources==_TRUE_). */
+  //@}
+
 
   //@}
 #endif // WITH_SONG_SUPPORT

@@ -2920,13 +2920,10 @@ int input_read_parameters(
     else if (((strstr(string1,"log") != NULL) || (strstr(string1,"LOG") != NULL)))
       ppt->custom_tau_mode_quadsources = log_tau_sampling;
 
-    else if (((strstr(string1,"class") != NULL) || (strstr(string1,"CLASS") != NULL)))
-      ppt->custom_tau_mode_quadsources = class_tau_sampling;
-    
     else
       class_test(1==1,
         errmsg,         
-        "custom_tau_mode_quadsources=%s not supported; choose between 'lin', 'log' or 'class'", string1);
+        "custom_tau_mode_quadsources=%s not supported; choose between 'lin' or 'log'", string1);
   }
 
   /* Define time step, either linear or logarithmic (used only for interpolation purposes) */
