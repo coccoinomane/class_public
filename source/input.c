@@ -162,6 +162,7 @@ int input_init_from_arguments(
     strcpy (ppr->ini_filename, input_file);
 #endif // WITH_BISPECTRA
 
+#ifndef WITH_BISPECTRA
     /** - check whether a root name has been set */
 
     class_call(parser_read_string(&fc_input,"root",&stringoutput,&flag1,errmsg),
@@ -203,6 +204,8 @@ int input_init_from_arguments(
       class_call(parser_free(&fc_root),errmsg,errmsg);
       pfc_input = &fc_inputroot;
     }
+#endif // WITH_BISPECTRA
+
   }
 
   /** - if there is an 'xxx.pre' file, read it and store its content. */
@@ -3586,8 +3589,8 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
     
   } // end of if not load_run
 
-  /* In any case, store or load run, make the root coincide with the run directory, so that the output
-  files (cl.dat, fisher.dat, etc.) will be dumped there */
+  /* In any case, store or load run, make the root coincide with the run directory, so
+  that the output files (cl.dat, fisher.dat, etc.) will be dumped there */
   if ((ppr->store_run == _TRUE_) || (ppr->load_run == _TRUE_))
     sprintf (pop->root, "%s/", ppr->run_dir);
 

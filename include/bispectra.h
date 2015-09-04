@@ -312,17 +312,29 @@ struct bispectra {
 
 
   // ==========================================================================================
-  // =                                        Disk IO                                         =
+  // =                                     Disk storage                                       =
   // ==========================================================================================
 
-  /* Files where the bispectra will be stored (one file for each bispectra type) */
-  char bispectra_dir[_FILENAMESIZE_];
-  FILE ** bispectra_files;
-  char ** bispectra_paths;
 
-  /* File that will keep track how how many bispectra have been succesfully written */
-  FILE * bispectra_status_file;
-  char bispectra_status_path[_FILENAMESIZE_];
+  char bispectra_dir[_FILENAMESIZE_];  /**< Directory containing the bispectra. If it already exists, and
+                                       ppr->load_bispectra_from_disk==_TRUE_, the bispectra will be read from this folder 
+                                       into the array pbi->bispectra. If it does not exist, and ppr->store_bispectra_to_disk==_TRUE_,
+                                       the bispectra will be first computed and then written to this folder from the array
+                                       pbi->bispectra. Either way, the directory contains one binary file for each bispectrum type,
+                                       for a total of pbi->bt_size files. The file corresponding to index_bt is located at
+                                       pbi->bispectra_paths[index_bt]; its stream is in pbi->bispectra_files[index_bt]. */
+
+
+  char ** bispectra_paths; /**< bispectra_paths[index_bt] is the path to the file containing the bispectrum type
+                           corresponding to index_bt. Used only if ppr->store_bispectra_to_disk==_TRUE_ or
+                           ppr->load_bispectra_from_disk==_TRUE_. */
+
+  FILE ** bispectra_files; /**< bispectra_paths[index_bt] is the pointer to the file containing the bispectrum type
+                           corresponding to index_bt. Used only if ppr->store_bispectra_to_disk==_TRUE_ or
+                           ppr->load_bispectra_from_disk==_TRUE_. */
+
+  FILE * bispectra_status_file;                      /**< NOT IMPLEMENTED YET */
+  char bispectra_status_path[_FILENAMESIZE_];        /**< NOT IMPLEMENTED YET */
 
 
   // ===========================================================================================
