@@ -1002,10 +1002,17 @@ int coupling_general (
 
 
 /**
- * Associate Legendre Polynomials from Numerical Recipes, Third edition, pag.294, Press et al. 2002.
- * The function returns the associated Legendre polynomial using a recurrence relation algorithm.
- * The returned polynomials include the same normalisation constant found in the definition
- * of the spherical harmonics, that is sqrt( (2l+1)/(4pi) * (l-m)!/(l+m)! )
+ * Associate Legendre Polynomials for non-negative values of m (from Numerical Recipes,
+ * Third edition, pag. 294, Press et al. 2002).
+ *
+ * Return the associated Legendre polynomial using a recurrence relation algorithm. The
+ * returned polynomials include the same normalisation constant found in the definition
+ * of the spherical harmonics, that is sqrt((2l+1)/(4pi) * (l-m)!/(l+m)!).
+ *
+ * This function does not accept negative m values. To obtain the associated Legendre
+ * polynomials for negative m, simply multiply P_l|m| by (-1)^m. This follows from
+ * http://dlmf.nist.gov/14.9#E3 and from the fact that we are not computing the actual
+ * Legendre polynomials but those that include the spherical harmonics normalisation.
  */
 double plegendre_lm (int l, int m, double x) {
   
@@ -1053,13 +1060,13 @@ double plegendre_lm (int l, int m, double x) {
 
 
 /**
- * Return the value of
- * P_lm (x) / (1-x^2)^(m/2)
- * where P_lm(x) is the associated Legendre polynomial, computed using a recurrence relation
- * algorithm. The returned polynomials include the same normalisation constant found in the
+ * Return P_lm(x)/(1-x^2)^(m/2) where P_lm(x) is the associated Legendre polynomial,
+ * for non-negative values of m.
+ *
+ * The returned polynomials include the same normalisation constant found in the
  * definition of the spherical harmonics, that is sqrt((2l+1)/(4pi) * (l-m)!/(l+m)!).
  * The function accepts only positive values of m. For negative values, just use the normal
- * plegendre_lm and multiply it by (1-x^2)^(m/2).
+ * plegendre_lm() and multiply it by (1-x^2)^(m/2).
  *
  * The credits for this function go to Press et al. 2002. ("Numerical Recipes, Third edition",
  * pag.294) for the computation of the Legendre polynomial, and to Wolfgang Ehrhardt
@@ -1115,28 +1122,40 @@ double plegendre_lm_rescaled_analytically (int l, int m, double x) {
 
 
 
-
+/**
+ * Return P_lm(x)/(1-x^2)^(m/2) where P_lm(x) is the associated Legendre polynomial,
+ * for any value of m.
+ */
 double plegendre_lm_rescaled (int l, int m, double x) {
   
+  /* For scalar modes, the sin(1-x^2)^m factor is equal to one, and the rescaling
+  has no effect */
+
   if (m == 0) {
     return plegendre_lm (l, m, x);
   }
+
+  /* For m>0, the sin(1-x^2)^|m| factor is in the denominator. Since this factor can be 
+  very small for x->1, we compute the whole expression P_lm/sin(1-x^2)^|m| using a
+  recursive algorithm. */
   else if (m > 0) {
     return plegendre_lm_rescaled_analytically (l, m, x);
   }
-  /* When m is negative there is a factor (-1)^m coming from the transformation rule of the
-  associated Legendre polynomials. Note also that the sin(theta)^m factor flips from 
-  denominator to the numerator.
-  The negative-m rescaled polynomials are proportional to (1-x*x)^m, hence they go
-  very fast to zero for x->1. We include that case by hand for optimisation purposes. */
+  
+  /* For negative m, there is no risk of numerical instability, because the sin(1-x^2)^|m|
+  factor is in the numerator; we can then treat this case explicitly. We also include a factor
+  (-1)^m coming from flipping the sign of m in the associated Legendre polynomials
+  (http://dlmf.nist.gov/14.9#E3). */
+
   else if (m < 0) {
     if (fabs(x)!=1)
-      return ALTERNATING_SIGN(m) * plegendre_lm (l, abs(m), x) * pow(1.0-x*x, 0.5*abs(m));
+      return ALTERNATING_SIGN(m) * plegendre_lm (l,abs(m),x) * pow(1.0-x*x, 0.5*abs(m));
     else
       return 0;
   }
 
   printf ("ERROR (%s): Should not be here!\n", __func__);
+  
   return 0;
 
 }
