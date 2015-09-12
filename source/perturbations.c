@@ -6313,11 +6313,29 @@ int perturb_sources(
 
       /* check whether integrated Sachs-Wolf term should be included */
       if ((ppt->switch_eisw == 0) && (z >= ppt->eisw_lisw_split_z)){
-        switch_isw = 0;
+        switch_isw=0;
       }
       if ((ppt->switch_lisw == 0) && (z < ppt->eisw_lisw_split_z)) {
         switch_isw=0;
       }
+
+
+#ifdef WITH_SONG_SUPPORT
+      
+      /* Uncomment to include only the late ISW effect */
+      // ppt->switch_sw = 0;
+      // switch_isw = 0;
+      // ppt->switch_dop = 0;
+      // ppt->switch_pol = 0;
+      //
+      // if (z < ppt->eisw_lisw_split_z)
+      //   switch_isw = 1;
+
+      /* Uncomment to exclude the late ISW effect */
+      // if (z < ppt->eisw_lisw_split_z)
+      //   switch_isw = 0;
+
+#endif // WITH_SONG_SUPPORT
 
       /* newtonian gauge: simplest form, not efficient numerically */
       /*

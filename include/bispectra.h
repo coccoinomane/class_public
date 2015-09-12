@@ -595,6 +595,7 @@ extern "C" {
       struct bispectra * pbi
       );
 
+
   int bispectra_cls (
       struct precision * ppr,
       struct perturbs * ppt,
@@ -615,6 +616,22 @@ extern "C" {
       struct spectra * psp,
       struct lensing * ple,
       struct bispectra * pbi
+      );
+      
+      
+  int bispectra_get_r_grid (
+      struct precision * ppr,
+      struct background * pba,
+      struct thermo * pth,
+      struct perturbs * ppt,
+      struct bispectra * pbi,
+      double * tau_sampling,
+      int tau_size,
+      double ** r_grid,
+      int * r_size,
+      double * r_min,
+      double * r_max,
+      double ** delta_r
       );
 
 

@@ -347,6 +347,17 @@ enum file_format {class_format,camb_format};
 #define _MAX_NUM_BISPECTRA_ 32 /**< Maximum number of bispectra that can be computed */
 #define _MAX_NUM_FIELDS_ 16 /**< Maximum number of fields (T, E, B...) that can be computed */
 
+/**
+ * Maximum number of k-modes that SONG can handle in one run, lest it runs
+ * into memory issues.
+ */
+#define K_SIZE_MAX 50000
+
+/**
+ * Maximum number of points in the time samplings.
+ */
+#define TAU_SIZE_MAX 500000
+
 #define _ODD_ 1 /**< Value assigned to the ODD parity state */
 #define _EVEN_ 0 /**< Value assigned to the EVEN parity state */
 
@@ -475,7 +486,8 @@ enum k3_extrapolation {
  */
 enum bispectra_r_samplings {
   custom_r_sampling,        /**< Linear r-sampling starting in a custom range [r_min, r_max]  */
-  centred_r_sampling        /**< Linear r-sampling centred at tau0-tau_rec */
+  centred_r_sampling,       /**< Linear r-sampling centred at tau0-tau_rec */
+  sources_r_sampling        /**< Take r=tau0-tau, with tau taken from the time sampling of the line-of-sight sources */
 };
 
 
@@ -984,15 +996,13 @@ struct precision
 
   int r_size;   /**< Size of the integration grid in r of the bispectrum. */
 
-  double r_min; /**< Lower limit on the bispectrum integration variable r. Used only
-                if the r_sampling is custom. */
-  double r_max; /**< Upper limit on the bispectrum integration variable r. Used only
-                if the r_sampling is custom. */
+  double r_min; /**< Lower limit on the bispectrum integration variable r */
+  double r_max; /**< Upper limit on the bispectrum integration variable r */
 
   double r_left;  /**< The lower limit on the bispectrum integration variable r is given
-                  by tau0-r_left*tau_rec. Used only if the r_sampling is centred. */
+                  by tau0-r_left*tau_rec. Used only if bispectra_r_sampling=centred. */
   double r_right; /**< The upper limit on the bispectrum integration variable r is given
-                  by tau0+r_right*tau_rec. Used only if the r_sampling is centred. */
+                  by tau0+r_right*tau_rec. Used only if bispectra_r_sampling=centred. */
 
 
   /** Which integration scheme should we follow for k3 in the bispectrum integral?

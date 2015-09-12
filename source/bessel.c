@@ -107,7 +107,7 @@ int bessel_init(
 
     if (ppr->bispectra_r_sampling == custom_r_sampling)
       r_max = ppr->r_max;
-    else if (ppr->bispectra_r_sampling == centred_r_sampling)
+    else if ((ppr->bispectra_r_sampling == centred_r_sampling) || (ppr->bispectra_r_sampling == sources_r_sampling))
       r_max = (pba->conformal_age-pth->tau_rec) + ppr->r_right*pth->tau_rec;
         
     pbs->x_max = MAX (pbs->x_max, pbs->x_max*r_max/pba->conformal_age);

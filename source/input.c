@@ -3167,15 +3167,17 @@ int input_read_parameters(
       if (((strstr(string1,"custom") != NULL) || (strstr(string1,"CUSTOM") != NULL)))
         ppr->bispectra_r_sampling = custom_r_sampling;
 
-      else if (((strstr(string1,"smart") != NULL) || (strstr(string1,"SMART") != NULL))
-              ||((strstr(string1,"centred") != NULL) || (strstr(string1,"CENTRED") != NULL))
+      else if (((strstr(string1,"centred") != NULL) || (strstr(string1,"CENTRED") != NULL))
               ||((strstr(string1,"centered") != NULL) || (strstr(string1,"CENTERED") != NULL)))
         ppr->bispectra_r_sampling = centred_r_sampling;
+    
+      else if (((strstr(string1,"sources") != NULL) || (strstr(string1,"SOURCES") != NULL)))
+        ppr->bispectra_r_sampling = sources_r_sampling;
     
       else
         class_test(1==1,
           errmsg,         
-          "bispectra_r_sampling=%s not supported; choose between 'custom' and 'centred'", string1);
+          "bispectra_r_sampling=%s not supported; choose between 'custom', 'centred' and 'sources'", string1);
     }
 
     if (ppr->bispectra_r_sampling == custom_r_sampling) {
@@ -3188,6 +3190,15 @@ int input_read_parameters(
       class_read_double("r_right", ppr->r_right);
       class_read_int("r_size", ppr->r_size);
     }
+    else if (ppr->bispectra_r_sampling == sources_r_sampling) {
+      class_read_double("r_left", ppr->r_left);
+      class_read_double("r_right", ppr->r_right);
+      class_read_int("r_size", ppr->r_size);
+      if (flag1 == _FALSE_)
+        ppr->r_size = -1; /* Determine automatically r_size between r_left and r_right */
+    }
+
+
     
     /* TODO: update x_max to take into account the k3 extrapolation (use following piece of code)*/
     // if (ppr->bispectra_k3_extrapolation != no_k3_extrapolation) {
@@ -4601,10 +4612,10 @@ int input_default_precision ( struct precision * ppr ) {
   ppr->bispectra_k3_extrapolation = flat_k3_extrapolation;
   ppr->extra_k3_oscillations_left = 50;
   ppr->extra_k3_oscillations_right = 50;
-  ppr->bispectra_r_sampling = centred_r_sampling;
-  ppr->r_size = 100;
-  ppr->r_left = 4;
-  ppr->r_right = 4;
+  ppr->bispectra_r_sampling = sources_r_sampling;
+  ppr->r_size = 150;
+  ppr->r_left = 2;
+  ppr->r_right = 2;
   ppr->r_min = 13000;
   ppr->r_max = 15000;
 
