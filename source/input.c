@@ -4620,7 +4620,7 @@ int input_default_precision ( struct precision * ppr ) {
   ppr->r_max = 15000;
 
   /* Bessel module */
-  ppr->bessel_x_step = 0.5;
+  ppr->bessel_x_step = 0.2;
   ppr->bessel_j_cut = 1e-5;
   ppr->bessel_tol_x_min = 1e-4;
 
