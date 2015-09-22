@@ -10,9 +10,9 @@
 #include "math.h"
 
 
-// ==============================================================================
-// =                                3J and 6J symbols                           =
-// ==============================================================================
+// ======================================================================================
+// =                                   3J and 6J symbols                                =
+// ======================================================================================
 
 /** 
  * Compute the 3j symbol
@@ -537,9 +537,9 @@ int threej_A_factor (
 }
 
 
-// ======================================================================
-// =                           Bessel functions                         =
-// ======================================================================
+// ======================================================================================
+// =                                   Bessel functions                                 =
+// ======================================================================================
 
 /**
  * Compute spherical Bessel function j_l(x) for a given l and x.
@@ -723,9 +723,9 @@ double spherical_bessel_j(
 
 }
 
-// ====================================================================================
-// =                                Coupling factors                                  =
-// ====================================================================================
+// ======================================================================================
+// =                                 Coupling factors                                   =
+// ======================================================================================
 
 /**
  * Compute the C_minus coupling coefficient appearing in the in the Boltzmann hierarchy.
@@ -996,9 +996,9 @@ int coupling_general (
 }
 
 
-// ============================================================================================
-// =                                 Legendre polynomials                                     =
-// ============================================================================================
+// ======================================================================================
+// =                               Legendre polynomials                                 =
+// ======================================================================================
 
 
 /**
@@ -1197,15 +1197,9 @@ double plegendre (int n, double x)
 
 
 
-
-
-
-
-
-// =============================================================================
-// =                        Multipole related functions                        =
-// =============================================================================
-
+// ======================================================================================
+// =                             Multipole related functions                            =
+// ======================================================================================
 
 
 /** 
@@ -1986,15 +1980,9 @@ int size_n_l_indexm (int n_max, int l_max, int * m_vec, int m_size) {
   
   
   
-  
-  
-  
-  
-  
-  
-// =====================================================================================
-// =                                     Interpolation                                 =
-// =====================================================================================
+// ======================================================================================
+// =                                     Interpolation                                  =
+// ======================================================================================
   
   
 /**
@@ -3025,7 +3013,7 @@ int lin_space (double * x, double x_min, double x_max, int n_points) {
 // =                                Matrix operations                                =
 // ===================================================================================
 
-/* Credits to Christopher M. Brown (http://www.cs.rochester.edu/~brown/Crypto/assts/projects/adj.html) */
+/* Credits to Christopher M. Brown, (http://www.cs.rochester.edu/~brown/Crypto/assts/projects/adj.html) */
 
 
 /**
@@ -3198,9 +3186,9 @@ void PrintMatrix(double **in,int n)
 
 
 
-// ======================================================================
-// =                          Assert functions                          =
-// ======================================================================
+// ======================================================================================
+// =                                  Assert functions                                  =
+// ======================================================================================
 
 /** 
  * Check whether a triad of numbers (l1,l2,l3) satisfies the triangular condition
@@ -3231,9 +3219,9 @@ int is_triangular_double (double l1, double l2, double l3) {
 
 
 
-// ========================================================================
-// =                                 Misc                                 =
-// ========================================================================
+// ======================================================================================
+// =                                       Misc                                         =
+// ======================================================================================
 
 /** 
  * Identity function.
@@ -3352,6 +3340,75 @@ int reorder_int (
 }
   
   
+/**
+ * Merge two arrays into a third one, then sort it and remove duplicates.
+ *
+ * If one of the two input vectors has zero or negative size, then the
+ * output array will just be the other input vector sorted and without
+ * duplicates.
+ *
+ * The output array can be one of the two input arrays, in which case
+ * it will be modified in place and its size will be extended using
+ * realloc.
+ */
+int merge_arrays_double (
+      double *v1,      /**< input array to be merged */
+      int v1_size,     /**< input, size of v1 */
+      double *v2,      /**< input array to be merged */
+      int v2_size,     /**< input, size of v2 */
+      double **out,    /**< output array; it will be (re)allocated with out_size elements using realloc */
+      int * out_size,  /**< output, size of out */
+      int (*compar)(const void *, const void *), /**< input, comparison function for the sorting (see documentation for qsort) */
+      ErrorMsg errmsg  /**< output, string where to write error message */
+      )
+{
+  
+  /* Merge v1 and v2 in a temporary array */
+  double * v_big;
+  int v_big_size = v1_size + v2_size;
+  class_alloc (v_big, v_big_size*sizeof(double), errmsg);
+
+  /* Copy v1 at the beginning of v_big  */
+  for (int i=0; i < v1_size; ++i)
+    v_big[i] = v1[i];
+
+  /* Copy v2 at the end of v_big */
+  for (int i=0; i < v2_size; ++i)
+    v_big[v1_size + i] = v2[i];
+
+  /* Sort v_big in ascending order */
+  qsort (v_big, v_big_size, sizeof(double), compar);
+
+  /* Count duplicates in v_big */
+  int n_duplicates = 0;
+  for (int i=0; i < (v_big_size-1); ++i)
+    if (v_big[i+1] == v_big[i])
+      n_duplicates++;
+
+  /* Allocate output array */
+  *out_size = v_big_size - n_duplicates;
+  class_realloc(*out, *out, *out_size*sizeof(double), errmsg);
+  
+  /* Fill out with the non-duplicate values of v1 and v2 */
+  int index_out = 0;
+  for (int i=0; i < (v_big_size-1); ++i)
+    if (v_big[i+1] != v_big[i])
+      (*out)[index_out++] = v_big[i];
+  if (*out_size>0)
+    (*out)[*out_size-1] = v_big[v_big_size-1];
+
+#ifdef DEBUG
+  /* Double check that there are no duplicates */
+  for (int i=0; i < (*out_size-1); ++i)
+    class_test ((*out)[i+1] <= (*out)[i], errmsg, "sorting failed");
+#endif // DEBUG
+
+  free (v_big);
+  
+  return _SUCCESS_;
+  
+}
+  
   
   
   
@@ -3363,3 +3420,4 @@ int reorder_int (
   
 
 
+ 

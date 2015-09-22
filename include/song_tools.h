@@ -347,17 +347,28 @@ extern "C" {
   int sign_int (int x);
 
   int ordering_int (
-        int * n,            /* In */
-        int * ordering,     /* Out */
+        int * n,         
+        int * ordering,  
         ErrorMsg errmsg
         );
 
   int reorder_int (
-        int * n,             /* In/Out */
-        int * ordering,      /* In */
+        int * n,        
+        int * ordering, 
         ErrorMsg errmsg
         );
 
+  int merge_arrays_double (
+        double *v1,
+        int v1_size,
+        double *v2,
+        int v2_size,
+        double **out,
+        int * out_size,
+        int (*compar)(const void *, const void *),
+        ErrorMsg errmsg
+        );
+  
 
 #ifdef __cplusplus
 }
