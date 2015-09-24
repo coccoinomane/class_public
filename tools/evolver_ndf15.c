@@ -136,6 +136,12 @@ int evolver_ndf15(
   int stepstat[6],nfenj,j,ii,jj, numidx, neqp=neq+1;
   int verbose=0;
 
+  /* Test against a known bug */
+  class_test_permissive (x_ini == t_vec[0],
+    error_message,
+    "x_ini and t_vec[0] are equal (%23.17f), will have extra call to output function", x_ini);
+
+
   /** Allocate memory . */
 
   void * buffer;
@@ -241,8 +247,8 @@ int evolver_ndf15(
     char buffer[64];
     sprintf(buffer, "%g", y_inout[ii]);
     class_test (isnan(y_inout[ii]),
-                error_message,
-                "found NAN in initial conditions at tau=%f.", x_ini);
+      error_message,
+      "found NAN in initial conditions at tau=%f.", x_ini);
 
   } // end of for(ii)
 

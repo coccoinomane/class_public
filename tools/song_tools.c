@@ -3343,9 +3343,8 @@ int reorder_int (
 /**
  * Merge two arrays into a third one, then sort it and remove duplicates.
  *
- * If one of the two input vectors has zero or negative size, then the
- * output array will just be the other input vector sorted and without
- * duplicates.
+ * If one of the two input vectors has zero size, then the output array
+ * will just be the other input vector sorted and without duplicates.
  *
  * The output array can be one of the two input arrays, in which case
  * it will be modified in place and its size will be extended using
@@ -3362,6 +3361,9 @@ int merge_arrays_double (
       ErrorMsg errmsg  /**< output, string where to write error message */
       )
 {
+
+  class_test (v1_size < 0, errmsg, "v1_size=%d is negative", v1_size);
+  class_test (v2_size < 0, errmsg, "v2_size=%d is negative", v2_size);
   
   /* Merge v1 and v2 in a temporary array */
   double * v_big;
