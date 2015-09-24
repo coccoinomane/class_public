@@ -2271,6 +2271,25 @@ int perturb_solve(
 
   free(interval_number_of);
 
+  /* Reproduce the bug in evolver_ndf15.c by setting tau_ini=ppt->tau_sampling[0]
+  for the second interval */
+  if (index_k == 50) {
+
+    printf ("k = %g, tau_sampling[0] = %g\n", k, ppt->tau_sampling[0]);
+
+    int i;
+    for (i=0; i < interval_number; ++i) {
+      printf ("BEFORE: %8d %12g\n", i, interval_limit[i]);
+    }
+
+    interval_limit[1] = ppt->tau_sampling[0];
+
+    for (i=0; i < interval_number; ++i) {
+      printf ("AFTER: %8d %12g\n", i, interval_limit[i]);
+    }
+  }
+
+
   /** - fill the structure containing all fixed parameters, indices
       and workspaces needed by perturb_derivs */
 
@@ -5721,6 +5740,11 @@ int perturb_sources(
   pvecback = ppw->pvecback;
   pvecthermo = ppw->pvecthermo;
   pvecmetric = ppw->pvecmetric;
+
+  /* Print the current time sampling. Due to the bug in evolver_ndf15, the first
+  index is called twice instead of once. */
+  if (index_k == 50)
+    printf ("%4d %12g\n", index_tau, ppt->tau_sampling[index_tau]);
 
   /** - get background/thermo quantities in this point */
 
