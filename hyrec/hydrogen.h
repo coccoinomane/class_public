@@ -25,7 +25,10 @@
 #define kBoltz    8.617343e-5          /* Boltzmann constant in eV/K */
 #define L2s1s     8.2206               /* 2s -> 1s two-photon decay rate in s^{-1} (Labzowsky et al 2005) */
 
-
+#ifndef M_PI
+#define M_PI 3.14159265358979323846264338328
+#define M_PI_2 1.57079632679489661923132169164
+#endif
 
 double square(double x);
 double cube(double x);

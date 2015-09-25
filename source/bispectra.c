@@ -93,7 +93,7 @@ int bispectra_init (
 {
 
   /* Check whether we need to compute bispectra at all */  
-  if (ppt->has_bispectra == _FALSE_) {
+  if (ppt->has_cmb_bispectra == _FALSE_) {
 
     pbi->has_bispectra = _FALSE_;
 

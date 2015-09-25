@@ -29,7 +29,7 @@ struct bessels {
 
   double x_step; /**< step dx for sampling Bessel functions */
 
-  short has_bispectra; /**< are the Bessels going to be used to compute the bispectrum? */
+  short has_cmb_bispectra; /**< are the Bessels going to be used to compute the CMB bispectrum? */
 
  //@}
 

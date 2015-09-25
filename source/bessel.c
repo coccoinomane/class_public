@@ -101,7 +101,7 @@ int bessel_init(
   /* In the bispectrum integral the upper limit in the time variable is r_max rather
   than tau0. Here we scale the Bessels domain so that it includes the integration domain
   of the bispectrum. */
-  if (pbs->has_bispectra == _TRUE_) {
+  if (pbs->has_cmb_bispectra == _TRUE_) {
 
     double r_max;
 

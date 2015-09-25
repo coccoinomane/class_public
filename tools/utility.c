@@ -113,7 +113,8 @@ int compute_cls(
   // ======================================================================================
 
   if (pt.perturbations_verbose > 0)
-    printf ("Computing first-order C_l\n");
+    printf ("Computing first-order %sC_l\n",
+    (ple->has_lensed_cls==_TRUE_)?"lensed ":"unlensed ");
 
   pt.perturbations_verbose = 0;
   class_call (perturb_init(&pr,pba,pth,&pt),
@@ -135,10 +136,12 @@ int compute_cls(
     tr.error_message,
     error_message);
 
+  psp->spectra_verbose = 0;
   class_call (spectra_init(&pr,pba,&pt,&pm,&nl,&tr,psp),
     psp->error_message,
     error_message);
-  
+
+  ple->lensing_verbose = 0;
   class_call (lensing_init(&pr,&pt,psp,&nl,ple),
     ple->error_message,
     error_message);
@@ -148,6 +151,7 @@ int compute_cls(
   bi.has_bispectra = _FALSE_;
   fi.has_fisher = _FALSE_;
 
+  op.output_verbose = 0;
   class_call (output_init(pba,pth,&pt,&pm,&tr,psp,&nl,ple,&bi,&fi,&op),
     op.error_message,
     error_message);

@@ -15,6 +15,11 @@
 #define _TWO_OVER_THREE_ 0.666666666666666666666666666667e0
 #define _HIS_BYTE_ALIGNMENT_ 16
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846264338328
+#define M_PI_2 1.57079632679489661923132169164
+#endif
+
 typedef struct HypersphericalInterpolationStructure{
   int K;                 //Sign of the curvature, (0,-1,1)
   double beta;

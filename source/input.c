@@ -1403,8 +1403,8 @@ int input_read_parameters(
       ppt->has_bi_cmb_temperature = _TRUE_;
       ppt->has_perturbations = _TRUE_;  
       ppt->has_cls = _TRUE_;
-      ppt->has_bispectra = _TRUE_;
-      pbs->has_bispectra = _TRUE_;
+      ppt->has_cmb_bispectra = _TRUE_;
+      pbs->has_cmb_bispectra = _TRUE_;
       pbi->has_bispectra = _TRUE_;
     }
     
@@ -1414,8 +1414,8 @@ int input_read_parameters(
       ppt->has_bi_cmb_polarization = _TRUE_;
       ppt->has_perturbations = _TRUE_;  
       ppt->has_cls = _TRUE_;
-      ppt->has_bispectra = _TRUE_;
-      pbs->has_bispectra = _TRUE_;
+      ppt->has_cmb_bispectra = _TRUE_;
+      pbs->has_cmb_bispectra = _TRUE_;
       pbi->has_bispectra = _TRUE_;
     }
 
@@ -1426,29 +1426,46 @@ int input_read_parameters(
 
 #ifdef WITH_SONG_SUPPORT
 
-    if (strstr(string1,"early_transfers1") != NULL) {
-      ppt->has_perturbations = _TRUE_;
-      ppt->has_perturbations2 = _TRUE_;
-    }
-    
-    if (strstr(string1,"early_transfers2") != NULL) {    
-      ppt->has_perturbations = _TRUE_;
-      ppt->has_perturbations2 = _TRUE_;
-      ppt->has_cls = _TRUE_;
-    }
-
-    if (strstr(string1,"transfers2") != NULL) {
-      ppt->has_perturbations = _TRUE_;
-      ppt->has_perturbations2 = _TRUE_;
-      ppt->has_cls = _TRUE_;
-    }
-
-    if (strstr(string1,"tCl2") != NULL) {
+    if ((strstr(string1,"tCl2") != NULL) || (strstr(string1,"TCL2") != NULL)) {
       ppt->has_perturbations = _TRUE_;
       ppt->has_perturbations2 = _TRUE_;
       ppt->has_cl_cmb_temperature = _TRUE_;
       ppt->has_cl_cmb_polarization = _TRUE_;
       ppt->has_cls = _TRUE_;
+    }
+
+    if (((strstr(string1,"delta_cdm_pk") != NULL) || (strstr(string1,"pk_delta_cdm") != NULL) || (strstr(string1,"mPk") != NULL))) {
+      ppt->has_perturbations = _TRUE_;
+      ppt->has_perturbations2 = _TRUE_;
+      ppt->has_pk_matter = _TRUE_;
+    }
+
+    if (((strstr(string1,"delta_cdm_bk") != NULL) || (strstr(string1,"bk_delta_cdm") != NULL) || (strstr(string1,"mBisp") != NULL))) {
+      ppt->has_perturbations = _TRUE_;
+      ppt->has_perturbations2 = _TRUE_;
+      ppt->has_pk_matter = _TRUE_;
+    }
+
+    if ((strstr(string1,"stop_at_perturbations1") != NULL) || (strstr(string1,"P1") != NULL)) {
+      ppt->has_perturbations = _TRUE_;
+      ppt->has_perturbations2 = _TRUE_;
+    }
+    
+    if ((strstr(string1,"stop_at_perturbations2") != NULL) || (strstr(string1,"P2") != NULL)) {
+      ppt->has_perturbations = _TRUE_;
+      ppt->has_perturbations2 = _TRUE_;
+      ppt->has_cls = _TRUE_;
+    }
+
+    if ((strstr(string1,"stop_at_transfers2") != NULL) || (strstr(string1,"T2") != NULL)) {
+      ppt->has_perturbations = _TRUE_;
+      ppt->has_perturbations2 = _TRUE_;
+      ppt->has_cls = _TRUE_;
+    }
+
+    if (strstr(string1,"k_out") != NULL) {
+      ppt->has_perturbations = _TRUE_;
+      ppt->has_perturbations2 = _TRUE_;      
     }
 
 #endif // WITH_SONG_SUPPORT
@@ -4082,7 +4099,7 @@ int input_default_params(
 #ifdef WITH_BISPECTRA
   
   /* Let the perturb module know whether we will need to compute bispectra */
-  ppt->has_bispectra = _FALSE_;
+  ppt->has_cmb_bispectra = _FALSE_;
   ppt->has_bi_cmb_temperature = _FALSE_;
   ppt->has_bi_cmb_polarization = _FALSE_;
   
@@ -4235,7 +4252,7 @@ int input_default_params(
 
   pbs->bessels_verbose = 0;
   pbs->l_max = MAX(ppt->l_scalar_max,MAX(ppt->l_vector_max,ppt->l_tensor_max));
-  pbs->has_bispectra = _FALSE_;
+  pbs->has_cmb_bispectra = _FALSE_;
 
   /** - bispectra structure */
 

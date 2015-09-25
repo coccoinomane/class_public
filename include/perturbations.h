@@ -397,9 +397,9 @@ struct perturbs
 
   //@{
 
-  short has_bispectra; /**< do we need to compute any harmonic space bispectrum b_l1l2l3? */
-  short has_bi_cmb_temperature;       /**< do we need bispectra for CMB temperature? */
-  short has_bi_cmb_polarization;      /**< do we need bispectra for CMB polarization? */
+  short has_cmb_bispectra;         /**< do we need to compute any harmonic space bispectrum b_l1l2l3? */
+  short has_bi_cmb_temperature;    /**< do we need bispectra for CMB temperature? */
+  short has_bi_cmb_polarization;   /**< do we need bispectra for CMB polarization? */
 
   short has_cl_cmb_zeta;              /**< do we need Cl's for the primordial curvature perturbation zeta?
                                       This is needed to reproduce the analytical approximation of the
