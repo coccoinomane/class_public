@@ -347,6 +347,8 @@ enum file_format {class_format,camb_format};
 #define _MAX_NUM_BISPECTRA_ 32 /**< Maximum number of bispectra that can be computed */
 #define _MAX_NUM_FIELDS_ 16 /**< Maximum number of fields (T, E, B...) that can be computed */
 
+#define _MAX_INFO_SIZE_ 4096 /**< Maximum length of the information string of each module (eg. pba->info) */
+
 /**
  * Maximum number of k-modes that SONG can handle in one run, lest it runs
  * into memory issues.

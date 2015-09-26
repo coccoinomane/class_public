@@ -310,7 +310,7 @@ struct background
 
 #ifdef WITH_BISPECTRA
 
-  char info [4096];  /**< String with human readable information on the cosmological model */
+  char info [_MAX_INFO_SIZE_];  /**< String with human readable information on the cosmological model */
 
 #endif // WITH_BISPECTRA
 
