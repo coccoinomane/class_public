@@ -1,6 +1,4 @@
-/** 
- * Definitions for some support function to the perturbation2 module
- */
+/** @file song_tools.h Documented header file for song_tools.c */
 
 #ifndef __SONG_TOOLS__
 #define __SONG_TOOLS__
@@ -15,6 +13,69 @@
 #define _SPLINE_EST_DERIV_ 1 /**< spline with estimation of first derivative on both edges */
 #endif
 
+
+/**
+ * Structure representing a binary file made of contiguous data blocks.
+ *
+ * Each block in the data file is homogeneous in that it contains the
+ * same data type.
+ */
+
+struct binary_file {
+  
+  long int n_blocks; /**< Number of blocks in the binary file */
+
+  long int size_bytes; /**< Size of the binary file in bytes */
+
+  struct binary_block ** blocks_array; /**< Array of binary blocks in the file */
+
+  char * header; /**< Header of the binary file. This is the human readable (ASCII) part of 
+                 the binary file. It can be read by opening the binary file with a text
+                 editor. */
+
+  int header_size; /**< Size of the header string */
+
+  int header_size_max; /**< Maximum size of the header string */
+  
+  char path[_FILENAMESIZE_]; /**< String with the path of the binary file */
+
+  FILE * stream; /**< File stream pointing to the binary file (input to fwrite) */
+  
+  ErrorMsg error_message; /**< Area to write error messages */
+  
+};
+
+
+/**
+ * Structure representing a data block in a binary file.
+ *
+ * A binary block is a homogeneous sequence of data of the same type inside a
+ * binary file.
+ *
+ * For example, an array of N integers represents a data block with:
+ * - size = N
+ * - type_size = sizeof(int)
+ * - size_bytes = N * sizeof(int)
+ * - type = "int"
+ * - description = "an array of N integers"
+ */
+
+struct binary_block {
+
+  long int block_id; /**< Unique ID for this block in the parent file */
+  void * internal_pointer; /**< Pointer to the memory location of the data to be stored in the block */
+  int size; /**< Length of the block, in units of the data type of the block */
+  int size_bytes; /**< Size of the block in bytes */
+  int type_size; /**< Size of the data type in this block */
+  long int start_byte; /**< Location of the block in the parent binary file, in bytes */
+  char description[512]; /**< String with a short description of the data contained in the block */
+  char type[62]; /**< String with the data type of the block */
+  char internal_name[256]; /**< String with the name of the variable used to store the data in the program calling this tool */
+  
+};
+
+
+
 /**
  * Boilerplate for C++ 
  */
@@ -23,9 +84,9 @@ extern "C" {
 #endif
   
 
-  // ==============================================================================
-  // =                                3J and 6J symbols                           =
-  // ==============================================================================
+// ======================================================================================
+// =                                   3J and 6J symbols                                =
+// ======================================================================================
 
   int threej_single(
          int l1, int l2, int l3, int m2, int m3, // In
@@ -276,18 +337,18 @@ extern "C" {
              ErrorMsg errmsg);
 
 
-  // ============================================================================
-  // =                                 Sampling related                         =
-  // ============================================================================ 
+  // ====================================================================================
+  // =                                Sampling related                                  =
+  // ====================================================================================
 
   int log_space (double * xx, double x_min, double x_max, int n_points);
   int lin_space (double * xx, double x_min, double x_max, int n_points);
 
 
 
-  // ===================================================================================
-  // =                                Matrix operations                                =
-  // ===================================================================================
+  // ====================================================================================
+  // =                                Matrix operations                                 =
+  // ====================================================================================
 
   double Determinant(double **a,int n);
   void CoFactor(double **a,int n,double **b);
@@ -296,17 +357,19 @@ extern "C" {
   void PrintMatrix(double **in,int n);
   
 
-  // ================================================================================
-  // =                              Assert functions                                =
-  // ================================================================================
+
+  // ====================================================================================
+  // =                                Assert functions                                  =
+  // ====================================================================================
 
   int is_triangular_int (int l1, int l2, int l3);
   int is_triangular_double (double l1, double l2, double l3);
 
 
-  // ================================================================================
-  // =                               Fortran functions                              =
-  // ================================================================================
+
+  // ====================================================================================
+  // =                                Fortran functions                                 =
+  // ====================================================================================
   
   /* The following functions are Fortran procedures from the Slatec library
   in the file tools/slatec_3j_f90.f90 */
@@ -338,9 +401,52 @@ extern "C" {
   void besj_ (float *x, float *l, int *N, float *result, int *NZ);     // single precision
 
 
-  // ========================================================================
-  // =                                 Misc                                 =
-  // ========================================================================
+
+  // ====================================================================================
+  // =                                  Binary files                                    =
+  // ====================================================================================
+
+  int binary_init_file (
+    struct binary_file * file,
+    FILE ** file_stream,
+    char * file_path,
+    int header_size
+    );
+
+  int binary_add_block (
+    struct binary_file * file,
+    void * internal_pointer,
+    int size,
+    int type_size,
+    char * description,
+    char * type,
+    char * internal_name
+    );
+
+  int binary_write_file (
+    struct binary_file * file
+    );
+
+  int binary_add_line_to_header (
+    struct binary_file * file,
+    char * line
+    );
+
+  int binary_sprintf (
+    struct binary_file * file,
+    const char * format,
+    ...
+  );
+
+  int binary_add_header_map (
+    struct binary_file * file
+    );
+
+
+
+  // ====================================================================================
+  // =                                      Misc                                        =
+  // ====================================================================================
 
   double identity_double (double x);
 

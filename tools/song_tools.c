@@ -1,8 +1,9 @@
 /** @file song_tools.c 
- * Created by Guido Walter Pettinari on 12.08.2011
- * Last edited by Guido Walter Pettinari on 1.09.2011
  *
- * Support function for the perturbations2 module
+ * Support functions for SONG.
+ *
+ * Created by Guido Walter Pettinari on 12.08.2011
+ * Last edited by Guido Walter Pettinari on 27.09.2015
  */
 
 #include "song_tools.h"
@@ -3217,6 +3218,274 @@ int is_triangular_double (double l1, double l2, double l3) {
 
 }
 
+
+
+// ====================================================================================
+// =                                  Binary files                                    =
+// ====================================================================================
+
+/**
+ * Prepare a binary file for being written.
+ *
+ * Initialise accumulators and open the actual file. If the file
+ * already exists, it will be overwritten.
+ */
+
+int binary_init_file (
+  struct binary_file * file, /**< Binary file being initialised */
+  FILE ** file_stream, /**< File stream to link with the file */
+  char * file_path, /**< String with the path to the file */
+  int header_size_max /**< Size of the header part of the binary file */
+  )
+{
+
+  /* Initialise blocks and bytes number */
+  file->n_blocks = 0;
+  file->size_bytes = 0;
+  file->header_size = 0,
+  file->blocks_array = NULL; /* for realloc to work */
+  
+  /* Update the header size */
+  file->header_size_max = header_size_max;
+  
+  /* Open file for writing */
+  class_open (*file_stream, file_path, "wb", file->error_message);
+  
+  /* Allocate the header part of the file */
+  class_alloc (file->header, header_size_max*sizeof(char), file->error_message);
+  
+  /* Update structure with file stream and path */
+  file->stream = *file_stream;
+  strcpy (file->path, file_path);
+  
+  return _SUCCESS_;
+  
+}
+
+
+/**
+ * Write the binary file using the content of the file structure.
+ * 
+ * After this step, you cannot make further modifications to the
+ * block structure of the binary file.
+ */
+
+int binary_write_file (
+  struct binary_file * file
+  )
+{
+  
+  for (int index_block=0; index_block < file->n_blocks; ++index_block) {
+    
+    struct binary_block * block = file->blocks_array[index_block];
+    
+    fwrite (block->internal_pointer,
+            block->type_size,
+            block->size,
+            file->stream);
+
+  }
+
+  return _SUCCESS_;
+  
+}
+
+
+/**
+ * Add a data block to the binary file.
+ *
+ * The data block will only be referenced, not written.
+ */
+
+int binary_add_block (
+  struct binary_file * file, /**< Binary file to which the block will be added */
+  void * internal_pointer, /**< Pointer to the data to be written in the new block */
+  int size, /**< Number of elements to store in the block */
+  int type_size, /**< Size in bytes of each element belonging to the block; usually given by sizeof(data type) */
+  char * description, /**< Short description for the data being saved in the new block */
+  char * type, /**< String with the data type of the new block (eg. "int" or "double") */
+  char * internal_name /**< String with the name of the variable holding the data that will be writtne in the new block */
+  ) 
+{
+
+  /* Increase by one the number of blocks in binary file */
+  file->n_blocks++;
+
+  /* Make room for the new block */
+  class_realloc (
+    file->blocks_array,
+    file->blocks_array,
+    file->n_blocks*sizeof(struct binary_block *),
+    file->error_message
+    );
+
+  class_alloc (file->blocks_array[file->n_blocks-1],
+    sizeof (struct binary_block), file->error_message);
+
+  /* Shorcut to the new block */
+  struct binary_block * new_block = file->blocks_array[file->n_blocks-1];
+
+  /* Copy input arguments */
+  new_block->internal_pointer = internal_pointer;
+  new_block->size = size;
+  new_block->type_size = type_size;
+  strcpy (new_block->description, description);
+  strcpy (new_block->type, type);
+  strcpy (new_block->internal_name, internal_name);
+
+  /* Update derived fields */
+  new_block->block_id = file->n_blocks-1;
+  new_block->start_byte = file->size_bytes;
+  new_block->size_bytes = new_block->size*new_block->type_size;
+  file->size_bytes += new_block->size_bytes;
+  
+  /* Debug - Print details on the block */
+  // printf ("\n");
+  // printf ("new_block->block_id = %d\n", new_block->block_id);
+  // printf ("new_block->internal_name = %s\n", new_block->internal_name);
+  // printf ("new_block->description = %s\n", new_block->description);
+  // printf ("new_block->type = %s\n", new_block->type);
+  // printf ("new_block->size = %d\n", new_block->size);
+  // printf ("new_block->type_size = %d\n", new_block->type_size);
+  // printf ("file->size_bytes = %d\n", file->size_bytes);
+  
+  return _SUCCESS_;  
+  
+}
+
+
+/**
+ * Build the binary map and append it to the header file.
+ *
+ * The binary map is a string table that informs the user of the location of the
+ * various data blocks inside the binary file. It will be the last element
+ * appearing in the header file.
+ *
+ * This function needs to be called after all blocks have been added to the
+ * binary file, that is, after the last call of binary_add_block() and
+ * before the call to binary_write_file().
+ * 
+ * TODO: This function adds lines to the header but needs to be called after
+ * the header is added to the binary file. Then, how do we tell the binary
+ * file the actual size of the header without relying on header_size_max?
+ * 
+ */
+
+int binary_add_header_map (
+  struct binary_file * file
+  ) 
+{
+
+  /* Add the map title to the header */
+  binary_sprintf (file, "");
+  binary_sprintf (file, "Binary map:");
+
+  /* Legend of the map */
+  binary_sprintf (file, "%17s %17s %17s %17s %17s    %-64s %-64s",
+    "BLOCK", "TYPE", "SIZE", "SIZE (BYTES)", "POS (BYTES)", "DESCRIPTION", "NAME");
+
+  /* Map values */
+  for (int index_block=0; index_block < file->n_blocks; ++index_block) {
+
+    struct binary_block * block = file->blocks_array[index_block];
+
+    binary_sprintf (file, "%17d %17s %17d %17d %17d    %-64s %-64s",
+      index_block, block->type, block->size, block->size*block->type_size,
+      block->start_byte, block->description, block->internal_name);
+
+  }
+
+  return _SUCCESS_;
+
+}
+
+
+/**
+ * Add a line to the header file.
+ *
+ * This function will prepend to the line a comment character (#) and
+ * append a newline character (\n).
+ */
+
+int binary_add_line_to_header (
+  struct binary_file * file, /**< Binary file containing the header file */
+  char * line /**< String to be added to the header */
+  )
+{
+
+  /* Number of characters that will be added to the header */
+  int n_to_add = strlen (line) + 3;
+
+  /* If adding the line will make the header grow over the allocated
+  boundaries, do not add anything */
+  if ((file->header_size+n_to_add) > file->header_size_max) {
+
+    class_stop (file->error_message,
+      "header reached maximum size (%d), will ignore further input",
+      file->header_size_max);
+      
+    return _SUCCESS_;
+  }
+
+  /* Prepend a comment symbol to the line */
+  char comment = '#';
+
+  /* Append the line to the header */
+  sprintf (file->header,
+    "%s%c %s\n",
+    file->header,
+    comment,
+    line);
+
+  /* Update the header size */
+  file->header_size += n_to_add;
+  
+  return _SUCCESS_;
+  
+}
+
+
+/**
+ * Add a line to the header file using the sprintf format.
+ */
+
+int binary_sprintf (
+  struct binary_file * file, /**< Binary file containing the header file */
+  const char * format, /**< Format for the sprintf function */
+  ... /**< Arguments for the sprintf function */
+  )
+{
+  
+  /* Build the line by calling vsprintf on */
+  char buffer[1024];
+  va_list arg;
+  va_start(arg, format);
+  vsprintf(buffer, format, arg);
+  va_end(arg);
+
+  /* Add the line to the header */
+  class_call (binary_add_line_to_header (
+                file,
+                buffer),
+    file->error_message,
+    file->error_message);
+
+  return _SUCCESS_;
+  
+}
+
+
+/**
+ * Free the memory associated to the binary file.
+ */
+
+int binary_free (
+  struct binary_file * file
+  )
+{
+  
+
+}
 
 
 // ======================================================================================
