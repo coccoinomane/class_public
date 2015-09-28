@@ -33,6 +33,8 @@ struct binary_file {
                  the binary file. It can be read by opening the binary file with a text
                  editor. */
 
+  short has_header; /**< Should the binary file have a human readable ASCII header? */
+
   int header_size; /**< Size of the header string */
 
   int header_size_max; /**< Maximum size of the header string */
@@ -62,7 +64,7 @@ struct binary_file {
 
 struct binary_block {
 
-  long int block_id; /**< Unique ID for this block in the parent file */
+  long int id; /**< Unique identifier for this block in the parent file */
   void * internal_pointer; /**< Pointer to the memory location of the data to be stored in the block */
   int size; /**< Length of the block, in units of the data type of the block */
   int size_bytes; /**< Size of the block in bytes */
@@ -406,14 +408,18 @@ extern "C" {
   // =                                  Binary files                                    =
   // ====================================================================================
 
-  int binary_init_file (
+  int binary_init (
     struct binary_file * file,
     FILE ** file_stream,
     char * file_path,
     int header_size
     );
 
-  int binary_add_block (
+  int binary_free (
+    struct binary_file * file
+    );
+
+  int binary_append (
     struct binary_file * file,
     void * internal_pointer,
     int size,
@@ -423,11 +429,33 @@ extern "C" {
     char * internal_name
     );
 
-  int binary_write_file (
+  int binary_add (
+    struct binary_file * file,
+    void * internal_pointer,
+    int size,
+    int type_size,
+    char * description,
+    char * type,
+    char * internal_name,
+    long int block_id
+    );
+
+  int binary_delete (
+    struct binary_file * file,
+    long int block_id
+    );
+
+  int binary_modify (
+    struct binary_file * file,
+    int new_size,
+    long int block_position
+    );
+
+  int binary_write (
     struct binary_file * file
     );
 
-  int binary_add_line_to_header (
+  int binary_add_header_line (
     struct binary_file * file,
     char * line
     );
@@ -439,7 +467,8 @@ extern "C" {
   );
 
   int binary_add_header_map (
-    struct binary_file * file
+    struct binary_file * file,
+    int * map_size
     );
 
 
