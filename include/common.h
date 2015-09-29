@@ -381,6 +381,9 @@ enum file_format {class_format,camb_format};
 #define one_third 0.33333333333333333333333333
 #define four_thirds 1.33333333333333333333333333
 
+/** String to be prepended to each line of SONG output files; should be shorter than 3 characters */
+#define _COMMENT_ "# "
+
 extern FILE * log_file;  /**< Pointer to the log file where we shall store CLASS and SONG messages using
                          the printf_log() function. If NULL, messages won't be logged. */
 
@@ -1024,11 +1027,14 @@ struct precision
 
 
 
-  // --------------------------------------------------------------
-  // -               Storage of intermediate results              -
-  // --------------------------------------------------------------
+  // -------------------------------------------------------------------------------
+  // -                             Technical parameters                            -
+  // -------------------------------------------------------------------------------
   
-  /** Parameters used to determine which arrays to store to disk, and where to store them. */
+  /**
+   * Parameters used to determine which arrays to store to disk, and where to store them.
+   */
+  //@{
   short store_run;
   short load_run;
   short append_date_to_run;
@@ -1044,11 +1050,13 @@ struct precision
 
   short store_bispectra_to_disk;  /**< Should we store the bispectra to disk? */
   short load_bispectra_from_disk; /**< Should we load the bispectra from disk? */
+  //@}
 
   FileName log_filename; /**< Name of the log file where we shall store CLASS and SONG messages using
                              the printf_log() function */
-  // FILE * log_file; /**< Pointer to the log file where we shall store CLASS and SONG messages using
-  //                       the printf_log() function. If NULL, messages won't be logged. */
+
+  char date[1024]; /**< Date and time of SONG launch, in the following format: "%d/%m/%Y, %H:%M:%S" */
+  char date_no_spaces[1024]; /**< Date and time of SONG launch, without spaces: "%Y-%m-%d_%H-%M-%S" */
 
   //@}
   

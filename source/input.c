@@ -319,6 +319,18 @@ int input_init(
 
   class_read_int("input_verbose",input_verbose);
 
+#ifdef WITH_BISPECTRA
+
+  /* Store date and time */
+  time_t now;
+  struct tm *d;
+  time(&now);
+  d = localtime(&now);
+  strftime(ppr->date, 1024, "%d/%m/%Y, %H:%M:%S", d);
+  strftime(ppr->date_no_spaces, 1024, "%Y-%m-%d_%H-%M-%S", d);
+
+#endif // WITH_BISPECTRA
+
   /* Do we need to fix unknown parameters? */
   unknown_parameters_size = 0;
   fzw.required_computation_stage = 0;
@@ -3579,20 +3591,9 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
         errmsg,
         errmsg);
    
-    if ((flag1 == _TRUE_) && ((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL)))
+    if ((flag1 == _TRUE_) && ((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL))) {
       ppr->append_date_to_run = _TRUE_;
-
-    if (ppr->append_date_to_run == _TRUE_) {
-
-      time_t now;
-      struct tm *d;
-      char suffix[64];
-
-      time(&now);
-      d = localtime(&now);
-
-      strftime(suffix, 64, "%Y-%m-%d_%H-%M-%S", d);
-      sprintf(ppr->run_dir, "%s_%s", ppr->run_dir, suffix);
+      sprintf(ppr->run_dir, "%s_%s", ppr->run_dir, ppr->date_no_spaces);
     }
 
     /* Create the directory for the run */
