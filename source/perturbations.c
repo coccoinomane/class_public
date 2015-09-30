@@ -468,22 +468,16 @@ int perturb_free(
 
       } // end of for (index_ic)
 
-      for (int index_type = 0; index_type < ppt->qs_size[index_md]; index_type++)
-        free(ppt->qs_labels[index_md][index_type]);
-
       free(ppt->quadsources[index_md]);
 
       if (ppt->quadsources_time_interpolation == cubic_interpolation)
         free(ppt->dd_quadsources[index_md]);
         
-      free(ppt->qs_labels[index_md]);  
-
     } // end of for (index_md)
 
     free(ppt->quadsources);
     if (ppt->quadsources_time_interpolation == cubic_interpolation)
       free(ppt->dd_quadsources);
-    free(ppt->qs_labels);    
     free(ppt->qs_size);
     free(ppt->tau_sampling_quadsources);
     
@@ -8756,9 +8750,6 @@ int perturb_song_indices_of_perturbs(
   if (ppr->quadsources_time_interpolation == cubic_interpolation)
     class_alloc(ppt->dd_quadsources, ppt->md_size*sizeof(double *), ppt->error_message);
 
-  /* Allocate memory for the labels for the quadsource types */
-  class_alloc(ppt->qs_labels, ppt->md_size*sizeof(char **), ppt->error_message);
-
   /* Loop over modes.  Not really needed, because for now we set the vector and tensor modes
   at first-order to be vanishing. */
   for (int index_md = 0; index_md < ppt->md_size; index_md++) {
@@ -8884,11 +8875,10 @@ int perturb_song_indices_of_perturbs(
       ppt->error_message,
       "no quadsources to be computed; this is suspect, what have you asked as ouput?");
 
-    /* Allocate memory for the labels of the source types */
-    class_alloc(ppt->qs_labels[index_md], ppt->qs_size[index_md]*sizeof(char *), ppt->error_message);
+    /* Initialise the labels of the song sources */
     for (index_type=0; index_type<ppt->qs_size[index_md]; ++index_type)
-      class_alloc(ppt->qs_labels[index_md][index_type], 64*sizeof(char), ppt->error_message);
-
+      for (int i=0; i < _MAX_LENGTH_LABEL_; ++i)
+       ppt->qs_labels[index_type][i] = '\0';
 
     /* Allocate the second level of the ppt->quadsources array */
     class_alloc(ppt->quadsources[index_md],
@@ -9229,7 +9219,6 @@ int perturb_song_sources(
     // ------------------------------------------------------------
     
     if (ppt->gauge == synchronous) {
-      _set_quadsource_ (ppt->index_qs_eta, y[ppw->pv->index_pt_eta], "eta");
       _set_quadsource_ (ppt->index_qs_eta, y[ppw->pv->index_pt_eta], "eta");
       _set_quadsource_ (ppt->index_qs_eta_prime, pvecmetric[ppw->index_mt_eta_prime], "eta'");
       _set_quadsource_ (ppt->index_qs_eta_prime_prime, eta_prime_prime, "eta''");    

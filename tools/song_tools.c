@@ -3235,6 +3235,7 @@ int binary_init (
   struct binary_file * file, /**< Binary file being initialised */
   FILE ** file_stream, /**< File stream to link with the file */
   char * file_path, /**< String with the path to the file */
+  char * mode, /**< Mode: w for writing, a for appending */
   int header_size_max /**< Size of the header part of the binary file */
   )
 {
@@ -3243,14 +3244,17 @@ int binary_init (
   file->n_blocks = 0;
   file->size_bytes = 0;
   file->header_size = 0,
-  file->blocks_array = NULL; /* for realloc to work */
+  file->block_array = NULL; /* for realloc to work */
   
   /* Update the header size */
   file->header_size_max = header_size_max;
-  file->has_header = (header_size_max >= 0) ? _TRUE_: _FALSE_;
-  
+  file->has_header = (header_size_max > 0) ? _TRUE_: _FALSE_;
+
   /* Open file for writing */
-  class_open (*file_stream, file_path, "wb", file->error_message);
+  class_test ((mode[0] != 'w') && (mode[0] != 'a'),
+    file->error_message,
+    "mode can be either append (a) or write (w)");
+  class_open (*file_stream, file_path, mode, file->error_message);
   
   /* Update structure with file stream and path */
   file->stream = *file_stream;
@@ -3258,7 +3262,7 @@ int binary_init (
   
   /* Include the ASCII header as the first block of the binary file */
   if (file->has_header == _TRUE_) {
-    
+
     /* Allocate the header */
     class_calloc (file->header, header_size_max, sizeof(char), file->error_message);
 
@@ -3292,11 +3296,11 @@ int binary_write (
   )
 {
   
-  /* Include the ASCII header as the first block of the binary file. We do it here
-  after all other blocks have been assigned because the header contains information
-  on all other blocks. */
-
   if (file->has_header == _TRUE_) {
+
+    /* Include the ASCII header as the first block of the binary file. We do it here
+    after all other blocks have been assigned because the header contains information
+    on all other blocks. */
 
     int map_size;
 
@@ -3305,26 +3309,43 @@ int binary_write (
                   &map_size),
       file->error_message,
       file->error_message);
+      
+    /* Add a termination string to the header, without the comment sign */
+
+    char termination[] = "END_OF_HEADER\n";
+
+    class_test (
+      (file->header_size+(strlen(termination)+1)) > file->header_size_max,
+      file->error_message,
+      "header reached maximum size (%d), will ignore further input",
+      file->header_size_max);
+
+    sprintf (file->header, "%s%s", file->header, "END OF HEADER\n");
+    
+    file->header_size += strlen(termination) + 1;
+      
   }
   
   
   /* Sequentially write blocks to file */
 
   for (int index_block=0; index_block < file->n_blocks; ++index_block) {
-    
-    struct binary_block * block = file->blocks_array[index_block];
 
-    /* Debug - Check what we are writing */
-    // if (index_block == 0) {
-    //   printf ("block->internal_name = %s\n", block->internal_name);
-    //   printf ("block->description = %s\n", block->description);
-    //   printf ((char *)(block->internal_pointer));
-    // }
+    struct binary_block * block = file->block_array[index_block];
+
+    /* Debug - Print info on the block being written */
+    // printf ("Writing block #%2d (start_byte=%ld, size_bytes=%ld, name=%s) to file %s\n",
+    //   block->id, block->start_byte, block->size_bytes, file->path, block->name);
     
-    fwrite (block->internal_pointer,
-            block->type_size,
-            block->size,
-            file->stream);
+    for (int index_data=0; index_data < block->n_data; ++index_data) {
+    
+        struct binary_data * data = block->data_array[index_data];
+    
+        fwrite (data->pointer,
+                block->type_size,
+                data->size,
+                file->stream);
+    }
   }
 
   return _SUCCESS_;
@@ -3335,35 +3356,65 @@ int binary_write (
 /**
  * Add a data block to the end of the binary file.
  *
- * This function does not write the data block to file; it just takes
- * note of the memory location that needs to be written. The actual
- * writing is performed at a later time by binary_write(). See
- * binary_add() for more details.
+ * This is a wrapper to binary_add_block(); see documentation there for
+ * more details.
  */
 
 int binary_append (
   struct binary_file * file, /**< Binary file to which the block will be appended */
-  void * internal_pointer, /**< Pointer to the data to be written in the new block */
+  void * data_pointer, /**< Pointer to the data to be written in the new block */
   int size, /**< Number of elements to store in the block */
   int type_size, /**< Size in bytes of each element belonging to the block; usually given by sizeof(data type) */
   char * description, /**< Short description for the data being saved in the new block */
   char * type, /**< String with the data type of the new block (eg. "int" or "double") */
-  char * internal_name /**< String with the name of the variable holding the data that will be writtne in the new block */
+  char * name /**< String with the name of the variable holding the data that will be writtne in the new block */
   )
 {
   
-  /* We will place the new block at the end of the binary file */
-  int block_id = file->n_blocks;
-  
-  class_call ( binary_add (
+  class_call ( binary_add_block (
                  file,
-                 internal_pointer,
+                 data_pointer,
                  size,
                  type_size,
                  description,
                  type,
-                 internal_name,
-                 block_id),
+                 name,
+                 file->n_blocks),
+    file->error_message,
+    file->error_message);
+  
+  return _SUCCESS_;
+  
+}
+
+/**
+ * Add a data block made of integers to the end of the binary file.
+ *
+ * This is a wrapper to binary_add_block(); see documentation there for
+ * more details.
+ */
+
+int binary_append_int (
+  struct binary_file * file, /**< Binary file to which the block will be appended */
+  void * data_pointer, /**< Pointer to the data to be written in the new block */
+  int size, /**< Number of elements to store in the block */
+  char * description, /**< Short description for the data being saved in the new block */
+  char * name /**< String with the name of the variable holding the data that will be writtne in the new block */
+  )
+{
+  
+  char type[] = "int";
+  int type_size = sizeof (int);
+  
+  class_call ( binary_add_block (
+                 file,
+                 data_pointer,
+                 size,
+                 type_size,
+                 description,
+                 type,
+                 name,
+                 file->n_blocks),
     file->error_message,
     file->error_message);
   
@@ -3373,28 +3424,109 @@ int binary_append (
 
 
 /**
- * Add a data block to the binary file at a given position.
+ * Add a data block made of double precision numbers to the end of the binary
+ * file.
+ *
+ * This is a wrapper to binary_add_block(); see documentation there for
+ * more details.
+ */
+
+int binary_append_double (
+  struct binary_file * file, /**< Binary file to which the block will be appended */
+  void * data_pointer, /**< Pointer to the data to be written in the new block */
+  int size, /**< Number of elements to store in the block */
+  char * description, /**< Short description for the data being saved in the new block */
+  char * name /**< String with the name of the variable holding the data that will be writtne in the new block */
+  )
+{
+  
+  char type[] = "double";
+  int type_size = sizeof (double);
+  
+  class_call ( binary_add_block (
+                 file,
+                 data_pointer,
+                 size,
+                 type_size,
+                 description,
+                 type,
+                 name,
+                 file->n_blocks),
+    file->error_message,
+    file->error_message);
+  
+  return _SUCCESS_;
+  
+}
+
+
+/**
+ * Add a data block made of double precision numbers to the end of the binary
+ * file.
+ *
+ * This is a wrapper to binary_add_block(); see documentation there for
+ * more details.
+ */
+
+int binary_append_string (
+  struct binary_file * file, /**< Binary file to which the block will be appended */
+  void * data_pointer, /**< Pointer to the data to be written in the new block */
+  int size, /**< Number of elements to store in the block */
+  char * description, /**< Short description for the data being saved in the new block */
+  char * name /**< String with the name of the variable holding the data that will be writtne in the new block */
+  )
+{
+  
+  char type[] = "char";
+  int type_size = sizeof (char);
+  
+  class_call ( binary_add_block (
+                 file,
+                 data_pointer,
+                 size,
+                 type_size,
+                 description,
+                 type,
+                 name,
+                 file->n_blocks),
+    file->error_message,
+    file->error_message);
+  
+  return _SUCCESS_;
+  
+}
+
+
+/**
+ * Add a block to the binary file and initialise it with a data object.
  *
  * This function does not write the data block to file; it just takes
  * note of the memory location that needs to be written. The actual
  * writing is performed at a later time by binary_write().
  *
- * This means that internal_pointer will not be accessed by this function;
+ * This means that the data pointer will not be accessed by this function;
  * the data it points to is accessed only when binary_write() is called.
  *
- * Note that all blocks after the given position will be shifted to the
- * right.
+ * The block will be inserted in the binary file at the position given by
+ * block_id, shifting all other blocks to the right. To append it
+ * at the end of the binary file, set block_id=file->n_blocks.
+ *
+ * If the block exists in the binary file with the same name, description
+ * and data type, then we assume the user wants to add data to that existing
+ * block rather than creating a new block. This feature allows to call
+ * binary_add_block() in a loop in order to add non-contiguous memory locations
+ * to a single block.
  */
 
-int binary_add (
+int binary_add_block (
   struct binary_file * file, /**< Binary file to which the block will be added */
-  void * internal_pointer, /**< Pointer to the data to be written in the new block */
-  int size, /**< Number of elements to store in the block */
+  void * data_pointer, /**< Pointer to the data to be written in the new block */
+  int data_size, /**< Number of elements to store in the block */
   int type_size, /**< Size in bytes of each element belonging to the block; usually given by sizeof(data type) */
   char * description, /**< Short description for the data being saved in the new block */
   char * type, /**< String with the data type of the new block (eg. "int" or "double") */
-  char * internal_name, /**< String with the name of the variable holding the data that will be writtne in the new block */
-  long int new_block_position /**< Position of the new block in the binary file; all pre-existing blocks following the new block will be shifted forward in memory */
+  char * name, /**< String with the name of the variable holding the data that will be written in the new block */
+  long int block_id /**< Position of the new block in the binary file; all pre-existing blocks following the new block will be shifted forward in memory */
   ) 
 {
 
@@ -3402,23 +3534,53 @@ int binary_add (
   // =                                      Checks                                      =
   // ====================================================================================
 
-  class_test (internal_pointer == NULL,
+  class_test (data_pointer == NULL,
     file->error_message,
-    "NULL pointer for block %d (name=%s)", new_block_position, internal_name);
+    "NULL pointer for block %d (name=%s)", block_id, name);
 
-  class_test (size <= 0,
+  class_test (data_size <= 0,
     file->error_message,
-    "wrong size (%d) for block %d (name=%s)", size, new_block_position, internal_name);
+    "wrong size (%d) for block %d (name=%s)", data_size, block_id, name);
 
   class_test (type_size <= 0,
     file->error_message,
-    "wrong type size (%d) for block %d (name=%s)", type_size, new_block_position, internal_name);
+    "wrong type size (%d) for block %d (name=%s)", type_size, block_id, name);
 
-  class_test (new_block_position > file->n_blocks,
+  class_test (block_id > file->n_blocks,
     file->error_message,
-    "cannot add block at position %d (min=0, max=%d)", new_block_position, file->n_blocks);
+    "cannot add block at position %d (min=0, max=%d)", block_id, file->n_blocks);
 
   
+
+  // ====================================================================================
+  // =                                   Special case                                   =
+  // ====================================================================================
+
+  /* If the block exists in the binary file with the same name, description
+  and data type, then just add a new data entry to the existing block rather
+  than creating a new block */
+
+  short block_exists = 
+    (file->n_blocks > block_id) &&
+    (file->block_array[block_id]->type_size == type_size) &&
+    (strcmp (file->block_array[block_id]->description, description) == 0) &&
+    (strcmp (file->block_array[block_id]->type, type) == 0) &&
+    (strcmp (file->block_array[block_id]->name, name) == 0);
+                  
+  if (block_exists) {
+
+    class_call (binary_add_data (
+                  file,
+                  block_id,
+                  data_pointer,
+                  data_size),
+      file->error_message,
+      file->error_message);
+
+    return _SUCCESS_;
+
+  }
+
 
   // ====================================================================================
   // =                                   Create block                                   =
@@ -3427,31 +3589,43 @@ int binary_add (
   /* Create and allocate the new block */
   struct binary_block * new_block;
   class_alloc (new_block, sizeof (struct binary_block), file->error_message);
+  new_block->data_array = NULL; /* for realloc to work */
 
-  /* Copy input arguments */
-  new_block->internal_pointer = internal_pointer;
-  new_block->size = size;
+  /* The block starts with no data */
+  new_block->n_data = 0;
+  new_block->size = 0;
+  new_block->size_bytes = 0;
+  
+  /* Give an identity to the block */
+  new_block->id = block_id;
   new_block->type_size = type_size;
   strcpy (new_block->description, description);
   strcpy (new_block->type, type);
-  strcpy (new_block->internal_name, internal_name);
+  strcpy (new_block->name, name);
 
   /* If the block is to be appended at the end of the file, its first byte corresponds
   to the last byte of the file. If the block is to be added in place of another block,
   it inherits the first byte from the replaced block. */
-  if (new_block_position == file->n_blocks)
+  if (block_id == file->n_blocks)
     new_block->start_byte = file->size_bytes;
   else 
-    new_block->start_byte = file->blocks_array[new_block_position]->start_byte;
+    new_block->start_byte = file->block_array[block_id]->start_byte;
   
-  /* Update derived fields */
-  new_block->id = new_block_position;
-  new_block->size_bytes = new_block->size*new_block->type_size;
+  /* Add the data to the block. */
+  class_call (binary_add_data_to_block (
+                new_block,
+                data_pointer,
+                data_size,
+                file->error_message),
+    file->error_message,
+    file->error_message);
+    
+  /* Increase the size counter of the binary file */
   file->size_bytes += new_block->size_bytes;
-  
+
   /* Debug - Print details on the block */
   // printf ("\n");
-  // printf ("new_block->internal_name = %s\n", new_block->internal_name);
+  // printf ("new_block->name = %s\n", new_block->name);
   // printf ("new_block->id = %d\n", new_block->id);
   // printf ("new_block->description = %s\n", new_block->description);
   // printf ("new_block->type = %s\n", new_block->type);
@@ -3471,32 +3645,150 @@ int binary_add (
 
   /* Create an empty slot at the end of the blocks array */
   class_realloc (
-    file->blocks_array,
-    file->blocks_array,
+    file->block_array,
+    file->block_array,
     file->n_blocks*sizeof(struct binary_block *),
     file->error_message
     );
 
   /* Modify the other blocks to account for the new block */
-  for (int block_id=(file->n_blocks-1); block_id > new_block_position; --block_id) {
+  for (int index_block=(file->n_blocks-1); index_block > block_id; --index_block) {
 
     /* Make room for the new block by shifting to the rigth the blocks with higher ID,
     starting from the last */
-    file->blocks_array[block_id] = file->blocks_array[block_id-1];
+    file->block_array[index_block] = file->block_array[index_block-1];
     
     /* Update the block location in the binary file */
-    file->blocks_array[block_id]->id += 1;
-    file->blocks_array[block_id]->start_byte += new_block->size_bytes;
+    file->block_array[index_block]->id += 1;
+    file->block_array[index_block]->start_byte += new_block->size_bytes;
     
   }
 
   /* Insert the block at the right position */
-  file->blocks_array[new_block_position] = new_block;
+  file->block_array[block_id] = new_block;
 
   
   return _SUCCESS_;
   
 }
+
+
+/**
+ * Add a data entry to an existing block in a binary file.
+ *
+ * The following objects will be updated:
+ * - block->data_array
+ * - block->size
+ * - block->size_bytes
+ * - file->size_bytes
+ */
+
+int binary_add_data (
+  struct binary_file * file, /**< Binary file to which the data will be added */
+  long int block_id, /**< Identifier of the data block to which the new data will be added */
+  void * pointer, /**< Location of the new data to be added to the block */
+  int size /**< Number of elements in the new data */
+  ) 
+{
+  
+  /* Shortcut to the block where the data belongs */
+  struct binary_block * block = file->block_array[block_id];
+  
+  /* Add the data entry to the block */
+  class_call (binary_add_data_to_block (
+                block,
+                pointer,
+                size,
+                file->error_message),
+    file->error_message,
+    file->error_message);
+  
+  /* Increase the size counter of the binary file */
+  file->size_bytes += size*block->type_size;
+
+  return _SUCCESS_;
+  
+}
+
+
+
+/**
+ * Add a data entry to the last block in a binary file.
+ *
+ * The following objects will be updated:
+ * - block->data_array
+ * - block->size
+ * - block->size_bytes
+ * - file->size_bytes
+ */
+
+int binary_append_data (
+  struct binary_file * file, /**< Binary file to which the data will be added */
+  void * pointer, /**< Location of the new data to be added to the block */
+  int size /**< Number of elements in the new data */
+  ) 
+{
+  
+  class_call (binary_add_data (
+                file,
+                file->n_blocks-1,
+                pointer,
+                size),
+    file->error_message,
+    file->error_message);
+
+  return _SUCCESS_;
+
+}
+
+
+
+/**
+ * Add a data entry to a block.
+ *
+ * The following objects will be updated:
+ * - block->data_array
+ * - block->size
+ * - block->size_bytes
+ */
+
+int binary_add_data_to_block (
+  struct binary_block * block, /**< Data block to which the new data will be added */
+  void * pointer, /**< Location of the new data to be added to the block */
+  int size, /**< Number of elements in the new data */
+  ErrorMsg errmsg /**< Area to write error messages */
+  ) 
+{
+  
+  /* Create the new data structure */
+  struct binary_data * data;
+  class_alloc (data, sizeof (struct binary_data), errmsg);
+  
+  /* Update the new data structure with location and size of the data */
+  data->pointer = pointer;
+  data->size = size;
+  
+  /* Increment the number of data objects in the block by one */ 
+  block->n_data++;
+  
+  /* Extend the data array by one slot */
+  class_realloc (
+    block->data_array,
+    block->data_array,
+    block->n_data*sizeof (struct binary_data *),
+    errmsg);
+
+  /* Append the location & size of the data to the block */
+  block->data_array[block->n_data-1] = data;
+  
+  /* Increase the size counter of the block */
+  block->size += size;
+  block->size_bytes += size * block->type_size;
+  
+  return _SUCCESS_;
+  
+}
+
 
 
 /**
@@ -3510,11 +3802,11 @@ int binary_modify (
   ) 
 {
 
-  struct binary_block * block = file->blocks_array[block_position];
+  struct binary_block * block = file->block_array[block_position];
 
   class_test (new_size <= 0,
     file->error_message,
-    "wrong size (%d) for block %d (name=%s)", new_size, block_position, block->internal_name);
+    "wrong size (%d) for block %d (name=%s)", new_size, block_position, block->name);
   
   /* Update size */
   block->size = new_size;
@@ -3522,7 +3814,7 @@ int binary_modify (
   
   /* Modify the position in bytes of the other blocks */
   for (int block_id=(block_position+1); block_id < file->n_blocks; ++block_id)
-    file->blocks_array[block_id]->start_byte += block->size_bytes;
+    file->block_array[block_id]->start_byte += block->size_bytes;
   
   return _SUCCESS_;
   
@@ -3534,30 +3826,30 @@ int binary_modify (
  * Delete a data block with a given ID and shift the other blocks accordingly
  */
 
-int binary_delete (
+int binary_delete_block (
   struct binary_file * file,
   long int block_position /**< Identifier of the block to delete */
   )
 {
   
   /* Copy the size in bytes of the block to delete */
-  int size_bytes = file->blocks_array[block_position]->size_bytes;
+  int size_bytes = file->block_array[block_position]->size_bytes;
   
   /* Free the memory associated to the block to delete */
-  free (file->blocks_array[block_position]);
+  free (file->block_array[block_position]);
 
   /* Modify the other blocks to account one less block */
   for (int block_id=block_position; block_id < (file->n_blocks-1); ++block_id) {
 
     /* Make room for the new block by shifting to the rigth the blocks with higher ID,
     starting from the last */
-    file->blocks_array[block_id] = file->blocks_array[block_id+1];
+    file->block_array[block_id] = file->block_array[block_id+1];
     
     /* Update the block location in the binary file */
-    file->blocks_array[block_id]->id -= 1;
-    file->blocks_array[block_id]->start_byte -= size_bytes;
+    file->block_array[block_id]->id -= 1;
+    file->block_array[block_id]->start_byte -= size_bytes;
     
-    class_test (file->blocks_array[block_id]->start_byte < 0,
+    class_test (file->block_array[block_id]->start_byte < 0,
       file->error_message,
       "error in deleting block");
     
@@ -3566,10 +3858,10 @@ int binary_delete (
   /* Decrease by one the number of blocks in the binary file */
   file->n_blocks--;
 
-  /* Reduce the size of blocks_array by one */
+  /* Reduce the size of block_array by one */
   class_realloc (
-    file->blocks_array,
-    file->blocks_array,
+    file->block_array,
+    file->block_array,
     file->n_blocks*sizeof(struct binary_block *),
     file->error_message
     );
@@ -3577,6 +3869,8 @@ int binary_delete (
   return _SUCCESS_;
   
 }
+
+
 
 /**
  * Build the binary map and append it to the header file.
@@ -3608,36 +3902,39 @@ int binary_add_header_map (
   binary_sprintf (file, "");
   binary_sprintf (file, "Binary map:");
 
-  /* Legend of the map */
-  binary_sprintf (file, "%17s %17s %17s %17s %17s    %-64s %-64s",
-    "BLOCK", "TYPE", "SIZE", "SIZE (BYTES)", "POS (BYTES)", "DESCRIPTION", "NAME");
+  /* Find the longest description and name among the various blocks */
+  int n_longest_description = 0;
+  int n_longest_name = 0;
+  for (int index_block=0; index_block < file->n_blocks; ++index_block) {
+    struct binary_block * block = file->block_array[index_block];
+    n_longest_description = MAX (n_longest_description, strlen (block->description));
+    n_longest_name = MAX (n_longest_name, strlen (block->name));
+  }
+  
+  /* Build the first line of the map with the keys */
+  char format[_MAX_LINE_LENGTH_];
+  sprintf (format, "%%17s %%17s %%17s %%17s %%17s    %%-%ds %%-%ds", n_longest_name+2, n_longest_description+2);
+  binary_sprintf (file, format, "BLOCK", "TYPE", "SIZE", "SIZE (BYTES)", "POS (BYTES)", "NAME", "DESCRIPTION");
 
-  /* Map values */
+  /* Build a line for each block with information on that block */
   for (int index_block=0; index_block < file->n_blocks; ++index_block) {
 
-    struct binary_block * block = file->blocks_array[index_block];
+    struct binary_block * block = file->block_array[index_block];
 
-    binary_sprintf (file, "%17d %17s %17d %17d %17d    %-64s %-64s",
-      index_block, block->type, block->size, block->size*block->type_size,
-      block->start_byte, block->description, block->internal_name);
+    sprintf (format, "%%17d %%17s %%17d %%17d %%17d    %%-%ds %%-%ds", n_longest_name+2, n_longest_description+2);
+    binary_sprintf (file, format, index_block, block->type, block->size, block->size*block->type_size,
+      block->start_byte, block->name, block->description);
 
   }
 
   /* Length of the map */
   *map_size = file->header_size - header_size_without_map;
 
-  // /* Tell the header block that the header has grown in size */
-  // class_call (binary_modify (
-  //               file,
-  //               file->header_size,
-  //               0),
-  //   file->error_message,
-  //   file->error_message);
-
 
   return _SUCCESS_;
 
 }
+
 
 
 /**
@@ -3653,32 +3950,39 @@ int binary_add_header_line (
   )
 {
 
-  /* Number of characters that will be added to the header */
-  int n_to_add = strlen (line) + 3;
+  if (file->has_header == _TRUE_) {
 
-  /* If adding the line will make the header grow over the allocated
-  boundaries, do not add anything */
-  if ((file->header_size+n_to_add) > file->header_size_max) {
+    /* Truncate the line if it exceeds the maximum length */
+    if (strlen(line) > _MAX_LINE_LENGTH_)
+      line[_MAX_LINE_LENGTH_] = '\0';
 
-    class_stop (file->error_message,
-      "header reached maximum size (%d), will ignore further input",
-      file->header_size_max);
+    /* Number of characters that will be added to the header */
+    int n_to_add = strlen (line) + 3;
+
+    /* If adding the line will make the header grow over the allocated
+    boundaries, do not add anything */
+    if ((file->header_size+n_to_add) > file->header_size_max) {
+
+      printf ("WARNING %s:%d: header reached maximum size (%d), will ignore further input\n",
+        __FILE__, __LINE__, file->header_size_max);
       
-    return _SUCCESS_;
+      return _SUCCESS_;
+    }
+
+    /* Prepend a comment symbol to the line */
+    char comment[4] = _COMMENT_;
+
+    /* Append the line to the header */
+    sprintf (file->header,
+      "%s%s%s\n",
+      file->header,
+      _COMMENT_,
+      line);
+
+    /* Update the header size */
+    file->header_size += n_to_add;
+
   }
-
-  /* Prepend a comment symbol to the line */
-  char comment = '#';
-
-  /* Append the line to the header */
-  sprintf (file->header,
-    "%s%c %s\n",
-    file->header,
-    comment,
-    line);
-
-  /* Update the header size */
-  file->header_size += n_to_add;
   
   return _SUCCESS_;
   
@@ -3727,9 +4031,15 @@ int binary_free (
   if (file->has_header == _TRUE_)
     free (file->header);
   
-  for (int block_id=0; block_id < file->n_blocks; ++block_id)
-    free (file->blocks_array[block_id]);
-  free (file->blocks_array);
+  for (int index_block=0; index_block < file->n_blocks; ++index_block) {
+
+    for (int index_data=0; index_data < file->block_array[index_block]->n_data; ++index_data)
+      free (file->block_array[index_block]->data_array[index_data]);
+    free (file->block_array[index_block]->data_array);    
+
+    free (file->block_array[index_block]);
+  }
+  free (file->block_array);
 
   fclose (file->stream);
 

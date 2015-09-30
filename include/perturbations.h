@@ -89,11 +89,19 @@ enum phi_equation {
 };
 
 
+/**
+ * Maximum number of quadratic sources computed in this module.
+ *
+ * Feel free to increase it, it is just a memory parameter.
+ */
+#define _MAX_NUM_QUADSOURCES_ 1024
+
+
 /** Macro to quickly write in the array ppt->quadsoruces */
 #define _set_quadsource_(index,value,args...) {                                      \
     ppt->quadsources[index_md][index_ic * ppt->qs_size[index_md] + index]            \
                     [index_tau * ppt->k_size[index_md] + index_k] = value;           \
-    sprintf(ppt->qs_labels[index_md][index],args);                                   \
+    sprintf(ppt->qs_labels[index], args);                                   \
   }
 
 #endif // WITH_SONG_SUPPORT
@@ -457,9 +465,8 @@ struct perturbs
   int qs_size_normal; /**< Size of the SONG sources vector in the "normal format" */
   int * qs_size;      /**< Number of SONG sources, indexed as qs_size[index_mode] */
 
-  char *** qs_labels; /**< Array of strings that contain the labels of the various types
-                      For example,  qs_labels[index_md_scalar][index_tp_phi] is equal
-                      to "phi" */
+  char qs_labels[_MAX_NUM_QUADSOURCES_][_MAX_LENGTH_LABEL_]; /**< Array of strings that contain the labels of the various 
+                                                             types of song sources */
 
   /* Synchronous gauge */
   int index_qs_eta;                 /**< index for the synchronous gauge eta potential */
