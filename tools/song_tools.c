@@ -3236,7 +3236,8 @@ int binary_init (
   FILE ** file_stream, /**< File stream to link with the file */
   char * file_path, /**< String with the path to the file */
   char * mode, /**< Mode: w for writing, a for appending */
-  int header_size_max /**< Size of the header part of the binary file */
+  int header_size_max, /**< Size of the header part of the binary file */
+  short convert_to_float /**< Convert double precision entries to single precision? */
   )
 {
 
@@ -3245,6 +3246,9 @@ int binary_init (
   file->size_bytes = 0;
   file->header_size = 0,
   file->block_array = NULL; /* for realloc to work */
+  
+  /* Update single precision flag */
+  file->convert_to_float = convert_to_float;
   
   /* Update the header size */
   file->header_size_max = header_size_max;
@@ -3296,6 +3300,10 @@ int binary_write (
   )
 {
   
+  // ====================================================================================
+  // =                                   Write header                                   =
+  // ====================================================================================
+  
   if (file->has_header == _TRUE_) {
 
     /* Include the ASCII header as the first block of the binary file. We do it here
@@ -3327,24 +3335,76 @@ int binary_write (
   }
   
   
+  // ====================================================================================
+  // =                            Convert to single precision                           =
+  // ====================================================================================
+  
+  // if (file->convert_to_float) {
+  //
+  //   for (int index_block=0; index_block < file->n_blocks; ++index_block) {
+  //
+  //     struct binary_block * block = file->block_array[index_block];
+  //
+  //     if (strcmp (block->type, "double") == 0) {
+  //
+  //       block->convert_to_float == _TRUE_;
+  //
+  //
+  //
+  //     }
+  //
+  //
+  //   }
+  // }
+  
+  
+  // ====================================================================================
+  // =                                    Write data                                    =
+  // ====================================================================================
+  
   /* Sequentially write blocks to file */
 
   for (int index_block=0; index_block < file->n_blocks; ++index_block) {
 
     struct binary_block * block = file->block_array[index_block];
 
+    /* Downgrade the block to single precision, if requested */
+    if (block->convert_to_float == _TRUE_)
+      class_call (binary_change_type (
+                    file,
+                    index_block,
+                    "float",
+                    sizeof(float)),
+        file->error_message,
+        file->error_message);
+
     /* Debug - Print info on the block being written */
-    // printf ("Writing block #%2d (start_byte=%ld, size_bytes=%ld, name=%s) to file %s\n",
-    //   block->id, block->start_byte, block->size_bytes, file->path, block->name);
-    
+    // printf ("Writing block #%7ld (start_byte=%7ld, size_bytes=%7ld, name=%s) to file %s\n",
+    //   block->id, block->start_byte, block->size_bytes, block->name, file->path);
+
     for (int index_data=0; index_data < block->n_data; ++index_data) {
-    
+
         struct binary_data * data = block->data_array[index_data];
-    
+        
+        /* Downgrade the data from double to float, if requested */
+        if (block->convert_to_float == _TRUE_) {
+          float * float_pointer;
+          class_alloc (float_pointer, data->size*sizeof(float), file->error_message);
+          for (int i=0; i < data->size; ++i)
+            float_pointer[i] = (float)(((double *)data->pointer)[i]);
+          data->pointer = float_pointer;
+        }
+        
+        /* Write to file the data entry */
         fwrite (data->pointer,
                 block->type_size,
                 data->size,
                 file->stream);
+
+        /* Free the temporary array */
+        if (block->convert_to_float == _TRUE_)
+          free (data->pointer);
+
     }
   }
 
@@ -3550,6 +3610,26 @@ int binary_add_block (
     file->error_message,
     "cannot add block at position %d (min=0, max=%d)", block_id, file->n_blocks);
 
+  class_test ((strcmp(type,"int")==0) && (type_size!=sizeof(int)),
+     file->error_message,
+     "'int' input has not the correct data size");
+
+  class_test ((strcmp(type,"double")==0) && (type_size!=sizeof(double)),
+     file->error_message,
+     "'double' input has not the correct data size");
+
+  class_test ((strcmp(type,"float")==0) && (type_size!=sizeof(float)),
+     file->error_message,
+     "'float' input has not the correct data size");
+
+  class_test ((strcmp(type,"char")==0) && (type_size!=sizeof(char)),
+     file->error_message,
+     "'char' input has not the correct data size");
+
+  class_test ((strcmp(type,"short")==0) && (type_size!=sizeof(short)),
+     file->error_message,
+     "'short' input has not the correct data size");
+
   
 
   // ====================================================================================
@@ -3603,6 +3683,11 @@ int binary_add_block (
   strcpy (new_block->type, type);
   strcpy (new_block->name, name);
 
+  /* If asked, mark the block for conversion to single precision */
+  new_block->convert_to_float = _FALSE_;
+  if ((file->convert_to_float==_TRUE_) && (strcmp (type,"double")==0))
+    new_block->convert_to_float = _TRUE_;
+
   /* If the block is to be appended at the end of the file, its first byte corresponds
   to the last byte of the file. If the block is to be added in place of another block,
   it inherits the first byte from the replaced block. */
@@ -3620,9 +3705,6 @@ int binary_add_block (
     file->error_message,
     file->error_message);
     
-  /* Increase the size counter of the binary file */
-  file->size_bytes += new_block->size_bytes;
-
   /* Debug - Print details on the block */
   // printf ("\n");
   // printf ("new_block->name = %s\n", new_block->name);
@@ -3632,7 +3714,6 @@ int binary_add_block (
   // printf ("new_block->size = %d\n", new_block->size);
   // printf ("new_block->type_size = %d\n", new_block->type_size);
   // printf ("new_block->start_byte = %d\n", new_block->start_byte);
-  // printf ("file->size_bytes = %d\n", file->size_bytes);
 
   
 
@@ -3667,6 +3748,8 @@ int binary_add_block (
   /* Insert the block at the right position */
   file->block_array[block_id] = new_block;
 
+  /* Increase the size counter of the binary file */
+  file->size_bytes += new_block->size_bytes;
   
   return _SUCCESS_;
   
@@ -3759,6 +3842,10 @@ int binary_add_data_to_block (
   ErrorMsg errmsg /**< Area to write error messages */
   ) 
 {
+
+  /* Check that the pointer and size given make sense */
+  class_test (pointer == NULL, errmsg, "found NULL pointer");
+  class_test (size <= 0, errmsg, "found zero size");
   
   /* Create the new data structure */
   struct binary_data * data;
@@ -3792,32 +3879,101 @@ int binary_add_data_to_block (
 
 
 /**
- * Change the size of a block
+ * Change the size of a data entry in a block and update the parent
+ * block and file accordingly.
  */
 
-int binary_modify (
+int binary_change_size (
   struct binary_file * file, /**< Binary file to which the block to modify belongs */
-  int new_size, /**< New size (as in number of elements) for the block */
-  long int block_position /**< Indentified of the block to modify */
+  long int block_id, /**< Indentifier of the block to modify */
+  long int index_data, /**< Index of the data entry in the block */
+  int new_size /**< New size (as in number of elements) for the data entry */
   ) 
 {
 
-  struct binary_block * block = file->block_array[block_position];
+  /* Check that the block exists in the file */
+  class_test (block_id >= file->n_blocks,
+    file->error_message,
+    "the block you asked for (%d) does not exist", block_id);
+
+  struct binary_block * block = file->block_array[block_id];
 
   class_test (new_size <= 0,
     file->error_message,
-    "wrong size (%d) for block %d (name=%s)", new_size, block_position, block->name);
-  
-  /* Update size */
-  block->size = new_size;
-  block->size_bytes = new_size * block->type_size;
-  
-  /* Modify the position in bytes of the other blocks */
-  for (int block_id=(block_position+1); block_id < file->n_blocks; ++block_id)
-    file->block_array[block_id]->start_byte += block->size_bytes;
+    "wrong size (%d) for data #%d (name=%s, id=%d)", new_size, index_data, block->name, block_id);
+
+  /* Check that the data exists in the block */
+  class_test (index_data >= block->n_data,
+    file->error_message,
+    "the data you asked for (%d) does not exist in the block #%d", index_data, block_id);
+
+  struct binary_data * data = block->data_array[index_data];
+
+  /* Update sizes */
+  data->size = new_size;
+  block->size += new_size;
+  block->size_bytes += new_size * block->type_size;
+  file->size_bytes += new_size * block->type_size;
+
+  /* Shift the byte position of the other blocks to the right */
+  for (int index_block=(block_id+1); index_block < file->n_blocks; ++index_block)
+    file->block_array[index_block]->start_byte += new_size * block->type_size;
   
   return _SUCCESS_;
   
+}
+
+
+
+/**
+ * Change the type of a block and update the parent file accordingly.
+ *
+ * The actual data, including the data pointers, are not changed. This
+ * function is useful to downgrade certain blocks (double -> float or
+ * int -> short) in order to save disk space.
+ */
+
+int binary_change_type (
+  struct binary_file * file, /**< Binary file to which the block to modify belongs */
+  long int block_id, /**< Indentifier of the block to modify */
+  char * new_type, /**< String with the new type, eg. float */
+  int new_type_size /**< Size in bytes of the new type, eg. sizeof(float) */
+  )
+{
+
+  /* Check that the block exists in the file */
+  class_test (block_id >= file->n_blocks,
+    file->error_message,
+    "the block you asked for (%d) does not exist", block_id);
+
+  struct binary_block * block = file->block_array[block_id];
+
+  class_test (new_type_size <= 0,
+    file->error_message,
+    "wrong type size (%d) for block #%d (name=%s)", new_type_size, block_id, block->name);
+
+  /* Update the type */
+  strcpy (block->type, new_type);
+  block->type_size = new_type_size;
+
+  /* Find the new size of the block */
+  int old_size_bytes = block->size_bytes;
+  int new_size_bytes = 0;
+  for (int index_data=0; index_data < block->n_data; ++index_data)
+    new_size_bytes += new_type_size*block->data_array[index_data]->size;
+
+  /* Update the size in bytes of the block */
+  block->size_bytes = new_size_bytes;
+
+  /* Update the size in bytes of the parent file */
+  file->size_bytes += new_size_bytes - old_size_bytes;
+
+  /* Shift the byte position of the other blocks to the right */
+  for (int index_block=(block_id+1); index_block < file->n_blocks; ++index_block)
+    file->block_array[index_block]->start_byte += new_size_bytes - old_size_bytes;
+
+  return _SUCCESS_;
+
 }
 
 

@@ -34,16 +34,19 @@ struct binary_file {
   
   long int size_bytes; /**< Size of the binary file in bytes */
 
-  char * header; /**< Header of the binary file. This is the human readable (ASCII) part of 
-                 the binary file. It can be read by opening the binary file with a text
-                 editor. */
-
   short has_header; /**< Should the binary file have a human readable ASCII header? */
 
   int header_size; /**< Size of the header string */
 
+  char * header; /**< Header of the binary file. This is the human readable (ASCII) part of 
+                 the binary file. It can be read by opening the binary file with a text
+                 editor. */
+
   int header_size_max; /**< Maximum size of the header string */
   
+  short convert_to_float; /**< Should we convert all blocks with double precision data (double) to single
+                          precision (float), in order to reduce the size of the binary file? */
+
   char path[_FILENAMESIZE_]; /**< String with the path of the binary file */
 
   FILE * stream; /**< File stream pointing to the binary file (input to fwrite) */
@@ -93,6 +96,8 @@ struct binary_block {
   char description[512]; /**< String with a short description of the data contained in the block */
 
   char type[62]; /**< String with the data type of the block */
+  
+  short convert_to_float; /**< Should we convert this block data from double precision to single precision? */
   
 };
 
@@ -454,7 +459,8 @@ extern "C" {
     FILE ** file_stream,
     char * file_path,
     char * mode,
-    int header_size
+    int header_size,
+    short convert_to_float
     );
 
   int binary_free (
@@ -531,10 +537,18 @@ extern "C" {
     long int block_id
     );
 
-  int binary_modify (
+  int binary_change_size (
     struct binary_file * file,
-    int new_size,
-    long int block_position
+    long int block_id,
+    long int index_data,
+    int new_size
+    );
+
+  int binary_change_type (
+    struct binary_file * file,
+    long int block_id,
+    char * new_type,
+    int new_type_size
     );
 
   int binary_write (
