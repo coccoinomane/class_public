@@ -79,7 +79,7 @@ int evolver_ndf15(
 		  int tres,
     	int (*output)(double x,double y[],double dy[],int index_x,void * parameters_and_workspace,
     		ErrorMsg error_message),
-      int (*print_variables)(double x, double y[], double dy[], void *parameters_and_workspace,
+      int (*print_variables)(double x, int index_x, double y[], double dy[], void *parameters_and_workspace,
     		ErrorMsg error_message),
 #ifdef WITH_SONG_SUPPORT
       int (*exit_strategy)( /**< Function invoked when something goes wrong (unless NULL) */
@@ -102,7 +102,7 @@ int evolver_ndf15(
             int tres,
             int (*output)(double x,double y[],double dy[],int index_x,void * parameters_and_workspace,
               ErrorMsg error_message),
-            int (*print_variables)(double x, double y[], double dy[], void *parameters_and_workspace,
+            int (*print_variables)(double x, int index_x, double y[], double dy[], void *parameters_and_workspace,
                  ErrorMsg error_message),
             ErrorMsg error_message),
 #endif // WITH_SONG_SUPPORT
@@ -277,12 +277,12 @@ int evolver_ndf15(
   next=0;
   while (t_vec[next] < t0) next++;
 
-  #ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG_SUPPORT
   class_test (next >= tres,
     error_message,
     "stopping to prevent seg fault; accessing time array out of bounds: t0=%g, t_vec[tres-1]=%g",
     t0, t_vec[next-1]);
-  #endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG_SUPPORT
 
   if (verbose > 1){
     numidx=0;
@@ -704,6 +704,19 @@ int evolver_ndf15(
 		     error_message,error_message);
 	}
 */
+
+        
+#ifdef WITH_SONG_SUPPORT
+       /* In SONG, we call the print_variables() function for every time step AND
+       for every time in the t_vec array. The name of the function actually called
+       is perturb2_save_perturbations(). */
+        if (print_variables != NULL){
+          class_call((*print_variables)(t_vec[next],next,ynew+1,f0+1,
+                parameters_and_workspace_for_derivs,error_message),
+               error_message,error_message);
+        }
+#endif // WITH_SONG_SUPPORT        
+       
       }
       else {
 	/*Interpolate if we have overshot sample values*/
@@ -712,6 +725,16 @@ int evolver_ndf15(
 	class_call((*output)(t_vec[next],yinterp+1,ypinterp+1,next,parameters_and_workspace_for_derivs,
 			     error_message),error_message,error_message);
 
+#ifdef WITH_SONG_SUPPORT
+       /* In SONG, we call the print_variables() function for every time step AND
+       for every time in the t_vec array. The name of the function actually called
+       is perturb2_save_perturbations(). */
+        if (print_variables != NULL){
+          class_call((*print_variables)(t_vec[next],next,ynew+1,f0+1,
+                parameters_and_workspace_for_derivs,error_message),
+               error_message,error_message);
+        }
+#endif // WITH_SONG_SUPPORT
       }
       next++;
     }
@@ -789,7 +812,7 @@ int evolver_ndf15(
 	               error_message,
 	               error_message);
 
-      class_call((*print_variables)(tnew,ynew+1,f0+1,
+      class_call((*print_variables)(tnew,-1,ynew+1,f0+1,
         parameters_and_workspace_for_derivs,error_message),
        error_message,error_message);
 

@@ -6697,12 +6697,23 @@ int perturb_sources(
  */
 
 int perturb_print_variables(double tau,
+                            int index_tau,
                             double * y,
                             double * dy,
                             void * parameters_and_workspace,
                             ErrorMsg error_message
                             ) {
 
+#ifdef WITH_SONG_SUPPORT
+  /* This function is called at every time step of the differential system AND
+  for every time inside ppt->tau_sampling. In the latter case, index_tau is
+  negative. In SONG, we use need both cases in order to output the perturbaitons
+  as a function of both time and k. Here we ignore the latter case because this is
+  standard CLASS behaviour. */
+  if (index_tau < 0)
+    return _SUCCESS_;
+#endif // WITH_SONG_SUPPORT
+  
   struct perturb_parameters_and_workspace * pppaw;
 
   double k;

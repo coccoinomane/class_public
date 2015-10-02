@@ -39,6 +39,7 @@ extern "C" {
 				    void * parameters_and_workspace,
 				    ErrorMsg error_message),
 		      int (*print_variables)(double x,
+               int index_x,
 					     double y[],
 					     double dy[],
 					     void * parameters_and_workspace,

@@ -27,6 +27,7 @@ int evolver_rk(int (*derivs)(double x,
 				  void * parameters_and_workspace,
 				  ErrorMsg error_message),
 		    int (*print_variables)(double x,
+             int index_x,
 					   double y[],
 					   double dy[],
 					   void * parameters_and_workspace,
@@ -102,6 +103,7 @@ int evolver_rk(int (*derivs)(double x,
       }
 
       class_call((*print_variables)(x1,
+            -1,
 				    y,
 				    dy,
 				    parameters_and_workspace_for_derivs,
@@ -163,6 +165,7 @@ int evolver_rk(int (*derivs)(double x,
 
   if (print_variables != NULL)
     class_call((*print_variables)(x1,
+          -1,
 				  y,
 				  dy,
 				  parameters_and_workspace_for_derivs,

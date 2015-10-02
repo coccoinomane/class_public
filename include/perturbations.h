@@ -1006,6 +1006,7 @@ extern "C" {
 
   int perturb_print_variables(
                               double tau,
+                              int index_tau,
                               double * y,
                               double * dy,
                               void * parameters_and_workspace,
