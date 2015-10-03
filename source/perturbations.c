@@ -1552,6 +1552,7 @@ int perturb_get_k_list(
         k += step;
       else
         k *= ppr->k_logstep_super;
+      
 #endif // WITH_BISPECTRA
 
       class_test(k <= ppt->k[ppt->index_md_scalars][index_k-1],
@@ -1592,7 +1593,11 @@ int perturb_get_k_list(
     }
 
     ppt->k_size[ppt->index_md_scalars] = index_k;
-
+#ifdef WITH_BISPECTRA
+    /* Last sampling point = exactly k_max */
+    ppt->k[ppt->index_md_scalars][index_k-1] = k_max; 
+#endif // WITH_BISPECTRA
+    
     class_realloc(ppt->k[ppt->index_md_scalars],
                   ppt->k[ppt->index_md_scalars],
                   ppt->k_size[ppt->index_md_scalars]*sizeof(double),
@@ -1926,9 +1931,9 @@ int perturb_get_k_list(
     }
   }
 
-  /* For testing, can be useful to print the k list in a file:
+  /* For testing, can be useful to print the k list in a file: */
 
-  FILE * out=fopen("output/k","w");
+  FILE * out=fopen("output/k.txt","w");
 
   for (index_k=0; index_k < ppt->k_size[0]; index_k++) {
 
@@ -1936,7 +1941,7 @@ int perturb_get_k_list(
 
   }
      fclose(out);
-  */
+
 
   /* finally, find the global k_min and k_max for the ensemble of all modes 9scalars, vectors, tensors) */
 

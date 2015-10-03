@@ -109,8 +109,9 @@ int bessel_init(
       r_max = ppr->r_max;
     else if ((ppr->bispectra_r_sampling == centred_r_sampling) || (ppr->bispectra_r_sampling == sources_r_sampling))
       r_max = (pba->conformal_age-pth->tau_rec) + ppr->r_right*pth->tau_rec;
-        
-    pbs->x_max = MAX (pbs->x_max, pbs->x_max*r_max/pba->conformal_age);
+
+    pbs->x_max = 1.01 * MAX (pbs->x_max, pbs->x_max*r_max/pba->conformal_age);
+
   }
 
   /** - copy l values from the transfer module and set x_max */
@@ -369,10 +370,10 @@ int bessel_convolution(
     error_message,
     "index_l=%d out of bounds (l_size=%d)", index_l, pbs->l_size);
 
-  class_test_permissive ((kk[k_size-1]*r)>pbs->x_max,
+  class_test ((kk[k_size-1]*r)>pbs->x_max,
     error_message,
-    "r*k_max=%g is larger than x_max=%g (index_l1=%d)",
-    kk[k_size-1]*r, pbs->x_max, index_l);
+    "r*k_max=%g is larger than x_max=%g (index_l1=%d, k_max=%g, r=%g)",
+    kk[k_size-1]*r, pbs->x_max, index_l, kk[k_size-1], r);
 
   /* Initialize the integral */
   *integral = 0;

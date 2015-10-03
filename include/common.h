@@ -496,7 +496,6 @@ enum bispectra_r_samplings {
 };
 
 
-
 #endif // WITH_BISPECTRA
 
 
@@ -1057,6 +1056,8 @@ struct precision
 
   char date[1024]; /**< Date and time of SONG launch, in the following format: "%d/%m/%Y, %H:%M:%S" */
   char date_no_spaces[1024]; /**< Date and time of SONG launch, without spaces: "%Y-%m-%d_%H-%M-%S" */
+
+  short output_single_precision;  /**< Should SONG output single precision binary files rather than double precision? */
 
   //@}
   

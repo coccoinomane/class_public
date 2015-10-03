@@ -39,6 +39,7 @@ OMPFLAG   = -fopenmp
 
 # all other compilation flags
 CCFLAG = -g -fPIC -w -std=c99
+CFLAGS += -DDEBUG
 LDFLAG = -g -fPIC
 
 # leave blank to compile without HyRec, or put path to HyRec directory
@@ -150,7 +151,7 @@ TEST_STEPHANE = test_stephane.o
 # Compile source files specific to SONG
 ifeq ($(WITH_BISPECTRA),1)
 	SOURCE += bessel.o bispectra.o fisher.o
-	TOOLS += utility.o song_tools.o mesh_interpolation.o slatec_3j_C.o
+	TOOLS += utility.o song_tools.o mesh_interpolation.o slatec_3j_C.o binary.o
 endif
 
 C_TOOLS =  $(addprefix tools/, $(addsuffix .c,$(basename $(TOOLS))))

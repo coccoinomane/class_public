@@ -702,6 +702,7 @@ int input_read_parameters(
   double * pointer1;
   char string1[_ARGUMENT_LENGTH_MAX_];
 #ifdef WITH_BISPECTRA
+  int * int_pointer1;
   char string[_ARGUMENT_LENGTH_MAX_];
   char string2[_ARGUMENT_LENGTH_MAX_];
 #endif // WITH_BISPECTRA
@@ -1435,6 +1436,13 @@ int input_read_parameters(
       ppt->has_cl_cmb_lensing_potential = _TRUE_; /* The covariance matrix needs lensed C_l's */ 
       pfi->has_fisher = _TRUE_;
     }
+
+    if (strstr(string1,"l_out") != NULL) {
+      pbi->has_bispectra = _TRUE_;
+      pbi->l_out_mode = _TRUE_;
+      ppt->has_perturbations = _TRUE_;
+    }
+
 
 #ifdef WITH_SONG_SUPPORT
 
@@ -2842,13 +2850,13 @@ int input_read_parameters(
     class_read_int("tol_gauss_legendre",ppr->tol_gauss_legendre);
   }
 #ifndef WITH_BISPECTRA
-  /* When computing bispectra, we need the lensed C_l to be computed
-  up to the same l_max as the unlensed C_l. This can be achieved by increasing
-  the overall l_max by delta_l_max, as it is done in standard CLASS. However,
-  this becomes very computationally expensive when dealing with bispectra. Therefore,
-  we adopt a workaround whereby we increase l_max only for the spectra and lensing
-  modules, and not for the bispectra module. For details on how we do so, refer
-  to the compute_cls() function in the utility.c file */
+  /* When computing bispectra, we need the lensed C_l to be computed up to the
+  same l_max as the unlensed C_l. This can be achieved by increasing the overall
+  l_max by delta_l_max, as it is done in standard CLASS. However, this becomes
+  very computationally expensive when dealing with bispectra. Therefore, we adopt
+  a workaround whereby we increase l_max only for the spectra and lensing modules,
+  and not for the bispectra module. For details on how we do so, refer to the
+  compute_cls() function in the utility.c file */
   if (ple->has_lensed_cls == _TRUE_)
     ppt->l_scalar_max+=ppr->delta_l_max;
 #endif // WITH_BISPECTRA
@@ -2896,10 +2904,6 @@ int input_read_parameters(
     || (ppt->has_metric_in_los == _FALSE_) || (ppt->has_sw == _TRUE_) || (ppt->has_isw == _TRUE_),
     errmsg,
     "Support for custom 1st-order line of sight temporarily disabled in SONG");
-
-  /* If effects that are not peaked at recombination are included, we need to extend the integration range up to today */
-  // if ((ppt->has_metric_in_los == _FALSE_) && (ppt->has_isw == _FALSE_))
-  //   ppt->has_recombination_only = _TRUE_;
 
   /* The zeta-T correlation is not implemented yet in synchronous gauge */
   if (ppt->gauge == synchronous)
@@ -3329,6 +3333,200 @@ int input_read_parameters(
   }
 
 
+  /** i.3.5. Output of the bispectrum */
+  
+  /* Read values of (l1,l2,l3) for which to write output files */
+
+  class_call(parser_read_list_of_integers(
+               pfc,
+              "l1_out",
+              &(int1),
+              &(int_pointer1),
+              &flag1,
+              errmsg),
+    errmsg,
+    errmsg);
+
+  if (flag1 == _TRUE_) {
+
+    class_test(int1 > _MAX_NUMBER_OF_L_FILES_, errmsg,
+      "increase _MAX_NUMBER_OF_L_FILES_ in include/bispectra.h to at least %d",
+      int1);
+
+    pbi->l_out_size = int1;
+
+    for (i=0; i<int1; i++)
+      pbi->l1_out[i] = int_pointer1[i];
+
+    free (int_pointer1);
+
+  }
+
+  class_call(parser_read_list_of_integers(
+               pfc,
+              "l2_out",
+              &(int1),
+              &(int_pointer1),
+              &flag1,
+              errmsg),
+    errmsg,
+    errmsg);
+
+  if (flag1 == _TRUE_) {
+
+    class_test(int1 != pbi->l_out_size, errmsg,
+      "specify the same number of values in l1_out and l2_out",
+      int1);
+
+    for (i=0; i<int1; i++)
+      pbi->l2_out[i] = int_pointer1[i];
+
+    free (int_pointer1);
+
+  }
+
+
+  /* Make sure that the user specified some l if running in l_out_mode */
+
+  class_test ((pbi->l_out_mode == _TRUE_) && (pbi->l_out_size <= 0),
+    errmsg,
+    "you asked to run SONG in l_out_mode (output=l_out) but you did not specify\
+ any output k value. Either turn off the l_out_mode or fill the l1_out, l2_out\
+ parameters");
+
+
+  /* Read values of index_l1 and index_l2 for which to write output files. If
+  SONG is running in l_out_mode, we ignore these settings, lest there is no l
+  to compute */
+
+  if (pbi->l_out_mode == _FALSE_) {
+
+    class_call(parser_read_list_of_integers(
+                 pfc,
+                "l1_index_out",
+                &(int1),
+                &(int_pointer1),
+                &flag1,
+                errmsg),
+      errmsg,
+      errmsg);
+
+    if (flag1 == _TRUE_) {
+
+      class_test((int1+pbi->l_out_size) > _MAX_NUMBER_OF_L_FILES_, errmsg,
+        "increase _MAX_NUMBER_OF_L_FILES_ in include/bispectra.h to at least %d",
+        int1);
+
+      pbi->l_index_out_size = int1;
+
+      for (i=0; i<int1; i++)
+        pbi->l1_index_out[i] = int_pointer1[i];
+
+      free (int_pointer1);
+
+    }
+
+    class_call(parser_read_list_of_integers(
+                 pfc,
+                "l2_index_out",
+                &(int1),
+                &(int_pointer1),
+                &flag1,
+                errmsg),
+      errmsg,
+      errmsg);
+
+    if (flag1 == _TRUE_) {
+
+      class_test(int1 != pbi->l_index_out_size, errmsg,
+        "specify the same number of values in l1_index_out and l2_index_out",
+        int1);
+
+      for (i=0; i<int1; i++)
+        pbi->l2_index_out[i] = int_pointer1[i];
+
+      free (int_pointer1);
+
+    }
+  }
+
+
+  /* Create and open output files for the desired l-values */
+
+  if ((pbi->l_out_size + pbi->l_index_out_size) > 0) {
+
+    for (int index_l_out=0; index_l_out < (pbi->l_out_size + pbi->l_index_out_size); ++index_l_out) {
+
+      /* Build ASCII filenames */
+      sprintf (pbi->l_out_paths_1D[index_l_out],
+        "%s/bispectra_l%03d_1D.txt",
+        pop->root,
+        index_l_out);
+
+      sprintf (pbi->l_out_paths_2D[index_l_out],
+        "%s/bispectra_l%03d_2D.txt",
+        pop->root,
+        index_l_out);
+
+      /* Open ASCII files */
+      class_open(pbi->l_out_files_1D[index_l_out],
+        pbi->l_out_paths_1D[index_l_out],
+        "w",
+        errmsg);
+
+      class_open(pbi->l_out_files_2D[index_l_out],
+        pbi->l_out_paths_2D[index_l_out],
+        "w",
+        errmsg);
+
+      /* Build binary filename, but do not open it yet */
+      sprintf (pbi->l_out_path_3D,
+        "%s/bispectra_l%03d_3D.dat",
+        pop->root,
+        index_l_out);
+
+      /* Swap l1 and l2 if the user asked for configurations with l1<l2 */
+
+      pbi->l_out_was_swapped[index_l_out] = _FALSE_;
+
+      sprintf (pbi->l_out_swap_message,
+        "NOTE: You asked for a (l1,l2) pair with l1<l2, but SONG only computes configurations with\
+ l1>=l2. This file contains the perturbations with l1 and l2 swapped.");
+
+      if ((index_l_out < pbi->l_out_size) && (pbi->l1_out[index_l_out] < pbi->l2_out[index_l_out])) {
+
+        pbi->l_out_was_swapped[index_l_out] = _TRUE_;
+
+        double swap = pbi->l1_out[index_l_out];
+        pbi->l1_out[index_l_out] = pbi->l2_out[index_l_out];
+        pbi->l2_out[index_l_out] = swap;
+
+      }
+
+      if ((index_l_out >= pbi->l_out_size) && (pbi->l1_index_out[index_l_out-pbi->l_out_size] < pbi->l2_index_out[index_l_out-pbi->l_out_size])) {
+
+        pbi->l_out_was_swapped[index_l_out] = _TRUE_;
+
+        int swap = pbi->l1_index_out[index_l_out-pbi->l_out_size];
+        pbi->l1_index_out[index_l_out-pbi->l_out_size] = pbi->l2_index_out[index_l_out-pbi->l_out_size];
+        pbi->l2_index_out[index_l_out-pbi->l_out_size] = swap;
+
+      }
+    } // for l_out
+
+
+    /* Issue a warning if the user gave two indentical (l1_out,l2_out) pairs */
+
+    for (int i=0; i < pbi->l_out_size; ++i)
+      for (int j=i; j < pbi->l_out_size; ++j)
+        if ((pbi->l1_out[i] == pbi->l1_out[j]) && (pbi->l2_out[i] == pbi->l2_out[j]) && (i != j))
+          printf ("NOTE: output pairs #%d and #%d are equal; bispectra outputs for #%d will be empty\n", i, j, j);
+
+  } // if l_out
+
+
+
+
   /** i.4. parameters in the Fisher module */
 
   class_read_int("fisher_verbose",
@@ -3652,8 +3850,7 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
   setenv ("SONG_RUN_DIR", ppr->run_dir, 1);
   setenv ("SONG_RUN_FOLDER", ppr->run_dir, 1);
   
-
-
+  
 
   // ============================================================================================
   // =                                   Read data directory                                    =
@@ -3757,7 +3954,14 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
     class_open(log_file,ppr->log_filename,"w",errmsg);    
   }
   
-  
+
+  /** l.2. Output to file */
+
+  class_call(parser_read_string(pfc,"output_single_precision",&(string1),&(flag1),errmsg),errmsg,errmsg);
+  if ((flag1 == _TRUE_) && (strstr(string1,"y") == NULL) && (strstr(string1,"Y") == NULL))
+    ppr->output_single_precision = _FALSE_;
+
+
   
   // =======================================================================================
   // =                               Even or odd l-grid?                                   =
@@ -4274,6 +4478,12 @@ int input_default_params(
   pbi->include_lensing_effects = _FALSE_;
   pbi->lensed_intrinsic = _FALSE_;
 
+  pbi->file_verbose = 1;
+  pbi->l_out_size = 0;
+  pbi->l_index_out_size = 0;
+  pbi->l_out_mode = _FALSE_;
+  
+
   /** - fisher structure */
 
   pfi->fisher_verbose = 0;
@@ -4654,6 +4864,9 @@ int input_default_precision ( struct precision * ppr ) {
   /* By default, assume that the data folders (sources, transfers, bispectra) are in the
   run directory */
   strcpy (ppr->data_dir, ppr->run_dir);
+
+  /* By default, binary files will be output in single precision (float) */
+  ppr->output_single_precision = _TRUE_;
 
   /* Note that here we do not specify default values for ppr->run_dir and
   for ppr->load_run. These variables are not set in input_init() but in the
