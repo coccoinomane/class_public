@@ -20,6 +20,7 @@
        struct precision * ppr,
        struct background * pba,
        struct thermo * pth,
+       struct perturbs * ppt,
        struct spectra * psp,
        struct lensing * ple,
        ErrorMsg error_message

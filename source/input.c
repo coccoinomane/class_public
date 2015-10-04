@@ -1416,6 +1416,7 @@ int input_read_parameters(
       ppt->has_bi_cmb_temperature = _TRUE_;
       ppt->has_perturbations = _TRUE_;  
       ppt->has_cls = _TRUE_;
+      ppt->has_cl_cmb_lensing_potential = _TRUE_; /* in case the user sets lensing=yes */
       ppt->has_cmb_bispectra = _TRUE_;
       pbs->has_cmb_bispectra = _TRUE_;
       pbi->has_bispectra = _TRUE_;
@@ -1427,6 +1428,7 @@ int input_read_parameters(
       ppt->has_bi_cmb_polarization = _TRUE_;
       ppt->has_perturbations = _TRUE_;  
       ppt->has_cls = _TRUE_;
+      ppt->has_cl_cmb_lensing_potential = _TRUE_; /* in case the user sets lensing=yes */
       ppt->has_cmb_bispectra = _TRUE_;
       pbs->has_cmb_bispectra = _TRUE_;
       pbi->has_bispectra = _TRUE_;
@@ -1439,7 +1441,8 @@ int input_read_parameters(
 
     if (strstr(string1,"l_out") != NULL) {
       pbi->has_bispectra = _TRUE_;
-      pbi->l_out_mode = _TRUE_;
+      ppr->l_out_mode = _TRUE_;
+      pfi->has_fisher = _FALSE_;
       ppt->has_perturbations = _TRUE_;
     }
 
@@ -2300,7 +2303,12 @@ int input_read_parameters(
   if ((flag1 == _TRUE_) && ((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL))) {
 
     if ((ppt->has_scalars == _TRUE_) &&
+#ifndef WITH_BISPECTRA
         ((ppt->has_cl_cmb_temperature == _TRUE_) || (ppt->has_cl_cmb_polarization == _TRUE_)) &&
+#else
+        ((ppt->has_cl_cmb_temperature == _TRUE_) || (ppt->has_cl_cmb_polarization == _TRUE_) ||
+         (ppt->has_bi_cmb_temperature == _TRUE_) || (ppt->has_bi_cmb_polarization == _TRUE_)) &&
+#endif // WITH_BISPECTRA
         (ppt->has_cl_cmb_lensing_potential == _TRUE_)) {
       ple->has_lensed_cls = _TRUE_;
     }
@@ -3035,7 +3043,321 @@ int input_read_parameters(
 
 #endif // WITH_SONG_SUPPORT
 
-  /** i.2 parameters in the bessels module */
+  /** i.2. parameters in the bispectra module */
+  
+  class_read_int("bispectra_verbose",
+    pbi->bispectra_verbose);
+
+
+  /** i.2.1. Interpolation of transfer functions */
+  
+  /* Which kind of technique should we use for the k1-integration of the bispectrum? */
+  class_call(parser_read_string(pfc,"transfers_k1_interpolation",&string1,&flag1,errmsg),
+	     errmsg,
+	     errmsg);	
+
+  if (flag1 == _TRUE_) {
+
+    if (((strstr(string1,"linear") != NULL) || (strstr(string1,"LINEAR") != NULL)))
+      ppr->transfers_k1_interpolation = linear_interpolation;
+
+    else if (((strstr(string1,"cubic") != NULL) || (strstr(string1,"CUBIC") != NULL) || (strstr(string1,"spline") != NULL) || (strstr(string1,"SPLINE") != NULL)))
+      ppr->transfers_k1_interpolation = cubic_interpolation;
+    
+    else
+      class_test(1==1,
+    		   errmsg,	       
+    		   "transfers_k1_interpolation=%s not supported. Choose between 'linear' and 'cubic'",string1);
+  }
+
+  /* Which kind of technique should we use for the k2-integration of the bispectrum? */
+  class_call(parser_read_string(pfc,"transfers_k2_interpolation",&string1,&flag1,errmsg),
+	     errmsg,
+	     errmsg);	
+
+  if (flag1 == _TRUE_) {
+
+    if (((strstr(string1,"linear") != NULL) || (strstr(string1,"LINEAR") != NULL)))
+      ppr->transfers_k2_interpolation = linear_interpolation;
+
+    else if (((strstr(string1,"cubic") != NULL) || (strstr(string1,"CUBIC") != NULL)
+           || (strstr(string1,"spline") != NULL) || (strstr(string1,"SPLINE") != NULL)))
+      ppr->transfers_k2_interpolation = cubic_interpolation;
+    
+    else
+      class_test(1==1, errmsg,	       
+    		"transfers_k2_interpolation=%s not supported. Choose between 'linear' and 'cubic'",string1);
+  }
+  
+
+  /** i.2.2. Extrapolation of transfer functions */
+
+  /* Which kind of technique should we use for the k3-integration of the bispectrum? */
+  class_call(parser_read_string(pfc,"bispectra_k3_extrapolation",&string1,&flag1,errmsg),
+       errmsg,
+       errmsg);
+
+  if (flag1 == _TRUE_) {
+
+    if ((strcmp(string1,"no_extrapolation") == 0) || (strcmp(string1,"no") == 0))
+      ppr->bispectra_k3_extrapolation = no_k3_extrapolation;
+
+    else if ((strcmp(string1,"flat_extrapolation") == 0) || (strcmp(string1,"flat") == 0))
+      ppr->bispectra_k3_extrapolation = flat_k3_extrapolation;
+
+    else
+      class_test(1==1, errmsg,	       
+        "bispectra_k3_extrapolation=%s' not supported. Choose between 'no' and 'flat'");
+  }
+
+  /* How much to extend the k3 range in view of the bispectrum integration? */
+  class_read_double("extra_k3_oscillations_right", ppr->extra_k3_oscillations_right);
+  class_read_double("extra_k3_oscillations_left", ppr->extra_k3_oscillations_left);
+
+
+  /** i.2.3. Integration of the bispectrum */
+
+  /* Parameters related to the r-integration in the bispectrum integral  */
+  if (pbi->has_bispectra == _TRUE_) {
+
+    class_call(parser_read_string(pfc,"bispectra_r_sampling",&string1,&flag1,errmsg),
+         errmsg,
+         errmsg);  
+
+    if (flag1 == _TRUE_) {
+
+      if (((strstr(string1,"custom") != NULL) || (strstr(string1,"CUSTOM") != NULL)))
+        ppr->bispectra_r_sampling = custom_r_sampling;
+
+      else if (((strstr(string1,"centred") != NULL) || (strstr(string1,"CENTRED") != NULL))
+              ||((strstr(string1,"centered") != NULL) || (strstr(string1,"CENTERED") != NULL)))
+        ppr->bispectra_r_sampling = centred_r_sampling;
+    
+      else if (((strstr(string1,"sources") != NULL) || (strstr(string1,"SOURCES") != NULL)))
+        ppr->bispectra_r_sampling = sources_r_sampling;
+    
+      else
+        class_test(1==1,
+          errmsg,         
+          "bispectra_r_sampling=%s not supported; choose between 'custom', 'centred' and 'sources'", string1);
+    }
+
+    if (ppr->bispectra_r_sampling == custom_r_sampling) {
+      class_read_double("r_min", ppr->r_min);
+      class_read_double("r_max", ppr->r_max);
+      class_read_int("r_size", ppr->r_size);
+    }
+    else if (ppr->bispectra_r_sampling == centred_r_sampling) {
+      class_read_double("r_left", ppr->r_left);
+      class_read_double("r_right", ppr->r_right);
+      class_read_int("r_size", ppr->r_size);
+    }
+    else if (ppr->bispectra_r_sampling == sources_r_sampling) {
+      class_read_double("r_left", ppr->r_left);
+      class_read_double("r_right", ppr->r_right);
+      class_read_int("r_size", ppr->r_size);
+      if (flag1 == _FALSE_)
+        ppr->r_size = -1; /* Determine automatically r_size between r_left and r_right */
+    }
+
+  } // end of if(has_bispectra)
+
+
+  /** i.2.4. Lensing effects on the bispectrum and on the Fisher matrix estimator */
+  
+  if (ple->has_lensed_cls == _TRUE_) { /* if lensing=yes... */
+    
+    if (pfi->has_fisher == _TRUE_) {
+      pfi->include_lensing_effects = _TRUE_;
+      pbi->has_cmb_lensing_kernel = _TRUE_;  /* needed to compute the effect of lensing variance */
+      ppr->extend_lensed_cls = _TRUE_;       /* needed to include the lensing noise in the covariance matrix */
+    }
+    
+    if (pbi->has_bispectra == _TRUE_) {
+
+      /* List of bispectra that can be lensed just by using the lensed C_l's */
+      short requires_lensed_cls = (
+        (pbi->has_cmb_lensing == _TRUE_) ||
+        (pbi->has_cmb_lensing_squeezed == _TRUE_) ||
+        (pbi->has_cmb_lensing_kernel == _TRUE_) ||
+        (pbi->has_intrinsic_squeezed == _TRUE_));
+    
+       if (requires_lensed_cls) {
+        pbi->include_lensing_effects = _TRUE_;
+        pbi->lensed_intrinsic = _TRUE_;
+        ppr->extend_lensed_cls = _TRUE_;
+      }
+    }
+  } // end of if lensing
+
+  /* If requested explicitly, do not include the lensed C_l's in the squeezed approximation for the intrinsic
+  bispectrum */
+  if (pbi->include_lensing_effects == _TRUE_) {
+
+    class_call(parser_read_string(pfc,"lensed_intrinsic",&(string1),&(flag1),errmsg),
+      errmsg,
+      errmsg);
+   
+    if ((flag1 == _TRUE_) && ((strstr(string1,"n") != NULL) || (strstr(string1,"N") != NULL)))
+      pbi->lensed_intrinsic = _FALSE_;
+  }
+
+  if (pfi->include_lensing_effects == _TRUE_) {
+    
+    class_call(parser_read_string(pfc,"fisher_lensvar_lmax",&(string1),&(flag1),errmsg),
+        errmsg,
+        errmsg);
+    class_call(parser_read_string(pfc,"compute_lensing_variance_lmax",&(string2),&(flag2),errmsg), /* obsolete */
+        errmsg,
+        errmsg);
+
+    /* string1 wins over string2 */
+    if (flag1 == _TRUE_)
+      strcpy (string, string1);
+    else if (flag2 == _TRUE_)
+      strcpy (string, string2);
+
+    if (((flag1 == _TRUE_)||(flag2 == _TRUE_))
+    &&((strstr(string,"y") != NULL) || (strstr(string,"Y") != NULL)))
+      pfi->compute_lensing_variance_lmax = _TRUE_; 
+  }
+
+
+  /** i.2.5. Output of the bispectrum */
+  
+  /* Read values of (l1,l2,l3) for which to write output files */
+
+  class_call(parser_read_list_of_integers(
+               pfc,
+              "l1_out",
+              &(int1),
+              &(int_pointer1),
+              &flag1,
+              errmsg),
+    errmsg,
+    errmsg);
+
+  if (flag1 == _TRUE_) {
+
+    class_test(int1 > _MAX_NUMBER_OF_L_FILES_, errmsg,
+      "increase _MAX_NUMBER_OF_L_FILES_ in include/bispectra.h to at least %d",
+      int1);
+
+    ppr->l_out_size = int1;
+
+    for (i=0; i<int1; i++)
+      ppr->l1_out[i] = int_pointer1[i];
+
+    free (int_pointer1);
+
+  }
+
+  class_call(parser_read_list_of_integers(
+               pfc,
+              "l2_out",
+              &(int1),
+              &(int_pointer1),
+              &flag1,
+              errmsg),
+    errmsg,
+    errmsg);
+
+  if (flag1 == _TRUE_) {
+
+    class_test(int1 != ppr->l_out_size, errmsg,
+      "specify the same number of values in l1_out and l2_out",
+      int1);
+
+    for (i=0; i<int1; i++)
+      ppr->l2_out[i] = int_pointer1[i];
+
+    free (int_pointer1);
+
+  }
+
+
+  /* Make sure that the user specified some l if running in l_out_mode */
+
+  class_test ((ppr->l_out_mode == _TRUE_) && (ppr->l_out_size <= 0),
+    errmsg,
+    "you asked to run SONG in l_out_mode (output=l_out) but you did not specify\
+ any output k value. Either turn off the l_out_mode or fill the l1_out, l2_out\
+ parameters");
+
+
+  /* The largest multipole for which the bispectrum is computed is given
+  by ppt->l_max_scalars. If the user asked for an l_out value larger than
+  l_max_scalars, we make it bigger. */
+  for (int index_l_out=0; index_l_out < ppr->l_out_size; ++index_l_out) {
+
+    /* In the l_out_mode, we compute only the output l */
+    if (ppr->l_out_mode == _TRUE_)
+      ppt->l_scalar_max = 0;
+
+    ppt->l_scalar_max = MAX (ppt->l_scalar_max, ppr->l1_out[index_l_out]);
+    ppt->l_scalar_max = MAX (ppt->l_scalar_max, ppr->l2_out[index_l_out]);
+
+  }
+
+
+  /* Build filenames of bispectra output files */
+
+  for (int index_l_out=0; index_l_out < ppr->l_out_size; ++index_l_out) {
+
+    sprintf (ppr->l_out_paths_1D[index_l_out],
+      "%s/bispectra_L%03d_1D.txt",
+      pop->root,
+      index_l_out);
+
+    /* Only write the output directory for the 2D files, because here we can't
+    access yet the names of the probes (eg. EEE, TTT, TTE...) */
+    for (int i=0; i < _MAX_NUM_BISPECTRUM_PROBES_; ++i)
+      sprintf (ppr->l_out_paths_2D[index_l_out][i],
+        "%s", pop->root);
+
+    sprintf (ppr->l_out_path_3D,
+      "%s/bispectra_L%03d_3D.dat",
+      pop->root,
+      index_l_out);
+
+  }
+  
+
+  /* Swap l1 and l2 if the user asked for configurations with l1<l2 */
+
+  for (int index_l_out=0; index_l_out < ppr->l_out_size; ++index_l_out) {
+
+    ppr->l_out_was_swapped[index_l_out] = _FALSE_;
+
+    sprintf (ppr->l_out_swap_message,
+      "NOTE: You asked for a (l1,l2) pair with l1<l2, but SONG only computes configurations with\
+ l1>=l2. This file contains the perturbations with l1 and l2 swapped. For the TTT and EEE bispectra,\
+ there is no difference as they are symmetric with respect to l1<->l2. For the mixed bispectra (TTE,\
+ TET, ETT, EET, ETE, TEE), you need to swap the field as well. For example, b^TEE_l1_l2_l3 = b^ETE_l2_l1_l3.");
+
+    if (ppr->l1_out[index_l_out] < ppr->l2_out[index_l_out]) {
+
+      ppr->l_out_was_swapped[index_l_out] = _TRUE_;
+
+      double swap = ppr->l1_out[index_l_out];
+      ppr->l1_out[index_l_out] = ppr->l2_out[index_l_out];
+      ppr->l2_out[index_l_out] = swap;
+
+    }
+  }
+  
+
+  /* Issue a warning if the user gave two indentical (l1_out,l2_out) pairs */
+
+  for (int i=0; i < ppr->l_out_size; ++i)
+    for (int j=i; j < ppr->l_out_size; ++j)
+      if ((ppr->l1_out[i] == ppr->l1_out[j]) && (ppr->l2_out[i] == ppr->l2_out[j]) && (i != j))
+        printf ("NOTE: output pairs #%d and #%d are equal; bispectra outputs for #%d will be empty\n", i, j, j);
+
+
+
+
+  /** i.3 parameters in the bessels module */
 
   class_read_int("bessels_verbose",
     pbs->bessels_verbose);
@@ -3112,418 +3434,6 @@ int input_read_parameters(
   /* Extend x_max to avoid potential out-of-bounds errors in the interpolation of j_l(x) */
   pbs->x_max += pbs->x_step;
   pbs->x_max *= 1.05;
-
-
-  /** i.3. parameters in the bispectra module */
-  
-  class_read_int("bispectra_verbose",
-    pbi->bispectra_verbose);
-
-
-  /** i.3.1. Interpolation of transfer functions */
-  
-  /* Which kind of technique should we use for the k1-integration of the bispectrum? */
-  class_call(parser_read_string(pfc,"transfers_k1_interpolation",&string1,&flag1,errmsg),
-	     errmsg,
-	     errmsg);	
-
-  if (flag1 == _TRUE_) {
-
-    if (((strstr(string1,"linear") != NULL) || (strstr(string1,"LINEAR") != NULL)))
-      ppr->transfers_k1_interpolation = linear_interpolation;
-
-    else if (((strstr(string1,"cubic") != NULL) || (strstr(string1,"CUBIC") != NULL) || (strstr(string1,"spline") != NULL) || (strstr(string1,"SPLINE") != NULL)))
-      ppr->transfers_k1_interpolation = cubic_interpolation;
-    
-    else
-      class_test(1==1,
-    		   errmsg,	       
-    		   "transfers_k1_interpolation=%s not supported. Choose between 'linear' and 'cubic'",string1);
-  }
-
-  /* Which kind of technique should we use for the k2-integration of the bispectrum? */
-  class_call(parser_read_string(pfc,"transfers_k2_interpolation",&string1,&flag1,errmsg),
-	     errmsg,
-	     errmsg);	
-
-  if (flag1 == _TRUE_) {
-
-    if (((strstr(string1,"linear") != NULL) || (strstr(string1,"LINEAR") != NULL)))
-      ppr->transfers_k2_interpolation = linear_interpolation;
-
-    else if (((strstr(string1,"cubic") != NULL) || (strstr(string1,"CUBIC") != NULL)
-           || (strstr(string1,"spline") != NULL) || (strstr(string1,"SPLINE") != NULL)))
-      ppr->transfers_k2_interpolation = cubic_interpolation;
-    
-    else
-      class_test(1==1, errmsg,	       
-    		"transfers_k2_interpolation=%s not supported. Choose between 'linear' and 'cubic'",string1);
-  }
-  
-
-  /** i.3.2. Extrapolation of transfer functions */
-
-  /* Which kind of technique should we use for the k3-integration of the bispectrum? */
-  class_call(parser_read_string(pfc,"bispectra_k3_extrapolation",&string1,&flag1,errmsg),
-       errmsg,
-       errmsg);
-
-  if (flag1 == _TRUE_) {
-
-    if ((strcmp(string1,"no_extrapolation") == 0) || (strcmp(string1,"no") == 0))
-      ppr->bispectra_k3_extrapolation = no_k3_extrapolation;
-
-    else if ((strcmp(string1,"flat_extrapolation") == 0) || (strcmp(string1,"flat") == 0))
-      ppr->bispectra_k3_extrapolation = flat_k3_extrapolation;
-
-    else
-      class_test(1==1, errmsg,	       
-        "bispectra_k3_extrapolation=%s' not supported. Choose between 'no' and 'flat'");
-  }
-
-  /* How much to extend the k3 range in view of the bispectrum integration? */
-  class_read_double("extra_k3_oscillations_right", ppr->extra_k3_oscillations_right);
-  class_read_double("extra_k3_oscillations_left", ppr->extra_k3_oscillations_left);
-
-
-  /** i.3.3. Integration of the bispectrum */
-
-  /* Parameters related to the r-integration in the bispectrum integral  */
-  if (pbi->has_bispectra == _TRUE_) {
-
-    class_call(parser_read_string(pfc,"bispectra_r_sampling",&string1,&flag1,errmsg),
-         errmsg,
-         errmsg);  
-
-    if (flag1 == _TRUE_) {
-
-      if (((strstr(string1,"custom") != NULL) || (strstr(string1,"CUSTOM") != NULL)))
-        ppr->bispectra_r_sampling = custom_r_sampling;
-
-      else if (((strstr(string1,"centred") != NULL) || (strstr(string1,"CENTRED") != NULL))
-              ||((strstr(string1,"centered") != NULL) || (strstr(string1,"CENTERED") != NULL)))
-        ppr->bispectra_r_sampling = centred_r_sampling;
-    
-      else if (((strstr(string1,"sources") != NULL) || (strstr(string1,"SOURCES") != NULL)))
-        ppr->bispectra_r_sampling = sources_r_sampling;
-    
-      else
-        class_test(1==1,
-          errmsg,         
-          "bispectra_r_sampling=%s not supported; choose between 'custom', 'centred' and 'sources'", string1);
-    }
-
-    if (ppr->bispectra_r_sampling == custom_r_sampling) {
-      class_read_double("r_min", ppr->r_min);
-      class_read_double("r_max", ppr->r_max);
-      class_read_int("r_size", ppr->r_size);
-    }
-    else if (ppr->bispectra_r_sampling == centred_r_sampling) {
-      class_read_double("r_left", ppr->r_left);
-      class_read_double("r_right", ppr->r_right);
-      class_read_int("r_size", ppr->r_size);
-    }
-    else if (ppr->bispectra_r_sampling == sources_r_sampling) {
-      class_read_double("r_left", ppr->r_left);
-      class_read_double("r_right", ppr->r_right);
-      class_read_int("r_size", ppr->r_size);
-      if (flag1 == _FALSE_)
-        ppr->r_size = -1; /* Determine automatically r_size between r_left and r_right */
-    }
-
-
-    
-    /* TODO: update x_max to take into account the k3 extrapolation (use following piece of code)*/
-    // if (ppr->bispectra_k3_extrapolation != no_k3_extrapolation) {
-    // 
-    //   /* The physical range is the one dictated by the triangular condition: k1 + k2 = k3 */
-    //   double physical_k3_range = k_max_pt - k_min_pt;
-    //   
-    //   /* The extended range allows for the Bessel function j(k3*(tau0 - tau_rec)) to develop at least
-    //     ppr->extra_k3_oscillations oscillations in k3 in order to stabilize the bispectrum integral. */
-    //   double extended_k3_range = 2.*_PI_*ppr->extra_k3_oscillations/(ptr2->tau0 - ptr2->tau_rec);
-    //     
-    //   if (physical_k3_range < extended_k3_range)
-    //     k_max_tr += (extended_k3_range - physical_k3_range);    
-    // 
-    //   // printf("physical_k3_range=%g, extended_k3_range=%g\n", physical_k3_range, extended_k3_range);
-    //   // printf("PRE:  k_max_tr = %g\n", k_max_pt);
-    //   // printf("POST: k_max_tr = %g\n", k_max_tr);
-    // }
-
-    /* REMOVE: NOW DONE IN PBS */
-    // /* Determine the maximum k-value needed in the line of sight integration at first order. This is
-    // needed to determine x_max, the maximum sampling of the Bessel functions j_l(x). To determine
-    // k_max, in principle we also need the conformal age of the universe, tau_0. This, however, can only
-    // be accessed after running the  ened */
-    // double tau0_inf = 8000.;
-    // double k_max = ppr->k_max_tau0_over_l_max * ppt->l_scalar_max / tau0_inf;
-    //
-    // /* Maximum argument for the Bessel functions in the line of sight integration. For the time being, we do
-    // set x_max here, even if we shouldn't as tau0 cannot be accessed by this module.  This is why we define
-    // a superior limit for tau0. */
-    // double x_max = MAX (pbs->x_max, k_max * MAX(tau0_sup, ppr->r_max));
-    //
-    // // printf("# Temporary message: Setting pbs->x_max from %g to %g\n",
-    // //   ((int)(pbs->x_max * 1.1 / pbs->x_step)+1)*pbs->x_step,
-    // //   ((int)(x_max * 1.1 / pbs->x_step)+1)*pbs->x_step);
-    //
-    // pbs->x_max = ((int)(x_max * 1.1 / pbs->x_step)+1)*pbs->x_step;
-
-  } // end of if(has_bispectra)
-
-
-  /** i.3.4. Lensing effects on the bispectrum and on the Fisher matrix estimator */
-  
-  if (ple->has_lensed_cls == _TRUE_) { /* if lensing=yes... */
-    
-    if (pfi->has_fisher == _TRUE_) {
-      pfi->include_lensing_effects = _TRUE_;
-      pbi->has_cmb_lensing_kernel = _TRUE_;  /* needed to compute the effect of lensing variance */
-      ppr->extend_lensed_cls = _TRUE_;       /* needed to include the lensing noise in the covariance matrix */
-    }
-    
-    if (pbi->has_bispectra == _TRUE_) {
-
-      /* List of bispectra that can be lensed just by using the lensed C_l's */
-      short requires_lensed_cls = (
-        (pbi->has_cmb_lensing == _TRUE_) ||
-        (pbi->has_cmb_lensing_squeezed == _TRUE_) ||
-        (pbi->has_cmb_lensing_kernel == _TRUE_) ||
-        (pbi->has_intrinsic_squeezed == _TRUE_));
-    
-       if (requires_lensed_cls) {
-        pbi->include_lensing_effects = _TRUE_;
-        pbi->lensed_intrinsic = _TRUE_;
-        ppr->extend_lensed_cls = _TRUE_;
-      }
-    }
-  } // end of if lensing
-
-  /* If requested explicitly, do not include the lensed C_l's in the squeezed approximation for the intrinsic
-  bispectrum */
-  if (pbi->include_lensing_effects == _TRUE_) {
-
-    class_call(parser_read_string(pfc,"lensed_intrinsic",&(string1),&(flag1),errmsg),
-      errmsg,
-      errmsg);
-   
-    if ((flag1 == _TRUE_) && ((strstr(string1,"n") != NULL) || (strstr(string1,"N") != NULL)))
-      pbi->lensed_intrinsic = _FALSE_;
-  }
-
-  if (pfi->include_lensing_effects == _TRUE_) {
-    
-    class_call(parser_read_string(pfc,"fisher_lensvar_lmax",&(string1),&(flag1),errmsg),
-        errmsg,
-        errmsg);
-    class_call(parser_read_string(pfc,"compute_lensing_variance_lmax",&(string2),&(flag2),errmsg), /* obsolete */
-        errmsg,
-        errmsg);
-
-    /* string1 wins over string2 */
-    if (flag1 == _TRUE_)
-      strcpy (string, string1);
-    else if (flag2 == _TRUE_)
-      strcpy (string, string2);
-
-    if (((flag1 == _TRUE_)||(flag2 == _TRUE_))
-    &&((strstr(string,"y") != NULL) || (strstr(string,"Y") != NULL)))
-      pfi->compute_lensing_variance_lmax = _TRUE_; 
-  }
-
-
-  /** i.3.5. Output of the bispectrum */
-  
-  /* Read values of (l1,l2,l3) for which to write output files */
-
-  class_call(parser_read_list_of_integers(
-               pfc,
-              "l1_out",
-              &(int1),
-              &(int_pointer1),
-              &flag1,
-              errmsg),
-    errmsg,
-    errmsg);
-
-  if (flag1 == _TRUE_) {
-
-    class_test(int1 > _MAX_NUMBER_OF_L_FILES_, errmsg,
-      "increase _MAX_NUMBER_OF_L_FILES_ in include/bispectra.h to at least %d",
-      int1);
-
-    pbi->l_out_size = int1;
-
-    for (i=0; i<int1; i++)
-      pbi->l1_out[i] = int_pointer1[i];
-
-    free (int_pointer1);
-
-  }
-
-  class_call(parser_read_list_of_integers(
-               pfc,
-              "l2_out",
-              &(int1),
-              &(int_pointer1),
-              &flag1,
-              errmsg),
-    errmsg,
-    errmsg);
-
-  if (flag1 == _TRUE_) {
-
-    class_test(int1 != pbi->l_out_size, errmsg,
-      "specify the same number of values in l1_out and l2_out",
-      int1);
-
-    for (i=0; i<int1; i++)
-      pbi->l2_out[i] = int_pointer1[i];
-
-    free (int_pointer1);
-
-  }
-
-
-  /* Make sure that the user specified some l if running in l_out_mode */
-
-  class_test ((pbi->l_out_mode == _TRUE_) && (pbi->l_out_size <= 0),
-    errmsg,
-    "you asked to run SONG in l_out_mode (output=l_out) but you did not specify\
- any output k value. Either turn off the l_out_mode or fill the l1_out, l2_out\
- parameters");
-
-
-  /* Read values of index_l1 and index_l2 for which to write output files. If
-  SONG is running in l_out_mode, we ignore these settings, lest there is no l
-  to compute */
-
-  if (pbi->l_out_mode == _FALSE_) {
-
-    class_call(parser_read_list_of_integers(
-                 pfc,
-                "l1_index_out",
-                &(int1),
-                &(int_pointer1),
-                &flag1,
-                errmsg),
-      errmsg,
-      errmsg);
-
-    if (flag1 == _TRUE_) {
-
-      class_test((int1+pbi->l_out_size) > _MAX_NUMBER_OF_L_FILES_, errmsg,
-        "increase _MAX_NUMBER_OF_L_FILES_ in include/bispectra.h to at least %d",
-        int1);
-
-      pbi->l_index_out_size = int1;
-
-      for (i=0; i<int1; i++)
-        pbi->l1_index_out[i] = int_pointer1[i];
-
-      free (int_pointer1);
-
-    }
-
-    class_call(parser_read_list_of_integers(
-                 pfc,
-                "l2_index_out",
-                &(int1),
-                &(int_pointer1),
-                &flag1,
-                errmsg),
-      errmsg,
-      errmsg);
-
-    if (flag1 == _TRUE_) {
-
-      class_test(int1 != pbi->l_index_out_size, errmsg,
-        "specify the same number of values in l1_index_out and l2_index_out",
-        int1);
-
-      for (i=0; i<int1; i++)
-        pbi->l2_index_out[i] = int_pointer1[i];
-
-      free (int_pointer1);
-
-    }
-  }
-
-
-  /* Create and open output files for the desired l-values */
-
-  if ((pbi->l_out_size + pbi->l_index_out_size) > 0) {
-
-    for (int index_l_out=0; index_l_out < (pbi->l_out_size + pbi->l_index_out_size); ++index_l_out) {
-
-      /* Build ASCII filenames */
-      sprintf (pbi->l_out_paths_1D[index_l_out],
-        "%s/bispectra_l%03d_1D.txt",
-        pop->root,
-        index_l_out);
-
-      sprintf (pbi->l_out_paths_2D[index_l_out],
-        "%s/bispectra_l%03d_2D.txt",
-        pop->root,
-        index_l_out);
-
-      /* Open ASCII files */
-      class_open(pbi->l_out_files_1D[index_l_out],
-        pbi->l_out_paths_1D[index_l_out],
-        "w",
-        errmsg);
-
-      class_open(pbi->l_out_files_2D[index_l_out],
-        pbi->l_out_paths_2D[index_l_out],
-        "w",
-        errmsg);
-
-      /* Build binary filename, but do not open it yet */
-      sprintf (pbi->l_out_path_3D,
-        "%s/bispectra_l%03d_3D.dat",
-        pop->root,
-        index_l_out);
-
-      /* Swap l1 and l2 if the user asked for configurations with l1<l2 */
-
-      pbi->l_out_was_swapped[index_l_out] = _FALSE_;
-
-      sprintf (pbi->l_out_swap_message,
-        "NOTE: You asked for a (l1,l2) pair with l1<l2, but SONG only computes configurations with\
- l1>=l2. This file contains the perturbations with l1 and l2 swapped.");
-
-      if ((index_l_out < pbi->l_out_size) && (pbi->l1_out[index_l_out] < pbi->l2_out[index_l_out])) {
-
-        pbi->l_out_was_swapped[index_l_out] = _TRUE_;
-
-        double swap = pbi->l1_out[index_l_out];
-        pbi->l1_out[index_l_out] = pbi->l2_out[index_l_out];
-        pbi->l2_out[index_l_out] = swap;
-
-      }
-
-      if ((index_l_out >= pbi->l_out_size) && (pbi->l1_index_out[index_l_out-pbi->l_out_size] < pbi->l2_index_out[index_l_out-pbi->l_out_size])) {
-
-        pbi->l_out_was_swapped[index_l_out] = _TRUE_;
-
-        int swap = pbi->l1_index_out[index_l_out-pbi->l_out_size];
-        pbi->l1_index_out[index_l_out-pbi->l_out_size] = pbi->l2_index_out[index_l_out-pbi->l_out_size];
-        pbi->l2_index_out[index_l_out-pbi->l_out_size] = swap;
-
-      }
-    } // for l_out
-
-
-    /* Issue a warning if the user gave two indentical (l1_out,l2_out) pairs */
-
-    for (int i=0; i < pbi->l_out_size; ++i)
-      for (int j=i; j < pbi->l_out_size; ++j)
-        if ((pbi->l1_out[i] == pbi->l1_out[j]) && (pbi->l2_out[i] == pbi->l2_out[j]) && (i != j))
-          printf ("NOTE: output pairs #%d and #%d are equal; bispectra outputs for #%d will be empty\n", i, j, j);
-
-  } // if l_out
-
 
 
 
@@ -4478,11 +4388,6 @@ int input_default_params(
   pbi->include_lensing_effects = _FALSE_;
   pbi->lensed_intrinsic = _FALSE_;
 
-  pbi->file_verbose = 1;
-  pbi->l_out_size = 0;
-  pbi->l_index_out_size = 0;
-  pbi->l_out_mode = _FALSE_;
-  
 
   /** - fisher structure */
 
@@ -4828,7 +4733,9 @@ int input_default_precision ( struct precision * ppr ) {
   ppr->compute_only_even_ls = _FALSE_;
   ppr->compute_only_odd_ls = _FALSE_;
   ppr->extend_lensed_cls = _FALSE_;
-    
+  ppr->l_out_size = 0;
+  ppr->l_out_mode = _FALSE_;
+
   /* Quadsources time-sampling */
   ppr->perturb_sampling_stepsize_quadsources = 0.03;
 

@@ -947,15 +947,79 @@ int transfer_get_l_list(
 
 #ifdef WITH_BISPECTRA
 
+  /* The user might have asked to output the bispectra at specific configurations
+  of l1, l2 and l3 using the l1_out and l2_out parameters. Here we add these l-values
+  to the list of computed multipoles in SONG, that is, to ptr->l. */
+
+  if (ppr->l_out_size > 0) {
+
+    /* If we are running in l_out_mode, SONG will compute only the l values specified
+    here, and ignore the previously added l. Therefore, we erase the l grid completely */
+    if (ppr->l_out_mode == _TRUE_)
+      ptr->l_size_max = 0;
+
+    /* Build a 1D array with the output values for l1 and l2 */
+    int * l_out;
+    class_alloc (l_out, (2*ppr->l_out_size)*sizeof(int), ppr->error_message);
+    for (int index_l_out=0; index_l_out < ppr->l_out_size; ++index_l_out) {
+      l_out[2*index_l_out] = ppr->l1_out[index_l_out];
+      l_out[2*index_l_out + 1] = ppr->l2_out[index_l_out];
+    }
+
+    /* Merge ptr->l with the l1 and l2 output points, sort the resulting array and
+    remove the duplicates in it */
+    class_call (merge_arrays_int (
+                  ptr->l,
+                  ptr->l_size_max,
+                  l_out,
+                  2*ppr->l_out_size,
+                  &(ptr->l),
+                  &(ptr->l_size_max),
+                  compare_integers,
+                  ptr->error_message
+                  ),
+      ptr->error_message,
+      ptr->error_message);
+
+    /* Assign to each output l the corresponding index in ptr->l */
+    for (int i=0; i < 2*ppr->l_out_size; ++i) {
+
+      /* Find index in ptr->l corresponding to the current output k */
+      int index_l = 0;
+      while (ptr->l[index_l] != l_out[i])
+        index_l++;
+
+      class_test (index_l >= ptr->l_size_max,
+        ppr->error_message,
+        "index_l out of bounds: something went wrong while adding l output values");
+
+      /* Store the index in the index_l_out arrays */
+      int index_l_out = (i - i%2)/2;
+
+      if (i%2 == 0)
+        ppr->index_l1_out[index_l_out] = index_l;
+      else if (i%2 == 1)
+        ppr->index_l2_out[index_l_out] = index_l;
+
+      /* Debug - Print the l->l_out correspondence */
+      // printf ("l_out=%g[%d] -> l=%g[%d]\n",
+      //   l_out[i], i, ptr->l[index_l], index_l);
+    }
+
+    free (l_out);
+
+  } // end of if l_out
+
+
   /* If needed, convert odd values to even ones or viceversa. */
-  
+
   if ((ppr->compute_only_even_ls==_TRUE_) || (ppr->compute_only_odd_ls==_TRUE_)) {
-  
+
     int * l_copy;
     class_alloc (l_copy, ptr->l_size_max*sizeof(int), ptr->error_message);
     for (int index_l=0; index_l < ptr->l_size_max; ++index_l)
       l_copy[index_l] = ptr->l[index_l];
-    
+
     /* Create an all-even grid */
     if (ppr->compute_only_even_ls == _TRUE_) {
       for (int index_l=0; index_l < ptr->l_size_max; ++index_l)
@@ -968,42 +1032,40 @@ int transfer_get_l_list(
         if (l_copy[index_l]%2==0)
           l_copy[index_l] = l_copy[index_l]+1;
     }
-    
+
     /* Some debug */
     // for (index_l=0; index_l < ptr->l_size_max; ++index_l)
     //   printf ("%5d %5d\n", index_l, l_copy[index_l]);
-    
+
     /* Remove duplicates */
     int index_l_copy = 0;
     index_l = 0;
     ptr->l[index_l] = l_copy[index_l_copy];
     index_l++;
-    
+
     for (index_l_copy=1; index_l_copy < ptr->l_size_max; ++index_l_copy) {
       if (l_copy[index_l_copy] != l_copy[index_l_copy-1]) {
         ptr->l[index_l] = l_copy[index_l_copy];
         index_l++;
       }
     }
-    
+
     ptr->l_size_max = index_l;
-  
+
   } // end of if(compute even/odd l-grid)
 
 
   /* Find out the index in ptr->l corresponding to a given l. */
-  
+
   class_alloc (ptr->index_l, (ptr->l[ptr->l_size_max-1]+1)*sizeof(int), ptr->error_message);
 
   for(int l=0; l<=ptr->l[ptr->l_size_max-1]; ++l) {
-  
+
     ptr->index_l[l] = -1;
-  
+
     for (index_l=0; index_l<ptr->l_size_max; ++index_l)
       if (l==ptr->l[index_l]) ptr->index_l[l] = index_l;
-    
-    /* Some debug */
-    // printf("ptr->index_l[%d] = %d\n", l, ptr->index_l[l]);
+
   }
 
 
@@ -1019,6 +1081,17 @@ int transfer_get_l_list(
       printf ("%d,", ptr->l[index_l]);
     printf ("%d\n", ptr->l[index_l]);
   }
+
+  /* Debug - Print out the l-list */
+  // printf ("# ~~~ l-sampling (size=%d) ~~~\n", ptr->l_size_max);
+  // for (int index_l=0; index_l < ptr->l_size_max; ++index_l) {
+  //   printf ("%17d %17d", index_l, ptr->l[index_l]);
+  //   for (int index_l_out=0; index_l_out < ppr->l_out_size; ++index_l_out) {
+  //     if (index_l==ppr->index_l1_out[index_l_out]) printf ("\t(pair #%d, l1) ", index_l_out);
+  //     if (index_l==ppr->index_l2_out[index_l_out]) printf ("\t(pair #%d, l2) ", index_l_out);
+  //   }
+  //   printf ("\n");
+  // }
 
 #endif // WITH_BISPECTRA
 

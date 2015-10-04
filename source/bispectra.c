@@ -137,6 +137,32 @@ int bispectra_init (
     pbi->error_message);
 
 
+  // =====================================================================================
+  // =                                  Produce output                                   =
+  // =====================================================================================
+
+  /* Create output files containing the bispectra. Two types of binary files
+  will be created: the SOURCE files, with the source function tabulated as a function 
+  of (k3,tau), for fixed values of k1 and k2; and the TRANSFER files, with the source
+  function tabulated as a function of (k1,k2,k3), for fixed values of time tau.
+  Note that the output files that will be produced by this function are multi-dimensional
+  binary tables of the source function, while those produced by perturb2_save_perturbations()
+  were one-dimensional ASCII tables of the second-order perturbations. */
+
+  if (ppr->l_out_size > 0) {
+
+    class_call (bispectra_output (ppr,pba,pth,ppt,pbs,ptr,ppm,psp,ple,pbi),
+      pbi->error_message,
+      pbi->error_message);
+      
+  }
+
+  
+
+
+
+
+
   /* If load_bispectra_from_disk==_TRUE_, at this point all the arrays in the module have been
   filled apart from the intrinsic and non-separable bispectra. Any subsequent module that
   requires them (like fisher.c), has to load them from disk using load_bispectra_from_disk(). */
@@ -152,7 +178,7 @@ int bispectra_init (
 
 
   // =====================================================================================
-  // =                               Save bispectra to disk                              =
+  // =                              Store bispectra to disk                              =
   // =====================================================================================
   
   if (ppr->store_bispectra_to_disk==_TRUE_) {
@@ -1404,8 +1430,8 @@ int bispectra_cls (
  *
  * -# Chec that the bispectra thus computed and stored in pbi->bispectra do not contain
  * invalid entries (nans).
- * 
  */
+
 int bispectra_harmonic (
     struct precision * ppr,
     struct background * pba,
@@ -1683,6 +1709,153 @@ int bispectra_harmonic (
  * is probably an effect of mode coupling that mixes small and large scales.
  * However, the net effect on the SN of the intrinsic bispectrum is negligible.
  */
+
+
+
+/**
+ * Produce output files for the bispectrum.
+ */
+
+int bispectra_output (
+    struct precision * ppr,
+    struct background * pba,
+    struct thermo * pth,
+    struct perturbs * ppt,
+    struct bessels * pbs,
+    struct transfers * ptr,
+    struct primordial * ppm,
+    struct spectra * psp,
+    struct lensing * ple,
+    struct bispectra * pbi
+    )
+{
+  
+  // ====================================================================================
+  // =                                     1D output                                    =
+  // ====================================================================================
+  
+  /* Open output files for the desired l-values */
+
+  for (int index_l_out=0; index_l_out < ppr->l_out_size; ++index_l_out) {
+
+    FILE * file_1D = ppr->l_out_files_1D[index_l_out];
+
+    class_open(file_1D,
+      ppr->l_out_paths_1D[index_l_out],
+      "w",
+      pbi->error_message);
+
+    /* Prepend a warning if the user asked for l1_out < l2_out */
+    if (ppr->l_out_was_swapped[index_l_out] == _TRUE_)
+      fprintf (file_1D, ppr->l_out_swap_message);
+
+
+
+
+    /* Close the file */
+    fclose (file_1D);
+
+  } // for l_out
+  
+  
+
+  // ====================================================================================
+  // =                                     2D output                                    =
+  // ====================================================================================
+
+  for (int index_l_out=0; index_l_out < ppr->l_out_size; ++index_l_out) {
+
+    for (int X = 0; X < pbi->bf_size; ++X) {
+
+      for (int Y = 0; Y < pbi->bf_size; ++Y) {
+
+        for (int Z = 0; Z < pbi->bf_size; ++Z) {
+
+          int index_probe = X*pbi->bf_size*pbi->bf_size + Y*pbi->bf_size + Z;
+
+          /* Build filename as bispectra_LXXX_YYY.txt, eg. bispectra_L001_tte.txt */ 
+          char * filename = ppr->l_out_paths_2D[index_l_out][index_probe];
+          sprintf (filename, "%s/bispectra_L%03d_%s.txt", filename, index_l_out, pbi->bfff_labels[X][Y][Z]);
+
+          /* Open file */
+          FILE * file_2D = ppr->l_out_files_2D[index_l_out][index_probe];
+          class_open(file_2D, filename, "w", pbi->error_message);
+
+          /* Prepend a warning if the user asked for l1_out < l2_out */
+          if (ppr->l_out_was_swapped[index_l_out] == _TRUE_)
+            fprintf (file_2D, ppr->l_out_swap_message);
+
+
+          /* Close the file */
+          fclose (file_2D);
+
+        }
+      }
+    }
+
+  } // for l_out
+  
+  
+
+  // ====================================================================================
+  // =                                     3D output                                    =
+  // ====================================================================================
+
+  /* Binary files produced by this function will have a human-readable ASCII
+  header. It will include information on the cosmological parameters and on the
+  bispectrum, plus a binary map useful to understand how to access the data
+  in the binary file. */
+  int header_size = 
+    _MAX_INFO_SIZE_ + /* For background information */
+    _MAX_INFO_SIZE_ + /* For other information */
+    _MAX_INFO_SIZE_ + _MAX_HEADER_LINE_LENGTH_*pbi->n_probes; /* For binary map */
+
+  /* Define a new binary file structure */
+  struct binary_file * file;
+  class_alloc (file, sizeof(struct binary_file), pbi->error_message);
+  
+  /* Open the binary file */
+  class_call (binary_init (
+                file,
+                &(ppr->l_out_file_3D),
+                ppr->l_out_path_3D,
+                "w",
+                header_size,
+                ppr->output_single_precision),
+    file->error_message,
+    pbi->error_message);
+
+  
+  
+  // ---------------------------------------------------------------------------
+  // -                              Write to file                              -
+  // ---------------------------------------------------------------------------
+
+  class_call (binary_write (
+                file),
+    file->error_message,
+    pbi->error_message);
+
+
+  // ---------------------------------------------------------------------------
+  // -                                Clean up                                 -
+  // ---------------------------------------------------------------------------
+
+  class_call (binary_free (
+                file),
+    file->error_message,
+    pbi->error_message);
+
+
+
+  return _SUCCESS_;
+  
+}
+
+
+
+
+
 
 int bispectra_get_r_grid (
     struct precision * ppr,

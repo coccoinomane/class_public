@@ -7,6 +7,7 @@
 #include "lensing.h"
 #include "spectra.h"
 #include "slatec_3j_C.h"
+#include "binary.h"
 
 /**
  * Categories of bispectra that SONG can compute.
@@ -20,12 +21,6 @@ enum bispectra_types {
   intrinsic_bispectrum      /**< bispectra that require second-order transfer functions */
 };
 
-
-/**
- * Maximum number of output files that can be produced with the l1_out
- * and l2_out options.
- */
-#define _MAX_NUMBER_OF_L_FILES_ 100
 
 
 struct bispectra {
@@ -321,75 +316,6 @@ struct bispectra {
   double * delta_k;
 
 
-  // ====================================================================================
-  // =                                     Output                                       =
-  // ====================================================================================
-
-  /**
-   * Parameters related to the creation of output files
-   */
-  //@{
-
-  int file_verbose; /**< How much information should we include in the perturbations output files? */
-
-  int l_out_size; /**< Number of (l1,l2) pairs where to output the bispectra (default=0) */
-
-  int l_index_out_size;  /**< Number of (index_l1,index_l2) pairs in pbi->l where to output the
-                         bispectra (default=0) */
-
-  int l1_out[_MAX_NUMBER_OF_L_FILES_]; /**< List of l1 values where the bispectra output is requested,
-                                          with size l_out_size; filled in input2.c */
-
-  int l2_out[_MAX_NUMBER_OF_L_FILES_]; /**< List of l2 values where the bispectra output is requested,
-                                          with size l_out_size; filled in input2.c */
-
-  int l1_index_out[_MAX_NUMBER_OF_L_FILES_]; /**< List of l1 indices in pbi->l where the bispectra output is requested,
-                                             with size l_index_out_size; filled in input2 */
-
-  int l2_index_out[_MAX_NUMBER_OF_L_FILES_]; /**< List of l2 indices in pbi->l where the bispectra output is requested,
-                                             with size l_index_out_size; filled in input2 */
-
-  int index_l1_out[_MAX_NUMBER_OF_L_FILES_]; /**< index_l1_out[index_l_output] is the index in pbi->l corresponding to
-                                             l1=l1_out[index_l_output]; filled in bispectra.c */
-
-  int index_l2_out[_MAX_NUMBER_OF_L_FILES_]; /**< index_l2_out[index_l_output] is the index in pbi->l corresponding to
-                                             l2=l2_out[index_l_output]; filled in bispectra.c */
-
-  char l_out_paths_1D[_MAX_NUMBER_OF_L_FILES_][_FILENAMESIZE_]; /**< Path of the ASCII files that will contain the bispectra as a function
-                                                             of l3 for the desired (l1_out,l2_out) values; filled in the input2.c module */
-
-  FILE * l_out_files_1D[_MAX_NUMBER_OF_L_FILES_]; /**< ASCII file that will contain the bispectra as a function
-                                                  of l3 at the desired (l1_out,l2_out) values; filled in the input2.c module */
-    
-  char l_out_paths_2D[_MAX_NUMBER_OF_L_FILES_][_FILENAMESIZE_]; /**< Path of the ASCII files that will contain the bispectra as a function
-                                                                of l2 and l3 for the desired l1_out value; filled in the input2.c module */
-
-  FILE * l_out_files_2D[_MAX_NUMBER_OF_L_FILES_]; /**< ASCII file that will contain the bispectra as a function
-                                                  of l2 and l3 at the desired l1_out value; filled in the input2.c module */
-    
-  char l_out_path_3D[_FILENAMESIZE_]; /**< Path of the binary file that will contain the bispectra for all computed (l1,l2,l3)
-                                       configurations; filled in the input2.c module */
-
-  FILE * l_out_file_3D; /**< Binary file that will contain the bispectra for all computed (l1,l2,l3)
-                         configurations; filled in the input2.c module */
-    
-  char l_out_swap_message[_MAX_INFO_SIZE_]; /**< Message to be printed to the output files when the user asks for a (l1,l2) pair with l2>l1 */
-  
-  short l_out_was_swapped[_MAX_NUMBER_OF_L_FILES_]; /**< Logical array to keep track whether a l_out configuration had l1 and l2 swapped */
-  
-  /**
-   * Should SONG compute only a specific set of multipoles?
-   *
-   * If _TRUE_, SONG will only compute the l-values in l1_out and l2_out,
-   * and stop execution right after the bispectra are computed.
-   *
-   * This is a quick way to output the bispectra in specific l-configurations
-   * without having to do a full run.
-   */
-  short l_out_mode;
-
-  //@}
-
 
   // ====================================================================================
   // =                                  Disk storage                                    =
@@ -415,7 +341,6 @@ struct bispectra {
 
   FILE * bispectra_status_file;                      /**< NOT IMPLEMENTED YET */
   char bispectra_status_path[_FILENAMESIZE_];        /**< NOT IMPLEMENTED YET */
-
 
 
   // ===========================================================================================
@@ -687,6 +612,20 @@ extern "C" {
 
 
   int bispectra_harmonic(
+      struct precision * ppr,
+      struct background * pba,
+      struct thermo * pth,
+      struct perturbs * ppt,
+      struct bessels * pbs,
+      struct transfers * ptr,
+      struct primordial * ppm,
+      struct spectra * psp,
+      struct lensing * ple,
+      struct bispectra * pbi
+      );
+      
+      
+  int bispectra_output(
       struct precision * ppr,
       struct background * pba,
       struct thermo * pth,

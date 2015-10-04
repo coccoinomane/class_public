@@ -61,7 +61,7 @@ int parser_init(
     class_alloc(pfc->name,size*sizeof(FileArg),errmsg);
     class_alloc(pfc->value,size*sizeof(FileArg),errmsg);
     class_alloc(pfc->read,size*sizeof(short),errmsg);
-    class_alloc(pfc->overwritten,size*sizeof(short),errmsg);
+    class_alloc(pfc->changed,size*sizeof(short),errmsg);
   }
 
   return _SUCCESS_;
@@ -76,7 +76,7 @@ int parser_free(
     free(pfc->value);
     free(pfc->read);
     free(pfc->filename);
-    free(pfc->overwritten);
+    free(pfc->changed);
   }
 
   return _SUCCESS_;
@@ -661,20 +661,20 @@ int parser_cat(
   class_alloc(pfc3->value,pfc3->size*sizeof(FileArg),errmsg);
   class_alloc(pfc3->name,pfc3->size*sizeof(FileArg),errmsg);
   class_alloc(pfc3->read,pfc3->size*sizeof(short),errmsg);
-  class_alloc(pfc3->overwritten,pfc3->size*sizeof(short),errmsg);
+  class_alloc(pfc3->changed,pfc3->size*sizeof(short),errmsg);
 
   for (i=0; i < pfc1->size; i++) {
     strcpy(pfc3->value[i],pfc1->value[i]);
     strcpy(pfc3->name[i],pfc1->name[i]);
     pfc3->read[i]=pfc1->read[i];
-    pfc3->overwritten[i]=pfc1->overwritten[i];
+    pfc3->changed[i]=pfc1->changed[i];
   }
 
   for (i=0; i < pfc2->size; i++) {
     strcpy(pfc3->value[i+pfc1->size],pfc2->value[i]);
     strcpy(pfc3->name[i+pfc1->size],pfc2->name[i]);
     pfc3->read[i+pfc1->size]=pfc2->read[i];
-    pfc3->overwritten[i+pfc1->size]=pfc2->overwritten[i];
+    pfc3->changed[i+pfc1->size]=pfc2->changed[i];
   }
 
   return _SUCCESS_;
@@ -729,9 +729,122 @@ int parser_overwrite_entry (
   /* if parameter overwritten correctly, set the flag 
      associated with this parameter in the file_content structure */ 
 
-  pfc->overwritten[index] = _TRUE_;
+  pfc->changed[index] = _TRUE_;
 
   /* if everything proceeded normally, return _SUCCESS_ */
+
+  return _SUCCESS_;
+
+}
+
+
+
+/**
+ * Find and replace text within an entry of a file_content structure.
+ * 
+ * If 'found' is a NULL pointer and the entry corresponding to 'name' does not exist,
+ * print an error message. Otherwise, overwrite 'found' with either _TRUE_ or _FALSE_
+ * whether the entry was found or not, with no error messages.
+ */
+int parser_replace_entry (
+        struct file_content * pfc,
+        char * name, /**< Name of the entry to change */
+        char * from, /**< Text to substitute in the value */
+        char * to, /**< Text replacement for the text to substitute */
+        int * found, /**< If _TRUE_, the entry has been found */
+        ErrorMsg errmsg
+        )
+{
+
+  /* search parameter */
+
+  int index=0;
+  while ((index < pfc->size) && (strcmp(pfc->name[index],name) != 0))
+    index++;
+
+  if (found == NULL) {
+    class_test (index == pfc->size,
+      errmsg,
+      "parameter '%s' not found in input file structure", name);
+  }
+  else {
+    if (index < pfc->size) {
+      *found = _TRUE_;
+    }
+    else {
+      *found = _FALSE_;
+      return _SUCCESS_;
+    }
+  }
+
+  /* find and replace text in the value if found. */
+
+  char * new_value;
+
+  class_call (replace_string (
+                pfc->value[index],
+                from,
+                to,
+                &new_value,
+                errmsg),
+    errmsg,
+    errmsg);
+
+  strcpy (pfc->value[index], new_value);
+
+  free (new_value);
+
+  /* if parameter changed correctly, set the flag 
+     associated with this parameter in the file_content structure */ 
+
+  pfc->changed[index] = _TRUE_;
+
+  /* if everything proceeded normally, return _SUCCESS_ */
+
+  return _SUCCESS_;
+
+}
+
+
+
+/**
+ * Return the value of a name-value pair in a file_content structure.
+ *
+ * If 'found' is a NULL pointer and the entry corresponding to 'name' does not exist,
+ * print an error message. Otherwise, overwrite 'found' with either _TRUE_ or _FALSE_
+ * whether the entry was found or not, with no error messages.
+ */
+int parser_return_entry (
+        struct file_content * pfc,
+        char * name,
+        char ** entry,
+        int * found,
+        ErrorMsg errmsg
+        )
+{
+
+  /* search parameter */
+
+  int index=0;
+  while ((index < pfc->size) && (strcmp(pfc->name[index],name) != 0))
+    index++;
+
+  if (found == NULL) {
+    class_test (index == pfc->size,
+      errmsg,
+      "parameter '%s' not found in input file structure", name);
+  }
+  else {
+    if (index < pfc->size) {
+      *found = _TRUE_;
+    }
+    else {
+      *found = _FALSE_;
+      return _SUCCESS_;
+    }
+  }
+
+  *entry = pfc->value[index];
 
   return _SUCCESS_;
 
@@ -783,7 +896,7 @@ int parser_remove_entry (
   /* if parameter overwritten correctly, set the flag 
      associated with this parameter in the file_content structure */ 
 
-  pfc->overwritten[index] = _TRUE_;
+  pfc->changed[index] = _TRUE_;
 
   /* if everything proceeded normally, return _SUCCESS_ */
 

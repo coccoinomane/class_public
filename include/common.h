@@ -341,13 +341,15 @@ enum file_format {class_format,camb_format};
 #define _EPS_ 0.01 /**< Constant used to cast a float to an integer. Must be smaller than 0.5 */
 #define _SMALL_ (1e-7) /**< Constant used for relative floating point comparisons (only debug) */
 
+//@{
 #define _MAX_NUM_LABELS_ 1000 /**< Maximum number of labels for a give index type. This number is totally arbitrary
                               and will not affect any result. */
 #define _MAX_LENGTH_LABEL_ 64 /**< Maximum length allowed for the label strings (e.g. for the perturbation variables such as 'phi', 'psi') */
 #define _MAX_NUM_BISPECTRA_ 32 /**< Maximum number of bispectra that can be computed */
-#define _MAX_NUM_FIELDS_ 16 /**< Maximum number of fields (T, E, B...) that can be computed */
-
+#define _MAX_NUM_FIELDS_ 5 /**< Maximum number of fields (T, E, B...) that can be computed */
+#define _MAX_NUM_BISPECTRUM_PROBES_ 64 /**< Maximum number of bispectrum probes (TTT,EEE,TEE,TTE...) that can be computed */
 #define _MAX_INFO_SIZE_ 4096 /**< Maximum length of the information string of each module (eg. pba->info) */
+//@}
 
 /**
  * Maximum number of k-modes that SONG can handle in one run, lest it runs
@@ -359,6 +361,12 @@ enum file_format {class_format,camb_format};
  * Maximum number of points in the time samplings.
  */
 #define TAU_SIZE_MAX 500000
+
+/**
+ * Maximum number of output files that can be produced with the l1_out
+ * and l2_out options.
+ */
+#define _MAX_NUMBER_OF_L_FILES_ 100
 
 #define _ODD_ 1 /**< Value assigned to the ODD parity state */
 #define _EVEN_ 0 /**< Value assigned to the EVEN parity state */
@@ -989,9 +997,9 @@ struct precision
   double bessel_tol_x_min;  /**< precision with which x_min such that j_l(x_min)=j_cut is found (order of magnitude set by k_min) */
 
 
-  // --------------------------------------------------------------
-  // -                       Bispectrum                           -
-  // --------------------------------------------------------------
+  // ------------------------------------------------------------------------------------
+  // -                                     Bispectrum                                   -
+  // ------------------------------------------------------------------------------------
 
   /** What sampling for the r direction of the bispectrum integral? The
   time-variable r appears as argument of the three Bessel functions in
@@ -1023,6 +1031,67 @@ struct precision
 
   /** Grid for odd parity bispectra */
   short compute_only_odd_ls;
+
+
+  // ------------------------------------------------------------------------------------
+  // -                                Bispectrum  output                                -
+  // ------------------------------------------------------------------------------------
+
+  /**
+   * Parameters related to the creation of output files
+   */
+  //@{
+
+  int l_out_size; /**< Number of (l1,l2) pairs where to output the bispectra (default=0) */
+
+  int l1_out[_MAX_NUMBER_OF_L_FILES_]; /**< List of l1 values where the bispectra output is requested,
+                                          with size l_out_size; filled in input2.c */
+
+  int l2_out[_MAX_NUMBER_OF_L_FILES_]; /**< List of l2 values where the bispectra output is requested,
+                                          with size l_out_size; filled in input2.c */
+
+  int index_l1_out[_MAX_NUMBER_OF_L_FILES_]; /**< index_l1_out[index_l_output] is the index in pbi->l corresponding to
+                                             l1=l1_out[index_l_output]; filled in bispectra.c */
+
+  int index_l2_out[_MAX_NUMBER_OF_L_FILES_]; /**< index_l2_out[index_l_output] is the index in pbi->l corresponding to
+                                             l2=l2_out[index_l_output]; filled in bispectra.c */
+
+  char l_out_paths_1D[_MAX_NUMBER_OF_L_FILES_][_FILENAMESIZE_]; /**< Path of the ASCII files that will contain the bispectra as a function
+                                                             of l3 for the desired (l1_out,l2_out) values; filled in the input2.c module */
+
+  FILE * l_out_files_1D[_MAX_NUMBER_OF_L_FILES_]; /**< ASCII file that will contain the bispectra as a function
+                                                  of l3 at the desired (l1_out,l2_out) values; filled in the input2.c module */
+    
+  /**< Path of the ASCII files that will contain the bispectra as a function
+  of l2 and l3 for the desired l1_out value; filled in the input2.c module */
+  char l_out_paths_2D[_MAX_NUMBER_OF_L_FILES_][_MAX_NUM_BISPECTRUM_PROBES_][_FILENAMESIZE_];
+
+  /**< ASCII file that will contain the bispectra as a function of l2
+  and l3 at the desired l1_out value; filled in the input2.c module */
+  FILE * l_out_files_2D[_MAX_NUMBER_OF_L_FILES_][_MAX_NUM_BISPECTRUM_PROBES_]; 
+    
+  char l_out_path_3D[_FILENAMESIZE_]; /**< Path of the binary file that will contain the bispectra for all computed (l1,l2,l3)
+                                       configurations; filled in the input2.c module */
+
+  FILE * l_out_file_3D; /**< Binary file that will contain the bispectra for all computed (l1,l2,l3)
+                         configurations; filled in the input2.c module */
+    
+  char l_out_swap_message[_MAX_INFO_SIZE_]; /**< Message to be printed to the bispectra output files when the user asks for a (l1,l2) pair with l2>l1 */
+  
+  short l_out_was_swapped[_MAX_NUMBER_OF_L_FILES_]; /**< Logical array to keep track whether an l_out configuration had l1 and l2 swapped */
+  
+  /**
+   * Should SONG compute only a specific set of multipoles?
+   *
+   * If _TRUE_, SONG will only compute the l-values in l1_out and l2_out,
+   * and stop execution right after the bispectra are computed.
+   *
+   * This is a quick way to output the bispectra in specific l-configurations
+   * without having to do a full run.
+   */
+  short l_out_mode;
+
+  //@}
 
 
 

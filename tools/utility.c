@@ -32,6 +32,7 @@ int compute_cls(
      struct precision * ppr, /**< input */
      struct background * pba, /**< input */
      struct thermo * pth, /**< input */
+     struct perturbs * ppt, /**< input */
      struct spectra * psp, /**< output */
      struct lensing * ple, /**< output */
      ErrorMsg error_message
@@ -63,28 +64,24 @@ int compute_cls(
   up to l_max-delta_l_max. */
   if (ppr->extend_lensed_cls == _TRUE_) {
 
-    /* Read old value of l_max */
-    int old_l_max_scalars;
-    class_call (parser_read_int (pfc,"l_max_scalars", &old_l_max_scalars, &found, error_message),
-	    error_message,
-	    error_message);
-    class_test (found == _FALSE_,
-      error_message,
-      "make sure that the parameter 'l_max_scalar' is set in the input file");
-         
     /* Increase l_max so that the lensing C_l's are computed up to l_max */
-    int new_l_max_scalars = old_l_max_scalars + ppr->delta_l_max;
+    int new_l_max_scalars = ppt->l_scalar_max + ppr->delta_l_max;
     char buffer[_ARGUMENT_LENGTH_MAX_];
-    sprintf (buffer, "%d", new_l_max_scalars);    
+    sprintf (buffer, "%d", new_l_max_scalars);
     class_call (parser_overwrite_entry (pfc, "l_max_scalars", buffer, NULL, error_message),
       error_message,
       error_message);
-      
+
     if ((psp->spectra_verbose>0) || (ple->lensing_verbose>0))
       printf ("Will increase l_max for lensed C_l's\n");
   }
 
-  /* Do not create nor use run directories */ 
+  /* Deactivate the l_out mode */
+  class_call (parser_replace_entry (pfc, "output", "l_out", "", NULL, error_message),
+    error_message,
+    error_message);
+
+  /* Do not create or use run directories */ 
   pr.load_run = _FALSE_;
   class_call (parser_overwrite_entry (pfc, "store_run", "no", &found, error_message),
     error_message,

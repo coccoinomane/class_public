@@ -379,7 +379,26 @@ extern "C" {
         int (*compar)(const void *, const void *),
         ErrorMsg errmsg
         );
-  
+
+  int merge_arrays_int (
+        int *v1,
+        int v1_size,
+        int *v2,
+        int v2_size,
+        int **out,
+        int * out_size,
+        int (*compar)(const void *, const void *),
+        ErrorMsg errmsg
+        );
+
+  int replace_string (
+        char *source_str,
+        char *search_str,
+        char *replace_str,
+        char ** output_string,
+        ErrorMsg errmsg
+        );
+
 
 #ifdef __cplusplus
 }

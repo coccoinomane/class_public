@@ -3342,7 +3342,8 @@ int reorder_int (
   
   
 /**
- * Merge two arrays into a third one, then sort it and remove duplicates.
+ * Merge two arrays of doubles into a third one, then sort it and remove
+ * duplicates.
  *
  * If one of the two input vectors has zero size, then the output array
  * will just be the other input vector sorted and without duplicates.
@@ -3412,8 +3413,164 @@ int merge_arrays_double (
   
 }
   
+
+/**
+ * Merge two arrays of integers into a third one, then sort it and remove
+ * duplicates.
+ *
+ * Please refer to merge_arrays_double() for the documentation.
+ */
+int merge_arrays_int (
+      int *v1,      /**< input array to be merged */
+      int v1_size,     /**< input, size of v1 */
+      int *v2,      /**< input array to be merged */
+      int v2_size,     /**< input, size of v2 */
+      int **out,    /**< output array; it will be (re)allocated with out_size elements using realloc */
+      int * out_size,  /**< output, size of out */
+      int (*compar)(const void *, const void *), /**< input, comparison function for the sorting (see documentation for qsort) */
+      ErrorMsg errmsg  /**< output, string where to write error message */
+      )
+{
+
+  class_test (v1_size < 0, errmsg, "v1_size=%d is negative", v1_size);
+  class_test (v2_size < 0, errmsg, "v2_size=%d is negative", v2_size);
   
+  /* Merge v1 and v2 in a temporary array */
+  int * v_big;
+  int v_big_size = v1_size + v2_size;
+  class_alloc (v_big, v_big_size*sizeof(int), errmsg);
+
+  /* Copy v1 at the beginning of v_big  */
+  for (int i=0; i < v1_size; ++i)
+    v_big[i] = v1[i];
+
+  /* Copy v2 at the end of v_big */
+  for (int i=0; i < v2_size; ++i)
+    v_big[v1_size + i] = v2[i];
+
+  /* Sort v_big in ascending order */
+  qsort (v_big, v_big_size, sizeof(int), compar);
+
+  /* Count duplicates in v_big */
+  int n_duplicates = 0;
+  for (int i=0; i < (v_big_size-1); ++i)
+    if (v_big[i+1] == v_big[i])
+      n_duplicates++;
+
+  /* Allocate output array */
+  *out_size = v_big_size - n_duplicates;
+  class_realloc(*out, *out, *out_size*sizeof(int), errmsg);
   
+  /* Fill out with the non-duplicate values of v1 and v2 */
+  int index_out = 0;
+  for (int i=0; i < (v_big_size-1); ++i)
+    if (v_big[i+1] != v_big[i])
+      (*out)[index_out++] = v_big[i];
+  if (*out_size>0)
+    (*out)[*out_size-1] = v_big[v_big_size-1];
+
+#ifdef DEBUG
+  /* Double check that there are no duplicates */
+  for (int i=0; i < (*out_size-1); ++i)
+    class_test ((*out)[i+1] <= (*out)[i], errmsg, "sorting failed");
+#endif // DEBUG
+
+  free (v_big);
+  
+  return _SUCCESS_;
+  
+}
+ 
+
+  
+/**
+ * Description:
+ *   Find and replace text within a string.
+ *
+ * Parameters:
+ *   source_str   (in) - pointer to source string
+ *   search_str   (in) - pointer to search text
+ *   replace_str  (in) - pointer to replacement text
+ *   output_str   (in) - pointer to output string
+ *
+ * Returns in output_string a pointer to dynamically-allocated memory containing
+ * string with occurences of the text pointed to by 'search_str' replaced by with
+ * the text pointed to by 'replace_str'.
+ *
+ * Credits to the users freerider and Dave Sinkula of daniweb.com,
+ * https://www.daniweb.com/programming/software-development/code/216517/strings-search-and-replace
+ */
+
+int replace_string (
+      char *source_str,
+      char *search_str,
+      char *replace_str,
+      char ** output_string,
+      ErrorMsg errmsg)
+{
+
+  char *ostr, *nstr = NULL, *pdest = "";
+  int length, nlen;
+  unsigned int nstr_allocated;
+  unsigned int ostr_allocated;
+
+  class_test (!source_str || !search_str || !replace_str,
+    errmsg,
+    "Not enough arguments");
+
+  ostr_allocated = sizeof(char) * (strlen(source_str)+1);
+  ostr = malloc( sizeof(char) * (strlen(source_str)+1));
+
+  class_test (!ostr,
+    errmsg,
+    "Insufficient memory available");
+
+  strcpy(ostr, source_str);
+
+  while (pdest) {
+
+    pdest = strstr( ostr, search_str );
+    length = (int)(pdest - ostr);
+
+    if ( pdest != NULL ) {
+
+      ostr[length]='\0';
+      nlen = strlen(ostr)+strlen(replace_str)+strlen( strchr(ostr,0)+strlen(search_str) )+1;
+
+      if( !nstr || /* _msize( nstr ) */ nstr_allocated < sizeof(char) * nlen) {
+        nstr_allocated = sizeof(char) * nlen;
+        nstr = malloc( sizeof(char) * nlen );
+      }
+
+      class_test (!nstr,
+       errmsg,
+       "Insufficient memory available");
+
+      strcpy(nstr, ostr);
+      strcat(nstr, replace_str);
+      strcat(nstr, strchr(ostr,0)+strlen(search_str));
+
+      if (ostr_allocated < sizeof(char)*strlen(nstr)+1 ) {
+        ostr_allocated = sizeof(char)*strlen(nstr)+1;
+        ostr = malloc(sizeof(char)*strlen(nstr)+1 );
+      }
+
+      class_test (!ostr,
+        errmsg,
+        "Insufficient memory available");
+
+      strcpy(ostr, nstr);
+
+    }
+  }
+
+  if(nstr)
+    free(nstr);
+
+  *output_string = ostr;
+  
+}
+
   
   
   

@@ -3,6 +3,7 @@
 #ifndef __TRANSFER__
 #define __TRANSFER__
 
+#include "input.h"
 #include "nonlinear.h"
 #include "hyperspherical.h"
 #include <sys/shm.h>

@@ -2,6 +2,9 @@
 #define __PARSER__
 
 #include "common.h"
+#ifdef WITH_BISPECTRA
+#include "song_tools.h"
+#endif // WITH_BISPECTRA
 
 #define _LINE_LENGTH_MAX_ 1024 /**< size of the string read in each line of the file (extra characters not taken into account) */
 #define _ARGUMENT_LENGTH_MAX_ 1024 /**< maximum size of each argument (name or value), including the final null character */
@@ -15,7 +18,7 @@ struct file_content {
   FileArg * name;       /**< list of (size) names */
   FileArg * value;      /**< list of (size) values */
   short * read;         /**< set to _TRUE_ if this parameter is effectively read */
-  short * overwritten;  /**< set to _TRUE_ if this parameter has been overwritten  */
+  short * changed;  /**< set to _TRUE_ if this parameter has been overwritten  */
 };
 
 /**************************************************************/
@@ -119,6 +122,17 @@ int parser_cat(
 	       ErrorMsg errmsg
 	       );
 
+#ifdef WITH_BISPECTRA
+int parser_replace_entry (
+        struct file_content * pfc,
+        char * name,
+        char * from,
+        char * to,
+        int * found,
+        ErrorMsg errmsg
+        );
+#endif // WITH_BISPECTRA
+
 int parser_overwrite_entry (
 		    struct file_content * pfc,
 		    char * name,
@@ -130,6 +144,14 @@ int parser_overwrite_entry (
 int parser_remove_entry (
         struct file_content * pfc,
         char * name,
+        int * found,
+        ErrorMsg errmsg
+        );
+        
+int parser_return_entry (
+        struct file_content * pfc,
+        char * name,
+        char ** value,
         int * found,
         ErrorMsg errmsg
         );
