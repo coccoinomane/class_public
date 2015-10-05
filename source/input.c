@@ -3315,12 +3315,25 @@ int input_read_parameters(
       sprintf (ppr->l_out_paths_2D[index_l_out][i],
         "%s", pop->root);
 
-    sprintf (ppr->l_out_path_3D,
-      "%s/bispectra_L%03d_3D.dat",
-      pop->root,
-      index_l_out);
-
   }
+
+  /* Should we output a binary file with all bispectra? */
+  
+  class_call(parser_read_string(pfc,"output_binary_bispectra",&string1,&flag1,errmsg),
+             errmsg,
+             errmsg);
+
+  if ((flag1 == _TRUE_) && ((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL))) {
+
+    pbi->output_binary_bispectra = _TRUE_;
+
+    sprintf (ppr->l_out_path_3D,
+      "%s/bispectra.dat",
+      pop->root);
+      
+  }
+
+    
   
 
   /* Swap l1 and l2 if the user asked for configurations with l1<l2 */
@@ -4387,7 +4400,7 @@ int input_default_params(
   pbi->has_quadratic_correction = _FALSE_;
   pbi->include_lensing_effects = _FALSE_;
   pbi->lensed_intrinsic = _FALSE_;
-
+  pbi->output_binary_bispectra = _FALSE_;
 
   /** - fisher structure */
 

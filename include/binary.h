@@ -151,6 +151,14 @@ extern "C" {
     char * name
     );
 
+  int binary_append_long_int (
+    struct binary_file * file,
+    void * data_pointer,
+    int size,
+    char * description,
+    char * name
+    );
+
   int binary_append_double (
     struct binary_file * file,
     void * data_pointer,

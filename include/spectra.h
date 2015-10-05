@@ -64,10 +64,6 @@ struct spectra {
   int has_ll; /**< do we want C_l^l-l ? (l = galaxy lensing potential) */
   int has_tl; /**< do we want C_l^T-l ? */
   int has_dl; /**< do we want C_l^d-l ? */
-#ifdef WITH_BISPECTRA
-  int has_tz; /**< do we want C_l^TZ ? (Z = curvature pertubation, see http://arxiv.org/abs/1204.5018) */
-  int has_ez; /**< do we want C_l^EZ ? (Z = curvature pertubation, see http://arxiv.org/abs/1204.5018) */
-#endif // WITH_BISPECTRA
 
   int index_ct_tt; /**< index for type C_l^TT */
   int index_ct_ee; /**< index for type C_l^EE */
@@ -82,14 +78,22 @@ struct spectra {
   int index_ct_ll; /**< first index for type C_l^ll ((d_size*d_size-(d_size-non_diag)*(d_size-non_diag-1)/2) values) */
   int index_ct_tl; /**< first index for type C_l^Tl (d_size values) */
   int index_ct_dl; /**< first index for type C_l^dl (d_size values) */
-#ifdef WITH_BISPECTRA
-  int index_ct_tz; /**< index for type C_l^T-Z */
-  int index_ct_ez; /**< index for type C_l^E-Z */
-#endif // WITH_BISPECTRA
 
   int d_size;
 
   int ct_size; /**< number of C_l types requested */
+
+#ifdef WITH_BISPECTRA
+
+  int has_tz; /**< do we want C_l^TZ ? (Z = curvature pertubation, see http://arxiv.org/abs/1204.5018) */
+  int has_ez; /**< do we want C_l^EZ ? (Z = curvature pertubation, see http://arxiv.org/abs/1204.5018) */
+
+  int index_ct_tz; /**< index for type C_l^T-Z */
+  int index_ct_ez; /**< index for type C_l^E-Z */
+
+  char ct_labels[_MAX_NUM_SPECTRA_][_MAX_LENGTH_LABEL_]; /**< Labels of various C_l types */
+
+#endif // WITH_BISPECTRA
 
   //@}
 
@@ -135,8 +139,8 @@ struct spectra {
   double ** lsq_cl; /**< array with l*l*C_l, indexed like psp->cl  */
   double ** d_lsq_cl; /**< array with d(l*l*C_l)/dl, indexed like psp->cl  */
   double ** dd_lsq_cl; /**< array with d^2(l*l*C_l)/d^2l, indexed like psp->cl  */
-  double ** spline_d_lsq_cl; /**< array with the second derivative of d_lsq_cl,
-                                in view of spline interpolation, indexed like psp->cl  */         
+  double ** spline_d_lsq_cl; /**< array with the second derivative of d_lsq_cl, in view of spline interpolation, indexed like psp->cl  */         
+
 #endif // WITH_BISPECTRA
 
   double alpha_II_2_20;

@@ -223,20 +223,29 @@ struct bispectra {
   int ** index_l_triangular_min;  /* index_l_triangular_min[index_l1][index_l2] is the index closest to abs(l1-l2) in pbi->l */
   int ** index_l_triangular_max;  /* index_l_triangular_max[index_l1][index_l2] is the index closest to l1+l2 in pbi->l */
 
-  /* Index associated to a given (l1,l2,l3) configuration. This is obtained assuming l3 satisfies the triangular condition,
-    and that l1>=l2>=l3. The array should be indexed as:
+  int ** l3_size; /* l3_size[index_l1][index_l2-index_l1] is the number of l3 multipoles considered for bispectra computation. 
+                  The indices refer to the l values contained in pbi->l. With respect to l_triangular_size, it has index_l1<=index_l2. */
+  int *** l3; /* l3[index_l1][index_l2] is the array of l3 multipoles considered for bispectra computation, of
+              size l3_size[index_l1][index_l2-index_l1]. The indices refer to the l values contained in pbi->l. 
+              With respect to l_triangular_size, it has index_l1<=index_l2. */
+
+  /* Array of indices associated to all (l1,l2,l3) configurations, of size 
+  n_independent_configurations. Indices are associated to the (l1,l2,l3) configurations
+  belonging to pbi->l where l3 satisfies the triangular condition,and l1>=l2>=l3. The
+  array should be indexed as:
 
       pbi->index_l1_l2_l3[index_l1]
                          [index_l1 - index_l2]
                          [index_l3_max - index_l3]
                          
-   where index_l1, index_l2, index_l3 are the indices for l1,l2,l3 in the pbi->l array; 'index_l3' has to be smaller
-   than index_l3_max, which is given by:
+  where index_l1, index_l2, index_l3 are the indices for l1,l2,l3 in the pbi->l array;
+  index_l3 has to be smaller than index_l3_max, which is given by:
    
-   index_l3_max = MIN (index_l2, pbi->index_l_triangular_max[index_l1][index_l2]) */
+    index_l3_max = MIN (index_l2, pbi->index_l_triangular_max[index_l1][index_l2]) */
   long int *** index_l1_l2_l3;
   
-  /* Number of (l1,l2,l3) configurations that will be stored for each bispectrum */
+  /* Number of (l1,l2,l3) configurations that will be stored for each bispectrum, and
+  size of index_l1_l2_l3. */
   long int n_independent_configurations;
 
   /* Multi-array where the bispectra will be stored.  It must be indexed as
@@ -347,11 +356,12 @@ struct bispectra {
   // =                                   Technical parameters                                  =
   // ===========================================================================================
   
-  short bispectra_verbose;                   /* Flag regulating the amount of information sent to standard output (none if set to zero) */                                                  
-  long int n_total_configurations;           /* Number of (l1,l2,l3) configurations compatible with the triangular condition */
-  ErrorMsg error_message;                    /* Zone for writing error messages */
-  long int count_allocated_for_bispectra;    /* Number of elements allocated in pbi->bispectra */
-  long int count_memorised_for_bispectra;    /* Number of elements memorised in pbi->bispectra */
+  short bispectra_verbose;                   /**< Flag regulating the amount of information sent to standard output (none if set to zero) */                                                  
+  long int n_total_configurations;           /**< Number of (l1,l2,l3) configurations compatible with the triangular condition */
+  ErrorMsg error_message;                    /**< Zone for writing error messages */
+  long int count_allocated_for_bispectra;    /**< Number of elements allocated in pbi->bispectra */
+  long int count_memorised_for_bispectra;    /**< Number of elements memorised in pbi->bispectra */
+  short output_binary_bispectra;             /**< Should we write the all bispectra and accessory infromation to fiel? */
 
 
 };

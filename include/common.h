@@ -337,15 +337,26 @@ enum file_format {class_format,camb_format};
 #include "sys/stat.h"     /* stat, mkdir */
 #include "wordexp.h"      /* expand environment variables and shell symbols */
 
+#define _SONG_VERSION_ "v1.0-beta2"
+#define _SONG_URL_ "https://github.com/coccoinomane/song"
+
 #define _MINUSCULE_ 1.e-75 /**< Numbers smaller than this will be considered effectively zero */
 #define _EPS_ 0.01 /**< Constant used to cast a float to an integer. Must be smaller than 0.5 */
 #define _SMALL_ (1e-7) /**< Constant used for relative floating point comparisons (only debug) */
 
+/**
+ * Maximum length parameters.
+ * 
+ * These parameters are used to allocate static arrays. The only purpose
+ * they serve is to make enough room for data before knowing the exact size
+ * of the data. As long as you only increase these parameters, you are safe.
+ */
 //@{
-#define _MAX_NUM_LABELS_ 1000 /**< Maximum number of labels for a give index type. This number is totally arbitrary
-                              and will not affect any result. */
+
+#define _MAX_NUM_LABELS_ 1000 /**< Maximum number of labels for a give index type. This number is totally arbitrary and will not affect any result. */
 #define _MAX_LENGTH_LABEL_ 64 /**< Maximum length allowed for the label strings (e.g. for the perturbation variables such as 'phi', 'psi') */
-#define _MAX_NUM_BISPECTRA_ 32 /**< Maximum number of bispectra that can be computed */
+#define _MAX_NUM_SPECTRA_ 64 /**< Maximum number of spectra that can be computed */
+#define _MAX_NUM_BISPECTRA_ 32 /**< Maximum number of bispectra types that can be computed */
 #define _MAX_NUM_FIELDS_ 5 /**< Maximum number of fields (T, E, B...) that can be computed */
 #define _MAX_NUM_BISPECTRUM_PROBES_ 64 /**< Maximum number of bispectrum probes (TTT,EEE,TEE,TTE...) that can be computed */
 #define _MAX_INFO_SIZE_ 4096 /**< Maximum length of the information string of each module (eg. pba->info) */

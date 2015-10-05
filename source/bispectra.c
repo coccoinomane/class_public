@@ -137,31 +137,6 @@ int bispectra_init (
     pbi->error_message);
 
 
-  // =====================================================================================
-  // =                                  Produce output                                   =
-  // =====================================================================================
-
-  /* Create output files containing the bispectra. Two types of binary files
-  will be created: the SOURCE files, with the source function tabulated as a function 
-  of (k3,tau), for fixed values of k1 and k2; and the TRANSFER files, with the source
-  function tabulated as a function of (k1,k2,k3), for fixed values of time tau.
-  Note that the output files that will be produced by this function are multi-dimensional
-  binary tables of the source function, while those produced by perturb2_save_perturbations()
-  were one-dimensional ASCII tables of the second-order perturbations. */
-
-  if (ppr->l_out_size > 0) {
-
-    class_call (bispectra_output (ppr,pba,pth,ppt,pbs,ptr,ppm,psp,ple,pbi),
-      pbi->error_message,
-      pbi->error_message);
-      
-  }
-
-  
-
-
-
-
 
   /* If load_bispectra_from_disk==_TRUE_, at this point all the arrays in the module have been
   filled apart from the intrinsic and non-separable bispectra. Any subsequent module that
@@ -174,6 +149,17 @@ int bispectra_init (
 
     return _SUCCESS_;
   }
+
+
+  // =====================================================================================
+  // =                                  Produce output                                   =
+  // =====================================================================================
+
+  /* Create output files containing the bispectra */
+
+  class_call (bispectra_output (ppr,pba,pth,ppt,pbs,ptr,ppm,psp,ple,pbi),
+    pbi->error_message,
+    pbi->error_message);
 
 
 
@@ -308,17 +294,25 @@ int bispectra_free(
     free(pbi->pk);
     free(pbi->pk_pt);
 
-    for(int index_l1=0; index_l1<pbi->l_size; ++index_l1) {
+    for(int index_l1=0; index_l1 < pbi->l_size; ++index_l1) {
+
+      for (int index_l2=0; index_l2 <= index_l1; ++index_l2)
+        free (pbi->l3[index_l1][index_l2]);
 
       free(pbi->l_triangular_size[index_l1]);
       free(pbi->index_l_triangular_min[index_l1]);
       free(pbi->index_l_triangular_max[index_l1]);
-    
+      free(pbi->l3_size[index_l1]);
+      free(pbi->l3[index_l1]);
+          
     } // end of for(index_l1)
 
     free(pbi->l_triangular_size);
     free(pbi->index_l_triangular_min);
     free(pbi->index_l_triangular_max);
+    free(pbi->l3_size);
+    free(pbi->l3);    
+    
 
     for(int index_l1=0; index_l1<pbi->l_size; ++index_l1) {
       for(int index_l2=0; index_l2<=index_l1; ++index_l2)
@@ -474,7 +468,10 @@ int bispectra_indices (
   pbi->has_bispectra_t = _FALSE_;
   pbi->has_bispectra_e = _FALSE_;
   pbi->has_bispectra_b = _FALSE_;
-  // pbi->has_bispectra_r = _FALSE_;
+  for (int i=0; i < _MAX_NUM_FIELDS_; ++i)
+    for (int j=0; j < _MAX_LENGTH_LABEL_; ++j)
+      pbi->bf_labels[i][j] = '\0';
+
     
   if (ppt->has_bi_cmb_temperature == _TRUE_) {
     pbi->has_bispectra_t = _TRUE_;
@@ -492,14 +489,6 @@ int bispectra_indices (
     pbi->index_bf_e = index_bf++;
   }
 
-  // if (ppt->has_bi_cmb_rayleigh == _TRUE_) {
-  //   pbi->has_bispectra_r = _TRUE_;
-  //   strcpy (pbi->bf_labels[index_bf], "r");
-  //   pbi->field_parity[index_bf] = _EVEN_;
-  //   pbi->field_spin[index_bf] = 0;
-  //   pbi->index_bf_r = index_bf++;
-  // }
-
   pbi->bf_size = index_bf;
   pbi->n_probes = pow(pbi->bf_size, 3);
 
@@ -512,11 +501,15 @@ int bispectra_indices (
     "no probes requested");
 
   /* Create labels for the full bispectra */
-  for (int X = 0; X < pbi->bf_size; ++X)
-    for (int Y = 0; Y < pbi->bf_size; ++Y)
-      for (int Z = 0; Z < pbi->bf_size; ++Z)
-        sprintf (pbi->bfff_labels[X][Y][Z], "%s%s%s",
-        pbi->bf_labels[X], pbi->bf_labels[Y], pbi->bf_labels[Z]);
+  for (int X = 0; X < pbi->bf_size; ++X) {
+    for (int Y = 0; Y < pbi->bf_size; ++Y) {
+      for (int Z = 0; Z < pbi->bf_size; ++Z) {
+        for (int i=0; i < _MAX_LENGTH_LABEL_; ++i)
+          pbi->bfff_labels[X][Y][Z][i] = '\0';
+        sprintf (pbi->bfff_labels[X][Y][Z], "%s%s%s", pbi->bf_labels[X], pbi->bf_labels[Y], pbi->bf_labels[Z]);
+      }
+    }
+  }
 
 
   /* Associate to each field X=T,E,... its transfer function, which was computed in the transfer.c
@@ -596,6 +589,10 @@ int bispectra_indices (
   pbi->n[non_separable_bispectrum] = 0;
   pbi->n[analytical_bispectrum] = 0;
   pbi->n[intrinsic_bispectrum] = 0;
+
+  for (int i=0; i < _MAX_NUM_BISPECTRA_; ++i)
+    for (int j=0; j < _MAX_LENGTH_LABEL_; ++j)
+      pbi->bt_labels[i][j] = '\0';
 
   // *** Separable bispectra
   
@@ -787,6 +784,8 @@ int bispectra_indices (
   class_alloc (pbi->l_triangular_size, pbi->l_size*sizeof(int *), pbi->error_message);
   class_alloc (pbi->index_l_triangular_min, pbi->l_size*sizeof(int *), pbi->error_message);
   class_alloc (pbi->index_l_triangular_max, pbi->l_size*sizeof(int *), pbi->error_message);
+  class_alloc (pbi->l3_size, pbi->l_size*sizeof(int *), pbi->error_message);
+  class_alloc (pbi->l3, pbi->l_size*sizeof(int **), pbi->error_message);
   class_alloc (pbi->index_l1_l2_l3, pbi->l_size*sizeof(long int **), pbi->error_message);
 
   /* Number of multipole configurations (l1,l2,l3) that satisfy the triangular condition and l1>=l2>=l3 */
@@ -803,11 +802,13 @@ int bispectra_indices (
     int l1 = pbi->l[index_l1];
 
     /* Allocate l1 level */
-    class_alloc (pbi->l_triangular_size[index_l1], pbi->l_size*sizeof(int), pbi->error_message);
+    class_calloc (pbi->l_triangular_size[index_l1], pbi->l_size, sizeof(int), pbi->error_message);
     class_alloc (pbi->index_l_triangular_min[index_l1], pbi->l_size*sizeof(int), pbi->error_message);
     class_alloc (pbi->index_l_triangular_max[index_l1], pbi->l_size*sizeof(int), pbi->error_message);
 
     /* We consider only configurations whereby l1>=l2 */
+    class_calloc (pbi->l3_size[index_l1], (index_l1+1), sizeof(int), pbi->error_message);
+    class_alloc (pbi->l3[index_l1], (index_l1+1)*sizeof(int *), pbi->error_message);
     class_alloc (pbi->index_l1_l2_l3[index_l1], (index_l1+1)*sizeof(long int *), pbi->error_message);
 
     /* Fill pbi->l_triangular_size and pbi->index_l_triangular_min */
@@ -825,7 +826,8 @@ int bispectra_indices (
         "could not fulfill triangular condition for l3 using the multipoles in pbi->l");
       
       int index_l_triangular_min = 0;
-      while (pbi->l[index_l_triangular_min] < l_triangular_min) ++index_l_triangular_min;
+      while (pbi->l[index_l_triangular_min] < l_triangular_min)
+        ++index_l_triangular_min;
 
       /* Find the index corresponding to l_triangular_max inside pbi->l */
       class_test (l_triangular_max <= pbi->l[0],
@@ -833,7 +835,8 @@ int bispectra_indices (
         "could not fulfill triangular condition for l3 using the multipoles in pbi->l");
       
       int index_l_triangular_max = pbi->l_size-1;
-      while (pbi->l[index_l_triangular_max] > l_triangular_max) --index_l_triangular_max;    
+      while (pbi->l[index_l_triangular_max] > l_triangular_max)
+        --index_l_triangular_max;    
 
       /* Fill pbi->index_l_triangular_min and pbi->l_triangular_size */
       pbi->index_l_triangular_min[index_l1][index_l2] = index_l_triangular_min;
@@ -843,29 +846,48 @@ int bispectra_indices (
       /* Update counter of triangular configurations */
       pbi->n_total_configurations += pbi->l_triangular_size[index_l1][index_l2];
 
-      /* We shall store the bispectra only for those configurations that contemporaneously satisfy 
+      /* We shall store the bispectra only for those configurations that simultaneously satisfy 
       the triangular condition and the l1>=l2>=l3 condition. We use the pbi->index_l1_l2_l3 array
       to keep track of the index assigned to a given allowed configuration. */
-      if (index_l2<=index_l1) {
+      if (index_l2 <= index_l1) {
 
         /* When the triangular condition is not compatible with index_l3<=index_l2, then index_l3_max < index_l3_min+1 will
         be either zero or negative. */ 
         int index_l3_min = pbi->index_l_triangular_min[index_l1][index_l2];
         int index_l3_max = MIN (index_l2, pbi->index_l_triangular_max[index_l1][index_l2]);
         int l3_size = MAX (0, index_l3_max-index_l3_min+1);
+        pbi->l3_size[index_l1][index_l2] = l3_size;
+        class_alloc (pbi->l3[index_l1][index_l2], l3_size*sizeof(int), pbi->error_message);
         class_alloc (pbi->index_l1_l2_l3[index_l1][index_l1-index_l2], l3_size*sizeof(long int), pbi->error_message);
         
         /* The indexing of pbi->index_l1_l2_l3 reflects the l1>=l2>=l3 constraint */
-        for (int index_l3=index_l3_min; index_l3<=index_l3_max; ++index_l3)
+        for (int index_l3=index_l3_min; index_l3<=index_l3_max; ++index_l3) {
+          pbi->l3[index_l1][index_l2][index_l3-index_l3_min] = pbi->l[index_l3];
           pbi->index_l1_l2_l3[index_l1][index_l1-index_l2][index_l3_max-index_l3] = index_l1_l2_l3++;
+        }
 
       }
       
-      /* Print some debug */
-      // printf("l1=%d, l2=%d, l_triangular_min[%d]=%d, l_triangular_max[%d]=%d, l[index_l_triangular_min]=%d, l=[index_l_triangular_max]=%d, l_triangular_size=%d\n", 
-      //   l1, l2, index_l_triangular_min, l_triangular_min, index_l_triangular_max,
-      //   l_triangular_max, pbs->l[index_l_triangular_min], pbs->l[index_l_triangular_max],
-      //   pbi->l_triangular_size[index_l1][index_l2]);
+      /* Debug - Print out the l3 list for a special configuration */
+      // if ((index_l1 == 45) && (index_l2 == 38)) {
+      //   if (index_l2 <= index_l1) {
+      //
+      //     int index_l3_min = pbi->index_l_triangular_min[index_l1][index_l2];
+      //     int index_l3_max = MIN (index_l2, pbi->index_l_triangular_max[index_l1][index_l2]);
+      //     int l3_size = MAX (0, index_l3_max-index_l3_min+1);
+      //     printf ("index_l3_min = %d\n", index_l3_min);
+      //     printf ("index_l3_max = %d\n", index_l3_max);
+      //
+      //     fprintf (stderr, "l1[%d]=%4d, l2[%d]=%4d, l3_size=%4d, l3_min=%4d, l3_max=%4d\n",
+      //       index_l1, l1, index_l2, l2, l3_size, pbi->l3[index_l1][index_l2][0], pbi->l3[index_l1][index_l2][l3_size-1]);
+      //
+      //     for (int index_l3=0; index_l3 < l3_size; ++index_l3)
+      //       fprintf(stderr, "%8d %12d\n", index_l3, pbi->l3[index_l1][index_l2][index_l3]);
+      //
+      //     fprintf (stderr, "\n\n");
+      //   }
+      // }
+
       
     } // end of for(index_l2)
   } // end of for(index_l1)
@@ -1611,109 +1633,19 @@ int bispectra_harmonic (
 
 
 
-
-
-/**
- * Determine the integration grid in r.
- *
- * In the bispectrum integral, the integration variable r appears both as a
- * prefactor and in the argument of the three Bessel functions, which in turn
- * are multiplied by three transfer functions:
- * 
- *  b_l1_l2_l3(r) ~ (k1*k2*k3*r)^2 * j_l1(r*k1) * j_l2(r*k2) * j_l3(r*k3)
- *                                 * T_l1(k1)   * T_l2(k2)   * T_l3(k3)
- *                                 * F(k1,k2,k3)
- *
- * Please refer to Fergusson and Shellard 2007 for the full formula and its
- * derivation.
- *
- * The transfer function T_l(k) is the convolution of the source function
- * S(k,tau) with the Bessel function j_l(k*(tau0-tau)). The product of this
- * Bessel with j_l(k*r) is maximised when they both have the same frequency,
- * that is, for r~tau0-tau, because both are oscillatory functions.
- *
- * This means that any recombination physics will show up in the bispectrum
- * integral close to r~tau0-tau_rec, where the visibility function is
- * strongly peaked.
- *
- * For the same reason we expect late-time effects such as ISW and reionisation
- * to contribute especially to small r. What we see, however, is that the
- * contribution from r~tau0-tau_rec dominates also for the late time effects.
- * We find two reasons for this behaviour:
- *
- * - The r^2 factor penalises the contributions from small r.
- *
- * - Each Bessel function exponentially suppresses contributions from r<l/k.
- *
- * - Contributions from r>l/k are penalised by a factor 1/r only, rather than
- *   exponentially; this allows the late-time effects to overlap in r with the
- *   recombination effects and thus generate a correlation.
- *
- * Let us consider the late ISW effect as an example. We expect its effect to
- * be maximised when l1, l2 and l3 are all smaller than 10, because that's
- * where it shows up in the transfer functions. Indeed, we see that b_2_2_2(r)
- * for r<4000 is completely dominated by the late ISW effect (local template).
- * However, this contribution is still four orders of magnitude smaller than 
- * b_2_2_2(r) around r~tau0-tau_rec, which means that values of r smaller
- * than tau0-tau_rec can be safely excluded from the bispectrum integral, even
- * where the late ISW is strongest.
- *
- * On the other hand, the late ISW does contribute significantly to b_2_2_2(r) 
- * around r=tau0-tau_rec, as it dampens its amplitude by roughly 40%. This 
- * "early time" contribution by a late-time effect is explained by the r^2
- * boost in the bispectrum integral and by the correlation between the late
- * ISW effect and the recombination effects. The correlation, which manifests
- * itself in the triple product of Bessel and transfer functions, is made
- * possible by the fact that the Bessel functions j_l(k*r) penalise only mildly
- * the configurations with r > l/k. (Note that while the late time effects
- * can show up at high r, the recombination effects cannot show up at small r,
- * because the Bessel functions suppress r < l/k exponentially.)
- *
- * In absence of recombination effects, the bispectrum will be made up entirely
- * of late time effects. This is never the case for temperature, which has
- * recombination sources even on superhorizon scales (SW effect), but it does
- * happen for polarisation, which has no sources on scales that were
- * superhorizon at recombination (l<200). On these scales, the only polarised
- * signal is generated by reionisation, in a similar way to what happens for
- * the C_l^EE. We see this directly in the EEE bispectrum for l1=l2=l3 = 2,
- * which has a smooth peak at r~tau0-tau_reio (~11000 Mpc for a standard LCDM
- * model) with a tiny protuberance at r~tau0-tau_rec. For l1=l2=l3 = 10, the
- * two peaks are almost merged, while for higher l the recombination peak
- * dominates over the reionisation one.
- * 
- * In summary:
- *
- * - For temperature, the late time effects (ISW and reionisation) will
- *   contribute to the bispectrum mostly via their correlation with the
- *   recombination effects (SW, doppler, early ISW). Therefore, r needs
- *   to be sampled only around r~tau0-tau_rec.
- * 
- * - For polarisation, reionisation generates a signal on large scales (l<40)
- *   that does not correlate with the recombination sources (l>200), because
- *   there are none. Therefore, the dominant effect from reionisation does not
- *   sit at r~tau0-tau_rec, and r should be sampled also for r<tau0-tau_rec.
- *
- * One last thing to take into account for the second-order computation: to
- * correctly compute the bispectrum in the r<tau0-tau_rec regime, make sure to
- * use a fine enough time sampling for the transfer functions via the parameter
- * tau_linstep_song. A large value of tau_linstep_song means that only the
- * recombination epoch will be well sampled, which is ok if you are interested
- * in r~tau0-tau_rec. If you are interested in the small r, as would be the
- * case for reionisation and polarisation, you need to reduce tau_linstep_song.
- *
- * I have tested that the above considerations hold for the local template, the
- * equilateral template and the intrinsic bispectrum. For the equilateral
- * template, it is advised to extend r_max to at least tau0+10*tau_rec. For the
- * intrinsic TTT bispectrum with l1,l2,l3 < O(10), the small-r contribution
- * from the ISW effect is comparable to the r~tau0-tau_rec contribution. This
- * is probably an effect of mode coupling that mixes small and large scales.
- * However, the net effect on the SN of the intrinsic bispectrum is negligible.
- */
-
-
-
 /**
  * Produce output files for the bispectrum.
+ *
+ * Three types of files will be created:
+ *
+ * - A text file with the bispectra configurations for l1=l1_out, tabulated
+ *   as a function of l2 and l3, named bispectra_LXXX_1D.txt.
+ *
+ * - A larger text file with the bispectra configurations for l1=l1_out and
+ *   l2=l2_out, tabulated as a function of l3, named bispectra_LXXX_2D.txt.
+ *
+ * - A binary file with all bispectra configurations for all bispectra types,
+ *   named bispectra.dat.
  */
 
 int bispectra_output (
@@ -1801,51 +1733,288 @@ int bispectra_output (
   // =                                     3D output                                    =
   // ====================================================================================
 
-  /* Binary files produced by this function will have a human-readable ASCII
-  header. It will include information on the cosmological parameters and on the
-  bispectrum, plus a binary map useful to understand how to access the data
-  in the binary file. */
-  int header_size = 
-    _MAX_INFO_SIZE_ + /* For background information */
-    _MAX_INFO_SIZE_ + /* For other information */
-    _MAX_INFO_SIZE_ + _MAX_HEADER_LINE_LENGTH_*pbi->n_probes; /* For binary map */
+  if (pbi->output_binary_bispectra == _TRUE_) {
 
-  /* Define a new binary file structure */
-  struct binary_file * file;
-  class_alloc (file, sizeof(struct binary_file), pbi->error_message);
+    /* Binary files produced by this function will have a human-readable ASCII
+    header. It will include information on the cosmological parameters and on the
+    bispectrum, plus a binary map useful to understand how to access the data
+    in the binary file. */
+    int header_size = 
+      _MAX_INFO_SIZE_ + /* For background information */
+      _MAX_INFO_SIZE_ + /* For other information */
+      _MAX_INFO_SIZE_ + _MAX_HEADER_LINE_LENGTH_*pbi->n_probes; /* For binary map */
+
+    /* Define a new binary file structure */
+    struct binary_file * file;
+    class_alloc (file, sizeof(struct binary_file), pbi->error_message);
   
-  /* Open the binary file */
-  class_call (binary_init (
-                file,
-                &(ppr->l_out_file_3D),
-                ppr->l_out_path_3D,
-                "w",
-                header_size,
-                ppr->output_single_precision),
-    file->error_message,
-    pbi->error_message);
+    /* Open the binary file */
+    class_call (binary_init (
+                  file,
+                  &(ppr->l_out_file_3D),
+                  ppr->l_out_path_3D,
+                  "w",
+                  header_size,
+                  ppr->output_single_precision),
+      file->error_message,
+      pbi->error_message);
 
   
   
-  // ---------------------------------------------------------------------------
-  // -                              Write to file                              -
-  // ---------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------
+    // -                            Print information                            -
+    // ---------------------------------------------------------------------------
 
-  class_call (binary_write (
-                file),
-    file->error_message,
-    pbi->error_message);
+    /* Add information to the file header */
+    binary_sprintf (file, "Table of the CMB reduced bispectra b_l1_l2_l3 tabulated as a function of (l1,l2,l3) and bispectrum type.");
+    binary_sprintf (file, "This binary file was generated by SONG (%s) on %s.", _SONG_URL_, ppr->date);
+    binary_sprintf (file, "");
+    sprintf (file->header, "%s%s", file->header, pba->info);
+    file->header_size += strlen (pba->info) + 1;
+    if (ppt->gauge == newtonian) binary_sprintf(file, "gauge = newtonian");
+    if (ppt->gauge == synchronous) binary_sprintf(file, "gauge = synchronous");
 
 
-  // ---------------------------------------------------------------------------
-  // -                                Clean up                                 -
-  // ---------------------------------------------------------------------------
+    // --------------------------------------------------------------------------
+    // -                                Build blocks                             -
+    // ---------------------------------------------------------------------------
 
-  class_call (binary_free (
-                file),
-    file->error_message,
-    pbi->error_message);
+    char desc[1024];
+    char name[1024];
 
+    int label_size = _MAX_LENGTH_LABEL_;
+    sprintf (desc, "length of a label (=%d)", _MAX_LENGTH_LABEL_);
+    sprintf (name, "_MAX_LENGTH_LABEL_");
+    class_call (binary_append_int (file, &label_size, 1, desc, name),
+      file->error_message,
+      pbi->error_message);
+
+    /* l sampling */
+
+    sprintf (desc, "size of l array (=%d)", pbi->l_size);
+    sprintf (name, "pbi->l_size");
+    class_call (binary_append_int (file, &pbi->l_size, 1, desc,name),
+      file->error_message,
+      pbi->error_message);
+
+    sprintf (desc, "l array");
+    sprintf (name, "pbi->l");
+    class_call (binary_append_int (file, pbi->l, pbi->l_size, desc, name),
+      file->error_message,
+      pbi->error_message);
+
+    sprintf (desc, "size of l3 grid: l3_size[index_l1][index_l2] with index_l1 < pbi->l_size, index_l2 <= index_l1");
+    sprintf (name, "pbi->l3_size");
+    int index_l3_size_block = file->n_blocks;
+  
+    for (int index_l1=0; index_l1 < pbi->l_size; ++index_l1) {
+      for (int index_l2=0; index_l2 <= index_l1; ++index_l2) {
+        class_call (binary_add_block (
+                      file,
+                      &pbi->l3_size[index_l1][index_l2],
+                      1,
+                      sizeof (int),
+                      desc,
+                      "int",
+                      name,
+                      index_l3_size_block),
+          file->error_message,
+          pbi->error_message);
+      }
+    }
+
+    sprintf (desc, "l3 array: l3[index_l1][index_l2] with index_l1 < pbi->l_size, index_l2 <= index_l1");
+    sprintf (name, "pbi->l3");
+    int index_l3_block = file->n_blocks;
+  
+    for (int index_l1=0; index_l1 < pbi->l_size; ++index_l1)
+      for (int index_l2=0; index_l2 <= index_l1; ++index_l2)
+        class_call (binary_add_block (
+                      file,
+                      pbi->l3[index_l1][index_l2],
+                      pbi->l3_size[index_l1][index_l2],
+                      sizeof (int),
+                      desc,
+                      "int",
+                      name,
+                      index_l3_block),
+          file->error_message,
+          pbi->error_message);
+
+    sprintf (desc, "number of (l1,l2,l3) configurations in each bispectrum (=%d)", pbi->n_independent_configurations);
+    sprintf (name, "pbi->n_independent_configurations");
+    class_call (binary_append_long_int (file, &pbi->n_independent_configurations, 1, desc, name),
+      file->error_message,
+      pbi->error_message);
+
+    sprintf (desc, "array of indices associated to the (l1,l2,l3) configurations");
+    sprintf (name, "pbi->index_l1_l2_l3");
+    class_call (binary_append_int (file, pbi->index_l1_l2_l3, pbi->n_independent_configurations, desc, name),
+      file->error_message,
+      pbi->error_message);
+
+    /* First-order C_l */
+
+    sprintf (desc, "number of l-values for which the C_l are stored (=%d)", pbi->full_l_size);
+    sprintf (name, "pbi->full_l_size");
+    class_call (binary_append_int (file, &pbi->full_l_size, 1, desc, name),
+      file->error_message,
+      pbi->error_message);
+
+    sprintf (desc, "number of C_l types (=%d)", psp->ct_size);
+    sprintf (name, "psp->ct_size");
+    class_call (binary_append_int (file, &psp->ct_size, 1, desc, name),
+      file->error_message,
+      pbi->error_message);
+
+    sprintf (desc, "array of names of C_l types (each has %d char)", _MAX_LENGTH_LABEL_);
+    sprintf (name, "psp->ct_labels");
+    class_call (binary_append_string (file, psp->ct_labels, psp->ct_size*_MAX_LENGTH_LABEL_, desc, name),
+      file->error_message,
+      pbi->error_message);
+
+    sprintf (desc, "unlensed C_l: cls[index_ct] with index_ct < psp->ct_size");
+    sprintf (name, "pbi->cls");
+    int index_unlensed_cl = file->n_blocks;
+    for (int index_ct=0; index_ct < psp->ct_size; ++index_ct)
+      class_call (binary_add_block (
+                    file,
+                    pbi->cls[index_ct],
+                    pbi->full_l_size,
+                    sizeof (double),
+                    desc,
+                    "double",
+                    name,
+                    index_unlensed_cl),
+        file->error_message,
+        pbi->error_message);
+
+    sprintf (desc, "unlensed C_l logarithmic derivative: d_lsq_cls[index_ct] with index_ct < psp->ct_size");
+    sprintf (name, "pbi->d_lsq_cls");
+    index_unlensed_cl = file->n_blocks;
+    for (int index_ct=0; index_ct < psp->ct_size; ++index_ct)
+      class_call (binary_add_block (
+                    file,
+                    pbi->d_lsq_cls[index_ct],
+                    pbi->full_l_size,
+                    sizeof (double),
+                    desc,
+                    "double",
+                    name,
+                    index_unlensed_cl),
+        file->error_message,
+        pbi->error_message);
+
+    if (pbi->include_lensing_effects == _TRUE_) {
+
+      sprintf (desc, "lensed C_l: cls[index_ct] with index_ct < psp->ct_size");
+      sprintf (name, "pbi->lensed_cls");
+      int index_lensed_cl = file->n_blocks;
+      for (int index_lt=0; index_lt < ple->lt_size; ++index_lt)
+        class_call (binary_add_block (
+                      file,
+                      pbi->lensed_cls[index_lt],
+                      pbi->full_l_size,
+                      sizeof (double),
+                      desc,
+                      "double",
+                      name,
+                      index_lensed_cl),
+          file->error_message,
+          pbi->error_message);
+
+      sprintf (desc, "lensed C_l logarithmic derivative: d_lsq_cls[index_ct] with index_ct < psp->ct_size");
+      sprintf (name, "pbi->lensed_d_lsq_cls");
+      index_lensed_cl = file->n_blocks;
+      for (int index_lt=0; index_lt < ple->lt_size; ++index_lt)
+        class_call (binary_add_block (
+                      file,
+                      pbi->lensed_d_lsq_cls[index_lt],
+                      pbi->full_l_size,
+                      sizeof (double),
+                      desc,
+                      "double",
+                      name,
+                      index_lensed_cl),
+          file->error_message,
+          pbi->error_message);
+    }
+
+
+    /* Bispectrum */
+
+    sprintf (desc, "number of bispectra types (local, equilateral, intrinsic...) (=%d)", pbi->bt_size);
+    sprintf (name, "pbi->bt_size");
+    class_call (binary_append_int (file, &pbi->bt_size, 1, desc, name),
+      file->error_message,
+      pbi->error_message);
+
+    sprintf (desc, "array of names of bispectra types (each has %d char)", _MAX_LENGTH_LABEL_);
+    sprintf (name, "pbi->bt_labels");
+    class_call (binary_append_string (file, pbi->bt_labels, pbi->bt_size*_MAX_LENGTH_LABEL_, desc, name),
+      file->error_message,
+      pbi->error_message);
+
+    sprintf (desc, "number of fields (T,E,B...) (=%d)", pbi->bf_size);
+    sprintf (name, "pbi->bf_size");
+    class_call (binary_append_int (file, &pbi->bf_size, 1, desc, name),
+      file->error_message,
+      pbi->error_message);
+
+    sprintf (desc, "array of names of fields (each has %d char)", _MAX_LENGTH_LABEL_);
+    sprintf (name, "pbi->bf_labels");
+    class_call (binary_append_string (file, pbi->bf_labels, pbi->bf_size*_MAX_LENGTH_LABEL_, desc, name),
+      file->error_message,
+      pbi->error_message);
+
+    for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt) {
+
+      sprintf (desc, "%s CMB bispectrum for all values of (l1,l2,l3) and for all fields (X,Y,Z)", pbi->bt_labels[index_bt]);
+      sprintf (name, "pbi->bispectra[X][Y][Z][index_bt=%d]", index_bt);
+      int index_bispectrum = file->n_blocks;
+
+      for (int X = 0; X < pbi->bf_size; ++X) {
+        for (int Y = 0; Y < pbi->bf_size; ++Y) {
+          for (int Z = 0; Z < pbi->bf_size; ++Z) {
+
+            class_call (binary_add_block (
+                          file,
+                          pbi->bispectra[X][Y][Z][index_bt],
+                          pbi->n_independent_configurations,
+                          sizeof (double),
+                          desc,
+                          "double",
+                          name,
+                          index_bispectrum),
+              file->error_message,
+              pbi->error_message);
+
+          } // Z
+        } // Y
+      } // X
+    } // bt
+    
+  
+    // ---------------------------------------------------------------------------
+    // -                              Write to file                              -
+    // ---------------------------------------------------------------------------
+
+    class_call (binary_write (
+                  file),
+      file->error_message,
+      pbi->error_message);
+
+
+    // ---------------------------------------------------------------------------
+    // -                                Clean up                                 -
+    // ---------------------------------------------------------------------------
+
+    class_call (binary_free (
+                  file),
+      file->error_message,
+      pbi->error_message);
+      
+  } // if output_binary_bispectra
 
 
   return _SUCCESS_;
@@ -1856,6 +2025,103 @@ int bispectra_output (
 
 
 
+/**
+ * Determine the integration grid in r.
+ *
+ * In the bispectrum integral, the integration variable r appears both as a
+ * prefactor and in the argument of the three Bessel functions, which in turn
+ * are multiplied by three transfer functions:
+ * 
+ *  b_l1_l2_l3(r) ~ (k1*k2*k3*r)^2 * j_l1(r*k1) * j_l2(r*k2) * j_l3(r*k3)
+ *                                 * T_l1(k1)   * T_l2(k2)   * T_l3(k3)
+ *                                 * F(k1,k2,k3)
+ *
+ * Please refer to Fergusson and Shellard 2007 for the full formula and its
+ * derivation.
+ *
+ * The transfer function T_l(k) is the convolution of the source function
+ * S(k,tau) with the Bessel function j_l(k*(tau0-tau)). The product of this
+ * Bessel with j_l(k*r) is maximised when they both have the same frequency,
+ * that is, for r~tau0-tau, because both are oscillatory functions.
+ *
+ * This means that any recombination physics will show up in the bispectrum
+ * integral close to r~tau0-tau_rec, where the visibility function is
+ * strongly peaked.
+ *
+ * For the same reason we expect late-time effects such as ISW and reionisation
+ * to contribute especially to small r. What we see, however, is that the
+ * contribution from r~tau0-tau_rec dominates also for the late time effects.
+ * We find two reasons for this behaviour:
+ *
+ * - The r^2 factor penalises the contributions from small r.
+ *
+ * - Each Bessel function exponentially suppresses contributions from r<l/k.
+ *
+ * - Contributions from r>l/k are penalised by a factor 1/r only, rather than
+ *   exponentially; this allows the late-time effects to overlap in r with the
+ *   recombination effects and thus generate a correlation.
+ *
+ * Let us consider the late ISW effect as an example. We expect its effect to
+ * be maximised when l1, l2 and l3 are all smaller than 10, because that's
+ * where it shows up in the transfer functions. Indeed, we see that b_2_2_2(r)
+ * for r<4000 is completely dominated by the late ISW effect (local template).
+ * However, this contribution is still four orders of magnitude smaller than 
+ * b_2_2_2(r) around r~tau0-tau_rec, which means that values of r smaller
+ * than tau0-tau_rec can be safely excluded from the bispectrum integral, even
+ * where the late ISW is strongest.
+ *
+ * On the other hand, the late ISW does contribute significantly to b_2_2_2(r) 
+ * around r=tau0-tau_rec, as it dampens its amplitude by roughly 40%. This 
+ * "early time" contribution by a late-time effect is explained by the r^2
+ * boost in the bispectrum integral and by the correlation between the late
+ * ISW effect and the recombination effects. The correlation, which manifests
+ * itself in the triple product of Bessel and transfer functions, is made
+ * possible by the fact that the Bessel functions j_l(k*r) penalise only mildly
+ * the configurations with r > l/k. (Note that while the late time effects
+ * can show up at high r, the recombination effects cannot show up at small r,
+ * because the Bessel functions suppress r < l/k exponentially.)
+ *
+ * In absence of recombination effects, the bispectrum will be made up entirely
+ * of late time effects. This is never the case for temperature, which has
+ * recombination sources even on superhorizon scales (SW effect), but it does
+ * happen for polarisation, which has no sources on scales that were
+ * superhorizon at recombination (l<200). On these scales, the only polarised
+ * signal is generated by reionisation, in a similar way to what happens for
+ * the C_l^EE. We see this directly in the EEE bispectrum for l1=l2=l3 = 2,
+ * which has a smooth peak at r~tau0-tau_reio (~11000 Mpc for a standard LCDM
+ * model) with a tiny protuberance at r~tau0-tau_rec. For l1=l2=l3 = 10, the
+ * two peaks are almost merged, while for higher l the recombination peak
+ * dominates over the reionisation one.
+ * 
+ * In summary:
+ *
+ * - For temperature, the late time effects (ISW and reionisation) will
+ *   contribute to the bispectrum mostly via their correlation with the
+ *   recombination effects (SW, doppler, early ISW). Therefore, r needs
+ *   to be sampled only around r~tau0-tau_rec.
+ * 
+ * - For polarisation, reionisation generates a signal on large scales (l<40)
+ *   that does not correlate with the recombination sources (l>200), because
+ *   there are none. Therefore, the dominant effect from reionisation does not
+ *   sit at r~tau0-tau_rec, and r should be sampled also for r<tau0-tau_rec.
+ *
+ * I have tested that the above considerations hold for the local template, the
+ * equilateral template and the intrinsic bispectrum. For the equilateral
+ * template, it is advised to extend r_max to at least tau0+10*tau_rec. For the
+ * intrinsic TTT bispectrum with l1,l2,l3 < O(10), the small-r contribution
+ * from the ISW effect is comparable to the r~tau0-tau_rec contribution. This
+ * is probably an effect of mode coupling that mixes small and large scales.
+ * However, the net effect on the SN of the intrinsic bispectrum is negligible.
+ *
+ * One last thing to take into account at second-order. To correctly compute
+ * the bispectrum in the r<tau0-tau_rec regime, and thus capture the effect
+ * of reionisation on polarisation and the tiny ISW effect, make sure to use
+ * a fine enough time sampling for the line of sight integral at late times.
+ * This can be achieved by either increasing the sampling of the source functions
+ * via the parameter perturb_sampling_late_time_boost or by increasing the line
+ * of sight integration grid with the parameter tau_linstep_song. The first way
+ * turns out to be less computationally expensive.
+ */
 
 int bispectra_get_r_grid (
     struct precision * ppr,

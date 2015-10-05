@@ -484,6 +484,42 @@ int binary_append_int (
 
 
 /**
+ * Add a data block made of long integers to the end of the binary file.
+ *
+ * This is a wrapper to binary_add_block(); see documentation there for
+ * more details.
+ */
+
+int binary_append_long_int (
+  struct binary_file * file, /**< Binary file to which the block will be appended */
+  void * data_pointer, /**< Pointer to the data to be written in the new block */
+  int size, /**< Number of elements to store in the block */
+  char * description, /**< Short description for the data being saved in the new block */
+  char * name /**< String with the name of the variable holding the data that will be writtne in the new block */
+  )
+{
+  
+  char type[] = "long int";
+  int type_size = sizeof (long int);
+  
+  class_call ( binary_add_block (
+                 file,
+                 data_pointer,
+                 size,
+                 type_size,
+                 description,
+                 type,
+                 name,
+                 file->n_blocks),
+    file->error_message,
+    file->error_message);
+  
+  return _SUCCESS_;
+  
+}
+
+
+/**
  * Add a data block made of double precision numbers to the end of the binary
  * file.
  *

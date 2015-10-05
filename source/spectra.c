@@ -1774,6 +1774,15 @@ int spectra_indices(
 
   if (ppt->has_cls == _TRUE_) {
 
+#ifdef WITH_BISPECTRA
+
+    /* Initialise labels */
+    for (int i=0; i < _MAX_NUM_SPECTRA_; ++i)
+      for (int j=0; j < _MAX_LENGTH_LABEL_; ++j)
+        psp->ct_labels[i][j] = '\0';
+
+#endif // WITH_BISPECTRA
+
     /* types of C_l's relevant for both scalars and tensors: TT, EE, TE */
 
     index_ct=0;
@@ -1781,6 +1790,9 @@ int spectra_indices(
     if (ppt->has_cl_cmb_temperature == _TRUE_) {
       psp->has_tt = _TRUE_;
       psp->index_ct_tt=index_ct;
+#ifdef WITH_BISPECTRA
+      strcpy (psp->ct_labels[index_ct], "tt");
+#endif // WITH_BISPECTRA
       index_ct++;
     }
     else {
@@ -1790,6 +1802,9 @@ int spectra_indices(
     if (ppt->has_cl_cmb_polarization == _TRUE_) {
       psp->has_ee = _TRUE_;
       psp->index_ct_ee=index_ct;
+#ifdef WITH_BISPECTRA
+      strcpy (psp->ct_labels[index_ct], "ee");
+#endif // WITH_BISPECTRA
       index_ct++;
     }
     else {
@@ -1800,6 +1815,9 @@ int spectra_indices(
         (ppt->has_cl_cmb_polarization == _TRUE_)) {
       psp->has_te = _TRUE_;
       psp->index_ct_te=index_ct;
+#ifdef WITH_BISPECTRA
+      strcpy (psp->ct_labels[index_ct], "te");
+#endif // WITH_BISPECTRA
       index_ct++;
     }
     else {
@@ -1809,6 +1827,9 @@ int spectra_indices(
     if (ppt->has_cl_cmb_polarization == _TRUE_) {
       psp->has_bb = _TRUE_;
       psp->index_ct_bb=index_ct;
+#ifdef WITH_BISPECTRA
+      strcpy (psp->ct_labels[index_ct], "bb");
+#endif // WITH_BISPECTRA
       index_ct++;
     }
     else {
@@ -1820,6 +1841,9 @@ int spectra_indices(
     if ((ppt->has_cl_cmb_lensing_potential == _TRUE_) && (ppt->has_scalars == _TRUE_)) {
       psp->has_pp = _TRUE_;
       psp->index_ct_pp=index_ct;
+#ifdef WITH_BISPECTRA
+      strcpy (psp->ct_labels[index_ct], "pp");
+#endif // WITH_BISPECTRA
       index_ct++;
     }
     else {
@@ -1829,6 +1853,9 @@ int spectra_indices(
     if ((ppt->has_cl_cmb_temperature == _TRUE_) && (ppt->has_cl_cmb_lensing_potential == _TRUE_) && (ppt->has_scalars == _TRUE_)) {
       psp->has_tp = _TRUE_;
       psp->index_ct_tp=index_ct;
+#ifdef WITH_BISPECTRA
+      strcpy (psp->ct_labels[index_ct], "tp");
+#endif // WITH_BISPECTRA
       index_ct++;
     }
     else {
@@ -1840,6 +1867,9 @@ int spectra_indices(
     if ((ppt->has_cl_cmb_polarization == _TRUE_) && (ppt->has_cl_cmb_lensing_potential == _TRUE_) && (ppt->has_scalars == _TRUE_)) {
       psp->has_ep = _TRUE_;
       psp->index_ct_ep=index_ct;
+#ifdef WITH_BISPECTRA
+      strcpy (psp->ct_labels[index_ct], "ep");
+#endif // WITH_BISPECTRA
       index_ct++;
     }
     else {
@@ -1926,8 +1956,7 @@ int spectra_indices(
 
 #ifdef WITH_BISPECTRA
     
-    /* Cross correlations with the primordial curvature perturbation zeta
-    (see http://arxiv.org/abs/1204.5018) */
+    /* Cross correlations with the primordial curvature perturbation zeta (see http://arxiv.org/abs/1204.5018) */
 
     if ((ppt->has_cl_cmb_temperature == _TRUE_) && (ppt->has_cl_cmb_zeta == _TRUE_) && (ppt->has_scalars == _TRUE_)) {
       psp->has_tz = _TRUE_;
@@ -1944,7 +1973,7 @@ int spectra_indices(
     else {
       psp->has_ez = _FALSE_;
     }
-    
+        
 #endif // WITH_BISPECTRA
 
     psp->ct_size = index_ct;
