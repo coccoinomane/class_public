@@ -205,27 +205,44 @@ int bispectra_init (
   //         double cl_3 = pbi->cls[psp->index_ct_tt][l3-2];;
   //         double squeezed_normalisation = 1/(12*cl_1*cl_3);
   //         double equilateral_normalisation = 1e16 * l1*l1 * (l1+1)*(l1+1) / ((2*_PI_)*(2*_PI_));
-  //         if (strstr(pbi->bt_labels[index_bt], "equilateral")!=NULL) {
+  //         if (strstr(pbi->bt_labels[index_bt], "CMB-lensing")!=NULL) {
+  //           /* Triangular configuration */
+  //           // if ((l1==2000) && (l2==1600)) {
+  //           //   fprintf (stderr, "%12d %12g %12g %12g %12g %12g %12g %12g %12g\n",
+  //           //     l3,
+  //           //     pbi->bispectra[index_bt][0][0][0][index_l1_l2_l3],
+  //           //     pbi->bispectra[index_bt][1][1][1][index_l1_l2_l3],
+  //           //     pbi->bispectra[index_bt][0][0][1][index_l1_l2_l3],
+  //           //     pbi->bispectra[index_bt][0][1][0][index_l1_l2_l3],
+  //           //     pbi->bispectra[index_bt][1][0][0][index_l1_l2_l3],
+  //           //     pbi->bispectra[index_bt][0][1][1][index_l1_l2_l3],
+  //           //     pbi->bispectra[index_bt][1][0][1][index_l1_l2_l3],
+  //           //     pbi->bispectra[index_bt][1][1][0][index_l1_l2_l3]
+  //           //   );
+  //           // }
   //           /* Squeezed configuration */
-  //           if ((l3==6) && (l1==l2)) {
-  //             fprintf (stderr, "%12d %12g %12g %12g %12g %12g %12g %12g %12g\n",
+  //           // if ((l3==6) && (l1==l2)) {
+  //           //   fprintf (stderr, "%12d %12g %12g %12g %12g %12g %12g %12g %12g\n",
+  //           //     l1,
+  //           //     pbi->bispectra[index_bt][0][0][0][index_l1_l2_l3] * equilateral_normalisation,
+  //           //     pbi->bispectra[index_bt][1][1][1][index_l1_l2_l3] * equilateral_normalisation,
+  //           //     pbi->bispectra[index_bt][0][0][1][index_l1_l2_l3] * equilateral_normalisation,
+  //           //     pbi->bispectra[index_bt][0][1][0][index_l1_l2_l3] * equilateral_normalisation,
+  //           //     pbi->bispectra[index_bt][1][0][0][index_l1_l2_l3] * equilateral_normalisation,
+  //           //     pbi->bispectra[index_bt][0][1][1][index_l1_l2_l3] * equilateral_normalisation,
+  //           //     pbi->bispectra[index_bt][1][0][1][index_l1_l2_l3] * equilateral_normalisation,
+  //           //     pbi->bispectra[index_bt][1][1][0][index_l1_l2_l3] * equilateral_normalisation
+  //           //   );
+  //           // }
+  //           /* Equilateral configuration */
+  //           if ((l1==l2) && (l2==l3)) {
+  //             fprintf (stderr, "%12d %12g %12g %12g\n",
   //               l1,
-  //               pbi->bispectra[index_bt][0][0][0][index_l1_l2_l3] * equilateral_normalisation,
-  //               pbi->bispectra[index_bt][1][1][1][index_l1_l2_l3] * equilateral_normalisation,
-  //               pbi->bispectra[index_bt][0][0][1][index_l1_l2_l3] * equilateral_normalisation,
-  //               pbi->bispectra[index_bt][0][1][0][index_l1_l2_l3] * equilateral_normalisation,
-  //               pbi->bispectra[index_bt][1][0][0][index_l1_l2_l3] * equilateral_normalisation,
-  //               pbi->bispectra[index_bt][0][1][1][index_l1_l2_l3] * equilateral_normalisation,
-  //               pbi->bispectra[index_bt][1][0][1][index_l1_l2_l3] * equilateral_normalisation,
-  //               pbi->bispectra[index_bt][1][1][0][index_l1_l2_l3] * equilateral_normalisation
+  //               pbi->bispectra[index_bt][0][0][0][index_l1_l2_l3],
+  //               equilateral_normalisation,
+  //               pbi->bispectra[index_bt][0][0][0][index_l1_l2_l3]*equilateral_normalisation
   //             );
   //           }
-  //           /* Equilateral configuration */
-  //           // if ((l1==l2) && (l2==l3)) {
-  //           //   fprintf (stderr, "%12d %12g %12g %12g\n",
-  //           //   l1, pbi->bispectra[index_bt][index_l1_l2_l3], equilateral_normalisation,
-  //           //   pbi->bispectra[index_bt][X][Y][Z][index_l1_l2_l3]*equilateral_normalisation);
-  //           // }
   //         }
   //       } // end of for(index_l3)
   //     } // end of for(index_l2)
@@ -1014,9 +1031,9 @@ int bispectra_indices (
         
         class_alloc (pbi->bispectra[index_bt][X][Y], pbi->bf_size*sizeof(double *), pbi->error_message);
         
-        for (int Z = 0; Z < pbi->bf_size; ++Z)
-          class_calloc (pbi->bispectra[index_bt][X][Y][Z], pbi->n_independent_configurations,
-            sizeof(double), pbi->error_message);
+        for (int Z = 0; Z < pbi->bf_size; ++Z) 
+          class_calloc (pbi->bispectra[index_bt][X][Y][Z], pbi->n_independent_configurations, sizeof(double), pbi->error_message);
+
       }
     }
   }
@@ -1269,7 +1286,7 @@ int bispectra_cls (
     if (pbi->include_lensing_effects == _TRUE_) {
 
         /* The lensed C_l's must have been computed up to the maximum required multipole,
-        that is, up to pbi->l_max. This check is made inside 'lensing_cl_at_l' */
+        that is, up to pbi->l_max. This check is made inside lensing_cl_at_l() */
         class_call(lensing_cl_at_l(
                      ple,
                      l,
@@ -1280,11 +1297,17 @@ int bispectra_cls (
         for (int index_lt=0; index_lt < ple->lt_size; ++index_lt)
           pbi->lensed_cls[index_lt][l-2] = cl[index_lt];
         
-        /* Debug - print temperature-lensing potential C_l's */
+        /* Debug - print temperature-lensing potential C_l */
         // double factor = l*(l+1.)/(2*_PI_);
         // fprintf (stderr, "%4d %16g %16g %16g %16g\n",
         //   l, factor*pbi->cls[psp->index_ct_tt][l-2], factor*pbi->lensed_cls[ple->index_lt_tt][l-2],
         //   factor*sqrt(l*(l+1))*pbi->cls[psp->index_ct_tp][l-2], factor*sqrt(l*(l+1))*pbi->lensed_cls[ple->index_lt_tp][l-2]);
+        
+        /* Debug - print polarisation-lensing potential C_l */
+        // double factor = l*(l+1.)/(2*_PI_);
+        // fprintf (stderr, "%4d %16g %16g %16g %16g\n",
+        //   l, factor*pbi->cls[psp->index_ct_ee][l-2], factor*pbi->lensed_cls[ple->index_lt_ee][l-2],
+        //   factor*sqrt(l*(l+1))*pbi->cls[psp->index_ct_ep][l-2], factor*sqrt(l*(l+1))*pbi->lensed_cls[ple->index_lt_ep][l-2]);
         
     }
     
@@ -1294,10 +1317,10 @@ int bispectra_cls (
     if ((pbi->has_cmb_lensing == _TRUE_)
     || (pbi->has_cmb_lensing_squeezed == _TRUE_)
     || (pbi->has_cmb_lensing_kernel == _TRUE_)) {
-      
+
       pbi->lmax_lensing_corrT = 300;
       pbi->lmax_lensing_corrE = 300;
-      
+
       if ((l > pbi->lmax_lensing_corrT) && (pbi->has_bispectra_t == _TRUE_))
         pbi->cls[psp->index_ct_tp][l-2] = 0;
 
@@ -1506,8 +1529,9 @@ int bispectra_harmonic (
       pbi->error_message,
       pbi->error_message);
 
-    /* IMPORTANT: No symmetrization is needed, as the primary bispectrum is automatically symmetrised if we feed a
-    primordial bispectrum B(k1,k2,k3) symmetrised in k, as we do. */
+    /* IMPORTANT: No symmetrization is needed, as the primary bispectrum is automatically
+    symmetrised if we feed a primordial bispectrum B(k1,k2,k3) symmetrised in k, as we do.
+    For the second-order bispectrum, we will need to perform the symmetrisation manually. */
 
   }
 
@@ -1639,10 +1663,10 @@ int bispectra_harmonic (
  * Three types of files will be created:
  *
  * - A text file with the bispectra configurations for l1=l1_out, tabulated
- *   as a function of l2 and l3, named bispectra_LXXX_1D.txt.
+ *   as a function of l2 and l3, named bispectra_1D_LXXX.txt.
  *
  * - A larger text file with the bispectra configurations for l1=l1_out and
- *   l2=l2_out, tabulated as a function of l3, named bispectra_LXXX_2D.txt.
+ *   l2=l2_out, tabulated as a function of l3, named bispectra_2D_LXXX.txt.
  *
  * - A binary file with all bispectra configurations for all bispectra types,
  *   named bispectra.dat.
@@ -1666,34 +1690,34 @@ int bispectra_output (
   // =                                     1D output                                    =
   // ====================================================================================
   
-  /* Open output files for the desired l-values */
-
-  for (int index_l_out=0; index_l_out < ppr->l_out_size; ++index_l_out) {
-
-    FILE * file_1D = ppr->l_out_files_1D[index_l_out];
-
-    class_open(file_1D,
-      ppr->l_out_paths_1D[index_l_out],
-      "w",
-      pbi->error_message);
-
-    /* Prepend a warning if the user asked for l1_out < l2_out */
-    if (ppr->l_out_was_swapped[index_l_out] == _TRUE_)
-      fprintf (file_1D, ppr->l_out_swap_message);
-
-
-
-
-    /* Close the file */
-    fclose (file_1D);
-
-  } // for l_out
+  // /* Open output files for the desired l-values */
+  //
+  // for (int index_l_out=0; index_l_out < ppr->l_out_size; ++index_l_out) {
+  //
+  //   FILE * file_1D = ppr->l_out_files_1D[index_l_out];
+  //
+  //   class_open(file_1D,
+  //     ppr->l_out_paths_1D[index_l_out],
+  //     "w",
+  //     pbi->error_message);
+  //
+  //
+  //
+  //
+  //
+  //   /* Close the file */
+  //   fclose (file_1D);
+  //
+  // } // for l_out
   
   
 
   // ====================================================================================
   // =                                     2D output                                    =
   // ====================================================================================
+
+  /* The 2D output consists in a text file with the bispectrum tabulated as a function
+  of (l2,l3) for a given l1. We generate one file for each probe (TTT, EEE, TTE...). */
 
   for (int index_l_out=0; index_l_out < ppr->l_out_size; ++index_l_out) {
 
@@ -1703,27 +1727,209 @@ int bispectra_output (
 
         for (int Z = 0; Z < pbi->bf_size; ++Z) {
 
-          int index_probe = X*pbi->bf_size*pbi->bf_size + Y*pbi->bf_size + Z;
+          /* Multipole value and index of this output file */
+          int l1 = ppr->l1_out[index_l_out];
+          int index_l1 = ppr->index_l1_out[index_l_out];
 
           /* Build filename as bispectra_LXXX_YYY.txt, eg. bispectra_L001_tte.txt */ 
-          char * filename = ppr->l_out_paths_2D[index_l_out][index_probe];
-          sprintf (filename, "%s/bispectra_L%03d_%s.txt", filename, index_l_out, pbi->bfff_labels[X][Y][Z]);
+          int index_probe = X*pbi->bf_size*pbi->bf_size + Y*pbi->bf_size + Z;
+          sprintf (ppr->l_out_paths_1D[index_l_out][index_probe], "%s/bispectra_1D_L%03d_%s.txt",
+            ppr->l_out_paths_1D[index_l_out][index_probe], index_l_out, pbi->bfff_labels[X][Y][Z]);
+          sprintf (ppr->l_out_paths_2D[index_l_out][index_probe], "%s/bispectra_2D_L%03d_%s.txt",
+            ppr->l_out_paths_2D[index_l_out][index_probe], index_l_out, pbi->bfff_labels[X][Y][Z]);
 
-          /* Open file */
+          /* Open files */
+          FILE * file_1D = ppr->l_out_files_1D[index_l_out][index_probe];
           FILE * file_2D = ppr->l_out_files_2D[index_l_out][index_probe];
-          class_open(file_2D, filename, "w", pbi->error_message);
+          class_open(file_1D, ppr->l_out_paths_1D[index_l_out][index_probe], "w", pbi->error_message);
+          class_open(file_2D, ppr->l_out_paths_2D[index_l_out][index_probe], "w", pbi->error_message);
+          
 
-          /* Prepend a warning if the user asked for l1_out < l2_out */
-          if (ppr->l_out_was_swapped[index_l_out] == _TRUE_)
-            fprintf (file_2D, ppr->l_out_swap_message);
+          // -------------------------------------------------------------------------------
+          // -                               Print information                             -
+          // -------------------------------------------------------------------------------
+          
+          char line[1024];
+          
+          /* Write the information header of the 1D and 2D files */
+          sprintf (line, "CMB reduced bispectra b_l1_l2_l3 tabulated as a function of l3 and bispectrum type for a fixed (l1,l2) pair.");
+          fprintf (file_1D, "%s%s\n", _COMMENT_, line);
+          sprintf (line, "CMB reduced bispectra b_l1_l2_l3 tabulated as a function of (l2,l3) and bispectrum type for a fixed l1 value.");
+          fprintf (file_2D, "%s%s\n", _COMMENT_, line);
+          sprintf (line, "This file was generated by SONG %s (%s) on %s.", _SONG_VERSION_, _SONG_URL_, ppr->date);
+          fprintf_twoway (1, file_1D, 0, file_2D, 0, "%s%s\n", _COMMENT_, line);
+          fprintf_twoway (1, file_1D, 0, file_2D, 0, "%s\n", _COMMENT_);
+          fprintf_twoway (1, file_1D, 0, file_2D, 0, "%s", pba->info);
+          fprintf_twoway (1, file_1D, 0, file_2D, 0, "%s\n", _COMMENT_);
+          fprintf (file_1D, "%sInformation on the output (l1,l2):\n", _COMMENT_);
+          fprintf (file_1D, "%sl1 = %d, index_l1 = %d/%d\n", _COMMENT_, l1, index_l1, pbi->l_size-1);
+          fprintf (file_2D, "%sInformation on the output l1:\n", _COMMENT_);
+          fprintf (file_2D, "%sl1 = %d, index_l1 = %d/%d\n", _COMMENT_, l1, index_l1, pbi->l_size-1);
+
+          /* For the 2D file, we shall print a row for each (l2,l3) configuration; for the
+          1D file, a row for each l3 configuration */
+
+          int n_rows_1D = 0;
+          int n_rows_2D = 0;
+
+          for (int index_l2=0; index_l2 < pbi->l_size; ++index_l2) {
+
+            int l2 = pbi->l[index_l2];
+            int index_l3_min = pbi->index_l_triangular_min[index_l1][index_l2];
+            int index_l3_max = pbi->index_l_triangular_max[index_l1][index_l2];
+            int l3_size = index_l3_max - index_l3_min + 1;
+
+            for (int index_l3=index_l3_min; index_l3 <= index_l3_max; ++index_l3) {
+
+              int l3 = pbi->l[index_l3];
+
+              // -------------------------------------------------------------------------------
+              // -                              Extract bispectra                              -
+              // -------------------------------------------------------------------------------
+              
+              /* We are going to print all (l2,l3) configurations even though we computed the
+              bispectrum only for l1>=l2>=l3. We obtain the values outside that range using
+              the symmetry of the bispectrum with respect to permutations of (l1,l2,l3). This
+              approach won't work for any squeezed-limit approximations, such as the i_squeezed
+              and l_squeezed bispectra, because they are asymmetric by construction. For these
+              bispectra, we set the output to zero outside the l1>=l2>=l3 regime. */
+
+              double bispectrum[pbi->bt_size];
+  
+              /* Find the ordering of (l1,l2,l3) */
+              int index_l[4] = {0, index_l1, index_l2, index_l3};
+              int order[4];
+
+              class_call (ordering_int (index_l, order, pbi->error_message),
+                pbi->error_message, pbi->error_message);
+
+              int index_smallest = index_l[order[1]];
+              int index_mid = index_l[order[2]];
+              int index_largest = index_l[order[3]];
+
+              /* Index of the current (l1,l2,l3) configuration */
+              int index_max_for_smallest = MIN (index_mid, pbi->index_l_triangular_max[index_largest][index_mid]);
+              long int index_l1_l2_l3 = pbi->index_l1_l2_l3[index_largest][index_largest-index_mid][index_max_for_smallest-index_smallest];
+
+              /* Extract the bispectrum in (l1,l2,l3), using the fact that a permutation of
+              (l1,l2,l3) is cancelled by the same permutation of (X,Y,Z). For example:
+              b^TTE(l1,l2,l3) = b^TET(l1,l3,l2). */
+
+              int XYZ[4] = {0, X, Y, Z};
+
+              for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt) {
+                
+                 bispectrum[index_bt] = pbi->bispectra[index_bt][XYZ[order[3]]][XYZ[order[2]]][XYZ[order[1]]][index_l1_l2_l3];
+                
+                /* Non-symmetric bispectra are well defined only for l1>=l2>=l3, see comment above */ 
+                if (((((pbi->has_intrinsic_squeezed == _TRUE_) && (index_bt == pbi->index_bt_intrinsic_squeezed)))
+                   ||((pbi->has_local_squeezed == _TRUE_) && (index_bt == pbi->index_bt_local_squeezed))
+                   ||((pbi->has_cmb_lensing_squeezed == _TRUE_) && (index_bt == pbi->index_bt_cmb_lensing_squeezed)))
+                   && ((l3>l2) || (l3>l1) || (l2>l1)))
+                    bispectrum[index_bt] = 0;
+              }
+              
+
+              // -------------------------------------------------------------------------------
+              // -                                   Build row                                 -
+              // -------------------------------------------------------------------------------
+
+              /* Arrays containing all the information on the columns to be printed, labels included */
+              char label[_MAX_NUM_COLUMNS_][_MAX_LENGTH_LABEL_];
+              double value[_MAX_NUM_COLUMNS_];
+              short condition[_MAX_NUM_COLUMNS_];
+  
+              /* Initialise column arrays */
+              for (int i=0; i < _MAX_NUM_COLUMNS_; ++i)
+                condition[i] = _TRUE_;
+
+              /* Shortcut for file verbosity */
+              int v = 1;
+  
+              /* Initialise column counter  */
+              int i = -1;
+
+              /* Multipole l2 (won't be printed on the 1D file) */
+              strcpy (label[++i], "l2");
+              value[i] = pbi->l[index_l2];
+              
+              /* Multipole l3 */
+              strcpy (label[++i], "l3");
+              value[i] = pbi->l[index_l3];
+              
+              for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt) {
+                sprintf (label[++i], "b_%s", pbi->bt_labels[index_bt]);
+                value[i] = bispectrum[index_bt];
+              }
+              
+
+              // -------------------------------------------------------------------------------
+              // -                             Print row to 2D file                             -
+              // -------------------------------------------------------------------------------
+
+              /* Maximum number of columns that will be written */
+              int n_max_columns = i+1;  
+              class_test (n_max_columns > _MAX_NUM_COLUMNS_,
+                pbi->error_message,
+                "too many columns; raise _MAX_NUM_COLUMNS_ to at least %d",
+                _MAX_NUM_COLUMNS_);
+
+              /* Choose how label & values should be formatted */
+              char format_label[64] = "%18s(%02d) ";
+              char format_value[64] = "%22.11g ";
+
+              /* Write row with labels */
+              int n_columns_2D = 1;
+              if (n_rows_2D++ == 0) {
+                for (int i=0; i < n_max_columns; ++i)
+                  if (condition[i])
+                    fprintf (file_2D, format_label, label[i], n_columns_2D++);
+                fprintf (file_2D, "\n");
+              }
+
+              /* Write row with data to file */
+              for (int i=0; i < n_max_columns; ++i)
+                if (condition[i])
+                  fprintf (file_2D, format_value, value[i]);
+              fprintf (file_2D, "\n");
+
+
+              // -------------------------------------------------------------------------------
+              // -                             Print row to 1D file                             -
+              // -------------------------------------------------------------------------------
+
+              if (index_l2 == ppr->index_l2_out[index_l_out]) {
+
+                /* Write row with labels and append information on l2 to the header */
+                int n_columns_1D = 1;
+                if (n_rows_1D++ == 0) {
+                  fprintf (file_1D, "%sl2 = %d, index_l2 = %d/%d\n", _COMMENT_, l2, index_l2, pbi->l_size-1);
+                  fprintf (file_1D, "%sl3 spans %d values from %d to %d\n", _COMMENT_, l3_size, pbi->l[index_l3_min], pbi->l[index_l3_max]);
+                  for (int i=1; i < n_max_columns; ++i) /* skip the first (l2) column */
+                    if (condition[i])
+                      fprintf (file_1D, format_label, label[i], n_columns_1D++);
+                  fprintf (file_1D, "\n");
+                }
+
+                /* Write row with data to file */
+                for (int i=1; i < n_max_columns; ++i)  /* skip the first (l2) column */
+                  if (condition[i])
+                    fprintf (file_1D, format_value, value[i]);
+                fprintf (file_1D, "\n");
+                  
+              }
+
+              
+            } // for l3
+          } // for l2
 
 
           /* Close the file */
           fclose (file_2D);
 
-        }
-      }
-    }
+        } // Z
+      } // Y
+    } // X
 
   } // for l_out
   
@@ -1760,13 +1966,12 @@ int bispectra_output (
       pbi->error_message);
 
   
-  
     // ---------------------------------------------------------------------------
     // -                            Print information                            -
     // ---------------------------------------------------------------------------
 
     /* Add information to the file header */
-    binary_sprintf (file, "Table of the CMB reduced bispectra b_l1_l2_l3 tabulated as a function of (l1,l2,l3) and bispectrum type.");
+    binary_sprintf (file, "CMB reduced bispectra b_l1_l2_l3 tabulated as a function of (l1,l2,l3) and bispectrum type.");
     binary_sprintf (file, "This binary file was generated by SONG (%s) on %s.", _SONG_URL_, ppr->date);
     binary_sprintf (file, "");
     sprintf (file->header, "%s%s", file->header, pba->info);
@@ -1828,7 +2033,8 @@ int bispectra_output (
     int index_l3_block = file->n_blocks;
   
     for (int index_l1=0; index_l1 < pbi->l_size; ++index_l1)
-      for (int index_l2=0; index_l2 <= index_l1; ++index_l2)
+      for (int index_l2=0; index_l2 <= index_l1; ++index_l2) {
+                
         class_call (binary_add_block (
                       file,
                       pbi->l3[index_l1][index_l2],
@@ -1840,6 +2046,7 @@ int bispectra_output (
                       index_l3_block),
           file->error_message,
           pbi->error_message);
+    }
 
     sprintf (desc, "number of (l1,l2,l3) configurations in each bispectrum (=%d)", pbi->n_independent_configurations);
     sprintf (name, "pbi->n_independent_configurations");
@@ -1970,8 +2177,8 @@ int bispectra_output (
     for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt) {
 
       sprintf (desc, "%s CMB bispectrum for all values of (l1,l2,l3) and for all fields (X,Y,Z)", pbi->bt_labels[index_bt]);
-      sprintf (name, "pbi->bispectra[X][Y][Z][index_bt=%d]", index_bt);
-      int index_bispectrum = file->n_blocks;
+      sprintf (name, "pbi->bispectra[index_bt=%d]", index_bt);
+      int index_bispectrum = file->n_blocks;      
 
       for (int X = 0; X < pbi->bf_size; ++X) {
         for (int Y = 0; Y < pbi->bf_size; ++Y) {
@@ -1979,7 +2186,7 @@ int bispectra_output (
 
             class_call (binary_add_block (
                           file,
-                          pbi->bispectra[X][Y][Z][index_bt],
+                          pbi->bispectra[index_bt][X][Y][Z],
                           pbi->n_independent_configurations,
                           sizeof (double),
                           desc,
@@ -1999,20 +2206,20 @@ int bispectra_output (
     // -                              Write to file                              -
     // ---------------------------------------------------------------------------
 
-    class_call (binary_write (
-                  file),
-      file->error_message,
-      pbi->error_message);
+    // class_call (binary_write (
+    //               file),
+    //   file->error_message,
+    //   pbi->error_message);
 
 
     // ---------------------------------------------------------------------------
     // -                                Clean up                                 -
     // ---------------------------------------------------------------------------
 
-    class_call (binary_free (
-                  file),
-      file->error_message,
-      pbi->error_message);
+    // class_call (binary_free (
+    //               file),
+    //   file->error_message,
+    //   pbi->error_message);
       
   } // if output_binary_bispectra
 
@@ -5001,6 +5208,7 @@ int bispectra_cmb_lensing_bispectrum (
     }
     
   } // end of temperature only
+
   
   // -------------------------------------------------------------------------------
   // -                         Determine field coefficients                        -
@@ -5018,12 +5226,6 @@ int bispectra_cmb_lensing_bispectrum (
     if (X2 == pbi->index_bf_t) S_X2 = 2;
     if (X3 == pbi->index_bf_t) S_X3 = 2;
   }
-  /* TODO: rayleigh-phi correlation not implemented yet */
-  // if (pbi->has_bispectra_r == _TRUE_) {
-  //   if (X1 == pbi->index_bf_r) S_X1 = 2;
-  //   if (X2 == pbi->index_bf_r) S_X2 = 2;
-  //   if (X3 == pbi->index_bf_r) S_X3 = 2;
-  // }
   if (pbi->has_bispectra_e == _TRUE_) {
     if (X1 == pbi->index_bf_e) S_X1 = (L%2==0)?2:0;
     if (X2 == pbi->index_bf_e) S_X2 = (L%2==0)?2:0;
@@ -5041,9 +5243,9 @@ int bispectra_cmb_lensing_bispectrum (
     "CMB-lensing bispectrum for B-modes not implemented yet.");
   
 
-  // ----------------------------------------------------------------------------------
-  // -                               Obtain the C_l's                                 -
-  // ----------------------------------------------------------------------------------
+  // -------------------------------------------------------------------------------
+  // -                              Obtain the C_l                                 -
+  // -------------------------------------------------------------------------------
   
   /* Get the C_l's involving the lensing potential \phi. When implementing the B-modes, remember
   to set them to zero. */
@@ -5069,9 +5271,10 @@ int bispectra_cmb_lensing_bispectrum (
     C_l1_X3_X1 = pbi->lensed_cls[pbi->index_lt_of_bf_bf[ X3 ][ X1 ]][l1-2];
   }
   
-  // ----------------------------------------------------------------------------------
-  // -                               Get the right 3j's                               -
-  // ----------------------------------------------------------------------------------
+  
+  // -------------------------------------------------------------------------------
+  // -                              Get the right 3j                               -
+  // -------------------------------------------------------------------------------
     
   /* Spin of the fields */
   int F_X1 = pbi->field_spin[X1];
@@ -5123,9 +5326,10 @@ int bispectra_cmb_lensing_bispectrum (
   double F_l3_l1_l2_X3 = 0.25 * ( l1*(l1+1) + l2*(l2+1) - l3*(l3+1) ) * S_X3 * threej_l3_l1_l2_FX3_0_mFX3; /* 3-1-2 */
   double F_l3_l2_l1_X3 = 0.25 * ( l2*(l2+1) + l1*(l1+1) - l3*(l3+1) ) * S_X3 * threej_l3_l2_l1_FX3_0_mFX3; /* 3-2-1 */
   
-  // ---------------------------------------------------------------------------------------
-  // -                                  Bispectrum formula                                 -
-  // ---------------------------------------------------------------------------------------
+  
+  // -------------------------------------------------------------------------------
+  // -                              Bispectrum formula                             -
+  // -------------------------------------------------------------------------------
   
   /* CMB-lensing bispectrum formula, from Eq. 4.5 of Lewis, Challinor & Hanson 2011. */
   *result = 
@@ -5239,6 +5443,7 @@ int bispectra_cmb_lensing_squeezed_kernel (
     
   } // end of temperature only
   
+  
   // -------------------------------------------------------------------------------
   // -                         Determine field coefficients                        -
   // -------------------------------------------------------------------------------
@@ -5254,11 +5459,6 @@ int bispectra_cmb_lensing_squeezed_kernel (
     if (X1 == pbi->index_bf_t) S_X1 = 2;
     if (X2 == pbi->index_bf_t) S_X2 = 2;
   }
-  /* TODO: rayleigh-phi correlation not implemented yet */
-  // if (pbi->has_bispectra_r == _TRUE_) {
-  //   if (X1 == pbi->index_bf_r) S_X1 = 2;
-  //   if (X2 == pbi->index_bf_r) S_X2 = 2;
-  // }
   if (pbi->has_bispectra_e == _TRUE_) {
     if (X1 == pbi->index_bf_e) S_X1 = (L%2==0)?2:0;
     if (X2 == pbi->index_bf_e) S_X2 = (L%2==0)?2:0;
@@ -5273,9 +5473,9 @@ int bispectra_cmb_lensing_squeezed_kernel (
     pbi->error_message,
     "CMB-lensing squeezed bispectrum for B-modes not implemented yet.");
   
-  // ----------------------------------------------------------------------------------
-  // -                               Obtain the C_l's                                 -
-  // ----------------------------------------------------------------------------------
+  // -------------------------------------------------------------------------------
+  // -                              Obtain the C_l                                 -
+  // -------------------------------------------------------------------------------
   
   /* Get the C_l's involving the fields. By default take unlensed temperature C_l's */
   double C_l2_X1_X2 = pbi->cls[pbi->index_ct_of_bf_bf[ X1 ][ X2 ]][l2-2];
@@ -5287,9 +5487,9 @@ int bispectra_cmb_lensing_squeezed_kernel (
     C_l1_X2_X1 = pbi->lensed_cls[pbi->index_lt_of_bf_bf[ X2 ][ X1 ]][l1-2];
   }
   
-  // ----------------------------------------------------------------------------------
-  // -                               Get the right 3j's                               -
-  // ----------------------------------------------------------------------------------
+  // -------------------------------------------------------------------------------
+  // -                             Get the right 3j                                -
+  // -------------------------------------------------------------------------------
   
   /* Spin of the fields */
   int F_X1 = pbi->field_spin[X1];
@@ -5318,12 +5518,11 @@ int bispectra_cmb_lensing_squeezed_kernel (
   
   /* Kernel of the CMB-lensing bispectrum in the squeezed limit, from Eq. 5.20 of Lewis,
   Challinor & Hanson 2011. This is simply the general formula with C_l1_X1_p=C_l2_X2_p=0 
-  (see bispectra_cmb_lensing_bispectrum) */
+  (see bispectra_cmb_lensing_bispectrum()) */
+  // *result = F_l1_l3_l2_X1
+  //         + F_l2_l3_l1_X2;
   *result = C_l2_X1_X2 * F_l1_l3_l2_X1
           + C_l1_X2_X1 * F_l2_l3_l1_X2;
-                  
-  /* Uncomment to compute the bispectrum rather than the kernel */
-  // *result *= pbi->cls[pbi->index_ct_of_phi_bf[ X3 ]][l3-2];
                   
   /* Check that for <TTT> the bispectrum is equal to the one computed with the simpler formula */
   if ((pbi->has_bispectra_t==_TRUE_) && (X1==pbi->index_bf_t) && (X1==X2) && (X1==X3)) {

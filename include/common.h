@@ -355,6 +355,7 @@ enum file_format {class_format,camb_format};
 
 #define _MAX_NUM_LABELS_ 1000 /**< Maximum number of labels for a give index type. This number is totally arbitrary and will not affect any result. */
 #define _MAX_LENGTH_LABEL_ 64 /**< Maximum length allowed for the label strings (e.g. for the perturbation variables such as 'phi', 'psi') */
+#define _MAX_NUM_COLUMNS_ 1024 /**< Maximum number of columns in output ASCII files */
 #define _MAX_NUM_SPECTRA_ 64 /**< Maximum number of spectra that can be computed */
 #define _MAX_NUM_BISPECTRA_ 32 /**< Maximum number of bispectra types that can be computed */
 #define _MAX_NUM_FIELDS_ 5 /**< Maximum number of fields (T, E, B...) that can be computed */
@@ -1066,12 +1067,14 @@ struct precision
 
   int index_l2_out[_MAX_NUMBER_OF_L_FILES_]; /**< index_l2_out[index_l_output] is the index in pbi->l corresponding to
                                              l2=l2_out[index_l_output]; filled in bispectra.c */
+    
+  /**< Path of the ASCII files that will contain the bispectra as a function
+  of l3 for the desired (l1_out,l2_out) pairs; filled in the input2.c module */
+  char l_out_paths_1D[_MAX_NUMBER_OF_L_FILES_][_MAX_NUM_BISPECTRUM_PROBES_][_FILENAMESIZE_];
 
-  char l_out_paths_1D[_MAX_NUMBER_OF_L_FILES_][_FILENAMESIZE_]; /**< Path of the ASCII files that will contain the bispectra as a function
-                                                             of l3 for the desired (l1_out,l2_out) values; filled in the input2.c module */
-
-  FILE * l_out_files_1D[_MAX_NUMBER_OF_L_FILES_]; /**< ASCII file that will contain the bispectra as a function
-                                                  of l3 at the desired (l1_out,l2_out) values; filled in the input2.c module */
+  /**< ASCII files that will contain the bispectra as a function of l3 for
+  the desired  (l1_out,l2_out) pairs; filled in the input2.c module */
+  FILE * l_out_files_1D[_MAX_NUMBER_OF_L_FILES_][_MAX_NUM_BISPECTRUM_PROBES_]; 
     
   /**< Path of the ASCII files that will contain the bispectra as a function
   of l2 and l3 for the desired l1_out value; filled in the input2.c module */

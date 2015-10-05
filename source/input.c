@@ -3300,17 +3300,14 @@ int input_read_parameters(
   }
 
 
-  /* Build filenames of bispectra output files */
+  /* Prepend output directory to bispectra output files */
 
   for (int index_l_out=0; index_l_out < ppr->l_out_size; ++index_l_out) {
 
-    sprintf (ppr->l_out_paths_1D[index_l_out],
-      "%s/bispectra_L%03d_1D.txt",
-      pop->root,
-      index_l_out);
+    for (int i=0; i < _MAX_NUM_BISPECTRUM_PROBES_; ++i)
+      sprintf (ppr->l_out_paths_1D[index_l_out][i],
+        "%s", pop->root);
 
-    /* Only write the output directory for the 2D files, because here we can't
-    access yet the names of the probes (eg. EEE, TTT, TTE...) */
     for (int i=0; i < _MAX_NUM_BISPECTRUM_PROBES_; ++i)
       sprintf (ppr->l_out_paths_2D[index_l_out][i],
         "%s", pop->root);
@@ -3335,29 +3332,29 @@ int input_read_parameters(
 
     
   
-
-  /* Swap l1 and l2 if the user asked for configurations with l1<l2 */
-
-  for (int index_l_out=0; index_l_out < ppr->l_out_size; ++index_l_out) {
-
-    ppr->l_out_was_swapped[index_l_out] = _FALSE_;
-
-    sprintf (ppr->l_out_swap_message,
-      "NOTE: You asked for a (l1,l2) pair with l1<l2, but SONG only computes configurations with\
- l1>=l2. This file contains the perturbations with l1 and l2 swapped. For the TTT and EEE bispectra,\
- there is no difference as they are symmetric with respect to l1<->l2. For the mixed bispectra (TTE,\
- TET, ETT, EET, ETE, TEE), you need to swap the field as well. For example, b^TEE_l1_l2_l3 = b^ETE_l2_l1_l3.");
-
-    if (ppr->l1_out[index_l_out] < ppr->l2_out[index_l_out]) {
-
-      ppr->l_out_was_swapped[index_l_out] = _TRUE_;
-
-      double swap = ppr->l1_out[index_l_out];
-      ppr->l1_out[index_l_out] = ppr->l2_out[index_l_out];
-      ppr->l2_out[index_l_out] = swap;
-
-    }
-  }
+ /* DISABLED: now we output bispectra for all l */
+ //  /* Swap l1 and l2 if the user asked for configurations with l1<l2 */
+ //
+ //  for (int index_l_out=0; index_l_out < ppr->l_out_size; ++index_l_out) {
+ //
+ //    ppr->l_out_was_swapped[index_l_out] = _FALSE_;
+ //
+ //    sprintf (ppr->l_out_swap_message,
+ //      "NOTE: You asked for a (l1,l2) pair with l1<l2, but SONG only computes configurations with\
+ // l1>=l2. This file contains the perturbations with l1 and l2 swapped. For the TTT and EEE bispectra,\
+ // there is no difference as they are symmetric with respect to l1<->l2. For the mixed bispectra (TTE,\
+ // TET, ETT, EET, ETE, TEE), you need to swap the field as well. For example, b^TEE_l1_l2_l3 = b^ETE_l2_l1_l3.");
+ //
+ //    if (ppr->l1_out[index_l_out] < ppr->l2_out[index_l_out]) {
+ //
+ //      ppr->l_out_was_swapped[index_l_out] = _TRUE_;
+ //
+ //      double swap = ppr->l1_out[index_l_out];
+ //      ppr->l1_out[index_l_out] = ppr->l2_out[index_l_out];
+ //      ppr->l2_out[index_l_out] = swap;
+ //
+ //    }
+ //  }
   
 
   /* Issue a warning if the user gave two indentical (l1_out,l2_out) pairs */

@@ -3248,9 +3248,10 @@ int sign_int (int x) {
 }
 
 /**
- * Given three numbers, return their list that orders them in
- * ascending order. For example, 
- * ordering(3,1,2) = (2,3,1).
+ * Given three numbers, return their list that orders them in ascending order.
+ *
+ * For example, 
+ *   ordering(3,1,2) = (2,3,1).
  * The input array (n) and the output array (ordering) must
  * be pre-allocated with 4 values, as we start counting from 1.
  */
