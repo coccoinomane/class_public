@@ -981,30 +981,30 @@ int transfer_get_l_list(
       ptr->error_message,
       ptr->error_message);
 
-    /* Assign to each output l the corresponding index in ptr->l */
-    for (int i=0; i < 2*ppr->l_out_size; ++i) {
-
-      /* Find index in ptr->l corresponding to the current output k */
-      int index_l = 0;
-      while (ptr->l[index_l] != l_out[i])
-        index_l++;
-
-      class_test (index_l >= ptr->l_size_max,
-        ppr->error_message,
-        "index_l out of bounds: something went wrong while adding l output values");
-
-      /* Store the index in the index_l_out arrays */
-      int index_l_out = (i - i%2)/2;
-
-      if (i%2 == 0)
-        ppr->index_l1_out[index_l_out] = index_l;
-      else if (i%2 == 1)
-        ppr->index_l2_out[index_l_out] = index_l;
-
-      /* Debug - Print the l->l_out correspondence */
-      // printf ("l_out=%g[%d] -> l=%g[%d]\n",
-      //   l_out[i], i, ptr->l[index_l], index_l);
-    }
+    // /* Assign to each output l the corresponding index in ptr->l */
+    // for (int i=0; i < 2*ppr->l_out_size; ++i) {
+    //
+    //   /* Find index in ptr->l corresponding to the current output k */
+    //   int index_l = 0;
+    //   while (ptr->l[index_l] != l_out[i])
+    //     index_l++;
+    //
+    //   class_test (index_l >= ptr->l_size_max,
+    //     ppr->error_message,
+    //     "index_l out of bounds: something went wrong while adding l output values");
+    //
+    //   /* Store the index in the index_l_out arrays */
+    //   int index_l_out = (i - i%2)/2;
+    //
+    //   if (i%2 == 0)
+    //     ppr->index_l1_out[index_l_out] = index_l;
+    //   else if (i%2 == 1)
+    //     ppr->index_l2_out[index_l_out] = index_l;
+    //
+    //   /* Debug - Print the l->l_out correspondence */
+    //   // printf ("l_out=%g[%d] -> l=%g[%d]\n",
+    //   //   l_out[i], i, ptr->l[index_l], index_l);
+    // }
 
     free (l_out);
 
@@ -1069,6 +1069,20 @@ int transfer_get_l_list(
   }
 
 
+  /* Assign to each output l the corresponding index in ptr->l */
+
+  for (int index_l_out=0; index_l_out < ppr->l_out_size; ++index_l_out) {
+
+    ppr->index_l1_out[index_l_out] = ptr->index_l[ppr->l1_out[index_l_out]];
+    ppr->index_l2_out[index_l_out] = ptr->index_l[ppr->l2_out[index_l_out]];
+
+    class_test ((ptr->index_l[ppr->l1_out[index_l_out]] < 0) || (ptr->index_l[ppr->l2_out[index_l_out]] < 0),
+      ptr->error_message,
+      "assignation of index_l1_out or index_l2_out went wrong for index_l_out=%d", index_l_out);
+
+  }
+
+
   /* Print some information on the multipoles to be computed */
   if (ptr->transfer_verbose > 0)
     printf(" -> we shall compute %d %smultipoles ranging from l=%d to %d\n",
@@ -1082,7 +1096,7 @@ int transfer_get_l_list(
     printf ("%d\n", ptr->l[index_l]);
   }
 
-  /* Debug - Print out the l-list */
+  /* Debug - Print out the l-list highlighting the output values */
   // printf ("# ~~~ l-sampling (size=%d) ~~~\n", ptr->l_size_max);
   // for (int index_l=0; index_l < ptr->l_size_max; ++index_l) {
   //   printf ("%17d %17d", index_l, ptr->l[index_l]);

@@ -17,6 +17,7 @@
 
 /** 
  * Compute the 3j symbol
+ *
  * (    l1     l2     l3   )
  * ( -m2-m3    m2     m3   )
  * 
@@ -76,11 +77,15 @@ int threej_single(
 
 /** 
  *  Compute the ratio between the 3j symbols
+ *
  *  (    l1+2*N1     l2+2*N2     l3+2*N3   )
  *  (          0           0           0   )
+ *
  * and
+ *
  *  (    l1     l2     l3   )
  *  (     0      0      0   )  
+ *
  * using the recursive relation in Schulten & Gordon, 1961,
  * http://scitation.aip.org/content/aip/journal/jmp/16/10/10.1063/1.522426?ver=pdfcov.
  *
@@ -201,11 +206,15 @@ int threej_ratio_L (
 
 /** 
  *  Compute the ratio between the 3j symbols
+ *
  *  (    l1+2*N1    l2     l3   )
  *  (     0          0      0   )
+ *
  * and
+ *
  *  (    l1     l2     l3   )
- *  (     0      0      0   )  
+ *  (     0      0      0   )
+ *
  * for all values of 'n' in [0,abs(N)], using the recursive relation in  Schulten & Gordon, 1961
  * http://scitation.aip.org/content/aip/journal/jmp/16/10/10.1063/1.522426?ver=pdfcov.
  *
@@ -257,14 +266,17 @@ int threej_ratio_L_recursive (
 
 /**
  *  Compute the ratio between the 3j symbols
+ *
  *  (    l1+2*N1     l2     l3   )
  *  (     0           0      0   )
+ *
  * and
+ *
  *  (    l1     l2     l3   )
  *  (     0      0      0   )  .
  *
- * This function calls 'threej_ratio_L_recursive' and only outputs the last element of the
- * result array. See comments in 'threej_ratio_L_recursive' for more detail.
+ * This function calls threej_ratio_L_recursive() and only outputs the last element
+ * of the result array. See comments in 'threej_ratio_L_recursive' for more detail.
  *
  */
 int threej_ratio_L1 (
@@ -288,19 +300,23 @@ int threej_ratio_L1 (
 
 /** 
  *  Compute the ratio between the 3j symbols
+*
  *  (    l1     l2     l3   )
  *  (     0      m     -m   )
+ *
  * and
+ *
  *  (    l1     l2     l3   )
  *  (     0      0      0   )  
- * for the values of 'm' in [0,M], using the recursive relation in  Schulten & Gordon, 1961
+ *
+ * for the values of 'm' in [0,M], using the recursive relation in Schulten & Gordon, 1961
  * http://scitation.aip.org/content/aip/journal/jmp/16/10/10.1063/1.522426?ver=pdfcov.
  *
  * The ratio only exists for even values of l1+l2+l3, but the function will return
  * also when this is not true. The returned value can be thought as continuously
  * interpolating the ratio for odd values of l1+l2+l3.
- *  
  */
+
 int threej_ratio_M_recursive (
       int l1, int l2, int l3, int M,     // In
       double *result,                    // Out, should be allocated with M+1 elements
@@ -350,14 +366,16 @@ int threej_ratio_M_recursive (
  *  Compute the ratio between the 3j symbols
  *  (    l1     l2     l3   )
  *  (     0      M     -M   )
+ *
  * and
+ *
  *  (    l1     l2     l3   )
  *  (     0      0      0   ) .
  *
- * This function calls 'threej_ratio_M_recursive' and only outputs the last element of
+ * This function calls threej_ratio_M_recursive and only outputs the last element of
  * the result array. See comments in 'threej_ratio_M_recursive' for more detail.
- *
  */
+
 int threej_ratio_M (
       int l1, int l2, int l3, int M,     // In
       double *result,                    // Out

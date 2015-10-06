@@ -44,8 +44,63 @@
  * If the user specified 'store_bispectra_to_disk=yes', the module will save all the 
  * bispectra but the intrinsic one in pbi->bispectra to disk after computation.
  *
+ *
+ * REDUCED BISPECTRA
+ *
+ * This module computes the REDUCED bispectrum b_l1_l2_l3, that is, the full bispectrum
+ * <a_l1m1 a_l2m2 a_l3m3> divided by the Gaunt symbol. The full bispectrum vanishes
+ * for even values of l1+l2+l3, due to the presence of the 3j symbol (l1,l2,l3)(0,0,0)
+ * in the Gaunt symbol. The reduced bispectrum, on the other hand, can be defined to
+ * be continuous for all l.
+ *
+ * For certain bispectra, the 3j-symbol (l1,l2,l3)(0,0,0) cannot be pulled out
+ * analytically because it does not appear explicitly. This is the case for
+ * the CMB-lensing bispectrum in presence of polarisation and for the non-scalar
+ * (m != 0) intrinsic bispectrum. In these cases, the reduced bispectrum can be
+ * obtained by explicitly dividing the full bispectrum by 3J(l1,l2,l3)(0,0,0).
+ * The result will be then undefined for odd values of l1+l2+l3, where the 3J
+ * vanishes. However, this is not much of an issue because these configurations
+ * are not physical. For example, in the Fisher matrix only the even l1+l2+l3
+ * are considered.
+ * 
+ * The explicit approach is problematic for another reason. It highlights one of
+ * SONG's own limitations: the three multipoles (l1,l2,l3) are drawn from the same
+ * 1D grid. Including an odd value of l1 means that we will have plenty of
+ * combinations of (l1,l2,l3) with odd l1+l2+l3, where the 3J symbol
+ * in the denominator is not defined.
+ *
+ * To circumvent this issue, an option is to have an l-grid where all the l are
+ * even. This is not completely satisfactory because half of the configurations
+ * (those with even l1+l2+l3 but two odd components, like 2,3,3 or 2,3,7) will be
+ * skipped, even if they are perfectly valid. These gaps in the (l1,l2,l3)
+ * sampling make the interpolation of the bispectrum harder.
+ *
+ * A better option is to use the recursive relation in Schulten & Gordon, 1961
+ * to express the ratio of 3J as a sum of analytic functions. In this way,
+ * we are able to pull out the 3J symbol from the full bispectrum even for
+ * configurations with odd l1+l2+l3. This allows us to use an arbitrary 
+ * (l1,l2,l3) grid and to avoid gaps in the bispectrum, thus allowing for
+ * easier interpolation.
+ * 
+ * As of now, SONG implements the recursive relation for the analytical
+ * bispectra such as the CMB-lensing bispectrum and the quadratic bispectrum.
+ * It is not used yet to compute the intrinsic bispectrum, for which the
+ * relation needs to be adjusted. This means that if you want the non-scalar
+ * contributions to the intrinsic bispectrum, SONG will automatically switch
+ * to an all-even l-grid.
+ *
+ * NOTE: for odd parity bispectra such as those involving odd combinations
+ * of B-modes, there is no obvious definition for the reduced bispectrum. 
+ * Since SONG does not compute odd parity bispectra, it is not an issue (yet).
+ * See last of paragraph of Sec. 4 of Lewis, Challinor & Hanson 2011
+ * (http://arxiv.org/abs/1101.2234) for more detail.
+ * 
+ * TODO: Implement an independent l3 array, so that we can tune it to have
+ * only the even l1+l2+l3 configurations without sacrificing the (2,3,3)
+ * configurations.
+ *
  * Created by Guido W. Pettinari on 19.07.2012.
- * Last modified by Guido W. Pettinari on 02.06.2015
+ * Last modified by Guido W. Pettinari on 06.10.2015
  */
 
 #include "bispectra.h"
@@ -1212,9 +1267,9 @@ int bispectra_cls (
     )
 {
 
-  // ==============================================================================================
-  // =                                          Allocate arrays                                   =
-  // ==============================================================================================
+  // ====================================================================================
+  // =                                    Allocate arrays                               =
+  // ====================================================================================
 
   /* Allocate the array that will contain the C_l's for all types and all l's. */
   class_alloc (pbi->cls, psp->ct_size*sizeof(double*), pbi->error_message);
@@ -1248,6 +1303,7 @@ int bispectra_cls (
   (adiabatic, isocurvature...). We have to allocate these three arrays before being
   able to call 'spectra_cl_at_l'. We do so copying what is done in the function
   'output_total_cl_at_l' in the output module */
+
   double * cl;        /* cl_md_ic[index_ct] */
   double ** cl_md;    /* cl_md[index_mode][index_ct] */
   double ** cl_md_ic; /* cl_md_ic[index_mode][index_ic1_ic2*psp->ct_size+index_ct] */
@@ -1261,9 +1317,9 @@ int bispectra_cls (
       class_alloc(cl_md_ic[index_mode], psp->ic_ic_size[index_mode]*psp->ct_size*sizeof(double), pbi->error_message);
   }
   
-  // ==========================================================================================================
-  // =                                                Store C_l's                                             =
-  // ==========================================================================================================
+  // ====================================================================================
+  // =                                     Store C_l                                    =
+  // ====================================================================================
 
   for (int l=2; l<=pbi->l_max; ++l) {
     
@@ -1276,13 +1332,14 @@ int bispectra_cls (
       psp->error_message,
       pbi->error_message);
       
-    /* Store the total Cl's into an array as a function of l and probe. By 'total' we mean the power
-    spectrum summed over all the modes and initial conditions */
+    /* Store the total Cl's into an array as a function of l and probe. By 'total' we mean
+    the power spectrum summed over all the modes and initial conditions */
     for (int index_ct=0; index_ct < psp->ct_size; ++index_ct)
       pbi->cls[index_ct][l-2] = cl[index_ct];
     
 
-    /* Store the lensed C_l's */
+    /* Store the lensed C_l. Note that for the lensing potential C_l we shall always use
+    the unlensed array pbi->cls. */
     if (pbi->include_lensing_effects == _TRUE_) {
 
         /* The lensed C_l's must have been computed up to the maximum required multipole,
@@ -1303,17 +1360,12 @@ int bispectra_cls (
         //   l, factor*pbi->cls[psp->index_ct_tt][l-2], factor*pbi->lensed_cls[ple->index_lt_tt][l-2],
         //   factor*sqrt(l*(l+1))*pbi->cls[psp->index_ct_tp][l-2], factor*sqrt(l*(l+1))*pbi->lensed_cls[ple->index_lt_tp][l-2]);
         
-        /* Debug - print polarisation-lensing potential C_l */
-        // double factor = l*(l+1.)/(2*_PI_);
-        // fprintf (stderr, "%4d %16g %16g %16g %16g\n",
-        //   l, factor*pbi->cls[psp->index_ct_ee][l-2], factor*pbi->lensed_cls[ple->index_lt_ee][l-2],
-        //   factor*sqrt(l*(l+1))*pbi->cls[psp->index_ct_ep][l-2], factor*sqrt(l*(l+1))*pbi->lensed_cls[ple->index_lt_ep][l-2]);
-        
     }
     
-    /* Uncomment to turn the CMB-lensing C_l to zero on small scales, where we cannot trust them.
-    This won't change the result because these C_l's are very small for large l's. In CAMB, Antony
-    sets C_l^TP=0 for l>300 and C_l^EP=0 for l>40. */
+    /* Uncomment to turn the CMB-lensing C_l to zero on small scales, where we cannot
+    trust them. This won't change the result because these C_l are very small for large
+    l, but it will considerably speed up the lensing variance computations in the Fisher
+    module. In CAMB, Antony sets C_l^TP=0 for l>300 and C_l^EP=0 for l>40. */
     if ((pbi->has_cmb_lensing == _TRUE_)
     || (pbi->has_cmb_lensing_squeezed == _TRUE_)
     || (pbi->has_cmb_lensing_kernel == _TRUE_)) {
@@ -1685,31 +1737,6 @@ int bispectra_output (
     struct bispectra * pbi
     )
 {
-  
-  // ====================================================================================
-  // =                                     1D output                                    =
-  // ====================================================================================
-  
-  // /* Open output files for the desired l-values */
-  //
-  // for (int index_l_out=0; index_l_out < ppr->l_out_size; ++index_l_out) {
-  //
-  //   FILE * file_1D = ppr->l_out_files_1D[index_l_out];
-  //
-  //   class_open(file_1D,
-  //     ppr->l_out_paths_1D[index_l_out],
-  //     "w",
-  //     pbi->error_message);
-  //
-  //
-  //
-  //
-  //
-  //   /* Close the file */
-  //   fclose (file_1D);
-  //
-  // } // for l_out
-  
   
 
   // ====================================================================================
@@ -3367,7 +3394,16 @@ int bispectra_analytical_init (
       int index_l3_min = pbi->index_l_triangular_min[index_l1][index_l2];
       int index_l3_max = MIN (index_l2, pbi->index_l_triangular_max[index_l1][index_l2]);
 
-      /* Uncomment test the accuracy of threej_ratio_M_recursive */        
+      /* The reduced bispectrum is defined as the angular averaged bispectrum divided
+      by 3J(l1,l2,l3)(0,0,0). In some cases, it is possible to perform this ratio 
+      analytically, and obtain a reduced bispectrum that is defined also for odd
+      values if l1+l2+l3. When polarisation is involved, the ratio cannot always be
+      performed analytically in an obvious way, eg. for the cmb lensing bispectrum.
+      Doing it numerically would imply throwing away all odd configurations of
+      l1+l2+l3. Rather, we use the recursive relation in threej_ratio_M_recursive()
+      to express the ratio of 3J as a sum of analytic functions. Here we test that
+      the result does not change whether we use the recursive relation or the 
+      numerical ratio between 3J symbols. */        
       // int M=4;
       // double threej_num[2*pbi->l_max+1], threej_den[2*pbi->l_max+1];
       // int l3_min_num, l3_min_den;
@@ -3380,7 +3416,7 @@ int bispectra_analytical_init (
       //                        pbi->error_message),
       //   pbi->error_message,
       //   pbi->error_message);
-      // l3_min_num = (int)(min_D + _EPS_);          
+      // l3_min_num = (int)(min_D + _EPS_);
       // class_call_parallel (drc3jj (
       //                        MAX(l1,M), MAX(l2,M), 0, 0,
       //                        &min_D, &max_D,
@@ -3389,8 +3425,8 @@ int bispectra_analytical_init (
       //                        pbi->error_message),
       //   pbi->error_message,
       //   pbi->error_message);
-      // l3_min_den = (int)(min_D + _EPS_);          
-      // 
+      // l3_min_den = (int)(min_D + _EPS_);
+      //
       // for (int index_l3=index_l3_min; index_l3<=index_l3_max; ++index_l3) {
       //   int l3 = pbi->l[index_l3];
       //   if ((l1+l2+l3)%2==0) {
@@ -3398,13 +3434,13 @@ int bispectra_analytical_init (
       //     double * ratio = malloc(sizeof(double)*(M+1));
       //     class_call_parallel (threej_ratio_M_recursive(l1, l2, l3, M, ratio, pbi->error_message),
       //       pbi->error_message, pbi->error_message);
-      //     double res_1 = threej_num[l3-l3_min_num]/threej_den[l3-l3_min_den];
-      //     double res_2 = ratio[M];
-      //     double frac = 1-res_1/res_2;
+      //     double result_1 = threej_num[l3-l3_min_num]/threej_den[l3-l3_min_den];
+      //     double result_2 = ratio[M];
+      //     double frac = 1-result_1/result_2;
       //     class_test_parallel (fabs(frac) > _SMALL_,
       //       pbi->error_message,
       //       "(%3d,%3d,%3d,M=%d), res_1=%14.6g, res_2=%14.6g, diff=%14.6g\n",
-      //       l1, l2, l3, M, res_1, res_2, frac);
+      //       l1, l2, l3, M, result_1, result_2, frac);
       //   }
       // }
           
@@ -5134,14 +5170,16 @@ int bispectra_orthogonal_model (
 
 
 /*
- * Implement the formula for the CMB lensing bispectrum including polarisation, in Eq. 4.5 of
- * Lewis, Challinor & Hanson 2011 (http://uk.arxiv.org/abs/1101.2234). With respect to that
- * formula, in SONG we have i->X1, j->X2, k->X3, and l1<->l3. We have not included the imaginary
- * term in square brackets which is only needed when including B-mode polarisation (not
- * supported yet, TODO).
+ * Compute the CMB lensing bispectrum including polarisation.
  *
- * This formula is non-perturbative (in the sense of Sec. 3.2, ibidem) and is valid for all
- * (l1,l2,l3) configurations, including non-squeezed ones.
+ * We implement the formula in Eq. 4.5 of Lewis, Challinor & Hanson 2011
+ * (http://uk.arxiv.org/abs/1101.2234). This formula is non-perturbative
+ * in the sense of Sec. 3.2 (ibidem) and is valid for all (l1,l2,l3)
+ * configurations, including non-squeezed ones.
+ *
+ * With respect to eq. 4.5, in SONG we have i->X1, j->X2, k->X3, and l1<->l3.
+ * We have not included the imaginary term in square brackets which is only
+ * needed when including B-mode polarisation (not supported yet, TODO).
  */
 
 int bispectra_cmb_lensing_bispectrum (
@@ -5211,31 +5249,38 @@ int bispectra_cmb_lensing_bispectrum (
 
   
   // -------------------------------------------------------------------------------
-  // -                         Determine field coefficients                        -
+  // -                        Determine field coefficients                         -
   // -------------------------------------------------------------------------------
   
-  /* Set the amplitude of the geometrical factor in Eq. 4.4 of Lewis et al. 2011. This is either
-  2 (if the two 3j-symbols add up) or 0 (if they cancel). Whether they add up or cancel depends
-  on the parity of the considered field (even for T and E and odd for B). */
-  
-  double S_X1=0, S_X2=0, S_X3=0;
-  int L = l3-l1-l2;
-  
-  if (pbi->has_bispectra_t == _TRUE_) {
-    if (X1 == pbi->index_bf_t) S_X1 = 2;
-    if (X2 == pbi->index_bf_t) S_X2 = 2;
-    if (X3 == pbi->index_bf_t) S_X3 = 2;
-  }
-  if (pbi->has_bispectra_e == _TRUE_) {
-    if (X1 == pbi->index_bf_e) S_X1 = (L%2==0)?2:0;
-    if (X2 == pbi->index_bf_e) S_X2 = (L%2==0)?2:0;
-    if (X3 == pbi->index_bf_e) S_X3 = (L%2==0)?2:0;
-  }
-  if (pbi->has_bispectra_b == _TRUE_) { /* Note that <TB> vanishes, hence the negative values */
-    if (X1 == pbi->index_bf_b) S_X1 = (L%2!=0)?2:0;
-    if (X2 == pbi->index_bf_b) S_X2 = (L%2!=0)?2:0;
-    if (X3 == pbi->index_bf_b) S_X3 = (L%2!=0)?2:0;
-  }
+  /* Set the amplitude of the geometrical factor in Eq. 4.4 of Lewis et al. 2011.
+  This is either 2 (if the two 3j-symbols add up) or 0 (if they cancel). Whether
+  they add up or cancel depends on the parity of the considered field (even for
+  T and E and odd for B). */
+
+  double S_X1=2, S_X2=2, S_X3=2;
+
+  /* Uncomment the following to set the quadratic bispectrum to zero based on the
+  parity of the involved fields. By default we skip this part, because we want our
+  reduced bispectrum to be continuous in order to facilitate its interpolation and
+  plotting. */
+
+  // int L = l3-l1-l2;
+  //
+  // if (pbi->has_bispectra_t == _TRUE_) {
+  //   if (X1 == pbi->index_bf_t) S_X1 = (L%2==0)?2:0;
+  //   if (X2 == pbi->index_bf_t) S_X2 = (L%2==0)?2:0;
+  //   if (X3 == pbi->index_bf_t) S_X3 = (L%2==0)?2:0;
+  // }
+  // if (pbi->has_bispectra_e == _TRUE_) {
+  //   if (X1 == pbi->index_bf_e) S_X1 = (L%2==0)?2:0;
+  //   if (X2 == pbi->index_bf_e) S_X2 = (L%2==0)?2:0;
+  //   if (X3 == pbi->index_bf_e) S_X3 = (L%2==0)?2:0;
+  // }
+  // if (pbi->has_bispectra_b == _TRUE_) {
+  //   if (X1 == pbi->index_bf_b) S_X1 = (L%2!=0)?2:0;
+  //   if (X2 == pbi->index_bf_b) S_X2 = (L%2!=0)?2:0;
+  //   if (X3 == pbi->index_bf_b) S_X3 = (L%2!=0)?2:0;
+  // }
   
   /* B-mode bispectrum not implemented yet */
   class_test (pbi->has_bispectra_b == _TRUE_,
@@ -5284,36 +5329,18 @@ int bispectra_cmb_lensing_bispectrum (
   /* Obtain the needed 3j ratios (TODO: what about B-modes? */
   double threej_l1_l2_l3_FX1_0_mFX1 = 1, threej_l1_l3_l2_FX1_0_mFX1 = 1;
   if (F_X1==2) {
-    // class_call (threej_ratio_recursive (l2, l1, l3, M, ratio, pbi->error_message),
-    //   pbi->error_message, pbi->error_message);
-    // threej_l1_l2_l3_FX1_0_mFX1 = ratio[M];
-    // class_call (threej_ratio_recursive (l3, l1, l2, M, ratio, pbi->error_message),
-    //   pbi->error_message, pbi->error_message);
-    // threej_l1_l3_l2_FX1_0_mFX1 = ratio[M];
     threej_l1_l2_l3_FX1_0_mFX1 = threej_ratio_20m2;
     threej_l1_l3_l2_FX1_0_mFX1 = threej_ratio_m220;
   }
 
   double threej_l2_l3_l1_FX2_0_mFX2 = 1, threej_l2_l1_l3_FX2_0_mFX2 = 1;
   if (F_X2==2) {
-    // class_call (threej_ratio_recursive (l3, l2, l1, M, ratio, pbi->error_message),
-    //   pbi->error_message, pbi->error_message);
-    // threej_l2_l3_l1_FX2_0_mFX2 = ratio[M];
-    // class_call (threej_ratio_recursive (l1, l2, l3, M, ratio, pbi->error_message),
-    //   pbi->error_message, pbi->error_message);
-    // threej_l2_l1_l3_FX2_0_mFX2 = ratio[M];
     threej_l2_l3_l1_FX2_0_mFX2 = threej_ratio_m220;
     threej_l2_l1_l3_FX2_0_mFX2 = threej_ratio_0m22;
   }
     
   double threej_l3_l1_l2_FX3_0_mFX3 = 1, threej_l3_l2_l1_FX3_0_mFX3 = 1;
   if (F_X3==2) {
-    // class_call (threej_ratio_recursive (l1, l3, l2, M, ratio, pbi->error_message),
-    //   pbi->error_message, pbi->error_message);
-    // threej_l3_l1_l2_FX3_0_mFX3 = ratio[M];
-    // class_call (threej_ratio_recursive (l2, l3, l1, M, ratio, pbi->error_message),
-    //   pbi->error_message, pbi->error_message);
-    // threej_l3_l2_l1_FX3_0_mFX3 = ratio[M];
     threej_l3_l1_l2_FX3_0_mFX3 = threej_ratio_0m22;
     threej_l3_l2_l1_FX3_0_mFX3 = threej_ratio_20m2;
   }
@@ -5371,17 +5398,23 @@ int bispectra_cmb_lensing_bispectrum (
 
 
 /*
- * Compute the CMB lensing bispectrum kernel including polarisation in the squeezed limit, valid
- * when l3<<l1 and l3<<l2. Here we code just the kernel in Eq. 5.20 of Lewis, Challinor & Hanson
- * 2011 (http://uk.arxiv.org/abs/1101.2234); the full squeezed bispectrum is given by the
- * product between the kernel and C_l3^{X3\phi}.
+ * Compute the CMB lensing bispectrum kernel including polarisation in the squeezed limit
+ * (l3<<l1 and l3<<l2).
  *
- * With respect to Eq. 5.20 (ibidem) in SONG we use i->X1, j->X2, k->X3 and then we perform
- * the substitution (X1,l1)<->(X3,l3), as in our convention l3 rather than l1 is the smallest
- * multipole. Therefore, this is what we code here:
+ * Here we code just the kernel in Eq. 5.20 of Lewis, Challinor & Hanson 2011
+ * (http://uk.arxiv.org/abs/1101.2234); the full squeezed bispectrum is given by
+ * the product between the kernel and C_l3^{X3\phi}.
  *
- * A^{X1,X2}_{l1l2l3} = \tilde{C}^{X2,X1}_{l1} * F^{X1}_{l1l3l2}
- *                    + \tilde{C}^{X1,X2}_{l2} * F^{X2}_{l2l3l1}
+ * With respect to Eq. 5.20 (ibidem) in SONG we use i->X1, j->X2, k->X3 and then we
+ * perform the substitution (X1,l1)<->(X3,l3), as in our convention l3 rather than
+ * l1 is the smallest multipole. Therefore, this is what we code here:
+ *
+ *   A^{X1,X2}_{l1l2l3} = \tilde{C}^{X2,X1}_{l1} * F^{X1}_{l1l3l2}
+ *                      + \tilde{C}^{X1,X2}_{l2} * F^{X2}_{l2l3l1}
+ *
+ * We have not included the imaginary term which is only needed when including
+ * B-mode polarisation.
+
  *
  */
 
@@ -5448,25 +5481,32 @@ int bispectra_cmb_lensing_squeezed_kernel (
   // -                         Determine field coefficients                        -
   // -------------------------------------------------------------------------------
   
-  /* Set the amplitude of the geometrical factor in Eq. 4.4 of Lewis et al. 2011. This is either
-  2 (if the two 3j-symbols add up) or 0 (if they cancel). Whether they add up or cancel depends
-  on the parity of the considered field (even for T and E and odd for B). */
-  
-  double S_X1=0, S_X2=0;
-  int L = l3-l1-l2;
-  
-  if (pbi->has_bispectra_t == _TRUE_) {
-    if (X1 == pbi->index_bf_t) S_X1 = 2;
-    if (X2 == pbi->index_bf_t) S_X2 = 2;
-  }
-  if (pbi->has_bispectra_e == _TRUE_) {
-    if (X1 == pbi->index_bf_e) S_X1 = (L%2==0)?2:0;
-    if (X2 == pbi->index_bf_e) S_X2 = (L%2==0)?2:0;
-  }
-  if (pbi->has_bispectra_b == _TRUE_) { /* Note that <TB> vanishes, hence the negative values */
-    if (X1 == pbi->index_bf_b) S_X1 = (L%2!=0)?2:0;
-    if (X2 == pbi->index_bf_b) S_X2 = (L%2!=0)?2:0;
-  }
+  /* Set the amplitude of the geometrical factor in Eq. 4.4 of Lewis et al. 2011.
+  This is either 2 (if the two 3j-symbols add up) or 0 (if they cancel). Whether
+  they add up or cancel depends on the parity of the considered field (even for
+  T and E and odd for B). */
+
+  double S_X1=2, S_X2=2;
+
+  /* Uncomment the following to set the quadratic bispectrum to zero based on the
+  parity of the involved fields. By default we skip this part, because we want our
+  reduced bispectrum to be continuous in order to facilitate its interpolation and
+  plotting. */
+
+  // int L = l3-l1-l2;
+  //
+  // if (pbi->has_bispectra_t == _TRUE_) {
+  //   if (X1 == pbi->index_bf_t) S_X1 = (L%2==0)?2:0;
+  //   if (X2 == pbi->index_bf_t) S_X2 = (L%2==0)?2:0;
+  // }
+  // if (pbi->has_bispectra_e == _TRUE_) {
+  //   if (X1 == pbi->index_bf_e) S_X1 = (L%2==0)?2:0;
+  //   if (X2 == pbi->index_bf_e) S_X2 = (L%2==0)?2:0;
+  // }
+  // if (pbi->has_bispectra_b == _TRUE_) {
+  //   if (X1 == pbi->index_bf_b) S_X1 = (L%2!=0)?2:0;
+  //   if (X2 == pbi->index_bf_b) S_X2 = (L%2!=0)?2:0;
+  // }
   
   /* B-mode bispectrum not implemented yet */
   class_test (pbi->has_bispectra_b == _TRUE_,
@@ -5496,13 +5536,15 @@ int bispectra_cmb_lensing_squeezed_kernel (
   int F_X2 = pbi->field_spin[X2];
 
   /* Obtain the needed 3j ratios (TODO: what about B-modes? */
-  double threej_l1_l2_l3_FX1_0_mFX1 = 1, threej_l1_l3_l2_FX1_0_mFX1 = 1;
+  double threej_l1_l2_l3_FX1_0_mFX1 = 1;
+  double threej_l1_l3_l2_FX1_0_mFX1 = 1;
   if (F_X1==2) {
     threej_l1_l2_l3_FX1_0_mFX1 = threej_ratio_20m2;
     threej_l1_l3_l2_FX1_0_mFX1 = threej_ratio_m220;
   }
 
-  double threej_l2_l3_l1_FX2_0_mFX2 = 1, threej_l2_l1_l3_FX2_0_mFX2 = 1;
+  double threej_l2_l3_l1_FX2_0_mFX2 = 1;
+  double threej_l2_l1_l3_FX2_0_mFX2 = 1;
   if (F_X2==2) {
     threej_l2_l3_l1_FX2_0_mFX2 = threej_ratio_m220;
     threej_l2_l1_l3_FX2_0_mFX2 = threej_ratio_0m22;
@@ -5512,15 +5554,14 @@ int bispectra_cmb_lensing_squeezed_kernel (
   double F_l1_l3_l2_X1 = 0.25 * ( l3*(l3+1) + l2*(l2+1) - l1*(l1+1) ) * S_X1 * threej_l1_l3_l2_FX1_0_mFX1; /* 1-3-2 */
   double F_l2_l3_l1_X2 = 0.25 * ( l3*(l3+1) + l1*(l1+1) - l2*(l2+1) ) * S_X2 * threej_l2_l3_l1_FX2_0_mFX2; /* 2-3-1 */
       
-  // ---------------------------------------------------------------------------------------
-  // -                                  Bispectrum formula                                 -
-  // ---------------------------------------------------------------------------------------
+
+  // -------------------------------------------------------------------------------
+  // -                              Bispectrum formula                             -
+  // -------------------------------------------------------------------------------
   
   /* Kernel of the CMB-lensing bispectrum in the squeezed limit, from Eq. 5.20 of Lewis,
   Challinor & Hanson 2011. This is simply the general formula with C_l1_X1_p=C_l2_X2_p=0 
   (see bispectra_cmb_lensing_bispectrum()) */
-  // *result = F_l1_l3_l2_X1
-  //         + F_l2_l3_l1_X2;
   *result = C_l2_X1_X2 * F_l1_l3_l2_X1
           + C_l1_X2_X1 * F_l2_l3_l1_X2;
                   
@@ -5893,55 +5934,70 @@ int bispectra_quadratic_bispectrum (
     }
   }
 
-  // ---------------------------------------------------------------
-  // -                  Determine field coefficients               -
-  // ---------------------------------------------------------------
-                
-  /* Determine various indices and coefficients:
-  1) The amplitude S_X of the term in QC that involves the second-order part of X. When doing so,
-     take into account that the contribution from E^(2) only exists when l3-l1-l2 is even,
-     while that from B^(2) only when l3-l1-l2 is odd.
-  2) The field that goes in the C_l's, T_X, which is computed as T_I=I, T_E=E, T_B=E.
-  3) The indices of the cross power spectra between X1, X2, X3 and I. These have
-     to be set by hand, rather than using the array pbi->index_ct_of_bf_bf because pbi->index_ct_of_bf_bf
-     only contains information on the fields appearing in one of the requested bispectrum. For example,
-     if you only request EEE, then pbi->index_ct_of_bf_bf does not contain information about <ET>,
-     because no bispectrum containing T is requested */
+  // -------------------------------------------------------------------------------
+  // -                           Determine field coefficients                      -
+  // -------------------------------------------------------------------------------
   
-  double S_X1=0, S_X2=0, S_X3=0;
+  /* Determine the fields T_X1, T_X2 and T_X3 that go in the C_l (T_I=I, T_E=E, T_B=E).
+  and the indices of the cross power spectra between X1, X2, X3 and I. These have
+  to be set by hand, rather than using the array pbi->index_ct_of_bf_bf because
+  pbi->index_ct_of_bf_bf only contains information on the fields appearing in one of
+  the requested bispectrum. For example, if you only request EEE, then
+  pbi->index_ct_of_bf_bf does not contain information about <ET>, because no
+  bispectrum containing T is requested */
+  
   int T_X1=0, T_X2=0, T_X3=0;
-  int index_ct_X1_I, index_ct_X2_I, index_ct_X3_I;
-  int L = l3-l1-l2;
-  
+  int index_ct_X1_I, index_ct_X2_I, index_ct_X3_I;  
+  double S_X1=0, S_X2=0, S_X3=0;
+
   if (pbi->has_bispectra_t == _TRUE_) {
     if (X1 == pbi->index_bf_t) {S_X1 = 1; T_X1 = pbi->index_bf_t; index_ct_X1_I = psp->index_ct_tt;}
     if (X2 == pbi->index_bf_t) {S_X2 = 1; T_X2 = pbi->index_bf_t; index_ct_X2_I = psp->index_ct_tt;}
     if (X3 == pbi->index_bf_t) {S_X3 = 1; T_X3 = pbi->index_bf_t; index_ct_X3_I = psp->index_ct_tt;}
   }
-  // if (pbi->has_bispectra_r == _TRUE_) {
-  //   if (X1 == pbi->index_bf_r) {S_X1 = 1; T_X1 = pbi->index_bf_r; index_ct_X1_I = psp->index_ct_tr;}
-  //   if (X2 == pbi->index_bf_r) {S_X2 = 1; T_X2 = pbi->index_bf_r; index_ct_X2_I = psp->index_ct_tr;}
-  //   if (X3 == pbi->index_bf_r) {S_X3 = 1; T_X3 = pbi->index_bf_r; index_ct_X3_I = psp->index_ct_tr;}
-  // }
   if (pbi->has_bispectra_e == _TRUE_) {
-    if (X1 == pbi->index_bf_e) {S_X1 = (L%2==0)?2:0; T_X1 = pbi->index_bf_e; index_ct_X1_I = psp->index_ct_te;}
-    if (X2 == pbi->index_bf_e) {S_X2 = (L%2==0)?2:0; T_X2 = pbi->index_bf_e; index_ct_X2_I = psp->index_ct_te;}
-    if (X3 == pbi->index_bf_e) {S_X3 = (L%2==0)?2:0; T_X3 = pbi->index_bf_e; index_ct_X3_I = psp->index_ct_te;}
+    if (X1 == pbi->index_bf_e) {S_X1 = 2; T_X1 = pbi->index_bf_e; index_ct_X1_I = psp->index_ct_te;}
+    if (X2 == pbi->index_bf_e) {S_X2 = 2; T_X2 = pbi->index_bf_e; index_ct_X2_I = psp->index_ct_te;}
+    if (X3 == pbi->index_bf_e) {S_X3 = 2; T_X3 = pbi->index_bf_e; index_ct_X3_I = psp->index_ct_te;}
   }
   if (pbi->has_bispectra_b == _TRUE_) { /* Note that <TB> vanishes, hence the negative values */
-    if (X1 == pbi->index_bf_b) {S_X1 = (L%2!=0)?2:0; T_X1 = pbi->index_bf_e; index_ct_X1_I = -1;}
-    if (X2 == pbi->index_bf_b) {S_X2 = (L%2!=0)?2:0; T_X2 = pbi->index_bf_e; index_ct_X2_I = -1;}
-    if (X3 == pbi->index_bf_b) {S_X3 = (L%2!=0)?2:0; T_X3 = pbi->index_bf_e; index_ct_X3_I = -1;}
+    if (X1 == pbi->index_bf_b) {S_X1 = 2; T_X1 = pbi->index_bf_e; index_ct_X1_I = -1;}
+    if (X2 == pbi->index_bf_b) {S_X2 = 2; T_X2 = pbi->index_bf_e; index_ct_X2_I = -1;}
+    if (X3 == pbi->index_bf_b) {S_X3 = 2; T_X3 = pbi->index_bf_e; index_ct_X3_I = -1;}
   }
 
+  /* Uncomment the following to set the quadratic bispectrum to zero based on the
+  parity of the involved fields. By default we skip this part, because we want our
+  reduced bispectrum to be continuous in order to facilitate its interpolation and
+  plotting. */
+
+  // int L = l3-l1-l2;
+  //
+  // if (pbi->has_bispectra_t == _TRUE_) {
+  //   if (X1 == pbi->index_bf_t) S_X1 = (L%2==0)?1:0;
+  //   if (X2 == pbi->index_bf_t) S_X2 = (L%2==0)?1:0;
+  //   if (X3 == pbi->index_bf_t) S_X3 = (L%2==0)?1:0;
+  // }
+  // if (pbi->has_bispectra_e == _TRUE_) {
+  //   if (X1 == pbi->index_bf_e) S_X1 = (L%2==0)?2:0;
+  //   if (X2 == pbi->index_bf_e) S_X2 = (L%2==0)?2:0;
+  //   if (X3 == pbi->index_bf_e) S_X3 = (L%2==0)?2:0;
+  // }
+  // if (pbi->has_bispectra_b == _TRUE_) {
+  //   if (X1 == pbi->index_bf_b) S_X1 = (L%2!=0)?2:0;
+  //   if (X2 == pbi->index_bf_b) S_X2 = (L%2!=0)?2:0;
+  //   if (X3 == pbi->index_bf_b) S_X3 = (L%2!=0)?2:0;
+  // }
+              
   /* B-mode bispectrum not implemented yet */
   class_test (pbi->has_bispectra_b == _TRUE_,
     pbi->error_message,
     "quadratic correction for B-mode bispectrum not implemented yet.");
+    
   
-  // ----------------------------------------------------------------------------------
-  // -                               Obtain the C_l's                                 -
-  // ----------------------------------------------------------------------------------
+  // -------------------------------------------------------------------------------
+  // -                               Obtain the C_l                                -
+  // -------------------------------------------------------------------------------
   
   /* Get the C_l's. When implementing the B-modes, remember to 
   set the C_l's to zero, so that the only contribution comes from the
@@ -5962,9 +6018,9 @@ int bispectra_quadratic_bispectrum (
   double C_l3_X3_TX2 = pbi->cls[pbi->index_ct_of_bf_bf[ X3 ][ T_X2 ]][l3-2];
     
   
-  // ----------------------------------------------------------------------------------
-  // -                               Get the right 3j's                               -
-  // ----------------------------------------------------------------------------------
+  // -------------------------------------------------------------------------------
+  // -                              Get the right 3j                               -
+  // -------------------------------------------------------------------------------
   
   /* Spin of the fields */
   int F_X1 = pbi->field_spin[X1];
@@ -5990,9 +6046,9 @@ int bispectra_quadratic_bispectrum (
     threej_l1_l2_l3_FX3_0_mFX3 = threej_ratio_20m2;
   }
 
-  // ---------------------------------------------------------------------------------------
-  // -                                  Bispectrum formula                                 -
-  // ---------------------------------------------------------------------------------------
+  // -------------------------------------------------------------------------------
+  // -                              Bispectrum formula                             -
+  // -------------------------------------------------------------------------------
 
   /* The sum includes three terms, corresponding to the three possible types
   of second-order perturbations. The first term, involving T_X1, for example,
