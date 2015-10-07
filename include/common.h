@@ -407,7 +407,7 @@ enum file_format {class_format,camb_format};
 extern FILE * log_file;  /**< Pointer to the log file where we shall store CLASS and SONG messages using
                          the printf_log() function. If NULL, messages won't be logged. */
 
-void fprintf_twoway(
+void fprintf_2way(
   int verbose_level,
   FILE *stream1,
   int min1,
@@ -415,11 +415,21 @@ void fprintf_twoway(
   int min2,
   char *fmt, ...);
 
+void fprintf_threeway(
+  int verbose_level,
+  FILE *stream1,
+  int min1,
+  FILE *stream2,
+  int min2,
+  FILE *stream3,
+  int min3,
+  char *fmt, ...);
+
 /**
  * Macro to simultaneously print a message to screen (stdout) and to a global
  * log file (log_file), with a different level of verbosity.
  *
- * This is a wrapper to fprintf_twoway(), called with two different values of
+ * This is a wrapper to fprintf_2way(), called with two different values of
  * 'min' so that more information is printed to file than to screen.
  *
  * TODO: right now this line works only for GCC and compilers that support 
@@ -428,7 +438,7 @@ void fprintf_twoway(
  * http://binglongx.com/2013/07/11/trailing-comma-when-passing-empty-argument-to-variadic-macro/
  */
 #define printf_log_if(verbose_level, min, fmt, ...) \
-  fprintf_twoway ((verbose_level), stdout, (min), log_file, (min)-1, (fmt), ##__VA_ARGS__);
+  fprintf_2way ((verbose_level), stdout, (min), log_file, (min)-1, (fmt), ##__VA_ARGS__);
 
 /**
  * Macro to simultaneously print a message to screen (stdout) and to a global
@@ -437,7 +447,7 @@ void fprintf_twoway(
  * See documentation for printf_log_if() for a caveat about variadic macros.
  */
 #define printf_log(fmt, ...) \
-  fprintf_twoway (1, stdout, 0, log_file, 0, (fmt), ##__VA_ARGS__);
+  fprintf_2way (1, stdout, 0, log_file, 0, (fmt), ##__VA_ARGS__);
 
 /**
  * Macro to print a message to a global log file (log_file).
@@ -445,7 +455,7 @@ void fprintf_twoway(
  * See documentation for printf_log_if() for a caveat about variadic macros.
  */
 #define LOG(fmt, ...) \
-  fprintf_twoway (1, NULL, 0, log_file, 0, (fmt), ##__VA_ARGS__);
+  fprintf_2way (1, NULL, 0, log_file, 0, (fmt), ##__VA_ARGS__);
 
 #define ALTERNATING_SIGN(m) ((m)%2==0 ? 1 : -1) /**< Return 1 if the argument is even, odd otherwise */
 

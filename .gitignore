@@ -10,5 +10,7 @@ python/classy.c
 python/*.pyc
 python/build/
 doc/doxygen/
+
 untracked/
+class.dSYM
 .gdb_history

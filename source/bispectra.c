@@ -193,16 +193,22 @@ int bispectra_init (
 
 
 
-  /* If load_bispectra_from_disk==_TRUE_, at this point all the arrays in the module have been
-  filled apart from the intrinsic and non-separable bispectra. Any subsequent module that
-  requires them (like fisher.c), has to load them from disk using load_bispectra_from_disk(). */
+  /* Apart from pbi->bispectra, at this point all the arrays in the module have been
+  filled.  If the user requested to load the bispectra from disk, we can stop the
+  execution of this module now without regrets. */
     
   if (ppr->load_bispectra_from_disk == _TRUE_) {
 
     printf_log_if (pbi->bispectra_verbose, 0, 
       " -> the intrinsic and non-separable bispectra will be read from disk\n");
 
+    /* Uncomment to produce the bispectra output files again */
+    // class_call (bispectra_output (ppr,pba,pth,ppt,pbs,ptr,ppm,psp,ple,pbi),
+    //   pbi->error_message,
+    //   pbi->error_message);
+
     return _SUCCESS_;
+
   }
 
 
@@ -393,15 +399,12 @@ int bispectra_free(
     } free (pbi->index_l1_l2_l3);
 
     /* Free pbi->bispectra */
-    for (int index_bt=0; index_bt<pbi->bt_size; ++index_bt) {
-      for (int X = 0; X < pbi->bf_size; ++X) {
-        for (int Y = 0; Y < pbi->bf_size; ++Y) {
-          for (int Z = 0; Z < pbi->bf_size; ++Z)
-            free (pbi->bispectra[index_bt][X][Y][Z]);
-          free (pbi->bispectra[index_bt][X][Y]);
-        } free (pbi->bispectra[index_bt][X]);
-      } free (pbi->bispectra[index_bt]);
-    } free (pbi->bispectra);
+    for (int index_bt=0; index_bt<pbi->bt_size; ++index_bt)
+      class_call (bispectra_free_type_level (pbi, index_bt),
+        pbi->error_message,
+        pbi->error_message);
+
+    free (pbi->bispectra);
 
     /* Arrays specific to the primordial models */
     if ((pbi->has_local_model == _TRUE_) || (pbi->has_equilateral_model == _TRUE_) || (pbi->has_orthogonal_model == _TRUE_)) {
@@ -468,6 +471,34 @@ int bispectra_free(
   } // end of if(has_bispectra)
 
   
+  return _SUCCESS_;
+ 
+}
+
+
+
+/**
+ * Free the index_bt level of the bispectra array (pbi->bispectra).
+ */
+
+int bispectra_free_type_level(
+     struct bispectra * pbi,
+     int index_bt
+     )
+{
+
+
+  for (int X = 0; X < pbi->bf_size; ++X) {
+    for (int Y = 0; Y < pbi->bf_size; ++Y) {
+      for (int Z = 0; Z < pbi->bf_size; ++Z)
+        free (pbi->bispectra[index_bt][X][Y][Z]);
+      free (pbi->bispectra[index_bt][X][Y]);
+    }
+    free (pbi->bispectra[index_bt][X]);
+  }
+  free (pbi->bispectra[index_bt]);
+
+
   return _SUCCESS_;
  
 }
@@ -1714,14 +1745,17 @@ int bispectra_harmonic (
  *
  * Three types of files will be created:
  *
- * - A text file with the bispectra configurations for l1=l1_out, tabulated
- *   as a function of l2 and l3, named bispectra_1D_LXXX.txt.
+ * - A text file with the bispectra configurations for l1=l1_out and
+ *   l2=l2_out, tabulated as a function of l3, named bispectra_1D_LXXX.txt.
+ *   If l2_out<0, then the configurations with l1=l1_out and l2=l3 will
+ *   be printed to file.
  *
- * - A larger text file with the bispectra configurations for l1=l1_out and
- *   l2=l2_out, tabulated as a function of l3, named bispectra_2D_LXXX.txt.
+ * - A larger text file with the bispectra configurations for l1=l1_out, tabulated
+ *   as a function of l2 and l3, named bispectra_2D_LXXX.txt.
  *
  * - A binary file with all bispectra configurations for all bispectra types,
  *   named bispectra.dat.
+ *
  */
 
 int bispectra_output (
@@ -1738,6 +1772,23 @@ int bispectra_output (
     )
 {
   
+  /* Load the bispectra from disk if they were not already computed */
+
+  if (ppr->load_bispectra_from_disk == _TRUE_) {
+  
+    for (int index_bt = 0; index_bt < pbi->bt_size; ++index_bt)
+
+      if ((pbi->bispectrum_type[index_bt] == non_separable_bispectrum) ||
+          (pbi->bispectrum_type[index_bt] == intrinsic_bispectrum))
+
+        class_call (bispectra_load_from_disk (
+                      pbi,
+                      index_bt),
+          pbi->error_message,
+          pbi->error_message);    
+  
+  }
+
 
   // ====================================================================================
   // =                                     2D output                                    =
@@ -1758,7 +1809,7 @@ int bispectra_output (
           int l1 = ppr->l1_out[index_l_out];
           int index_l1 = ppr->index_l1_out[index_l_out];
 
-          /* Build filename as bispectra_LXXX_YYY.txt, eg. bispectra_L001_tte.txt */ 
+          /* Build filenames */ 
           int index_probe = X*pbi->bf_size*pbi->bf_size + Y*pbi->bf_size + Z;
           sprintf (ppr->l_out_paths_1D[index_l_out][index_probe], "%s/bispectra_1D_L%03d_%s.txt",
             ppr->l_out_paths_1D[index_l_out][index_probe], index_l_out, pbi->bfff_labels[X][Y][Z]);
@@ -1779,15 +1830,31 @@ int bispectra_output (
           char line[1024];
           
           /* Write the information header of the 1D and 2D files */
-          sprintf (line, "CMB reduced bispectra b_l1_l2_l3 tabulated as a function of l3 and bispectrum type for a fixed (l1,l2) pair.");
+          if (ppr->l2_out[index_l_out] > 0)
+            sprintf (line, "CMB reduced bispectra b_l1_l2_l3 tabulated as a function of l3 and bispectrum type for a fixed (l1,l2) pair.");
+          else
+            sprintf (line, "CMB reduced bispectra b_l1_l_l tabulated as a function of l for a fixed l1 value.");
           fprintf (file_1D, "%s%s\n", _COMMENT_, line);
           sprintf (line, "CMB reduced bispectra b_l1_l2_l3 tabulated as a function of (l2,l3) and bispectrum type for a fixed l1 value.");
           fprintf (file_2D, "%s%s\n", _COMMENT_, line);
           sprintf (line, "This file was generated by SONG %s (%s) on %s.", _SONG_VERSION_, _SONG_URL_, ppr->date);
-          fprintf_twoway (1, file_1D, 0, file_2D, 0, "%s%s\n", _COMMENT_, line);
-          fprintf_twoway (1, file_1D, 0, file_2D, 0, "%s\n", _COMMENT_);
-          fprintf_twoway (1, file_1D, 0, file_2D, 0, "%s", pba->info);
-          fprintf_twoway (1, file_1D, 0, file_2D, 0, "%s\n", _COMMENT_);
+          fprintf_2way (1, file_1D, 0, file_2D, 0, "%s%s\n", _COMMENT_, line);
+          fprintf_2way (1, file_1D, 0, file_2D, 0, "%s\n", _COMMENT_);
+          sprintf (line, "The column 'norm' is 6/5 * [cl1_%sZ*(cl2_%s%s + cl3_%s%s) + cl2_%sZ*(cl3_%s%s + cl1_%s%s) + cl3_%sZ*(cl1_%s%s + cl2_%s%s)],",
+            pbi->bf_labels[X], pbi->bf_labels[Y], pbi->bf_labels[Y], pbi->bf_labels[Z], pbi->bf_labels[Z],
+            pbi->bf_labels[Y], pbi->bf_labels[Z], pbi->bf_labels[Z], pbi->bf_labels[X], pbi->bf_labels[X],
+            pbi->bf_labels[Z], pbi->bf_labels[X], pbi->bf_labels[X], pbi->bf_labels[Y], pbi->bf_labels[Y]);
+          fprintf_2way (1, file_1D, 0, file_2D, 0, "%s%s\n", _COMMENT_, line);
+          sprintf (line, "where Z is the curvature perturbation zeta at recombination.");
+          fprintf_2way (1, file_1D, 0, file_2D, 0, "%s%s\n", _COMMENT_, line);
+          sprintf (line, "The column 'norm_positive' is -24/5 * (cl1_%s%s*cl2_%s%s + cl2_%s%s*cl3_%s%s + cl3_%s%s*cl1_%s%s).",
+            pbi->bf_labels[X], pbi->bf_labels[X], pbi->bf_labels[Y], pbi->bf_labels[Y],
+            pbi->bf_labels[Y], pbi->bf_labels[Y], pbi->bf_labels[Z], pbi->bf_labels[Z],
+            pbi->bf_labels[Z], pbi->bf_labels[Z], pbi->bf_labels[X], pbi->bf_labels[X]);
+          fprintf_2way (1, file_1D, 0, file_2D, 0, "%s%s\n", _COMMENT_, line);
+          fprintf_2way (1, file_1D, 0, file_2D, 0, "%s\n", _COMMENT_);
+          fprintf_2way (1, file_1D, 0, file_2D, 0, "%s", pba->info);
+          fprintf_2way (1, file_1D, 0, file_2D, 0, "%s\n", _COMMENT_);
           fprintf (file_1D, "%sInformation on the output (l1,l2):\n", _COMMENT_);
           fprintf (file_1D, "%sl1 = %d, index_l1 = %d/%d\n", _COMMENT_, l1, index_l1, pbi->l_size-1);
           fprintf (file_2D, "%sInformation on the output l1:\n", _COMMENT_);
@@ -1830,13 +1897,13 @@ int bispectra_output (
               class_call (ordering_int (index_l, order, pbi->error_message),
                 pbi->error_message, pbi->error_message);
 
-              int index_smallest = index_l[order[1]];
-              int index_mid = index_l[order[2]];
-              int index_largest = index_l[order[3]];
+              int index_1 = index_l[order[1]]; /* Smallest l */
+              int index_2 = index_l[order[2]]; /* Mid l */
+              int index_3 = index_l[order[3]]; /* Largest l */
 
               /* Index of the current (l1,l2,l3) configuration */
-              int index_max_for_smallest = MIN (index_mid, pbi->index_l_triangular_max[index_largest][index_mid]);
-              long int index_l1_l2_l3 = pbi->index_l1_l2_l3[index_largest][index_largest-index_mid][index_max_for_smallest-index_smallest];
+              int index_1_max = MIN (index_2, pbi->index_l_triangular_max[index_3][index_2]);
+              long int index_l1_l2_l3 = pbi->index_l1_l2_l3[index_3][index_3-index_2][index_1_max-index_1];
 
               /* Extract the bispectrum in (l1,l2,l3), using the fact that a permutation of
               (l1,l2,l3) is cancelled by the same permutation of (X,Y,Z). For example:
@@ -1845,17 +1912,53 @@ int bispectra_output (
               int XYZ[4] = {0, X, Y, Z};
 
               for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt) {
+
+                bispectrum[index_bt] = pbi->bispectra[index_bt][XYZ[order[3]]][XYZ[order[2]]][XYZ[order[1]]][index_l1_l2_l3];
                 
-                 bispectrum[index_bt] = pbi->bispectra[index_bt][XYZ[order[3]]][XYZ[order[2]]][XYZ[order[1]]][index_l1_l2_l3];
-                
-                /* Non-symmetric bispectra are well defined only for l1>=l2>=l3, see comment above */ 
+                /* The squeezed approximation in SONG are computed assuming that l1>=l2>=l3, see comment above */ 
                 if (((((pbi->has_intrinsic_squeezed == _TRUE_) && (index_bt == pbi->index_bt_intrinsic_squeezed)))
                    ||((pbi->has_local_squeezed == _TRUE_) && (index_bt == pbi->index_bt_local_squeezed))
                    ||((pbi->has_cmb_lensing_squeezed == _TRUE_) && (index_bt == pbi->index_bt_cmb_lensing_squeezed)))
-                   && ((l3>l2) || (l3>l1) || (l2>l1)))
+                   && ((l2>l3) || (l1>l3) || (l1>l2)))
                     bispectrum[index_bt] = 0;
               }
               
+              
+              // -------------------------------------------------------------------------------
+              // -                                 Normalisation                               -
+              // -------------------------------------------------------------------------------
+              
+              /* Include normalisation factors in the output files. The bispectra divided by
+              this normalisation will be of order unity. */
+
+              double normalisation = 0;
+
+              class_call (bispectra_normalisation (
+                            ppr, psp, ple, pbi,
+                            l1, l2, l3,
+                            X, Y, Z,
+                            0, 0, 0,
+                            &normalisation),
+                pbi->error_message,
+                pbi->error_message);
+
+              if (fabs(normalisation) < _MINUSCULE_)
+                printf ("WARNING: normalisation=%g is small; beware of inf\n", normalisation);
+
+              double normalisation_positive = 0;
+
+              class_call (bispectra_normalisation_positive (
+                            ppr, psp, ple, pbi,
+                            l1, l2, l3,
+                            X, Y, Z,
+                            0, 0, 0,
+                            &normalisation_positive),
+                pbi->error_message,
+                pbi->error_message);
+
+              if (fabs(normalisation_positive) < _MINUSCULE_)
+                printf ("WARNING: normalisation_positive=%g is small; beware of inf\n", normalisation_positive);
+
 
               // -------------------------------------------------------------------------------
               // -                                   Build row                                 -
@@ -1881,14 +1984,26 @@ int bispectra_output (
               value[i] = pbi->l[index_l2];
               
               /* Multipole l3 */
-              strcpy (label[++i], "l3");
+              if (ppr->l2_out[index_l_out] > 0)
+                strcpy (label[++i], "l3");
+              else
+                strcpy (label[++i], "l");
               value[i] = pbi->l[index_l3];
               
+              /* Bispectra */
               for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt) {
-                sprintf (label[++i], "b_%s", pbi->bt_labels[index_bt]);
+                sprintf (label[++i], "%s", pbi->bt_labels[index_bt]);
                 value[i] = bispectrum[index_bt];
               }
-              
+
+              /* Normalisation */
+              sprintf (label[++i], "norm");
+              value[i] = normalisation;
+
+              /* Strictly positive normalisation */
+              sprintf (label[++i], "norm_positive");
+              value[i] = normalisation_positive;
+
 
               // -------------------------------------------------------------------------------
               // -                             Print row to 2D file                             -
@@ -1943,7 +2058,30 @@ int bispectra_output (
                   if (condition[i])
                     fprintf (file_1D, format_value, value[i]);
                 fprintf (file_1D, "\n");
-                  
+
+              }
+              
+              /* If the user gave -1 as a value for l2_out, then print the configuration with
+              l1=l1_out and l2=l3 */
+              
+              else if ((ppr->l2_out[index_l_out] < 0) && (l2 == l3)) {
+                
+                /* Write row with labels and append information on l2 to the header */
+                int n_columns_1D = 1;
+                if (n_rows_1D++ == 0) {
+                  fprintf (file_1D, "%swill print b(%d,l,l) as a function of l\n", _COMMENT_, l1, pbi->l_size);
+                  for (int i=1; i < n_max_columns; ++i) /* skip the first (l2) column */
+                    if (condition[i])
+                      fprintf (file_1D, format_label, label[i], n_columns_1D++);
+                  fprintf (file_1D, "\n");
+                }
+
+                /* Write row with data to file */
+                for (int i=1; i < n_max_columns; ++i)  /* skip the first (l2) column */
+                  if (condition[i])
+                    fprintf (file_1D, format_value, value[i]);
+                fprintf (file_1D, "\n");                
+                
               }
 
               
@@ -2233,20 +2371,20 @@ int bispectra_output (
     // -                              Write to file                              -
     // ---------------------------------------------------------------------------
 
-    // class_call (binary_write (
-    //               file),
-    //   file->error_message,
-    //   pbi->error_message);
+    class_call (binary_write (
+                  file),
+      file->error_message,
+      pbi->error_message);
 
 
     // ---------------------------------------------------------------------------
     // -                                Clean up                                 -
     // ---------------------------------------------------------------------------
 
-    // class_call (binary_free (
-    //               file),
-    //   file->error_message,
-    //   pbi->error_message);
+    class_call (binary_free (
+                  file),
+      file->error_message,
+      pbi->error_message);
       
   } // if output_binary_bispectra
 
@@ -5478,7 +5616,7 @@ int bispectra_cmb_lensing_squeezed_kernel (
   
   
   // -------------------------------------------------------------------------------
-  // -                         Determine field coefficients                        -
+  // -                        Determine field coefficients                         -
   // -------------------------------------------------------------------------------
   
   /* Set the amplitude of the geometrical factor in Eq. 4.4 of Lewis et al. 2011.
@@ -5629,8 +5767,11 @@ int bispectra_cmb_lensing_squeezed_bispectrum (
 
 
 /** 
- * Squeezed approximation for the local bispectrum. This is the generalisation to polarisation
- * of the temperature approximation first described in Gangui et al. 1994, Komatsu & Spergel 2001.
+ * Squeezed approximation for the local bispectrum with f_nl=1.
+ *
+ * This is the generalisation to polarisation of the temperature approximation first
+ * described in Gangui et al. 1994. See also Komatsu & Spergel 2001 and eq. 2.16 of
+ * http://arxiv.org/abs/1201.1010.
  *
  */
 int bispectra_local_squeezed_bispectrum (
@@ -6076,6 +6217,131 @@ int bispectra_quadratic_bispectrum (
   return _SUCCESS_;
 
 }
+
+
+/**
+ * Return an l-dependent normalisation suitable to visualise the bispectra,
+ * especially the intrinsic bispectrum.
+ *
+ * This function will be called in bispectra_output() to include the 
+ * normalisation as a column in the output files.
+ *
+ * The intrinsic bispectrum divided by this factor is of the same order of 
+ * magnitude as fnl_bias, that is, the bias induced by the intrinsic
+ * bispectrum on a measurement of the local bispectrum (fnl_bias). This
+ * is the same normalisation we used to plot the results in
+ * http://arxiv.org/abs/1406.2981.
+ *
+ * We define the normalisation as
+ *
+ *      6/5 * cl1_Xz * (cl2_YY + cl3_ZZ)
+ *    + 6/5 * cl2_Yz * (cl3_ZZ + cl1_XX)
+ *    + 6/5 * cl3_Zz * (cl1_XX + cl2_YY);
+ *
+ * where z is the curvature perturbation zeta and the C_l are unlensed. By using
+ * quadratic combinations of C_l, we factor out from the bispectra the dependence
+ * on the primordial power spectrum.
+ * 
+ * For the TTT and EEE bispectra, the normalisation is the symmetrised version of
+ * the squeezed limit of the local bispectrum (which we have coded in
+ * bispectra_local_squeezed_bispectrum()). It follows that the normalised local
+ * bispectrum should be of order unity, and the normalised intrinsic bispectrum
+ * should be of order fnl_bias.
+ *
+ * This normalisation has the disadvantage of crossing the zero whenever the
+ * zeta C_l do, that is, several times after l~60 (Fig. 3 of arxiv:1204.5018).
+ * In bispectra_normalisation_positive() we have coded an alternative formula
+ * that is strictly positive; both normalisations will be included in the output
+ * files.
+ */
+
+int bispectra_normalisation (
+     struct precision * ppr,
+     struct spectra * psp,
+     struct lensing * ple,
+     struct bispectra * pbi,
+     int l1, int l2, int l3,
+     int X, int Y, int Z,
+     double not_used_1,
+     double not_used_2,
+     double not_used_3,
+     double * result
+     )
+{
+
+  /* Extract the C_l */
+  double cl1_Xz = pbi->cls[pbi->index_ct_of_zeta_bf[ X ]][l1-2];
+  double cl2_Yz = pbi->cls[pbi->index_ct_of_zeta_bf[ Y ]][l2-2];
+  double cl3_Zz = pbi->cls[pbi->index_ct_of_zeta_bf[ Z ]][l3-2];
+
+  double cl1_XX = pbi->cls[pbi->index_ct_of_bf_bf[X][X]][l1-2];
+  double cl2_YY = pbi->cls[pbi->index_ct_of_bf_bf[Y][Y]][l2-2];
+  double cl3_ZZ = pbi->cls[pbi->index_ct_of_bf_bf[Z][Z]][l3-2];
+
+  /* Build the normalisation */
+  *result =   6/5. * cl1_Xz * (cl2_YY + cl3_ZZ)
+            + 6/5. * cl2_Yz * (cl3_ZZ + cl1_XX)
+            + 6/5. * cl3_Zz * (cl1_XX + cl2_YY);  
+  
+  return _SUCCESS_;
+
+}
+
+
+/**
+ * Return an l-dependent, strictly positive normalisation factor suitable to
+ * visualise the bispectrum.
+ *
+ * This function will be called in bispectra_output() to include the 
+ * normalisation as a column in the output files.
+ *
+ * We define the normalisation as
+ *
+ *  -24/5. * (cl1_XX*cl2_YY + cl2_YY*cl3_ZZ + cl3_ZZ*cl1_XX)
+ *
+ * where the C_l are taken to be unlensed. By using quadratic combinations of
+ * C_l, we factor out from the bispectra the dependence on the primordial power
+ * spectrum.
+ * 
+ * This choice of normalisation is particularly advantageous because it never
+ * crosses the zero. Furthermore, for TTT and for l1 << 200, the formula
+ * is the symmetrised version of the squeezed limit of the local bispectrum, (which
+ * we have coded in bispectra_local_squeezed_bispectrum()). It follows that the
+ * normalised local bispectrum should be of order unity, and the normalised
+ * intrinsic bispectrum should be of order fnl_bias.
+ *
+ * In bispectra_normalisation() we have coded an alternative normalisation
+ * factor that approximates the squeezed local bispectrum also for EEE.
+ * Both normalisations will be included in the output
+ * files.
+ */
+
+int bispectra_normalisation_positive (
+     struct precision * ppr,
+     struct spectra * psp,
+     struct lensing * ple,
+     struct bispectra * pbi,
+     int l1, int l2, int l3,
+     int X, int Y, int Z,
+     double not_used_1,
+     double not_used_2,
+     double not_used_3,
+     double * result
+     )
+{
+
+  /* Extract the C_l */
+  double cl1_XX = pbi->cls[pbi->index_ct_of_bf_bf[X][X]][l1-2];
+  double cl2_YY = pbi->cls[pbi->index_ct_of_bf_bf[Y][Y]][l2-2];
+  double cl3_ZZ = pbi->cls[pbi->index_ct_of_bf_bf[Z][Z]][l3-2];
+
+  /* Build the normalisation */
+  *result = -24/5. * (cl1_XX*cl2_YY + cl2_YY*cl3_ZZ + cl3_ZZ*cl1_XX);
+  
+  return _SUCCESS_;
+
+}
+
 
 
 /** 

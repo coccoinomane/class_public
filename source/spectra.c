@@ -19,7 +19,6 @@
 #include "spectra.h"
 #include "arrays.h"
 
-
 int spectra_bandpower(struct spectra * psp,
                       int l1,
                       int l2,
@@ -1960,6 +1959,7 @@ int spectra_indices(
 
     if ((ppt->has_cl_cmb_temperature == _TRUE_) && (ppt->has_cl_cmb_zeta == _TRUE_) && (ppt->has_scalars == _TRUE_)) {
       psp->has_tz = _TRUE_;
+      strcpy (psp->ct_labels[index_ct], "tz");
       psp->index_ct_tz=index_ct++;
     }
     else {
@@ -1968,6 +1968,7 @@ int spectra_indices(
 
     if ((ppt->has_cl_cmb_polarization == _TRUE_) && (ppt->has_cl_cmb_zeta == _TRUE_) && (ppt->has_scalars == _TRUE_)) {
       psp->has_ez = _TRUE_;
+      strcpy (psp->ct_labels[index_ct], "ez");
       psp->index_ct_ez=index_ct++;
     }
     else {

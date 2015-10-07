@@ -1496,102 +1496,105 @@ int input_read_parameters(
 #endif // WITH_BISPECTRA
     
   }
+  
 
 #ifdef WITH_BISPECTRA
 
-  /* Parse the types of bispectra (intrinsic, primordial...) to compute */
+  if (pbi->has_bispectra == _TRUE_) {
+
+    /* Independently of the requested bispectrum, we need the C_l for visualisation and debug purposes */
+
+    ppt->has_perturbations = _TRUE_;
+    ppt->has_cls = _TRUE_;
+    ppt->has_cl_cmb_zeta = _TRUE_;
+    psp->compute_cl_derivative = _TRUE_;
+
+
+    /* Parse the types of bispectra (intrinsic, primordial...) to compute */
   
-  class_call (parser_read_string(pfc,"bispectrum_types",&string1,&flag1,errmsg),
-    errmsg,
-    errmsg);
+    class_call (parser_read_string(pfc,"bispectrum_types",&string1,&flag1,errmsg),
+      errmsg,
+      errmsg);
 
-  if ((pbi->has_bispectra == _TRUE_) && (flag1 == _TRUE_)) {
+    if (flag1 == _TRUE_) {
+
+      /* Compute primordial bispectrum with a local shape function */
+      if (strstr(string1,"local") != NULL) {
+        pbi->has_local_model = _TRUE_; 
+      }
   
-    /* Compute primordial bispectrum with a local shape function */
-    if (strstr(string1,"local") != NULL) {
-      pbi->has_local_model = _TRUE_; 
-    }
-  
-    /* Compute primordial bispectrum with an equilateral shape function */
-    if (strstr(string1,"equilateral") != NULL) {
-      pbi->has_equilateral_model = _TRUE_;
-    }
+      /* Compute primordial bispectrum with an equilateral shape function */
+      if (strstr(string1,"equilateral") != NULL) {
+        pbi->has_equilateral_model = _TRUE_;
+      }
 
-    /* Compute primordial bispectrum with an orthogonal shape function */
-    if (strstr(string1,"orthogonal") != NULL) {
-      pbi->has_orthogonal_model = _TRUE_;  
-    }
+      /* Compute primordial bispectrum with an orthogonal shape function */
+      if (strstr(string1,"orthogonal") != NULL) {
+        pbi->has_orthogonal_model = _TRUE_;  
+      }
 
-    /* Compute primordial bispectrum with the two Galileon shapes in arXiv:1303.2125 */
-    if (strstr(string1,"galileon") != NULL) {
-      pbi->has_galileon_model = _TRUE_;  
-    }
+      /* Compute primordial bispectrum with the two Galileon shapes in arXiv:1303.2125 */
+      if (strstr(string1,"galileon") != NULL) {
+        pbi->has_galileon_model = _TRUE_;  
+      }
 
-    /* Compute the approximation of the intrinsic bispectrum in the squeezed limit, the lensed version */
-    if ((strstr(string1,"intrinsic_squeezed") != NULL)
-    || (strstr(string1,"i_squeezed") != NULL) || (strstr(string1,"i-squeezed") != NULL)) {
-      pbi->has_intrinsic_squeezed = _TRUE_;
-      ppt->has_cl_cmb_zeta = _TRUE_;
-      psp->compute_cl_derivative = _TRUE_;
-    }
+      /* Compute the approximation of the intrinsic bispectrum in the squeezed limit, the lensed version */
+      if ((strstr(string1,"intrinsic_squeezed") != NULL) || (strstr(string1,"intrinsic_sqz") != NULL)
+      || (strstr(string1,"i-squeezed") != NULL)) {
+        pbi->has_intrinsic_squeezed = _TRUE_;
+      }
 
-    /* Compute the approximation of the intrinsic bispectrum in the squeezed limit, the unlensed version */
-    if ((strstr(string1,"unlensed_intrinsic_squeezed") != NULL)
-    || (strstr(string1,"i_u_squeezed") != NULL) || (strstr(string1,"i-u-squeezed") != NULL)) {
-      pbi->has_intrinsic_squeezed_unlensed = _TRUE_;
-      ppt->has_cl_cmb_zeta = _TRUE_;
-    }
+      /* Compute the approximation of the intrinsic bispectrum in the squeezed limit, the unlensed version */
+      if ((strstr(string1,"unlensed_intrinsic_squeezed") != NULL) || (strstr(string1,"unlensed_intrinsic_sqz") != NULL)
+      || (strstr(string1,"i-u-squeezed") != NULL)) {
+        pbi->has_intrinsic_squeezed_unlensed = _TRUE_;
+      }
 
-    /* Compute the approximation of the local bispectrum in the squeezed limit */
-    if ((strstr(string1,"local_squeezed") != NULL)
-    || (strstr(string1,"l_squeezed") != NULL) || (strstr(string1,"l-squeezed") != NULL)) {
-      pbi->has_local_squeezed = _TRUE_;
-      ppt->has_cl_cmb_zeta = _TRUE_;
-      psp->compute_cl_derivative = _TRUE_;
-    }
+      /* Compute the approximation of the local bispectrum in the squeezed limit */
+      if ((strstr(string1,"local_squeezed") != NULL) || (strstr(string1,"local_sqz") != NULL)
+       || (strstr(string1,"l-squeezed") != NULL)) {
+        pbi->has_local_squeezed = _TRUE_;
+      }
 
-    /* Compute a test oscillating bispectrum */
-    if ((strstr(string1,"cosine_shape") != NULL) || (strstr(string1,"cosine") != NULL)) {
-      pbi->has_cosine_shape = _TRUE_;
-    }
+      /* Compute a test oscillating bispectrum */
+      if ((strstr(string1,"cosine_shape") != NULL) || (strstr(string1,"cosine") != NULL)) {
+        pbi->has_cosine_shape = _TRUE_;
+      }
 
-    /* Compute the CMB-lensing bispectrum */
-    if ((strstr(string1,"cmb_lensing") != NULL) || (strstr(string1,"cmb-lensing") != NULL)
-    || (strstr(string1,"CMB_lensing") != NULL) || (strstr(string1,"CMB-lensing") != NULL)
-    || (strstr(string1,"isw_lensing") != NULL) || (strstr(string1,"isw-lensing") != NULL)) {
-      ppt->has_cl_cmb_lensing_potential = _TRUE_;
-      pbi->has_cmb_lensing = _TRUE_;
-    }
+      /* Compute the CMB-lensing bispectrum */
+      if ((strstr(string1,"cmb_lensing") != NULL) || (strstr(string1,"cmb-lensing") != NULL)
+      || (strstr(string1,"CMB_lensing") != NULL) || (strstr(string1,"CMB-lensing") != NULL)
+      || (strstr(string1,"isw_lensing") != NULL) || (strstr(string1,"isw-lensing") != NULL)) {
+        ppt->has_cl_cmb_lensing_potential = _TRUE_;
+        pbi->has_cmb_lensing = _TRUE_;
+      }
 
-    /* Compute the approximation of the CMB-lensing bispectrum in the squeezed limit */
-    if ((strstr(string1,"c_squeezed") != NULL) || (strstr(string1,"c-squeezed") != NULL)) {
-      ppt->has_cl_cmb_lensing_potential = _TRUE_;
-      pbi->has_cmb_lensing_squeezed = _TRUE_;
-    }
+      /* Compute the approximation of the CMB-lensing bispectrum in the squeezed limit */
+      if (strstr(string1,"c-squeezed") != NULL) {
+        ppt->has_cl_cmb_lensing_potential = _TRUE_;
+        pbi->has_cmb_lensing_squeezed = _TRUE_;
+      }
 
-    /* Compute the quadratic correction bispectrum (effectively the CMB four-point function) */
-    if (strstr(string1,"quadratic") != NULL) {
-      pbi->has_quadratic_correction = _TRUE_;
-    }
+      /* Compute the quadratic correction bispectrum (effectively the CMB four-point function) */
+      if (strstr(string1,"quadratic") != NULL) {
+        pbi->has_quadratic_correction = _TRUE_;
+      }
 
-#ifdef WITH_SONG_SUPPORT
+  #ifdef WITH_SONG_SUPPORT
 
-    /* Intrinsic bispectrum. This is induced by second-order effects in the evolution of the cosmological
-    perturbations. */
-    if (strstr(string1,"intrinsic") != NULL) {
-      pbi->has_intrinsic = _TRUE_;
-      pbi->has_quadratic_correction = _TRUE_;
-      ppt->has_perturbations2 = _TRUE_;
-      ppt->has_cls = _TRUE_;
-      /* We also require to be able to compute the analytical approximation in the squeezed limit,
-      which is used as a window function for the interpolation of the intrinsic bispectrum */
-      ppt->has_cl_cmb_zeta = _TRUE_;
-      psp->compute_cl_derivative = _TRUE_;
-    }
+      /* Intrinsic bispectrum. This is induced by second-order effects in the evolution of the cosmological
+      perturbations. */
+      if (strstr(string1,"intrinsic") != NULL) {
+        pbi->has_intrinsic = _TRUE_;
+        pbi->has_quadratic_correction = _TRUE_;
+        ppt->has_perturbations2 = _TRUE_;
+      }
 
-#endif // WITH_SONG_SUPPORT
+  #endif // WITH_SONG_SUPPORT
     
-  } // end of bispectrum_types parsing
+    } // end of bispectrum_types parsing
+  
+  } // if has_bispectra
 
 #endif // WITH_BISPECTRA
 
@@ -3288,6 +3291,9 @@ int input_read_parameters(
   /* The largest multipole for which the bispectrum is computed is given
   by ppt->l_max_scalars. If the user asked for an l_out value larger than
   l_max_scalars, we make it bigger. */
+    
+  int old_l_scalar_max = ppt->l_scalar_max;
+    
   for (int index_l_out=0; index_l_out < ppr->l_out_size; ++index_l_out) {
 
     /* In the l_out_mode, we compute only the output l */
@@ -3299,6 +3305,9 @@ int input_read_parameters(
 
   }
 
+  if (ppt->l_scalar_max != old_l_scalar_max)
+    printf ("\n%s:%d: WARNING: Adjusted l_scalar_max from %d to %d to take into account l1_out and l2_out\n\n",
+      __func__, __LINE__, old_l_scalar_max, ppt->l_scalar_max);
 
   /* Prepend output directory to bispectra output files */
 

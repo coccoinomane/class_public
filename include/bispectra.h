@@ -589,6 +589,11 @@ extern "C" {
        struct bispectra * pbi
        );
 
+  int bispectra_free_type_level(
+       struct bispectra * pbi,
+       int index_bt
+       );
+
   int bispectra_indices(
           struct precision * ppr,
           struct background * pba,
@@ -602,7 +607,6 @@ extern "C" {
           struct bispectra * pbi
           );
 
-
   int bispectra_primordial_power_spectrum (
       struct background * pba,
       struct perturbs * ppt,
@@ -610,7 +614,6 @@ extern "C" {
       struct primordial * ppm,
       struct bispectra * pbi
       );
-
 
   int bispectra_cls (
       struct precision * ppr,
@@ -1012,6 +1015,31 @@ extern "C" {
        double * result
        ); 
 
+  int bispectra_normalisation (
+       struct precision * ppr,
+       struct spectra * psp,
+       struct lensing * ple,
+       struct bispectra * pbi,
+       int l1, int l2, int l3,
+       int X, int Y, int Z,
+       double not_used_1,
+       double not_used_2,
+       double not_used_3,
+       double * result
+       );
+
+  int bispectra_normalisation_positive (
+       struct precision * ppr,
+       struct spectra * psp,
+       struct lensing * ple,
+       struct bispectra * pbi,
+       int l1, int l2, int l3,
+       int X, int Y, int Z,
+       double not_used_1,
+       double not_used_2,
+       double not_used_3,
+       double * result
+       );
 
   int bispectra_cosine_bispectrum (
        struct precision * ppr,

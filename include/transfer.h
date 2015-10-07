@@ -3,7 +3,6 @@
 #ifndef __TRANSFER__
 #define __TRANSFER__
 
-#include "input.h"
 #include "nonlinear.h"
 #include "hyperspherical.h"
 #include <sys/shm.h>
@@ -677,6 +676,10 @@ extern "C" {
                         int *index_l_left,
                         int *index_l_right,
                         ErrorMsg error_message);
+
+  /* This function is declared also in input.h. I redeclare it here to avoid
+  including input.h, which leads to plenty of warnings */
+  int compare_integers (const void * elem1, const void * elem2);
 
 #ifdef __cplusplus
 }

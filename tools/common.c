@@ -47,7 +47,7 @@ FILE * log_file = NULL;
  * In this case, using min1<min2 would record more information than what is
  * printed to screen.
  */
-void fprintf_twoway(
+void fprintf_2way(
   int verbose_level,
   FILE *stream1,
   int min1,
@@ -55,20 +55,59 @@ void fprintf_twoway(
   int min2,
   char *fmt, ...)
 {
-	va_list argp;
+  va_list argp;
 
   if ((verbose_level > min1) && (stream1 != NULL)) {
-  	va_start(argp, fmt);
-  	vfprintf(stream1, fmt, argp);
-  	va_end(argp);
+    va_start(argp, fmt);
+    vfprintf(stream1, fmt, argp);
+    va_end(argp);
   }
     
   if ((verbose_level > min2) && (stream2 != NULL)) {
-  	va_start(argp, fmt);
-  	vfprintf(stream2, fmt, argp);
-  	va_end(argp);
+    va_start(argp, fmt);
+    vfprintf(stream2, fmt, argp);
+    va_end(argp);
   }
 }
+
+
+/**
+ * Print the same message to three streams.
+ *
+ * The first stream is used only if verbose_level>min1, the second only if
+ * verbose_level>min2 and the third only if verbose_level>min3. 
+ */
+void fprintf_3way(
+  int verbose_level,
+  FILE *stream1,
+  int min1,
+  FILE *stream2,
+  int min2,
+  FILE *stream3,
+  int min3,
+  char *fmt, ...)
+{
+  va_list argp;
+
+  if ((verbose_level > min1) && (stream1 != NULL)) {
+    va_start(argp, fmt);
+    vfprintf(stream1, fmt, argp);
+    va_end(argp);
+  }
+    
+  if ((verbose_level > min2) && (stream2 != NULL)) {
+    va_start(argp, fmt);
+    vfprintf(stream2, fmt, argp);
+    va_end(argp);
+  }
+
+  if ((verbose_level > min3) && (stream3 != NULL)) {
+    va_start(argp, fmt);
+    vfprintf(stream3, fmt, argp);
+    va_end(argp);
+  }
+}
+
 #endif // WITH_BISPECTRA
 
 
