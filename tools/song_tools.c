@@ -3215,10 +3215,10 @@ void PrintMatrix(double **in,int n)
  */
 int is_triangular_int (int l1, int l2, int l3) {
   
-  if ((l3>=abs(l1-l2)) && (l3<=(l1+l2)))
-    return _TRUE_;
+  if ((l3<abs(l1-l2)) && (l3>(l1+l2)))
+    return _FALSE_;
   else
-    return _FALSE_;  
+    return _TRUE_;  
   
 }
 
@@ -3229,10 +3229,10 @@ int is_triangular_int (int l1, int l2, int l3) {
  */
 int is_triangular_double (double l1, double l2, double l3) {
 
-  if ((l3>=fabs(l1-l2)) && (l3<=(l1+l2)))
-    return _TRUE_;
+  if ((l3<fabs(l1-l2)) && (l3>(l1+l2)))
+    return _FALSE_;
   else
-    return _FALSE_;  
+    return _TRUE_;  
 
 }
 

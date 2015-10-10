@@ -157,11 +157,6 @@ int input_init_from_arguments(
                errmsg,
                errmsg);
 
-#ifdef WITH_BISPECTRA
-    /** - save the parameter filename into the ppr structure */
-    strcpy (ppr->ini_filename, input_file);
-#endif // WITH_BISPECTRA
-
 #ifndef WITH_BISPECTRA
     /** - check whether a root name has been set */
 
@@ -207,6 +202,12 @@ int input_init_from_arguments(
 #endif // WITH_BISPECTRA
 
   }
+
+#ifdef WITH_BISPECTRA
+    /** - save the parameter filename into the ppr structure */
+    strcpy (ppr->ini_filename, input_file);
+#endif // WITH_BISPECTRA
+
 
   /** - if there is an 'xxx.pre' file, read it and store its content. */
 
@@ -3168,42 +3169,32 @@ int input_read_parameters(
 
   /** i.2.4. Lensing effects on the bispectrum and on the Fisher matrix estimator */
   
-  if (ple->has_lensed_cls == _TRUE_) { /* if lensing=yes... */
-    
+  if ((pbi->has_bispectra == _TRUE_) && (ple->has_lensed_cls == _TRUE_)) { /* if lensing=yes... */
+
+    /* Should we compute the lensing correction to the bispectrum? If yes, the bispectra
+    in pbi->bispectra will be lensed. */
+    class_call(parser_read_string(pfc,"lensed_bispectra",&(string1),&(flag1),errmsg),
+      errmsg,
+      errmsg);
+
+    if ((flag1 == _TRUE_) && ((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL)))
+      pbi->has_lensed_bispectra = _TRUE_;
+
+    /* Extend the range of the lensed C_l if the user asked for a bispectrum type that
+    requires the lensed C_l */
+    if ((pbi->has_cmb_lensing == _TRUE_) || (pbi->has_cmb_lensing_squeezed == _TRUE_) ||
+        (pbi->has_cmb_lensing_kernel == _TRUE_) || (pbi->has_intrinsic_squeezed == _TRUE_))
+      ppr->extend_lensed_cls = _TRUE_;
+
+    /* If the user set lensing=yes, then assume s/he wants to compute how lensing
+    affects the Fisher matrix (ie. lensing noise and lensing variance) */
     if (pfi->has_fisher == _TRUE_) {
       pfi->include_lensing_effects = _TRUE_;
       pbi->has_cmb_lensing_kernel = _TRUE_;  /* needed to compute the effect of lensing variance */
       ppr->extend_lensed_cls = _TRUE_;       /* needed to include the lensing noise in the covariance matrix */
     }
-    
-    if (pbi->has_bispectra == _TRUE_) {
 
-      /* List of bispectra that can be lensed just by using the lensed C_l's */
-      short requires_lensed_cls = (
-        (pbi->has_cmb_lensing == _TRUE_) ||
-        (pbi->has_cmb_lensing_squeezed == _TRUE_) ||
-        (pbi->has_cmb_lensing_kernel == _TRUE_) ||
-        (pbi->has_intrinsic_squeezed == _TRUE_));
-    
-       if (requires_lensed_cls) {
-        pbi->include_lensing_effects = _TRUE_;
-        pbi->lensed_intrinsic = _TRUE_;
-        ppr->extend_lensed_cls = _TRUE_;
-      }
-    }
   } // end of if lensing
-
-  /* If requested explicitly, do not include the lensed C_l's in the squeezed approximation for the intrinsic
-  bispectrum */
-  if (pbi->include_lensing_effects == _TRUE_) {
-
-    class_call(parser_read_string(pfc,"lensed_intrinsic",&(string1),&(flag1),errmsg),
-      errmsg,
-      errmsg);
-   
-    if ((flag1 == _TRUE_) && ((strstr(string1,"n") != NULL) || (strstr(string1,"N") != NULL)))
-      pbi->lensed_intrinsic = _FALSE_;
-  }
 
   if (pfi->include_lensing_effects == _TRUE_) {
     
@@ -3593,11 +3584,11 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
 
   /** i.4.3. interpolation of the bispectrum */
 
-  class_call(parser_read_string(pfc,"bispectra_interpolation",&string1,&flag1,errmsg),
+  class_call(parser_read_string(pfc,"interpolation_method",&string1,&flag1,errmsg),
          errmsg,
          errmsg);  
   
-  class_call(parser_read_string(pfc,"bispectra_interpolation",&string1,&flag1,errmsg),
+  class_call(parser_read_string(pfc,"interpolation_method",&string1,&flag1,errmsg),
          errmsg,
          errmsg);  
   
@@ -3626,7 +3617,7 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
     }
     else {
       class_test(1==1, errmsg,
-        "bispectra_interpolation=%s not supported. Choose between 'trilinear', 'mesh', 'mesh_2d', 'sum'",
+        "interpolation_method=%s not supported. Choose between 'trilinear', 'mesh', 'mesh_2d', 'sum'",
         string1);
     }
   
@@ -4353,8 +4344,7 @@ int input_default_params(
   pbi->has_cmb_lensing_squeezed = _FALSE_;
   pbi->has_cmb_lensing_kernel = _FALSE_;
   pbi->has_quadratic_correction = _FALSE_;
-  pbi->include_lensing_effects = _FALSE_;
-  pbi->lensed_intrinsic = _FALSE_;
+  pbi->has_lensed_bispectra = _FALSE_;
   pbi->output_binary_bispectra = _FALSE_;
 
   /** - fisher structure */

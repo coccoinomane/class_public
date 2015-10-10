@@ -23,26 +23,55 @@ enum bispectra_types {
 
 
 
+/**
+ * Possible interpolation methods for the bispectrum.
+ */
+// enum bispectra_interpolation_method {
+//   smart_interpolation,
+//   trilinear_interpolation,
+//   mesh_interpolation,
+//   sum_over_all_multipoles
+// };
+
+
+
 struct bispectra {
 
   // ====================================================================================
   // =                                     Flags                                        =
   // ====================================================================================
 
-  /* Should we compute any bispectra at all? */
-  short has_bispectra;
+  short has_bispectra; /**< Should we compute any bispectra at all? If this flag is set
+                       to _FALSE_, the bispectrum module will be skipped altogether. */
 
-  /* Should we include the lensing effects in the computation of the bispectra? This affects
-  only analytical bispectra such as the CMB-lensing and the squeezed approximation for the
-  intrinsic bispectrum */
-  short include_lensing_effects;
-  
-  /* Flag that overrides 'include_lensing_effects' for the intrinsic bispectrum. If _FALSE_,
-  never use the lensed version of the intrinsic bispectrum or of its approximation  */ 
-  short lensed_intrinsic;
+  /**
+   * Should we compute the lensing of the bispectrum?
+   *
+   * Gravitational lensing due to intervening matter bends the trajectory of
+   * photons from the last scattering surface to us. This effect alters the
+   * shape of the CMB bispectra and is called lensing of the bispectrum.
+   *
+   * We parameterise the lensing of the bispectrum as an additive factor to
+   * the unlensed bispectrum.
+   *
+   * If this flag is turned on, the lensing correction will be stored in
+   * pbi->bispectra_lensing_correction and added to the unlensed bispectrum
+   * in pbi->bispectra. Otherwise, pbi->bispectra will contain the unlensed
+   * bispectrum.
+   *
+   * For some analytical bispectra (squeezed approximations, CMB-lensing...)
+   * the lensing is computed by just substituting the unlensed C_l in their
+   * definition with the lensed C_l.
+   *
+   * For arbitrary bispectra, however, the lensing correction requires
+   * convolving the unlensed bispectrum with the lensing potential C_l^PP.
+   * We do so in bispectra_lensing().
+   */          
+  short has_lensed_bispectra;
 
-  /* Are the Wigner 3j-symbols needed to compute the requested bispectra? */
-  short need_3j_symbols;
+  short need_3j_symbols; /**< Are the Wigner 3j-symbols needed to compute the requested bispectra?  
+                         This is the case for the CMB-lensing bispectrum and for the quadratic 
+                         bispectrum. */
 
 
 
@@ -112,6 +141,17 @@ struct bispectra {
   possible to obtain the value of b_l1l2l3 for odd l1+l2+3. We take note of these
   non-reducible bispectra using the following array. */
   int has_reduced_bispectrum[_MAX_NUM_BISPECTRA_];
+
+  /**
+   * Mark which bispectra will be lensed with the convolution method, in the 
+   * bispectra_lensing() function.
+   *
+   * The other bispectra will be lensed analytically on a one-by-one case. For
+   * example the CMB-lensing bispectrum and the squeezed approximations will be
+   * lensed by sustituting the unlensed C_l in their definition with the lensed
+   * ones.
+   */
+  int lens_me[_MAX_NUM_BISPECTRA_];
   
   /* Add the bolometric and redshift corrections (in the form of C_l*C_l) to the intrinsic
   bispectrum? Ignore if you are only interested in first-order CLASS, and see function
@@ -248,11 +288,36 @@ struct bispectra {
   size of index_l1_l2_l3. */
   long int n_independent_configurations;
 
-  /* Multi-array where the bispectra will be stored.  It must be indexed as
-    bispectra [index_bt][X][Y][Z][index_l1_l2_l3]
-  where X,Y,Z=T,E,B are indexed by the 'pbi->index_bf' indices, and
-  'index_l1_l2_l3' is described above. */          
+  /**
+   * Array where the bispectra will be stored.
+   *
+   * The bispectra array is indexed in the following way:
+   * 
+   * bispectra [index_bt][X][Y][Z][index_l1_l2_l3]
+   *
+   * - index_bt is the bispectrum type index (local, equilateral, intrinsic...) and 
+   *   it can be any of the active pbi->index_bt_XXX indices. 
+   * - X, Y and Z are field indices (temperature, E-polarisation, B-polarisation...)
+   *   and can be any of the active pbi->index_bf_XXX indices.
+   * - index_l1_l2_l3 is the index pointing to the (l1,l2,l3) configurations; see
+   *   documentation for index_l1_l2_l3 for more information.
+   *
+   * If the flag has_lensed_bispectra is turned on, the bispectra stored in this array
+   * will be lensed.
+   */
   double ***** bispectra;
+  
+  /**
+   * Array where the correction to the bispectrum due to lensing will be stored.
+   *
+   * Gravitational lensing due to intervening matter bends the trajectory of
+   * photons from the last scattering surface to us. This effect alters the
+   * shape of the CMB bispectra and is called lensing of the bispectrum.
+   *
+   * We parameterise the lensing of the bispectrum as an additive factor to
+   * the unlensed bispectrum.
+   */
+  double ***** lensing_correction;
   
   /* In computing the CMB-lensing bispectrum, turn the lensing potential C_l to zero on small scales,
   where we cannot trust them. This won't change the result because these C_l's are very small for
@@ -324,6 +389,77 @@ struct bispectra {
   functions. It is defined as ptr->k[i+1] - ptr->k[i-1]. */
   double * delta_k;
 
+
+
+  // // ====================================================================================
+  // // =                            Bispectrum interpolation                              =
+  // // ====================================================================================
+  //
+  // /**
+  //  * What method should we use for interpolating the bispectra (trilinear, mesh...)
+  //  */
+  // enum bispectra_interpolation_method interpolation_method;
+  //
+  // /**
+  //  * Parameters for the mesh interpolation of the bispectra.
+  //  *
+  //  * The main difficulty in interpolating the bispectrum is that it is not defined on
+  //  * a cubic grid. In fact, the triangular condition |l2-l3| <= l1 <= l2+l3, results
+  //  * in a domain for (l1,l2,l3) that has the shape of a "tetrapyd", the union of two
+  //  * triangular pyramids through the base (see Fig. 2 of Fergusson et al. 2012).
+  //  *
+  //  * A simple trilinear method can be used to interpolate the bispectrum, but it is
+  //  * inaccurate near the edges of the tetrapyd as it inherently assumes that the domain
+  //  * is cubic.
+  //  *
+  //  * The problem can be circumvented by deforming the allowed region to a cube via a
+  //  * geometrical transformation and then using trilinear interpolation (Fergusson et al.
+  //  * 2009). While viable, this approach would force us to discard the points that do
+  //  * not fall in the transformed grid, thus requiring a finer l-sampling.
+  //  *
+  //  * Rather than relying on a cubic grid, we devise a general interpolation technique
+  //  * that is valid on any mesh. We first define a correlation length L and divide the
+  //  * tetrapyd domain in boxes of side L. To compute the interpolation in an arbitrary
+  //  * triplet (l1,l2,l3), we consider the values of all the nodes in the box where
+  //  * the triplet lives and in the adjacent ones. To each node, we assign a weight that
+  //  * is inversely proportional to its distance from (l1,l2,l3).
+  //  *
+  //  * The problem with this approach is that, the mesh being inhomogeneous, there might
+  //  * be a group of close nodes in one direction that influences the interpolated value
+  //  * in (l1,l2,l3) much more than a closer point in the opposite direction. In order
+  //  * to prevent this, we weight down the nodes that have a high local density within a
+  //  * certain distance from them.
+  //  *
+  //  * This mesh interpolation technique relies on two free parameters:
+  //  *
+  //  * - The correlation length L, which sets the size of the local region influencing
+  //  *   the interpolation. In a homogenous grid, it should correspond roughly to the
+  //  *   largest distance of two neighbouring points.
+  //  *
+  //  * - The grouping length, that is the distance below which many close nodes are
+  //  *   considered as a single one. It is used to avoid the interpolation being
+  //  *   determined by a bunch of close nodes in one direction. In a homogenous grid,
+  //  *   The grouping length should roughly correspond to the shortest distance between
+  //  *   two points.
+  //  *
+  //  * Since the bispectra sampling is denser for small l and sparser for high l, we use
+  //  * two meshes: a mesh with a small linking length, to interpolate the bispectrum in
+  //  * the region where all l are small, and a mesh with a larger linking length, to
+  //  * interpolate it in the remaining region. The turnover point between the two
+  //  * regions is determined based on the l sampling in pbi->l, and is memorised in
+  //  * pbi->l_turnover.
+  //  */
+  // //@{
+  // double link_lengths[2]; /**< Linking lengths of the interpolation meshes */
+  // double group_lengths[2]; /**< Grouping lengths of the interpolation meshes */
+  // double soft_coeffs[2]; /**< Softening of the linking length of the interpolation mesh, fixed to 0.5 */
+  // int l_turnover;  /**< Turnover multipole between the fine and coarse interpolation meshes;
+  //                  determined based on the l-sampling in pbi->l */
+  //
+  // /** Array with two interpolation meshes per bispectrum computed in SONG. Indexed as
+  // pbi->bispectra with an extra level: pbi->mesh_workspaces[index_bt][X][Y][Z][index_mesh] */
+  // struct mesh_interpolation_workspace ***** mesh_workspaces[2];
+  // //@}
 
 
   // ====================================================================================
@@ -860,6 +996,32 @@ extern "C" {
       struct bispectra_workspace_non_separable * pwb
       );
 
+
+  int bispectra_lensing (
+       struct precision * ppr,
+       struct background * pba,
+       struct thermo * pth,
+       struct perturbs * ppt,
+       struct bessels * pbs,
+       struct transfers * ptr,
+       struct primordial * ppm,
+       struct spectra * psp,
+       struct lensing * ple,
+       struct bispectra * pbi,
+       int index_bt
+       );
+
+  int bispectra_lensing_convolution (
+       struct precision * ppr,
+       struct spectra * psp,
+       struct lensing * ple,
+       struct bispectra * pbi,
+       int l1, int l2, int l3,
+       int X1, int X2, int X3,
+       int index_bt,
+       double * result
+       );
+
   int bispectra_store_to_disk(
       struct bispectra * pbi,
       int index_bt
@@ -1002,7 +1164,7 @@ extern "C" {
        );
 
 
-  int bispectra_quadratic_bispectrum (
+  int bispectra_quadratic_correction (
        struct precision * ppr,
        struct spectra * psp,
        struct lensing * ple,

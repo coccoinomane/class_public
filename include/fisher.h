@@ -7,7 +7,9 @@
 #include "mesh_interpolation.h"
 
 
-/* Which kind of interpolation for the bispectra?  */
+/**
+ * Possible interpolation methods for the bispectrum.
+ */
 enum bispectra_interpolation_method {
   smart_interpolation,
   trilinear_interpolation,
@@ -36,20 +38,37 @@ struct fisher {
   // =                             Flags and indices                             =
   // =============================================================================
 
-  /* Should we compute the Fisher matrix at all? */
-  short has_fisher;
+  short has_fisher; /**< Should we compute the Fisher matrix at all? If _TRUE_,
+                    the Fisher module will be skipped altogether. */
 
-  /* Should we include the lensing effects in the Fisher matrix estimator? These
-  include the extra variance due to lensing (see Sec. 5 of http://uk.arxiv.org/abs/1101.2234)
-  and using the lensed C_l's in the covariance matrix */
+  /**
+   * Should we include the lensing effects in the Fisher matrix estimator?
+   *
+   * Gravitational lensing degrades the bispectrum signal via the lensing noise
+   * and the lensing variance. If this flag is turned on, we include these effects
+   * in the Fisher matrix. 
+   *
+   * By lensing noise we refer to using the lensed C_l rather than the unlensed
+   * ones in the inverse covariance matrix (ie. the C_l at the denominator of
+   * the Fisher matrix estimator).
+   *
+   * By lensing variance we refer to the effect described in Sec. 5 of
+   * http://uk.arxiv.org/abs/1101.2234.
+   */
   short include_lensing_effects;
 
-  /* Should we compute the Fisher matrix for all the l's up to l_max, rather than only for l_max?
-  When lensing variance is not requested the flag is not needed, as the computation of the Fisher
-  matrix naturally yields F(l) up to l=l_max. With lensing variance, however, computing F(l)
-  requires running the Fisher module separately for each l, because the lensing variance algorithm
-  used in SONG (Lewis et al 2011, Sec. 5) includes a sum over l1 (smallest multipole in the Fisher
-  summation) rather than over l3 (larger multipole in the Fisher summation). */
+  /**
+   * Should we compute the Fisher matrix for all the l up to l_max, rather than
+   * only for l_max?
+   *
+   * When the lensing variance is not requested the flag is not needed, as the
+   * computation of the Fisher matrix naturally yields F(l) up to l=l_max. With
+   * lensing variance, however, computing F(l) requires running the Fisher module
+   * separately for each l, because the lensing variance algorithm used in SONG
+   * (Lewis et al 2011, Sec. 5) includes a sum over l1 (smallest multipole in
+   * the Fisher summation) rather than over l3 (larger multipole in the Fisher
+   * summation).
+   */
   short compute_lensing_variance_lmax;
 
   // ===========================================================================================
