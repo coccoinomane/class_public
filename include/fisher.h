@@ -317,9 +317,9 @@ struct fisher {
     where index_mesh runs from 0 to n_mesh_grids-1 */
   int * l_turnover;
   
-  /* Array of pointers to interpolation workspaces, indexed as mesh_workspaces[index_bt][X][Y][Z][index_mesh],
+  /* Array of pointers to interpolation workspaces, indexed as meshes[index_bt][X][Y][Z][index_mesh],
   where i,j,k are the field indices (eg. TET). */
-  struct mesh_interpolation_workspace ****** mesh_workspaces;
+  struct interpolation_mesh ****** meshes;
 
   /* When larger than one, forces SONG to only consider squeezed triangles when computing the
   Fisher matrix for all bispectra. The squeezed triangles are chosen so that
@@ -510,22 +510,14 @@ extern "C" {
           struct lensing * ple,
           struct bispectra * pbi,
           struct fisher * pfi,
-          struct mesh_interpolation_workspace ******* mesh_workspaces
+          struct interpolation_mesh ******* meshes
           );
 
   int fisher_free_interpolation_mesh(
           struct bispectra * pbi,
           struct fisher * pfi,
-          struct mesh_interpolation_workspace ******* mesh_workspaces
+          struct interpolation_mesh ******* meshes
           );
-
-  int fisher_create_3D_interpolation_mesh(
-        struct precision * ppr,
-        struct spectra * psp,
-        struct lensing * ple,
-        struct bispectra * pbi,
-        struct fisher * pfi
-        );
 
   int fisher_create_2D_interpolation_mesh(
         struct precision * ppr,
@@ -534,7 +526,7 @@ extern "C" {
         struct bispectra * pbi,
         struct fisher * pfi,
         int index_l1,
-        struct mesh_interpolation_workspace ****** mesh_workspaces
+        struct interpolation_mesh ****** meshes
         );
 
   int fisher_interpolate_bispectrum_mesh_2D (
@@ -547,8 +539,16 @@ extern "C" {
         int X,
         int Y,
         int Z,
-        struct mesh_interpolation_workspace ** mesh,
+        struct interpolation_mesh ** mesh,
         double * interpolated_value
+        );
+
+  int fisher_create_3D_interpolation_mesh(
+        struct precision * ppr,
+        struct spectra * psp,
+        struct lensing * ple,
+        struct bispectra * pbi,
+        struct fisher * pfi
         );
 
   int fisher_interpolate_bispectrum_mesh_3D (
@@ -561,7 +561,7 @@ extern "C" {
         int X,
         int Y,
         int Z,
-        struct mesh_interpolation_workspace ** mesh,
+        struct interpolation_mesh ** mesh,
         double * interpolated_value
         );
 

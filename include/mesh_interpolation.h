@@ -12,7 +12,7 @@
 // #define _FAILURE_ 0
 
 
-struct mesh_interpolation_workspace {
+struct interpolation_mesh {
 
   long int n_points;
   long int n_boxes;
@@ -56,12 +56,12 @@ extern "C" {
   // ==============================================================================================
 
   int mesh_3D_sort (
-      struct mesh_interpolation_workspace * pw,
+      struct interpolation_mesh * pw,
       double ** values
       );
 
   int mesh_3D_int (
-      struct mesh_interpolation_workspace * pw,
+      struct interpolation_mesh * pw,
       double x,
       double y,
       double z,
@@ -69,7 +69,7 @@ extern "C" {
       );
 
   int mesh_3D_free (
-      struct mesh_interpolation_workspace * pw
+      struct interpolation_mesh * pw
       );
 
   double distance (
@@ -83,19 +83,19 @@ extern "C" {
   // ==============================================================================================
 
   int mesh_2D_sort (
-      struct mesh_interpolation_workspace * pw,
+      struct interpolation_mesh * pw,
       double ** values
       );
 
   int mesh_2D_int (
-      struct mesh_interpolation_workspace * pw,
+      struct interpolation_mesh * pw,
       double x,
       double y,
       double * interpolated_value
       );
 
   int mesh_2D_free (
-      struct mesh_interpolation_workspace * pw
+      struct interpolation_mesh * pw
       );
 
   double distance_2D (

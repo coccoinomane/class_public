@@ -131,7 +131,9 @@ struct transfers {
   int * l;        /**< list of multipole values l[index_l] */
 
 #ifdef WITH_BISPECTRA
-  int * index_l;  /**< pbs->index_l[L] is the index of L inside ptr->l, or -1 if L does not belong to pbs->l */
+  int * index_l;  /**< pbs->index_l[L] is the index of L inside ptr->l, or -1 if L does not belong to ptr->l */
+
+  int * index_l_left;  /**< pbs->index_l_left[L] is the index at the left of L inside ptr->l, or -1 if L is outside the range of of ptr->l */
 #endif // WITH_BISPECTRA
 
   //int * l_size_bessel; /**< for each wavenumber, maximum value of l at which bessel functions must be evaluated */

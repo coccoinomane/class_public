@@ -739,6 +739,8 @@ int parser_overwrite_entry (
 
 
 
+#ifdef WITH_BISPECTRA
+
 /**
  * Find and replace text within an entry of a file_content structure.
  * 
@@ -804,6 +806,8 @@ int parser_replace_entry (
   return _SUCCESS_;
 
 }
+
+#endif // WITH_BISPECTRA
 
 
 

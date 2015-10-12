@@ -38,8 +38,9 @@ OMPFLAG   = -fopenmp
 #OMPFLAG   = -openmp
 
 # all other compilation flags
-CCFLAG = -g -fPIC -w -std=c99
-CFLAGS += -DDEBUG
+CCFLAG = -g -fPIC -std=c99
+#CFLAGS += -w
+CCFLAG += -DDEBUG
 LDFLAG = -g -fPIC
 
 # leave blank to compile without HyRec, or put path to HyRec directory

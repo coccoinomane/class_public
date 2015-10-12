@@ -8,7 +8,7 @@
 
 
 int mesh_3D_sort (
-    struct mesh_interpolation_workspace * pw,
+    struct interpolation_mesh * pw,
     double ** vals
     )
 {
@@ -220,7 +220,7 @@ int mesh_3D_sort (
 
 
 int mesh_3D_int (
-    struct mesh_interpolation_workspace * pw,
+    struct interpolation_mesh * pw,
     double x,
     double y,
     double z,
@@ -374,7 +374,7 @@ loop:
 
 
 int mesh_3D_free (
-    struct mesh_interpolation_workspace * pw
+    struct interpolation_mesh * pw
     )
 {
   
@@ -436,7 +436,7 @@ double distance (double * vec1, double * vec2){
 
 
 int mesh_2D_sort (
-    struct mesh_interpolation_workspace * pw,
+    struct interpolation_mesh * pw,
     double ** vals
     )
 {
@@ -489,7 +489,6 @@ int mesh_2D_sort (
   for(int i=0;i<n_boxes;i++){
     counter[i] = (int*) calloc(n_boxes, sizeof(int));
   }
-
 
   /* Allocate mesh */
   pw->mesh_2D = (double****) malloc(n_boxes*sizeof(double***));
@@ -607,7 +606,7 @@ int mesh_2D_sort (
 
 
 int mesh_2D_int (
-    struct mesh_interpolation_workspace * pw,
+    struct interpolation_mesh * pw,
     double x,
     double y,
     double * interpolated_value
@@ -736,7 +735,7 @@ loop:
 
 
 int mesh_2D_free (
-    struct mesh_interpolation_workspace * pw
+    struct interpolation_mesh * pw
     )
 {
   

@@ -8,6 +8,7 @@
 #include "spectra.h"
 #include "slatec_3j_C.h"
 #include "binary.h"
+#include "mesh_interpolation.h"
 
 /**
  * Categories of bispectra that SONG can compute.
@@ -457,8 +458,8 @@ struct bispectra {
   //                  determined based on the l-sampling in pbi->l */
   //
   // /** Array with two interpolation meshes per bispectrum computed in SONG. Indexed as
-  // pbi->bispectra with an extra level: pbi->mesh_workspaces[index_bt][X][Y][Z][index_mesh] */
-  // struct mesh_interpolation_workspace ***** mesh_workspaces[2];
+  // pbi->bispectra with an extra level: pbi->meshes[index_bt][X][Y][Z][index_mesh] */
+  // struct interpolation_mesh ***** meshes[2];
   // //@}
 
 
@@ -716,6 +717,15 @@ extern "C" {
        struct lensing * ple,
        struct bispectra * pbi
        );
+
+  int bispectra_at_l1l2l3 (
+      struct bispectra * pbi,
+      int index_bt,
+      int index_l1, int index_l2, int index_l3,
+      int X, int Y, int Z,
+      double * bispectrum,
+      double * bispectrum_unlensed
+      );
 
   int bispectra_free(
        struct precision * ppr,
@@ -1013,10 +1023,11 @@ extern "C" {
 
   int bispectra_lensing_convolution (
        struct precision * ppr,
+       struct transfers * ptr,
        struct spectra * psp,
        struct lensing * ple,
        struct bispectra * pbi,
-       int l1, int l2, int l3,
+       int index_l1, int index_l2, int index_l3,
        int X1, int X2, int X3,
        int index_bt,
        double * result
@@ -1257,6 +1268,19 @@ extern "C" {
        double threej_ratio_0m22,
        double * result
        );
+
+  int bispectra_init_interpolation_mesh_2D (
+       struct precision * ppr,
+       struct spectra * psp,
+       struct lensing * ple,
+       struct bispectra * pbi,
+       int index_bt,
+       int X, int Y, int Z,
+       int index_l1,
+       int ** mesh_grid,
+       struct interpolation_mesh * mesh
+       );
+
 
 #ifdef __cplusplus
 }

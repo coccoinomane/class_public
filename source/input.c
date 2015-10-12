@@ -3325,7 +3325,7 @@ int input_read_parameters(
     pbi->output_binary_bispectra = _TRUE_;
 
     sprintf (ppr->l_out_path_3D,
-      "%s/bispectra.dat",
+      "%sbispectra.dat",
       pop->root);
       
   }
@@ -3870,7 +3870,7 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
              errmsg);
 
   if (flag1 == _TRUE_) {
-    sprintf (ppr->log_filename, "%s/%s", pop->root, string1);
+    sprintf (ppr->log_filename, "%s%s", pop->root, string1);
     class_open(log_file,ppr->log_filename,"w",errmsg);    
   }
   

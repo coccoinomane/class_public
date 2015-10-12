@@ -1032,7 +1032,7 @@ int transfer_get_l_list(
   } // end of if(compute even/odd l-grid)
 
 
-  /* Find out the index in ptr->l corresponding to a given l. */
+  /* Find out the index in ptr->l corresponding to a given l */
 
   class_alloc (ptr->index_l, (ptr->l[ptr->l_size_max-1]+1)*sizeof(int), ptr->error_message);
 
@@ -1041,9 +1041,27 @@ int transfer_get_l_list(
     ptr->index_l[l] = -1;
 
     for (index_l=0; index_l<ptr->l_size_max; ++index_l)
-      if (l==ptr->l[index_l]) ptr->index_l[l] = index_l;
+      if (l == ptr->l[index_l])
+        ptr->index_l[l] = index_l;    
 
   }
+
+
+  /* Find out the index in ptr->l at the left of a given l */
+
+  class_alloc (ptr->index_l_left, (ptr->l[ptr->l_size_max-1]+1)*sizeof(int), ptr->error_message);
+
+  for(int l=0; l<=ptr->l[ptr->l_size_max-1]; ++l) {
+      
+    ptr->index_l_left[l] = ptr->l_size_max-1;
+
+    while ((ptr->index_l_left[l] >= 0) && (ptr->l[ptr->index_l_left[l]] > l))
+      ptr->index_l_left[l]--;
+    
+  }
+
+
+  /* Find out the index in ptr->l corresponding to a given l. */
 
 
   /* Assign to each output l the corresponding index in ptr->l */
