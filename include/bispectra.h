@@ -94,6 +94,7 @@ struct bispectra {
   short has_cmb_lensing_squeezed;     /* Squeezed limit of the CMB-lensing bispectrum (Eq. 5.20 of arxiv:1101.2234) */
   short has_cmb_lensing_kernel;       /* Squeezed limit of the CMB-lensing bispectrum (kernel only, Eq. 5.20 of arxiv:1101.2234) */
   short has_quadratic_correction;     /* Four-point contribution to the bispectrum */
+  short has_test_bispectrum;          /* Simple C_l x C_l bispectrum suitable to test lensing */
 
   /* Indices for the above bispectra types */
   int index_bt_local;                 /* Index for the bispectrum for a local model */
@@ -109,7 +110,8 @@ struct bispectra {
   int index_bt_cmb_lensing;           /* Index for the bispectrum of CMB-lensing */
   int index_bt_cmb_lensing_squeezed;  /* Index for the bispectrum of CMB-lensing in the squeezed limit */
   int index_bt_cmb_lensing_kernel;    /* Index for the bispectrum of CMB-lensing in the squeezed limit (kernel only) */
-  int index_bt_quadratic;             /* Index for the bispectrum induced by a quadratic correction to the distribution function */  
+  int index_bt_quadratic;             /* Index for the bispectrum induced by a quadratic correction to the distribution function */
+  int index_bt_test;                  /* Index for the test bispectrum */
   int bt_size;                        /* Total number of bispectra types requested */
 
   /* Array of strings that contain the text labels of the various bispectra */
@@ -1028,6 +1030,18 @@ extern "C" {
        struct lensing * ple,
        struct bispectra * pbi,
        int index_l1, int index_l2, int index_l3,
+       int X1, int X2, int X3,
+       int index_bt,
+       double * result
+       );
+
+  int bispectra_lensing_convolution_without_interpolation (
+       struct precision * ppr,
+       struct transfers * ptr,
+       struct spectra * psp,
+       struct lensing * ple,
+       struct bispectra * pbi,
+       int l1, int l2, int l3,
        int X1, int X2, int X3,
        int index_bt,
        double * result

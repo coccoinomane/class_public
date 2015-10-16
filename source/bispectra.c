@@ -923,6 +923,26 @@ int bispectra_indices (
     index_bt++;
   }
   
+  if (pbi->has_quadratic_correction == _TRUE_) {
+    pbi->index_bt_quadratic = index_bt;
+    strcpy (pbi->bt_labels[index_bt], "quadratic");
+    pbi->bispectrum_type[index_bt] = analytical_bispectrum;
+    pbi->n[analytical_bispectrum]++;
+    pbi->has_reduced_bispectrum[index_bt] = _TRUE_;
+    pbi->lens_me[index_bt] = _FALSE_;
+    index_bt++;
+  }
+
+  if (pbi->has_test_bispectrum == _TRUE_) {
+    pbi->index_bt_test = index_bt;
+    strcpy (pbi->bt_labels[index_bt], "lensing_test");
+    pbi->bispectrum_type[index_bt] = analytical_bispectrum;
+    pbi->n[analytical_bispectrum]++;
+    pbi->has_reduced_bispectrum[index_bt] = _TRUE_;
+    pbi->lens_me[index_bt] = _TRUE_;
+    index_bt++;
+  }
+
   /* The kernel for the squeezed CMB-lensing bispectrum is needed to compute
   the lensing contribution to the variance. In the final Fisher matrix, the kernel
   will be multiplied by C_l^{X\phi} to give the actual squeezed bispectrum (see
@@ -938,16 +958,6 @@ int bispectra_indices (
     index_bt++;
   }
   
-  if (pbi->has_quadratic_correction == _TRUE_) {
-    pbi->index_bt_quadratic = index_bt;
-    strcpy (pbi->bt_labels[index_bt], "quadratic");
-    pbi->bispectrum_type[index_bt] = analytical_bispectrum;
-    pbi->n[analytical_bispectrum]++;
-    pbi->has_reduced_bispectrum[index_bt] = _TRUE_;
-    pbi->lens_me[index_bt] = _FALSE_;
-    index_bt++;
-  }
-
   // *** Intrinsic (i.e. second-order) bispectra
 
   if (pbi->has_intrinsic == _TRUE_) {
@@ -3590,6 +3600,9 @@ int bispectra_analytical_init (
     else if ((pbi->has_quadratic_correction == _TRUE_) && (index_bt == pbi->index_bt_quadratic))
       pbi->bispectrum_function[index_bt] = bispectra_quadratic_correction;
     
+    else if ((pbi->has_test_bispectrum == _TRUE_) && (index_bt == pbi->index_bt_test))
+      pbi->bispectrum_function[index_bt] = bispectra_test_bispectrum;
+    
     else if ((pbi->has_cosine_shape == _TRUE_) && (index_bt == pbi->index_bt_cosine))
       pbi->bispectrum_function[index_bt] = bispectra_cosine_bispectrum;
 
@@ -5218,6 +5231,22 @@ int bispectra_lensing (
         int index_l3_min = pbi->index_l_triangular_min[index_l1][index_l2];
         int index_l3_max = MIN (index_l2, pbi->index_l_triangular_max[index_l1][index_l2]);
 
+        /* Compute 3j factor needed to convert the bispectrum to the reduced bispectrum */
+        double threej[2*pbi->l_max+1];
+        int l3_min_3j, l3_max_3j;
+
+        double min_D, max_D;
+        class_call_parallel (drc3jj (
+                               l1, l2, 0, 0,
+                               &min_D, &max_D,
+                               threej,
+                               (2*pbi->l_max+1),
+                               pbi->error_message),
+          pbi->error_message,
+          pbi->error_message);
+        l3_min_3j = (int)(min_D + _EPS_);
+        l3_max_3j = (int)(max_D + _EPS_);
+
         for (int X2=0; X2 < pbi->bf_size; ++X2) {
 
           int F_X2 = pbi->field_spin[X2];
@@ -5228,15 +5257,18 @@ int bispectra_lensing (
             long int index_l1_l2_l3 = pbi->index_l1_l2_l3[index_l1][index_l1-index_l2][index_l3_max-index_l3];
 
             /* Debug: compute lensing for a reduced set of l */
-            int l_long = 150;
-            if ( !(((l1==l_long) && (l2==l3)) || ((l2==l_long) && (l1==l3)) || ((l3==l_long) && (l1==l2))) )
+            int l_long = 10;
+            if ( ! (((l1==l_long) && (l2==l3)) || ((l3==l_long) && (l1==l2))) )
               continue;
 
             for (int X3=0; X3 < pbi->bf_size; ++X3) {
 
               int F_X3 = pbi->field_spin[X3];
 
-              /* Overall R factor */
+
+              // ====================================================================================
+              // =                                   Overall R factor                               =
+              // ====================================================================================
 
               double R_factor = - 0.5 * R * (
                 (l1+F_X1)*(l1-F_X1+1.0) + (l1-F_X1)*(l1+F_X1+1.0) +
@@ -5244,14 +5276,26 @@ int bispectra_lensing (
                 (l3+F_X3)*(l3-F_X3+1.0) + (l3-F_X3)*(l3+F_X3+1.0)
               );
                             
-              /* Convolution factor */
-              
+
+              // ====================================================================================
+              // =                                 Convolution factor                               =
+              // ====================================================================================
+
               double convolution_factor_123 = 0;
               double convolution_factor_231 = 0;
               double convolution_factor_312 = 0;
               
-              class_call_parallel (bispectra_lensing_convolution (ppr, ptr, psp, ple, pbi,
-                                     index_l1, index_l2, index_l3,
+              // class_call_parallel (bispectra_lensing_convolution (ppr, ptr, psp, ple, pbi,
+              //                        index_l1, index_l2, index_l3,
+              //                        X1, X2, X3,
+              //                        index_bt,
+              //                        &convolution_factor_123),
+              //   pbi->error_message,
+              //   pbi->error_message);
+
+              class_call_parallel (bispectra_lensing_convolution_without_interpolation (
+                                     ppr, ptr, psp, ple, pbi,
+                                     l1, l2, l3,
                                      X1, X2, X3,
                                      index_bt,
                                      &convolution_factor_123),
@@ -5260,46 +5304,84 @@ int bispectra_lensing (
 
               /* In presence of multiple fields (ie. T and E) permute them */
 
-              if (pbi->bf_size > 1) {
+              // if (pbi->bf_size > 1) {
 
-                class_call_parallel (bispectra_lensing_convolution (ppr, ptr, psp, ple, pbi,
-                                       index_l2, index_l3, index_l1,
+                // class_call_parallel (bispectra_lensing_convolution (ppr, ptr, psp, ple, pbi,
+                //                        index_l2, index_l3, index_l1,
+                //                        X2, X3, X1,
+                //                        index_bt,
+                //                        &convolution_factor_231),
+                //   pbi->error_message,
+                //   pbi->error_message);
+
+                class_call_parallel (bispectra_lensing_convolution_without_interpolation (
+                                       ppr, ptr, psp, ple, pbi,
+                                       l2, l3, l1,
                                        X2, X3, X1,
                                        index_bt,
                                        &convolution_factor_231),
                   pbi->error_message,
                   pbi->error_message);
 
-                class_call_parallel (bispectra_lensing_convolution (ppr, ptr, psp, ple, pbi,
-                                       index_l3, index_l1, index_l2,
+                // class_call_parallel (bispectra_lensing_convolution (ppr, ptr, psp, ple, pbi,
+                //                        index_l3, index_l1, index_l2,
+                //                        X3, X1, X2,
+                //                        index_bt,
+                //                        &convolution_factor_312),
+                //   pbi->error_message,
+                //   pbi->error_message);
+                  
+                class_call_parallel (bispectra_lensing_convolution_without_interpolation (
+                                       ppr, ptr, psp, ple, pbi,
+                                       l3, l1, l2,
                                        X3, X1, X2,
                                        index_bt,
                                        &convolution_factor_312),
                   pbi->error_message,
                   pbi->error_message);
                   
-              }
+              // }
 
               /* With one field, the permutation would yield the same result */
 
-              else {
+              // else {
+              //
+              //   double convolution_factor_231 = convolution_factor_123;
+              //   double convolution_factor_312 = convolution_factor_123;
+              //
+              // }
 
-                double convolution_factor_231 = convolution_factor_123;
-                double convolution_factor_312 = convolution_factor_123;
+              double convolution_factor = convolution_factor_123 +
+                                          convolution_factor_231 +
+                                          convolution_factor_312;
+                
+                
+              // -------------------------------------------------------------------------------
+              // -                        Convert to reduced bispectrum                        -
+              // -------------------------------------------------------------------------------
+                
+              /* So far we have computed the convolution correction for the angle-averaged
+              bispectrum, while SONG expects the one for the reduced bispectrum */
 
-              }
+              double conversion_factor = sqrt((2*l1+1.0)*(2*l2+1.0)*(2*l3+1.0)/(4*_PI_)) * threej[l3-l3_min_3j];
+
+              if ((l1+l2+l3)%2==0)
+                convolution_factor /= conversion_factor;
+              else
+                convolution_factor = 0;
 
 
-              /* Final lensing correction */
+
+              // ====================================================================================
+              // =                             Final lensing correction                             =
+              // ====================================================================================
 
               double b = pbi->bispectra[index_bt][X1][X2][X3][index_l1_l2_l3];
 
               pbi->lensing_correction[index_bt][X1][X2][X3][index_l1_l2_l3] =
-                // b * R_factor/4
-                + convolution_factor_123
-                + convolution_factor_231
-                + convolution_factor_312;
-              
+                b * R_factor/4 +
+                convolution_factor;
+
             }
           }
         }
@@ -5369,7 +5451,7 @@ int bispectra_lensing_convolution (
   /* Since the bispectrum does not depend on l, we store it in a (p,q) array
   and reuse it when l changes */
   double (*bispectrum)[pbi->l_size] = calloc (pbi->l_size*pbi->l_size, sizeof(double));
-  short (*is_filled)[pbi->l_size] = calloc (pbi->l_size*pbi->l_size, sizeof(short));
+  short (*is_filled_pq)[pbi->l_size] = calloc (pbi->l_size*pbi->l_size, sizeof(short));
 
   /* Count how many (l,p,q) configurations we shall consider */
   long int count = 0;
@@ -5400,23 +5482,20 @@ int bispectra_lensing_convolution (
     /* Lensing potential in l */
     double C_PP = pbi->cls[psp->index_ct_pp][l-2];
     
-    if ((l1==150) && (l2==150) && (l3==150))
-      fprintf (stderr, "%4d %13g\n", l, C_PP);
-
     /* Range of p dictated by the triangular inequality on l,l2,p */
     int p_min = MAX (abs(l-l2), 2);
     int p_max = MIN (l+l2, pbi->l_max);
 
     /* Enforce triagular inequality for p */
-    int index_p_min = 0;
-    while (pbi->l[index_p_min] < p_min)
-      ++index_p_min;
-
-    int index_p_max = pbi->l_size-1;
-    while (pbi->l[index_p_max] > p_max)
-      --index_p_max;
-
-    int p_size = index_p_max - index_p_min + 1;
+    // int index_p_min = 0;
+    // while (pbi->l[index_p_min] < p_min)
+    //   ++index_p_min;
+    //
+    // int index_p_max = pbi->l_size-1;
+    // while (pbi->l[index_p_max] > p_max)
+    //   --index_p_max;
+    //
+    // int p_size = index_p_max - index_p_min + 1;
 
     /* Weights for the trapezoidal sum along the p direction */
 
@@ -5424,39 +5503,39 @@ int bispectra_lensing_convolution (
     double threej_p[2*pbi->l_max+1];
     int p_min_3j, p_max_3j;
 
-    if (p_size > 0) {
+    // if (p_size > 0) {
 
-      class_alloc (delta_p, p_size*sizeof(double), pbi->error_message);
-
-      if (p_size == 1) {
-
-        delta_p[0] = MAX (p_max - p_min, 1);
-
-      }
-
-      if (p_size > 1) {
-
-        /* Build integration grid */
-
-        double p[p_size];
-
-        p[0] = p_min;
-
-        for (int index_p=1; index_p < p_size-1; ++index_p)
-          p[index_p] = pbi->l[index_p_min+index_p];
-
-        p[p_size-1] = p_max;
-
-        /* Build integration measure */
-
-        delta_p[0] = (p[1] - p[0] + 1)/2.0;
-
-        for (int index_p=1; index_p < p_size-1; ++index_p)
-          delta_p[index_p] = (p[index_p+1] - p[index_p-1])/2.0;
-
-        delta_p[p_size-1] = (p[p_size-1] - p[p_size-2] + 1)/2.0;
-
-      }
+      // class_alloc (delta_p, p_size*sizeof(double), pbi->error_message);
+      //
+      // if (p_size == 1) {
+      //
+      //   delta_p[0] = MAX (p_max - p_min, 1);
+      //
+      // }
+      //
+      // if (p_size > 1) {
+      //
+      //   /* Build integration grid */
+      //
+      //   double p[p_size];
+      //
+      //   p[0] = p_min;
+      //
+      //   for (int index_p=1; index_p < p_size-1; ++index_p)
+      //     p[index_p] = pbi->l[index_p_min+index_p];
+      //
+      //   p[p_size-1] = p_max;
+      //
+      //   /* Build integration measure */
+      //
+      //   delta_p[0] = (p[1] - p[0] + 1)/2.0;
+      //
+      //   for (int index_p=1; index_p < p_size-1; ++index_p)
+      //     delta_p[index_p] = (p[index_p+1] - p[index_p-1])/2.0;
+      //
+      //   delta_p[p_size-1] = (p[p_size-1] - p[p_size-2] + 1)/2.0;
+      //
+      // }
 
       /* Compute 3j symbol with p */
 
@@ -5475,7 +5554,7 @@ int bispectra_lensing_convolution (
       for (int p=p_min; p <= p_max; ++p)
         threej_p[p-p_min_3j] *= sqrt((2*l+1.0)*(2*p+1.0)*(2*l2+1.0)/(4*_PI_)) * 0.5 * (l*(l+1.0)+p*(p+1.0)-l2*(l2+1.0));
 
-    } // if(p_size>0)
+    // } // if(p_size>0)
 
 
 
@@ -5483,9 +5562,10 @@ int bispectra_lensing_convolution (
     // -                                  Loop on p                                  -
     // -------------------------------------------------------------------------------
 
-    for (int index_p=index_p_min; index_p <= index_p_max; ++index_p) {
+    // for (int index_p=index_p_min; index_p <= index_p_max; ++index_p) {
+    for (int p=p_min; p <= p_max; ++p) {
 
-      int p = pbi->l[index_p];
+      // int p = pbi->l[index_p];
 
       class_test (!is_triangular_int (l2,p,l),
          pbi->error_message,
@@ -5496,9 +5576,9 @@ int bispectra_lensing_convolution (
       int q_max = MIN (MIN (l3+l, l1+p), pbi->l_max);
 
       /* Enforce triagular inequality for q */
-      int index_q_min = MAX (pbi->index_l_triangular_min[index_l1][index_p], pbi->index_l_triangular_min[index_l3][index_l]);
-      int index_q_max = MIN (pbi->index_l_triangular_max[index_l1][index_p], pbi->index_l_triangular_max[index_l3][index_l]);
-      int q_size = index_q_max - index_q_min + 1;
+      // int index_q_min = MAX (pbi->index_l_triangular_min[index_l1][index_p], pbi->index_l_triangular_min[index_l3][index_l]);
+      // int index_q_max = MIN (pbi->index_l_triangular_max[index_l1][index_p], pbi->index_l_triangular_max[index_l3][index_l]);
+      // int q_size = index_q_max - index_q_min + 1;
 
       /* Weights for the trapezoidal sum along the q direction */
 
@@ -5508,45 +5588,45 @@ int bispectra_lensing_convolution (
       double sixj_q[2*pbi->l_max+1];
       int q_min_6j, q_max_6j;
 
-      if (q_size > 0) {
+      // if (q_size > 0) {
 
-        class_alloc (delta_q, q_size*sizeof(double), pbi->error_message);
-
-        if (q_size == 1) {
-
-          delta_q[0] = MAX (q_max - q_min, 1);
-
-        }
-
-        if (q_size > 1) {
-
-          /* Build integration grid */
-
-          double q[q_size];
-
-          q[0] = q_min;
-
-          for (int index_q=1; index_q < q_size-1; ++index_q)
-            q[index_q] = pbi->l[index_q_min+index_q];
-
-          q[q_size-1] = q_max;
-
-          /* Build integration measure */
-
-          delta_q[0] = (q[1] - q[0] + 1)/2.0;
-
-          for (int index_q=1; index_q < q_size-1; ++index_q)
-            delta_q[index_q] = (q[index_q+1] - q[index_q-1])/2.0;
-
-          delta_q[q_size-1] = (q[q_size-1] - q[q_size-2] + 1)/2.0;
-
-          /* Debug: print the grid in q */
-          // printf ("~~~ l1=%d, l2=%d, l3=%d, l=%d, p=%d, q_size=%d, q_min=%d, q_max=%d, index_q_min=%d, index_q_max=%d\n",
-          //   l1, l2, l3, l, p, q_size, q_min, q_max, index_q_min, index_q_max);
-          // for (int index_q=0; index_q < q_size; ++index_q)
-          //   printf ("q[%d] = %g, delta_q = %g\n", index_q, q[index_q], delta_q[index_q]);
-
-        }
+        // class_alloc (delta_q, q_size*sizeof(double), pbi->error_message);
+        //
+        // if (q_size == 1) {
+        //
+        //   delta_q[0] = MAX (q_max - q_min, 1);
+        //
+        // }
+        //
+        // if (q_size > 1) {
+        //
+        //   /* Build integration grid */
+        //
+        //   double q[q_size];
+        //
+        //   q[0] = q_min;
+        //
+        //   for (int index_q=1; index_q < q_size-1; ++index_q)
+        //     q[index_q] = pbi->l[index_q_min+index_q];
+        //
+        //   q[q_size-1] = q_max;
+        //
+        //   /* Build integration measure */
+        //
+        //   delta_q[0] = (q[1] - q[0] + 1)/2.0;
+        //
+        //   for (int index_q=1; index_q < q_size-1; ++index_q)
+        //     delta_q[index_q] = (q[index_q+1] - q[index_q-1])/2.0;
+        //
+        //   delta_q[q_size-1] = (q[q_size-1] - q[q_size-2] + 1)/2.0;
+        //
+        //   /* Debug: print the grid in q */
+        //   // printf ("~~~ l1=%d, l2=%d, l3=%d, l=%d, p=%d, q_size=%d, q_min=%d, q_max=%d, index_q_min=%d, index_q_max=%d\n",
+        //   //   l1, l2, l3, l, p, q_size, q_min, q_max, index_q_min, index_q_max);
+        //   // for (int index_q=0; index_q < q_size; ++index_q)
+        //   //   printf ("q[%d] = %g, delta_q = %g\n", index_q, q[index_q], delta_q[index_q]);
+        //
+        // }
 
         /* Comqute 3j symbol with q */
 
@@ -5580,7 +5660,7 @@ int bispectra_lensing_convolution (
         q_min_6j = (int)(min_D + _EPS_);
         q_max_6j = (int)(max_D + _EPS_);
 
-      } // if(q_size>0)
+      // } // if(q_size>0)
 
 
 
@@ -5588,9 +5668,10 @@ int bispectra_lensing_convolution (
       // -                                  Loop on q                                  -
       // -------------------------------------------------------------------------------
 
-      for (int index_q=index_q_min; index_q <= index_q_max; ++index_q) {
+      // for (int index_q=index_q_min; index_q <= index_q_max; ++index_q) {
+      for (int q=q_min; q <= q_max; ++q) {
 
-        int q = pbi->l[index_q];
+        // int q = pbi->l[index_q];
 
         class_test (!is_triangular_int (l3,q,l) || !is_triangular_int (l1,p,q),
            pbi->error_message,
@@ -5599,41 +5680,42 @@ int bispectra_lensing_convolution (
         int X2_ = X2;
         int X3_ = X3;
 
-        if (!is_filled[index_p][index_q]) {
+        // if (!is_filled_pq[index_p][index_q]) {
 
           class_call (bispectra_at_l1l2l3 (
                         pbi,
                         index_bt,
-                        index_l1, index_p, index_q,
+                        ptr->index_l[l1], ptr->index_l[p], ptr->index_l[q],
+                        // index_l1, index_p, index_q,
                         X1, X2_, X3_,
-                        &bispectrum[index_p][index_q],
+                        &bispectrum[p-2][q-2],
                         NULL),
             pbi->error_message,
             pbi->error_message);
 
-          is_filled[index_p][index_q] = 1;
-
-        }
+        //   is_filled_pq[index_p][index_q] = 1;
+        //
+        // }
 
         double integrand = C_PP *
                            ALTERNATING_SIGN (l1+l2+p) * threej_p[p-p_min_3j] * threej_q[q-q_min_3j] * sixj_q[q-q_min_6j] *
-                           delta_l[index_l] * delta_p[index_p-index_p_min] * delta_q[index_q-index_q_min] *
-                           bispectrum[index_p][index_q];
+                           // delta_l[index_l] * delta_p[index_p-index_p_min] * delta_q[index_q-index_q_min] *
+                           bispectrum[p-2][q-2];
 
         class_test (isnan (integrand),
           pbi->error_message,
           "integrand nan for l1=%d,l2=%d,l3=%d,l=%d,p=%d,q=%d; b=%g, 3j(p)=%g, 3j(q)=%g, 6j(q)=%g",
-          l1,l2,l3,l,p,q,bispectrum[index_p][index_q],threej_p[p-p_min_3j], threej_q[q-q_min_3j], sixj_q[q-q_min_6j]);
+          l1,l2,l3,l,p,q,bispectrum[p-2][q-2],threej_p[p-p_min_3j], threej_q[q-q_min_3j], sixj_q[q-q_min_6j]);
 
         /* Debug: print the integrand as a function of q */
-        // if ((l1==150) && (l2==150) && (l3==150) && (l==150) && (p==150))
-        //   fprintf (stderr, "%6d %17g %17g %17g %17g %17g\n", q, integrand, bispectrum[index_p][index_q],
-        //     threej_p[p-p_min_3j], threej_q[q-q_min_3j], sixj_q[q-q_min_6j]);
+        if ((l1==150) && (l2==150) && (l3==150) && (l==150) && (p==150))
+          fprintf (stderr, "%6d %17g %17g %17g %17g %17g\n", q, integrand, bispectrum[p-2][q-2],
+            threej_p[p-p_min_3j], threej_q[q-q_min_3j], sixj_q[q-q_min_6j]);
 
         *result += integrand;
         
         /* Debug: save the integrand function */
-        integrand_lp[index_l][index_p] += integrand;
+        integrand_lp[l-2][p-2] += integrand;
 
         count++;
 
@@ -5643,10 +5725,10 @@ int bispectra_lensing_convolution (
       // if ((l1==150) && (l2==150) && (l3==150) && (l==150))
       //   fprintf (stderr, "%6d %17g %17g\n", p, integrand_lp[index_l][index_p], threej_p[p-p_min_3j]);
 
-      integrand_l[index_l] += integrand_lp[index_l][index_p];
+      integrand_l[l-2] += integrand_lp[l-2][p-2];
 
-      if (q_size > 0)
-        free (delta_q);
+      // if (q_size > 0)
+      //   free (delta_q);
 
     } // for index_p
 
@@ -5654,13 +5736,13 @@ int bispectra_lensing_convolution (
     // if ((l1==150) && (l2==150) && (l3==150))
     //   fprintf (stderr, "%6d %17g\n", l, integrand_l[index_l]);
 
-    if (p_size > 0)
-      free (delta_p);
+    // if (p_size > 0)
+    //   free (delta_p);
 
   } // for l
   
   free (bispectrum);
-  free (is_filled);
+  free (is_filled_pq);
   free (integrand_lp);
   free (integrand_l);
   
@@ -5677,6 +5759,283 @@ int bispectra_lensing_convolution (
   return _SUCCESS_;
   
 }
+
+
+
+/**
+ * Same as bispectra_lensing_convolution(), but without using interpolation.
+ *
+ * This function should be used only if all l are sampled, that is, if
+ * ppr->l_linstep=1.
+ */
+
+int bispectra_lensing_convolution_without_interpolation (
+     struct precision * ppr,
+     struct transfers * ptr,
+     struct spectra * psp,
+     struct lensing * ple,
+     struct bispectra * pbi,
+     int l1, int l2, int l3,
+     int X1, int X2, int X3,
+     int index_bt,
+     double * result
+     )
+{
+  
+  class_test (ppr->l_linstep != 1,
+    pbi->error_message,
+    "this function should be used only if all l are computed");
+  
+  int F_X1 = pbi->field_spin[X1];
+  int F_X2 = pbi->field_spin[X2];
+  int F_X3 = pbi->field_spin[X3];
+
+  class_test (!is_triangular_int(l1,l2,l3),
+    pbi->error_message,
+    "l1=%d, l2=%d and l3=%d do not form a triangle", l1, l2, l3);
+
+  /* Since the bispectrum does not depend on l, we store it in a (p,q) array
+  and reuse it when l changes */
+  double (*bispectrum)[pbi->l_size] = calloc (pbi->l_size*pbi->l_size, sizeof(double));
+  short (*is_filled_pq)[pbi->l_size] = calloc (pbi->l_size*pbi->l_size, sizeof(short));
+
+  /* Initialise output */
+  *result = 0;
+
+  /* Debug - Store the integrand function */
+  double (*integrand_lp)[pbi->l_size] = calloc (pbi->l_size*pbi->l_size, sizeof (double));
+  double * integrand_l = calloc (pbi->l_size, sizeof (double));
+  int l_long = 10;
+  int l_short = 1500;
+  short print_output = 0;
+  if ( ((l1==l_long) && (l2==l_short) && (l3==l_short)) ||
+       ((l2==l_long) && (l3==l_short) && (l1==l_short)) ||
+       ((l3==l_long) && (l1==l_short) && (l2==l_short)))
+    print_output = 1;
+
+
+  // -------------------------------------------------------------------------------
+  // -                                  Loop on l                                  -
+  // -------------------------------------------------------------------------------
+
+  for (int l=2; l <= pbi->l_max; ++l) {
+
+    /* Uncomment to set an upper limit for l */
+    // if (l > 300)
+    //   continue;
+
+    /* Lensing potential in l */
+    double C_PP = pbi->cls[psp->index_ct_pp][l-2];
+    
+    /* Range of p dictated by the triangular inequality on l,l2,p */
+    int p_min = MAX (abs(l-l2), 2);
+    int p_max = MIN (l+l2, pbi->l_max);
+
+    /* Compute 3j symbol for all values of p */
+    double threej_p[2*pbi->l_max+1];
+    int p_min_3j, p_max_3j;
+
+    double min_D, max_D;
+    class_call (drc3jj (
+                  l, l2, 0, -F_X2,
+                  &min_D, &max_D,
+                  threej_p,
+                  (2*pbi->l_max+1),
+                  pbi->error_message),
+      pbi->error_message,
+      pbi->error_message);
+    p_min_3j = (int)(min_D + _EPS_);
+    p_max_3j = (int)(max_D + _EPS_);
+
+    for (int p=p_min_3j; p <= p_max_3j; ++p)
+      threej_p[p-p_min_3j] *= sqrt((2*l2+1.0)*(2*l+1.0)*(2*p+1.0)/(4*_PI_)) * 0.5 * (-l2*(l2+1.0)+l*(l+1.0)+p*(p+1.0));
+
+    class_test ((p_min != MAX (p_min_3j, 2)) || (p_max != MIN (p_max_3j, pbi->l_max)),
+      pbi->error_message,
+      "wrong 3j limits");
+
+
+    // -------------------------------------------------------------------------------
+    // -                                  Loop on p                                  -
+    // -------------------------------------------------------------------------------
+
+    for (int p=p_min; p <= p_max; ++p) {
+
+      class_test (!is_triangular_int (l2,p,l),
+         pbi->error_message,
+         "p not triangular");
+
+      /* Range of q dictated by the triangular inequality on (l,q,l3) and (l1,q,p) */
+      int q_min = MAX (MAX (abs(l3-l), abs(l1-p)), 2);
+      int q_max = MIN (MIN (l3+l, l1+p), pbi->l_max);
+
+      /* Comqute 3j symbol for all values of q */
+      double threej_q[2*pbi->l_max+1];
+      int q_min_3j, q_max_3j;
+
+      double min_D, max_D;
+      class_call (drc3jj (
+                    l, l3, 0, -F_X3,
+                    &min_D, &max_D,
+                    threej_q,
+                    (2*pbi->l_max+1),
+                    pbi->error_message),
+        pbi->error_message,
+        pbi->error_message);
+      q_min_3j = (int)(min_D + _EPS_);
+      q_max_3j = (int)(max_D + _EPS_);
+
+      for (int q=q_min_3j; q <= q_max_3j; ++q)
+        threej_q[q-q_min_3j] *= sqrt((2*l3+1.0)*(2*l+1.0)*(2*q+1.0)/(4*_PI_)) * 0.5 * (-l3*(l3+1.0)+l*(l+1.0)+q*(q+1.0));
+
+      class_test ((q_min_3j != abs(l3-l) || (q_max_3j != (l3+l))),
+        pbi->error_message,
+        "wrong 3j limits");
+
+      /* Compute the 6j symbol for all values of q */
+      double sixj_q[2*pbi->l_max+1];
+      int q_min_6j, q_max_6j;
+
+      class_call (drc6j (
+                    /*q,*/ p, l1, l2, l3, l,
+                    &min_D, &max_D,
+                    sixj_q,
+                    (2*pbi->l_max+1),
+                    pbi->error_message
+                    ),
+        pbi->error_message,
+        pbi->error_message);
+      q_min_6j = (int)(min_D + _EPS_);
+      q_max_6j = (int)(max_D + _EPS_);
+
+      class_test ((q_min != MAX (q_min_6j, 2)) || (q_max != (MIN (q_max_6j, pbi->l_max))),
+        pbi->error_message,
+        "wrong 3j limits");
+
+      /* Additional 3J factor needed to convert SONG reduced bispectrum to the
+      angle averaged one */
+      double threej_000[2*pbi->l_max+1];
+      int q_min_3j_000, q_max_3j_000;
+
+      /* Before computing the 3j, check whether we have already computed it
+      in all the required q values for this p. If so, we shally recycle it. */
+      int is_filled = 1;
+      for (int q=q_min; q <= q_max; ++q)
+        if (!(is_filled = is_filled_pq[p-2][q-2]))
+          break;
+
+      if (!is_filled) {
+        
+        class_call (drc3jj (
+                      l1, p, 0, 0,
+                      &min_D, &max_D,
+                      threej_000,
+                      (2*pbi->l_max+1),
+                      pbi->error_message),
+          pbi->error_message,
+          pbi->error_message);
+        q_min_3j_000 = (int)(min_D + _EPS_);
+        q_max_3j_000 = (int)(max_D + _EPS_);
+
+        for (int q=q_min_3j_000; q <= q_max_3j_000; ++q)
+          threej_000[q-q_min_3j_000] *= sqrt((2*l1+1.0)*(2*p+1.0)*(2*q+1.0)/(4*_PI_));
+
+      }
+      
+      
+      // -------------------------------------------------------------------------------
+      // -                                  Loop on q                                  -
+      // -------------------------------------------------------------------------------
+
+      for (int q=q_min; q <= q_max; ++q) {
+
+        class_test (!is_triangular_int (l3,q,l) || !is_triangular_int (l1,p,q),
+           pbi->error_message,
+           "q not triangular");
+
+        int X2_ = X2;
+        int X3_ = X3;
+
+        if (!is_filled_pq[p-2][q-2]) {
+
+          double reduced_bispectrum = bispectrum[p-2][q-2];
+
+          class_call (bispectra_at_l1l2l3 (
+                        pbi,
+                        index_bt,
+                        l1-2, p-2, q-2,
+                        X1, X2_, X3_,
+                        &reduced_bispectrum,
+                        NULL),
+            pbi->error_message,
+            pbi->error_message);
+
+          /* Convert the actual bispectrum from the reduced one */
+          bispectrum[p-2][q-2] = threej_000[q-q_min_3j_000] * reduced_bispectrum;
+
+          is_filled_pq[p-2][q-2] = 1;
+
+        }
+
+        double integrand = C_PP *
+                           ALTERNATING_SIGN (l1+l2+p) * threej_p[p-p_min_3j] * threej_q[q-q_min_3j] * sixj_q[q-q_min_6j] *
+                           bispectrum[p-2][q-2];
+
+        class_test (isnan (integrand),
+          pbi->error_message,
+          "integrand nan for l1=%d,l2=%d,l3=%d,l=%d,p=%d,q=%d; b=%g, 3j(p)=%g, 3j(q)=%g, 6j(q)=%g",
+          l1,l2,l3,l,p,q, bispectrum[p-2][q-2], threej_p[p-p_min_3j], threej_q[q-q_min_3j], sixj_q[q-q_min_6j]);
+
+        *result += integrand;
+        
+        /* Debug: save the integrand function */
+        integrand_lp[l-2][p-2] += integrand;
+
+        /* Debug: print the integrand as a function of q */
+        if (print_output && (l==100) && (p==100)) {
+          fprintf (stderr, "%6d %17g %17g %17g %17g %17g\n", q, integrand, bispectrum[p-2][q-2],
+            threej_p[p-p_min_3j], threej_q[q-q_min_3j], sixj_q[q-q_min_6j]);
+          if (q == q_max) fprintf (stderr, "\n\n");
+        }
+
+      } // for index_q
+
+      /* Debug: print the integrand as a function of p */
+      // if (print_output && (l==28)) {
+      //   fprintf (stderr, "%6d %17g %17g\n", p, integrand_lp[l-2][p-2], threej_p[p-p_min_3j]);
+      //   if (p == p_max) fprintf (stderr, "\n\n");
+      // }
+
+      /* Debug: save the integrand function */
+      integrand_l[l-2] += integrand_lp[l-2][p-2];
+
+    } // for index_p
+
+    /* Debug: print the integrand as a function of l */
+    // if (print_output) {
+    //   fprintf (stderr, "%6d %17g\n", l, integrand_l[l-2]);
+    //   if (l == pbi->l_max) fprintf (stderr, "\n\n");
+    // }
+
+    // TODO:
+    // 1) Run lensing on CMB-lensing and see if it matches lensed CMB-lensing
+    // 2) Ask Overflow for 3J interpolation
+    // 3) Update bispectra_lensing_convolution() and see if it matches bispectra_lensing_convolution_without_interpolation()
+    
+
+  } // for l
+  
+  free (bispectrum);
+  free (is_filled_pq);
+  free (integrand_lp);
+  free (integrand_l);
+  
+  return _SUCCESS_;
+  
+}
+
+
+
 
 
 // int bispectra_lensing_convolution (
@@ -7520,6 +7879,48 @@ int bispectra_quadratic_correction (
   return _SUCCESS_;
 
 }
+
+
+
+/**
+ * Simple C_l x C_l bispectrum used for testing purposes.
+ *
+ * This bispectrum has to be symmetric in (l1,X1) <-> (l2,X2) <-> (l3,X3)
+ * and to involve quadratic products of the angular power spectrum C_l.
+ */
+
+int bispectra_test_bispectrum (
+     struct precision * ppr,
+     struct spectra * psp,
+     struct lensing * ple,
+     struct bispectra * pbi,
+     int l1, int l2, int l3,
+     int X, int Y, int Z,
+     double not_used_1,
+     double not_used_2,
+     double not_used_3,
+     double * result
+     )
+{
+
+  /* Extract the C_l */
+  double cl1_Xz = pbi->cls[pbi->index_ct_of_zeta_bf[ X ]][l1-2];
+  double cl2_Yz = pbi->cls[pbi->index_ct_of_zeta_bf[ Y ]][l2-2];
+  double cl3_Zz = pbi->cls[pbi->index_ct_of_zeta_bf[ Z ]][l3-2];
+
+  double cl1_XX = pbi->cls[pbi->index_ct_of_bf_bf[X][X]][l1-2];
+  double cl2_YY = pbi->cls[pbi->index_ct_of_bf_bf[Y][Y]][l2-2];
+  double cl3_ZZ = pbi->cls[pbi->index_ct_of_bf_bf[Z][Z]][l3-2];
+
+  /* Build the bispectrum */
+  *result =   6/5. * cl1_Xz * (cl2_YY + cl3_ZZ)
+            + 6/5. * cl2_Yz * (cl3_ZZ + cl1_XX)
+            + 6/5. * cl3_Zz * (cl1_XX + cl2_YY);  
+  
+  return _SUCCESS_;
+
+}
+
 
 
 /**

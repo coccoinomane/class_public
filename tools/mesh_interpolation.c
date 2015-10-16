@@ -692,7 +692,7 @@ loop:
         from a point in a high-density regions is penalised. The objective is to make these clusters of points
         to count as one. */
         weight =
-          (1./(dist+link_length/10000000.))/density
+          1/(density*(dist+10e-7*link_length))
           * (1.00000001 - erf((dist-link_length)/(link_length*soft_coeff)));
   
         #pragma omp atomic

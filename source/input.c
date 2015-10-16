@@ -1576,6 +1576,11 @@ int input_read_parameters(
         pbi->has_cmb_lensing_squeezed = _TRUE_;
       }
 
+      /* Compute a simple C_l x C_l test bispectrum */
+      if (strstr(string1,"test") != NULL) {
+        pbi->has_test_bispectrum = _TRUE_;
+      }
+
       /* Compute the quadratic correction bispectrum (effectively the CMB four-point function) */
       if (strstr(string1,"quadratic") != NULL) {
         pbi->has_quadratic_correction = _TRUE_;
