@@ -3518,6 +3518,8 @@ int merge_arrays_int (
  *
  * Credits to the users freerider and Dave Sinkula of daniweb.com,
  * https://www.daniweb.com/programming/software-development/code/216517/strings-search-and-replace
+ * I have added a check to avoid infinite recursion when the replace string
+ * contains a substring which is equal to the search string.
  */
 
 int replace_string (
@@ -3544,9 +3546,11 @@ int replace_string (
     errmsg,
     "Insufficient memory available");
 
+  int done = 0;
+
   strcpy(ostr, source_str);
 
-  while (pdest) {
+  while (pdest && !done) {
 
     pdest = strstr( ostr, search_str );
     length = (int)(pdest - ostr);
@@ -3579,6 +3583,8 @@ int replace_string (
         "Insufficient memory available");
 
       strcpy(ostr, nstr);
+
+      done = 1;
 
     }
   }

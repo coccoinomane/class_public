@@ -3588,12 +3588,8 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
 
 
   /** i.4.3. interpolation of the bispectrum */
-
-  class_call(parser_read_string(pfc,"interpolation_method",&string1,&flag1,errmsg),
-         errmsg,
-         errmsg);  
   
-  class_call(parser_read_string(pfc,"interpolation_method",&string1,&flag1,errmsg),
+  class_call(parser_read_string(pfc,"bispectra_interpolation",&string1,&flag1,errmsg),
          errmsg,
          errmsg);  
   
@@ -3605,7 +3601,6 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
       ppr->compute_only_even_ls = _TRUE_;
     }
   
-    /* For trilinear interpolation, we need an all-even grid */
     else if ((strstr(string1,"smart") != NULL) || (strstr(string1,"SMART") != NULL)) {
       pfi->bispectra_interpolation = smart_interpolation;
       ppr->compute_only_even_ls = _TRUE_;
@@ -3614,12 +3609,18 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
     else if (strstr(string1,"sum") != NULL) {
       pfi->bispectra_interpolation = sum_over_all_multipoles;
     }
+
+    else if (strstr(string1,"bilinear") != NULL) {
+      pfi->bispectra_interpolation = bilinear_interpolation;
+    }
+
     else if ((strcmp(string1,"mesh_2d") == 0) || (strcmp(string1,"mesh_2D") == 0)
           || (strcmp(string1,"mesh") == 0)
           || (strcmp(string1,"mesh_3d") == 0)  /* obsolete */ 
           || (strcmp(string1,"mesh_3D") == 0)) /* obsolete */ {
       pfi->bispectra_interpolation = mesh_interpolation_2D;
     }
+
     else {
       class_test(1==1, errmsg,
         "interpolation_method=%s not supported. Choose between 'trilinear', 'mesh', 'mesh_2d', 'sum'",
@@ -4359,7 +4360,7 @@ int input_default_params(
   pfi->has_fisher = _FALSE_;
   pfi->l_min_estimator = 2;
   pfi->l_max_estimator = 10000000;
-  pfi->bispectra_interpolation = mesh_interpolation_2D;
+  pfi->bispectra_interpolation = bilinear_interpolation;
   pfi->f_sky = 1;
   pfi->n_channels = 1;
   pfi->beam[0] = 0;

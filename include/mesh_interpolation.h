@@ -3,13 +3,22 @@
 
 #include "common.h"
 
-/* Header and definitions needed to compile */
+/* Header and definitions needed to compile as standalone */
 // #include "math.h"
 // #include "stdio.h"
 // #define MIN(a,b) (((a)<(b)) ? (a) : (b) ) /**< the usual "min" function */
 // #define MAX(a,b) (((a)<(b)) ? (b) : (a) ) /**< the usual "max" function */
 // #define _SUCCESS_ 0
 // #define _FAILURE_ 0
+
+
+/** Weights for the error function approximation */
+//@{
+#define erf_a1 0.278393
+#define erf_a2 0.230389
+#define erf_a3 0.000972
+#define erf_a4 0.078108
+//@}
 
 
 struct interpolation_mesh {
@@ -72,7 +81,7 @@ extern "C" {
       struct interpolation_mesh * pw
       );
 
-  double distance (
+  double distance_3D (
       double * vec1,
       double * vec2
   );

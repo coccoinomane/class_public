@@ -12,6 +12,7 @@
  */
 enum bispectra_interpolation_method {
   smart_interpolation,
+  bilinear_interpolation,
   trilinear_interpolation,
   mesh_interpolation_2D,
   mesh_interpolation_3D,
@@ -458,6 +459,7 @@ extern "C" {
 
   int fisher_cross_correlate_mesh (
         struct precision * ppr,
+        struct transfers * ptr,
         struct spectra * psp,
         struct lensing * ple,
         struct bispectra * pbi,

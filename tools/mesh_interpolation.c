@@ -1,7 +1,6 @@
 #include "mesh_interpolation.h"
 
 
-
 // ==============================================================================================
 // =                                       3D interpolation                                     =
 // ==============================================================================================
@@ -177,7 +176,7 @@ int mesh_3D_sort (
           for(n = 0; n<pw->grid_3D[i][j][k];n++){ 
 
             /* The 4th level of mesh is just the n-th particle in the ijk box */
-            double dist = distance(pw->mesh_3D[i][j][k][m],pw->mesh_3D[i][j][k][n]);
+            double dist = distance_3D (pw->mesh_3D[i][j][k][m],pw->mesh_3D[i][j][k][n]);
             double density = exp(-dist*dist/pow(group_length,2));
                   
             /* The 5th level of mesh is the local density around the m-th particle of the ijk box */
@@ -308,7 +307,7 @@ loop:
           /* This part will compute the true density around the point. It will give better accuracy, but slow the code down a lot.*/
           // double ix2, iy2, iz2, i2;
           // for(ix2 = ixmin; ix2<=ixmax;ix2++){for(iy2 = iymin; iy2<=iymax;iy2++){for(iz2 = izmin; iz2<=izmax;iz2++){for(i2 = 0; i2< grid[ix2][iy2][iz2];i2++){ 
-          //   status = gsl_sf_exp_e(-pow(distance(vals[ix][iy][iz][i],vals[ix2][iy2][iz2][i2]),2)/pow(group_length,2),&jresult);
+          //   status = gsl_sf_exp_e(-pow(distance_3D (vals[ix][iy][iz][i],vals[ix2][iy2][iz2][i2]),2)/pow(group_length,2),&jresult);
           //   if (status == GSL_ERANGE || jresult.val != jresult.val)
           //     density = 0.0; 
           //   else
@@ -321,16 +320,24 @@ loop:
           num_points++;
           
           double value = mesh[ix][iy][iz][i][0];
-          double dist = distance(mesh[ix][iy][iz][i], r);
+          double dist = distance_3D (mesh[ix][iy][iz][i], r);
           double density = mesh[ix][iy][iz][i][4];
        
-          /* We weight the contribution from each point with a 1/distance law, so that the closer the point
-          the stronger the influence on (x,y,z). We also include a 1/density factor so that the contribution
-          from a point in a high-density regions is penalised. The objective is to make these clusters of points
-          to count as one. */
-          weight =
-            (1./(dist+link_length/10000000.))/density
-            * (1.00000001 - erf((dist-link_length)/(link_length*soft_coeff)));
+          /* We weight the contribution from each node with a 1/distance law, so that the
+          closer the node the stronger the influence on the point (x,y,z). We also include
+          a 1/density factor so that the contribution from nodes in high-density regions
+          is penalised. The objective is to make these clusters of points to count as one. */
+        
+          /* Compute the error function with the fast approximation in Abramowitz & Stegun,
+          Sec. 7.1. The maximum error is 5e-4. */
+          double x = (dist-link_length)/(link_length*soft_coeff);
+          double x2 = x*x;
+          double erfx = 1 - 1/(1+erf_a1*x+erf_a2*x2+erf_a3*x*x2+erf_a4*x2*x2);
+     
+          /* Uncomment to compute the error function exactly using the C function */
+          // double erfx = erf((dist-link_length)/(link_length*soft_coeff))
+        
+          weight = 1/(density*(dist+10e-7*link_length)) * (1.00000001 - erfx);
     
           #pragma omp atomic
           result += weight * value;
@@ -416,7 +423,7 @@ int mesh_3D_free (
 
 
 
-double distance (double * vec1, double * vec2){
+double distance_3D (double * vec1, double * vec2){
   
   return  sqrt ( (vec1[1]-vec2[1])*(vec1[1]-vec2[1])
                 +(vec1[2]-vec2[2])*(vec1[2]-vec2[2])
@@ -684,16 +691,25 @@ loop:
         num_points++;
         
         double value = mesh[ix][iy][i][0];
-        double dist = distance(mesh[ix][iy][i], r);
+        double dist = distance_2D (mesh[ix][iy][i], r);
         double density = mesh[ix][iy][i][3];
+
+        /* We weight the contribution from each node with a 1/distance law, so that the
+        closer the node the stronger the influence on the point (x,y,z). We also include
+        a 1/density factor so that the contribution from nodes in high-density regions
+        is penalised. The objective is to make these clusters of points to count as one. */
+        
+        /* Compute the error function with the fast approximation in Abramowitz & Stegun,
+        Sec. 7.1. The maximum error is 5e-4. */
+        double x = (dist-link_length)/(link_length*soft_coeff);
+        double x2 = x*x;
+        double erfx = 1 - 1/(1+erf_a1*x+erf_a2*x2+erf_a3*x*x2+erf_a4*x2*x2);
      
-        /* We weight the contribution from each point with a 1/distance law, so that the closer the point
-        the stronger the influence on (x,y,z). We also include a 1/density factor so that the contribution
-        from a point in a high-density regions is penalised. The objective is to make these clusters of points
-        to count as one. */
-        weight =
-          1/(density*(dist+10e-7*link_length))
-          * (1.00000001 - erf((dist-link_length)/(link_length*soft_coeff)));
+        /* Uncomment to compute the error function exactly using the C function */
+        // double erfx = erf((dist-link_length)/(link_length*soft_coeff))
+        
+        weight = 1/(density*(dist+10e-7*link_length)) * (1.00000001 - erfx);
+  
   
         #pragma omp atomic
         result += weight * value;

@@ -720,7 +720,7 @@ extern "C" {
        struct bispectra * pbi
        );
 
-  int bispectra_at_l1l2l3 (
+  int bispectra_at_node (
       struct bispectra * pbi,
       int index_bt,
       int index_l1, int index_l2, int index_l3,
@@ -729,6 +729,28 @@ extern "C" {
       double * bispectrum_unlensed
       );
 
+  int bispectra_at_l3 (
+      struct transfers * ptr,
+      struct bispectra * pbi,
+      int index_bt,
+      int index_l1, int index_l2, int l3,
+      int X, int Y, int Z,
+      int interpolate,
+      double * bispectrum,
+      double * bispectrum_unlensed
+      );
+  
+  int bispectra_at_l2l3 (
+      struct transfers * ptr,
+      struct bispectra * pbi,
+      int index_bt,
+      int index_l1, int l2, int l3,
+      int X, int Y, int Z,
+      int extrapolate,
+      double * bispectrum,
+      double * bispectrum_unlensed
+      );
+  
   int bispectra_free(
        struct precision * ppr,
        struct perturbs * ppt,
@@ -1035,7 +1057,43 @@ extern "C" {
        double * result
        );
 
-  int bispectra_lensing_convolution_without_interpolation (
+  int bispectra_lensing_convolution_linear (
+       struct precision * ppr,
+       struct transfers * ptr,
+       struct spectra * psp,
+       struct lensing * ple,
+       struct bispectra * pbi,
+       int index_l1, int index_l2, int index_l3,
+       int X1, int X2, int X3,
+       int index_bt,
+       double * result
+       );
+
+  int bispectra_lensing_convolution_nodes (
+       struct precision * ppr,
+       struct transfers * ptr,
+       struct spectra * psp,
+       struct lensing * ple,
+       struct bispectra * pbi,
+       int index_l1, int index_l2, int index_l3,
+       int X1, int X2, int X3,
+       int index_bt,
+       double * result
+       );
+
+  int bispectra_lensing_convolution_nodes (
+       struct precision * ppr,
+       struct transfers * ptr,
+       struct spectra * psp,
+       struct lensing * ple,
+       struct bispectra * pbi,
+       int index_l1, int index_l2, int index_l3,
+       int X1, int X2, int X3,
+       int index_bt,
+       double * result
+       );
+
+  int bispectra_lensing_convolution_all_points (
        struct precision * ppr,
        struct transfers * ptr,
        struct spectra * psp,
@@ -1190,6 +1248,19 @@ extern "C" {
 
 
   int bispectra_quadratic_correction (
+       struct precision * ppr,
+       struct spectra * psp,
+       struct lensing * ple,
+       struct bispectra * pbi,
+       int l1, int l2, int l3,
+       int X1, int X2, int X3,
+       double threej_ratio_20m2,
+       double threej_ratio_m220,
+       double threej_ratio_0m22,
+       double * result
+       ); 
+
+  int bispectra_test_bispectrum (
        struct precision * ppr,
        struct spectra * psp,
        struct lensing * ple,

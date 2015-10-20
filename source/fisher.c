@@ -120,6 +120,7 @@ int fisher_init (
     pfi->error_message,
     pfi->error_message);
 
+
   return _SUCCESS_;
 
 }
@@ -302,7 +303,8 @@ int fisher_free(
     
     /* Free 3j symbols */
     if ((pfi->bispectra_interpolation != mesh_interpolation_3D)
-       && (pfi->bispectra_interpolation != mesh_interpolation_2D)) 
+       && (pfi->bispectra_interpolation != mesh_interpolation_2D)
+       && (pfi->bispectra_interpolation != bilinear_interpolation)) 
       free (pfi->I_l1_l2_l3);
     
     /* Free meshes. Note that we start from the last bispectrum as the grid, which is shared between
@@ -589,7 +591,7 @@ int fisher_indices (
   }
   /* mesh_2d means that we fully interpolate in the l2 and l3 level, but we only sum over
   the support points for the l1 level. */
-  else if (pfi->bispectra_interpolation == mesh_interpolation_2D) {
+  else if ((pfi->bispectra_interpolation == mesh_interpolation_2D) || (pfi->bispectra_interpolation == bilinear_interpolation)) {
 
     pfi->l1_size = pbi->l_size;
     pfi->l2_size = pfi->l3_size = pfi->full_l_size;
@@ -928,7 +930,8 @@ int fisher_indices (
   
   /* For mesh interpolation, we shall compute the 3j's directly in the estimator */
   if ((pfi->bispectra_interpolation != mesh_interpolation_3D) 
-   && (pfi->bispectra_interpolation != mesh_interpolation_2D)) {
+   && (pfi->bispectra_interpolation != mesh_interpolation_2D)
+   && (pfi->bispectra_interpolation != bilinear_interpolation)) {
   
     printf_log_if (pfi->fisher_verbose, 1, 
       " -> allocating and computing ~ %.3g MB (%ld doubles) of 3j-symbols\n",
@@ -1178,7 +1181,7 @@ int fisher_noise (
 /**
  * Compute the Fisher matrix for all pairs of bispectra.
  *
- * Called by bispectra_init.
+ * Called by bispectra_init().
  *
  */
 
@@ -1257,6 +1260,8 @@ int fisher_compute (
       strcpy (buffer, "mesh (3D)");
     else if (pfi->bispectra_interpolation == mesh_interpolation_2D)
       strcpy (buffer, "mesh (2D)");
+    else if (pfi->bispectra_interpolation == bilinear_interpolation)
+      strcpy (buffer, "bilinear");
     else if (pfi->bispectra_interpolation == trilinear_interpolation)
       strcpy (buffer, "trilinear");
     else if (pfi->bispectra_interpolation == sum_over_all_multipoles)
@@ -1279,10 +1284,12 @@ int fisher_compute (
   /* Fill the "pfi->fisher_matrix_XYZ_largest" and "fisher_matrix_XYZ_smallest" Fisher matrices
   using mesh interpolation */
   if ((pfi->bispectra_interpolation == mesh_interpolation_3D)
-  || (pfi->bispectra_interpolation == mesh_interpolation_2D)) {
+  || (pfi->bispectra_interpolation == mesh_interpolation_2D)
+  || (pfi->bispectra_interpolation == bilinear_interpolation)) {
   
     class_call (fisher_cross_correlate_mesh(
                   ppr,
+                  ptr,
                   psp,
                   ple,
                   pbi,
@@ -1495,7 +1502,7 @@ int fisher_compute (
                   
               double l1_contribution = pfi->fisher_matrix_CZ_smallest[index_l1][index_ft_1*pfi->ff_size+C][index_ft_2*pfi->ff_size+Z];
               pfi->fisher_matrix_smallest[index_l1][index_ft_1][index_ft_2] += l1_contribution;
-              if (pfi->bispectra_interpolation == mesh_interpolation_2D)
+              if ((pfi->bispectra_interpolation == mesh_interpolation_2D) || (pfi->bispectra_interpolation == bilinear_interpolation))
                 l1_contribution *= pwf->delta_l[index_l1];
               accumulator += l1_contribution;
               pfi->fisher_matrix_lmin[index_l1][index_ft_1][index_ft_2] = accumulator;
@@ -1517,7 +1524,7 @@ int fisher_compute (
 
                 /* Include the interpolation weight for the l1 direction, if needed, in order
                 to correcly sum over l1 (not needed for the sum over XYZ, above) */
-                if (pfi->bispectra_interpolation == mesh_interpolation_2D)
+                if ((pfi->bispectra_interpolation == mesh_interpolation_2D) || (pfi->bispectra_interpolation == bilinear_interpolation))
                   l1_contribution *= pwf->delta_l[index_l1];
 
                 /* Contribution of all the l's larger than l1 to the total (X+Y+Z) Fisher matrix */
@@ -1844,7 +1851,7 @@ int fisher_compute (
 
 
 /**
- *
+ * 
  * This function computes the Fisher matrix and fills pfi->fisher_matrix_XYZ_largest and 
  * pfi->fisher_matrix_XYZ_smallest using a linear interpolation of the bispectrum.
  */
@@ -2278,13 +2285,25 @@ int fisher_sky_coverage (
 
 
 /**
+ * Computes the Fisher matrix for all bispectra types using the trapezoidal
+ * integration along the l1 direction.
  *
- * This function computes the Fisher matrix and fills 'pfi->fisher_matrix_XYZ_largest',
- * 'pfi->fisher_matrix_XYZ_smallest' and 'pfi->fisher_matrix_CZ_smallest' using a mesh
- * interpolation of the bispectrum.
+ * The bispectra in the l2 and l3 directions are computed using interpolation.
+ * Two methods are supported:
+ * 
+ * - Bilinear interpolation via the bispectra_at_l2l3() function.
+ * - Mesh interpolation via the 
+ * 
+ * The following arrays are filled:
+ *
+ * - pfi->fisher_matrix_XYZ_largest
+ * - pfi->fisher_matrix_XYZ_smallest
+ * - pfi->fisher_matrix_CZ_smallest
  */
+
 int fisher_cross_correlate_mesh (
        struct precision * ppr,
+       struct transfers * ptr,
        struct spectra * psp,
        struct lensing * ple,
        struct bispectra * pbi,
@@ -2529,7 +2548,22 @@ int fisher_cross_correlate_mesh (
                   /* Interpolate all other bispectra */
                   else {
                     
-                    if (pfi->bispectra_interpolation == mesh_interpolation_2D) {
+                    if (pfi->bispectra_interpolation == bilinear_interpolation) {
+
+                      class_call_parallel (bispectra_at_l2l3 (
+                                             ptr,
+                                             pbi,
+                                             index_bt,
+                                             index_l1, l2, l3,
+                                             Z, Y, X,
+                                             _TRUE_,
+                                             &interpolated_bispectra[thread][index_ft][X][Y][Z],
+                                             NULL),
+                        pbi->error_message,
+                        pfi->error_message);
+                    }
+
+                    else if (pfi->bispectra_interpolation == mesh_interpolation_2D) {
 
                       class_call_parallel (fisher_interpolate_bispectrum_mesh_2D(
                                              pbi, pfi,
@@ -2541,6 +2575,7 @@ int fisher_cross_correlate_mesh (
                         pfi->error_message,
                         pfi->error_message);
                     }
+
                     else if (pfi->bispectra_interpolation == mesh_interpolation_3D) {
 
                       class_call_parallel (fisher_interpolate_bispectrum_mesh_3D(
@@ -2636,7 +2671,8 @@ int fisher_cross_correlate_mesh (
 
                 /* Fisher matrix as a function of the largest multipole. Since this quantity is summed
                 over the incomplete l1 direction, we have to include the interpolation weight. */
-                if (pfi->bispectra_interpolation == mesh_interpolation_2D) {
+                if ((pfi->bispectra_interpolation == mesh_interpolation_2D) ||
+                   (pfi->bispectra_interpolation == bilinear_interpolation)) {
                   #pragma omp atomic
                   pfi->fisher_matrix_XYZ_largest[X][Y][Z][l3-2][index_ft_1][index_ft_2] += fisher * pwf->delta_l[index_l1];
                 }
@@ -3165,7 +3201,7 @@ int fisher_lensing_variance (
       for (int index_l1=(pfi->l1_size-1); index_l1>=0; --index_l1) {
 
         double l1_contribution = pfi->fisher_matrix_lensvar_smallest[index_l1][index_ft_1][index_ft_2];
-        if (pfi->bispectra_interpolation == mesh_interpolation_2D)
+        if ((pfi->bispectra_interpolation == mesh_interpolation_2D) || (pfi->bispectra_interpolation == bilinear_interpolation))
           l1_contribution *= pwf->delta_l[index_l1];
         accumulator += l1_contribution;
         pfi->fisher_matrix_lensvar_lmin[index_l1][index_ft_1][index_ft_2] = accumulator;
