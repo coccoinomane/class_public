@@ -1282,9 +1282,9 @@ int output_fisher(
   FILE * fisher_file;
   
   /* Open the file for the Fisher matrix */
-  if ((pfi->l_min_estimator > pfi->l_min) || (pfi->l_max_estimator < pfi->l_max))
+  if ((pfi->l_min_estimator > pbi->l_min) || (pfi->l_max_estimator < pbi->l_max))
     sprintf (filename, "%s%s_%d_%d.dat", pop->root, "fisher",
-      MAX(pfi->l_min, pfi->l_min_estimator), MIN(pfi->l_max, pfi->l_max_estimator));
+      MAX(pbi->l_min, pfi->l_min_estimator), MIN(pbi->l_max, pfi->l_max_estimator));
   else
     sprintf (filename, "%s%s.dat", pop->root, "fisher");
 
@@ -1302,9 +1302,9 @@ int output_fisher(
 
   if (pfi->include_lensing_effects == _TRUE_) {
     
-    if ((pfi->l_min_estimator > pfi->l_min) || (pfi->l_max_estimator < pfi->l_max))
+    if ((pfi->l_min_estimator > pbi->l_min) || (pfi->l_max_estimator < pbi->l_max))
       sprintf (filename, "%s%s_%d_%d.dat", pop->root, "fisher_lensvar",
-        MAX(pfi->l_min, pfi->l_min_estimator), MIN(pfi->l_max, pfi->l_max_estimator));
+        MAX(pbi->l_min, pfi->l_min_estimator), MIN(pbi->l_max, pfi->l_max_estimator));
     else
       sprintf (filename, "%s%s.dat", pop->root, "fisher_lensvar");
 
@@ -1326,11 +1326,11 @@ int output_fisher(
   FILE * fisher_file_lmax;
 
   /* Open the file for the signal to noise as a function of the maximum resolution of the experiment */
-  if ((pfi->l_min_estimator > pfi->l_min) || (pfi->l_max_estimator < pfi->l_max)) {
+  if ((pfi->l_min_estimator > pbi->l_min) || (pfi->l_max_estimator < pbi->l_max)) {
     sprintf (filename_lmax, "%s%s_%d_%d.dat", pop->root, "fisher_lmax",
-      MAX(pfi->l_min, pfi->l_min_estimator), MIN(pfi->l_max, pfi->l_max_estimator));
+      MAX(pbi->l_min, pfi->l_min_estimator), MIN(pbi->l_max, pfi->l_max_estimator));
     sprintf (filename_lmin, "%s%s_%d_%d.dat", pop->root, "fisher_lmin",
-      MAX(pfi->l_min, pfi->l_min_estimator), MIN(pfi->l_max, pfi->l_max_estimator));
+      MAX(pbi->l_min, pfi->l_min_estimator), MIN(pbi->l_max, pfi->l_max_estimator));
   }
   else { 
     sprintf (filename_lmax, "%s%s.dat", pop->root, "fisher_lmax");
@@ -1416,12 +1416,12 @@ int output_fisher(
 
     /* No lmax file for lensing variance */
 
-    if ((pfi->l_min_estimator > pfi->l_min) || (pfi->l_max_estimator < pfi->l_max)) {
+    if ((pfi->l_min_estimator > pbi->l_min) || (pfi->l_max_estimator < pbi->l_max)) {
       sprintf (filename_lmin, "%s%s_%d_%d.dat", pop->root, "fisher_lensvar_lmin",
-        MAX(pfi->l_min, pfi->l_min_estimator), MIN(pfi->l_max, pfi->l_max_estimator));
+        MAX(pbi->l_min, pfi->l_min_estimator), MIN(pbi->l_max, pfi->l_max_estimator));
       if (pfi->compute_lensing_variance_lmax == _TRUE_)
         sprintf (filename_lmax, "%s%s_%d_%d.dat", pop->root, "fisher_lensvar_lmax",
-          MAX(pfi->l_min, pfi->l_min_estimator), MIN(pfi->l_max, pfi->l_max_estimator));
+          MAX(pbi->l_min, pfi->l_min_estimator), MIN(pbi->l_max, pfi->l_max_estimator));
     }
     else { 
       sprintf (filename_lmin, "%s%s.dat", pop->root, "fisher_lensvar_lmin");
@@ -1531,13 +1531,13 @@ int output_fisher(
         for (int Z=0; Z < pbi->bf_size; ++Z) {
   
           /* Open the file for the signal to noise as a function of the maximum resolution of the experiment */
-          if ((pfi->l_min_estimator > pfi->l_min) || (pfi->l_max_estimator < pfi->l_max)) {
+          if ((pfi->l_min_estimator > pbi->l_min) || (pfi->l_max_estimator < pbi->l_max)) {
             sprintf (filename_lmax, "%s%s_%s_%d_%d.dat",
               pop->root, "fisher_lmax", pbi->bfff_labels[X][Y][Z],
-                MAX(pfi->l_min, pfi->l_min_estimator), MIN(pfi->l_max, pfi->l_max_estimator));
+                MAX(pbi->l_min, pfi->l_min_estimator), MIN(pbi->l_max, pfi->l_max_estimator));
             sprintf (filename_lmin, "%s%s_%s_%d_%d.dat",
               pop->root, "fisher_lmin", pbi->bfff_labels[X][Y][Z],
-                MAX(pfi->l_min, pfi->l_min_estimator), MIN(pfi->l_max, pfi->l_max_estimator));
+                MAX(pbi->l_min, pfi->l_min_estimator), MIN(pbi->l_max, pfi->l_max_estimator));
           }
           else {
             sprintf (filename_lmax, "%s%s_%s.dat", pop->root, "fisher_lmax", pbi->bfff_labels[X][Y][Z]);

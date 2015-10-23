@@ -1545,12 +1545,6 @@ int input_read_parameters(
         pbi->has_intrinsic_squeezed = _TRUE_;
       }
 
-      /* Compute the approximation of the intrinsic bispectrum in the squeezed limit, the unlensed version */
-      if ((strstr(string1,"unlensed_intrinsic_squeezed") != NULL) || (strstr(string1,"unlensed_intrinsic_sqz") != NULL)
-      || (strstr(string1,"i-u-squeezed") != NULL)) {
-        pbi->has_intrinsic_squeezed_unlensed = _TRUE_;
-      }
-
       /* Compute the approximation of the local bispectrum in the squeezed limit */
       if ((strstr(string1,"local_squeezed") != NULL) || (strstr(string1,"local_sqz") != NULL)
        || (strstr(string1,"l-squeezed") != NULL)) {
@@ -3370,6 +3364,65 @@ int input_read_parameters(
         printf ("NOTE: output pairs #%d and #%d are equal; bispectra outputs for #%d will be empty\n", i, j, j);
 
 
+  /** i.2.6. interpolation of the bispectrum */
+  
+  class_call(parser_read_string(pfc,"bispectra_interpolation",&string1,&flag1,errmsg),
+         errmsg,
+         errmsg);  
+  
+  if (flag1 == _TRUE_) {
+
+    /* For trilinear interpolation, we need an all-even grid */
+    if ((strstr(string1,"trilinear") != NULL) || (strstr(string1,"tri") != NULL)) {
+      pbi->interpolation_method = trilinear_interpolation;
+      ppr->compute_only_even_ls = _TRUE_;
+    }
+  
+    else if ((strstr(string1,"smart") != NULL) || (strstr(string1,"SMART") != NULL)) {
+      pbi->interpolation_method = smart_interpolation;
+      ppr->compute_only_even_ls = _TRUE_;
+    }
+
+    else if (strstr(string1,"bilinear") != NULL) {
+      pbi->interpolation_method = bilinear_interpolation;
+    }
+
+    else if ((strcmp(string1,"mesh_2d") == 0) || (strcmp(string1,"mesh_2D") == 0) || (strcmp(string1,"mesh") == 0)) {
+      pbi->interpolation_method = mesh_interpolation_2D;
+    }
+
+    else if ((strcmp(string1,"mesh_3d") == 0) || (strcmp(string1,"mesh_3D") == 0)) {
+      pbi->interpolation_method = mesh_interpolation_3D;
+    }
+
+    else {
+      class_test(1==1, errmsg,
+        "interpolation_method=%s not supported. Choose between 'trilinear', 'mesh', 'mesh_2d', 'sum'",
+        string1);
+    }
+  
+  }
+
+  if (pbi->has_bispectra == _TRUE_) {
+
+    /* Check that l_max is even for trilinear interpolation */
+    if (pbi->interpolation_method == trilinear_interpolation) {
+      class_test ((ppt->has_scalars==_TRUE_)&&((ppt->l_scalar_max%2)!=0), errmsg,
+        "For trilinear bispectra interpolation, choose an even 'l_max_scalars'");
+      class_test ((ppt->has_vectors==_TRUE_)&&((ppt->l_vector_max%2)!=0), errmsg,
+        "For trilinear bispectra interpolation, choose an even 'l_max_vectors'");
+      class_test ((ppt->has_tensors==_TRUE_)&&((ppt->l_tensor_max%2)!=0), errmsg,
+        "For trilinear bispectra interpolation, choose an even 'l_max_tensors'");
+    }
+  }
+
+  class_call(parser_read_string(pfc,"always_interpolate_bispectra",&(string1),&(flag1),errmsg),
+      errmsg,
+      errmsg);
+   
+  if ((flag1 == _TRUE_) && ((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL)))
+    pbi->always_interpolate_bispectra = _TRUE_;
+
 
 
   /** i.3 parameters in the bessels module */
@@ -3586,72 +3639,6 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
       pfi->ignore_b = _TRUE_;
   }
 
-
-  /** i.4.3. interpolation of the bispectrum */
-  
-  class_call(parser_read_string(pfc,"bispectra_interpolation",&string1,&flag1,errmsg),
-         errmsg,
-         errmsg);  
-  
-  if (flag1 == _TRUE_) {
-
-    /* For trilinear interpolation, we need an all-even grid */
-    if ((strstr(string1,"trilinear") != NULL) || (strstr(string1,"tri") != NULL)) {
-      pfi->bispectra_interpolation = trilinear_interpolation;
-      ppr->compute_only_even_ls = _TRUE_;
-    }
-  
-    else if ((strstr(string1,"smart") != NULL) || (strstr(string1,"SMART") != NULL)) {
-      pfi->bispectra_interpolation = smart_interpolation;
-      ppr->compute_only_even_ls = _TRUE_;
-    }
-
-    else if (strstr(string1,"sum") != NULL) {
-      pfi->bispectra_interpolation = sum_over_all_multipoles;
-    }
-
-    else if (strstr(string1,"bilinear") != NULL) {
-      pfi->bispectra_interpolation = bilinear_interpolation;
-    }
-
-    else if ((strcmp(string1,"mesh_2d") == 0) || (strcmp(string1,"mesh_2D") == 0)
-          || (strcmp(string1,"mesh") == 0)
-          || (strcmp(string1,"mesh_3d") == 0)  /* obsolete */ 
-          || (strcmp(string1,"mesh_3D") == 0)) /* obsolete */ {
-      pfi->bispectra_interpolation = mesh_interpolation_2D;
-    }
-
-    else {
-      class_test(1==1, errmsg,
-        "interpolation_method=%s not supported. Choose between 'trilinear', 'mesh', 'mesh_2d', 'sum'",
-        string1);
-    }
-  
-  }
-
-  if (pbi->has_bispectra == _TRUE_) {
-
-    /* Take all multipoles if requested */
-    if (pfi->bispectra_interpolation == sum_over_all_multipoles)
-      ppr->l_linstep = 1;
-
-    /* Check that l_max is even for trilinear interpolation */
-    if (pfi->bispectra_interpolation == trilinear_interpolation) {
-      class_test ((ppt->has_scalars==_TRUE_)&&((ppt->l_scalar_max%2)!=0), errmsg,
-        "For trilinear bispectra interpolation, choose an even 'l_max_scalars'");
-      class_test ((ppt->has_vectors==_TRUE_)&&((ppt->l_vector_max%2)!=0), errmsg,
-        "For trilinear bispectra interpolation, choose an even 'l_max_vectors'");
-      class_test ((ppt->has_tensors==_TRUE_)&&((ppt->l_tensor_max%2)!=0), errmsg,
-        "For trilinear bispectra interpolation, choose an even 'l_max_tensors'");
-    }
-  }
-
-  class_call(parser_read_string(pfc,"always_interpolate_bispectra",&(string1),&(flag1),errmsg),
-      errmsg,
-      errmsg);
-   
-  if ((flag1 == _TRUE_) && ((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL)))
-    pfi->always_interpolate_bispectra = _TRUE_;
 
 
   /** (l) Technical parameters */
@@ -4343,7 +4330,6 @@ int input_default_params(
   pbi->has_orthogonal_model = _FALSE_;
   pbi->has_galileon_model = _FALSE_;
   pbi->has_intrinsic_squeezed = _FALSE_;
-  pbi->has_intrinsic_squeezed_unlensed = _FALSE_;
   pbi->has_local_squeezed = _FALSE_;
   pbi->has_cosine_shape = _FALSE_;
   pbi->has_cmb_lensing = _FALSE_;
@@ -4356,21 +4342,19 @@ int input_default_params(
   /** - fisher structure */
 
   pfi->fisher_verbose = 0;
-  pfi->always_interpolate_bispectra = _FALSE_;
+  pbi->always_interpolate_bispectra = _FALSE_;
   pfi->has_fisher = _FALSE_;
   pfi->l_min_estimator = 2;
   pfi->l_max_estimator = 10000000;
-  pfi->bispectra_interpolation = bilinear_interpolation;
+  pbi->interpolation_method = bilinear_interpolation;
   pfi->f_sky = 1;
   pfi->n_channels = 1;
   pfi->beam[0] = 0;
   pfi->noise_t[0] = 0;
   pfi->noise_e[0] = 0;
-  pfi->noise_r[0] = 0;
   pfi->ignore_t = _FALSE_;
   pfi->ignore_e = _FALSE_;
   pfi->ignore_b = _FALSE_;
-  pfi->ignore_r = _FALSE_;
   pfi->include_lensing_effects = _FALSE_;
   pfi->squeezed_ratio = 0;
   pfi->compute_lensing_variance_lmax = _FALSE_;

@@ -36,17 +36,23 @@ struct interpolation_mesh {
   int ** grid_2D;
   double **** mesh_2D;
   
-  /* Should we compute the grid? If not, the user has to overwrite by hand the grid field
+  /** Should we compute the grid? If not, the user has to overwrite by hand the grid field
   with a precomputed grid. */
   short compute_grid;
   
-  /* Counters to keep track of the memory usage */
+  /** Counters to keep track of the memory usage */
+  //@{
   long int n_allocated_in_mesh;
   long int n_allocated_in_grid;
+  //@}
 
-  /* Counters to keep track of which meshes are used */
+  /** Counters to keep track of which meshes are used */
+  //@{
   long int count_interpolations;
   long int count_range_extensions;
+  //@}
+
+  ErrorMsg error_message; /**< Area to write error messages */
 
 };
 
@@ -60,17 +66,18 @@ struct interpolation_mesh {
 extern "C" {
 #endif
 
-  // ==============================================================================================
-  // =                                       3D interpolation                                     =
-  // ==============================================================================================
+  // ====================================================================================
+  // =                                3D interpolation                                  =
+  // ====================================================================================
 
   int mesh_3D_sort (
-      struct interpolation_mesh * pw,
-      double ** values
+      struct interpolation_mesh * mesh,
+      int *** grid,
+      double (*values)[4]
       );
 
   int mesh_3D_int (
-      struct interpolation_mesh * pw,
+      struct interpolation_mesh * mesh,
       double x,
       double y,
       double z,
@@ -78,7 +85,7 @@ extern "C" {
       );
 
   int mesh_3D_free (
-      struct interpolation_mesh * pw
+      struct interpolation_mesh * mesh
       );
 
   double distance_3D (
@@ -87,24 +94,25 @@ extern "C" {
   );
 
 
-  // ==============================================================================================
-  // =                                       2D interpolation                                     =
-  // ==============================================================================================
+  // ====================================================================================
+  // =                                2D interpolation                                  =
+  // ====================================================================================
 
   int mesh_2D_sort (
-      struct interpolation_mesh * pw,
-      double ** values
+      struct interpolation_mesh * mesh,
+      int ** grid,
+      double (*values)[3]
       );
 
   int mesh_2D_int (
-      struct interpolation_mesh * pw,
+      struct interpolation_mesh * mesh,
       double x,
       double y,
       double * interpolated_value
       );
 
   int mesh_2D_free (
-      struct interpolation_mesh * pw
+      struct interpolation_mesh * mesh
       );
 
   double distance_2D (
