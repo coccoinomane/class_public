@@ -97,7 +97,8 @@
  * 
  * TODO: Implement an independent l3 array, so that we can tune it to have
  * only the even l1+l2+l3 configurations without sacrificing the (2,3,3)
- * configurations.
+ * configurations. This strategy would require interpolating the transfer
+ * functions in l3, though.
  *
  * Created by Guido W. Pettinari on 19.07.2012.
  * Last modified by Guido W. Pettinari on 23.10.2015
@@ -1468,9 +1469,24 @@ int bispectra_free(
       free (pbi->bispectra_paths);
     
     }
-    
-  } // end of if(has_bispectra)
 
+    /* Free interpolation meshes */
+
+    for (int index_l1=0; index_l1 < pbi->l_size; ++index_l1) {
+
+      /* There is only one 3D mesh for all l1 values */
+      if (pbi->interpolation_method==mesh_interpolation_3D && index_l1!=0)
+        continue;
+
+      class_call (bispectra_mesh_free(pbi, &pbi->meshes[index_l1]),
+        pbi->error_message,
+        pbi->error_message);
+
+    }
+
+    free (pbi->meshes);
+
+  } // end of if(has_bispectra)
   
   return _SUCCESS_;
  
@@ -2202,7 +2218,8 @@ int bispectra_indices (
   bispectra.h, the mesh interpolation is a way to linearly interpolate the
   bispectrum (or any other function) on a mesh rather than on a grid. This 
   method allows to naturally solve the issues related to the triangular (l1,l2,l3) domain
-  of the bispectrum. */
+  of the bispectrum. SONG supports both 2D and 3D interpolation using the mesh
+  method. */
 
   if ((pbi->interpolation_method == mesh_interpolation_2D) ||
       (pbi->interpolation_method == mesh_interpolation_3D)) {
@@ -2212,7 +2229,7 @@ int bispectra_indices (
     // -                                Parameters                                   -
     // -------------------------------------------------------------------------------
 
-    /* We shall use two meshes for each bisepctrum: a fine mesh for the small l
+    /* We shall use two meshes for each bispectrum: a fine mesh for the small l
     and a coarse mesh for the large l. See bispectra.h for a description of the
     parameters of the two meshes. */
     
@@ -2275,6 +2292,7 @@ int bispectra_indices (
       pbi->l_turnover = pbi->l[index_l-1];
     }
 
+    /* Print some info on the interpolation meshes */
     printf_log_if (pbi->bispectra_verbose, 1, 
       "     * mesh_interpolation: l_turnover=%d, n_boxes=[%d,%d], linking lengths=[%g,%g], grouping lengths=[%g,%g]\n",
       pbi->l_turnover,
@@ -2282,6 +2300,38 @@ int bispectra_indices (
       (int)ceil(pbi->l[pbi->l_size-1] / (pbi->link_lengths[1]*(1+pbi->soft_coeffs[1]))),
       pbi->link_lengths[0], pbi->link_lengths[1],
       pbi->group_lengths[0], pbi->group_lengths[1]);
+
+    
+    // -------------------------------------------------------------------------------
+    // -                            Allocate meshes                                -
+    // -------------------------------------------------------------------------------
+    
+    /* We allocate a fine grid and a coarse mesh for each bispectrum type & probe.
+    If we are dealing with 2D interpolation, we also allocate a mesh for every
+    l1 value in our sampling. For 3D interpolation, this is not required because
+    a single 3D mesh is enough to interpolate the bispectrum for all values of l1. */
+    
+    int l1_size;
+    
+    if (pbi->interpolation_method == mesh_interpolation_2D)
+      l1_size = pbi->l_size;
+    
+    else if (pbi->interpolation_method == mesh_interpolation_3D)
+      l1_size = 1;
+
+    class_alloc (pbi->meshes,
+      l1_size * sizeof (*pbi->meshes),
+      pbi->error_message);
+
+    for (int index_l1=0; index_l1 < l1_size; ++index_l1) {
+
+      class_call (bispectra_mesh_allocate(
+                    ppr,psp,ple,pbi,
+                    &pbi->meshes[index_l1]),
+        pbi->error_message,
+        pbi->error_message);
+      
+    }
 
   } // if(mesh_interpolation)
 
@@ -4185,7 +4235,7 @@ int bispectra_separable_filter_functions (
       
         double r = pwb->r[index_r];
       
-        printf_log_if (pbi->bispectra_verbose, 3, 
+        printf_log_if (pbi->bispectra_verbose, 4, 
           "       \\ r=%g, index_r=%d\n", r, index_r);
         
         
@@ -6623,7 +6673,11 @@ int bispectra_lensing_convolution (
   
   // TODO:
   // 1) Run lensing on CMB-lensing and see if it matches lensed CMB-lensing
-  // 2) Ask Overflow for 3J interpolation
+  // 2) Look again at interpolation of 3j symbol
+  // 3) Streamline fisher_compute_matrix() (documentation as well)
+  // 4) Get rid of fisher_compute_matrix_nodes()
+  // 5) Implement bispectra_at_l2l3_mesh()
+  // 6) Find memory leak - 1.6 GB for l=1.1/20 is too much
 
   int l1 = pbi->l[index_l1], F_X1 = pbi->field_spin[X1];
   int l2 = pbi->l[index_l2], F_X2 = pbi->field_spin[X2];
@@ -9062,8 +9116,8 @@ int bispectra_intrinsic_window_function (
 
 
 /**
- * Interpolate the bispectrum in (l1, l2,l3) configuration using 2D mesh
- * interpolation, where l1 belongs to pbi->l and (l2,l3) are free.
+ * Interpolate the bispectrum in the (l1,l2,l3) configuration using 2D mesh
+ * interpolation; l1 must belong to pbi->l.
  *
  * This function will interpolate the bispectrum corresponding to index_bt for
  * the fields XYZ (eg. TTT, EEE, EET, ..., EEE).
@@ -9077,19 +9131,26 @@ int bispectra_intrinsic_window_function (
  * inside the interpolate function for optimization purposes.
  */
  
-int bispectra_interpolate_mesh_2D (
+int bispectra_mesh_interpolate (
+      struct precision * ppr,
+      struct spectra * psp,
+      struct lensing * ple,
       struct bispectra * pbi,
       int index_bt,
-      double l3, double l2, int index_l1,
+      int index_L1, /**< Input: l1 multipole for which the interpolation will be performed; ignored for 3D mesh */
+      double l3, double l2, double l1,
       int X, int Y, int Z,
-      struct interpolation_mesh ** mesh, /**< Input: interpolation table & mesh for the fine and coarse grids */
+      struct interpolation_mesh * fine_mesh, /**< Input: mesh table to use for the small multipoles */
+      struct interpolation_mesh * coarse_mesh, /**< Input: mesh table to use for the large multipoles */
       double * result /** Output: value of the bispectrum in (l1,l2,l3) */
       )
 {
 
-  int l1 = pbi->l[index_l1];
-
 #ifdef DEBUG
+  class_test ((index_L1>=0) && (int)(l1+_EPS_)!=pbi->l[index_L1],
+    pbi->error_message,
+    "inconsistent input: %g!=%d", l1, pbi->l[index_L1]);
+
   class_test (!pbi->interpolate_me[index_bt],
     pbi->error_message,
     "cannot interpolate %s bispectrum - mesh wasn't computed",
@@ -9098,41 +9159,123 @@ int bispectra_interpolate_mesh_2D (
   class_test (l3 < l2 || l2 < l1,
     pbi->error_message,
     "mesh was computed only for l1<=l2<=l3");
-
-  class_test (pbi->interpolation_method != mesh_interpolation_2D,
-    pbi->error_message,
-    "cannot interpolate %s bispectrum - mesh wasn't computed",
-    pbi->bt_labels[index_bt]);
 #endif // DEBUG
 
-  /* Use the fine mesh when all of the multipoles are small. */    
 
-  if ((l2<pbi->l_turnover) && (l3<pbi->l_turnover)) {
+  // ====================================================================================
+  // =                                   2D or 3D?                                      =
+  // ====================================================================================
 
-    class_call (mesh_2D_int (
-                  mesh[0],
-                  l2,
-                  l3,
-                  result),
-      mesh[0]->error_message,
-      pbi->error_message);
-
+  /* Determine whether the user wants to compute a 2D or a 3D mesh */
+  short is_2D = (index_L1 >= 0);
+  double x, y, z;
+  int use_fine_mesh;
+  
+  if (is_2D) {
+    use_fine_mesh = (l2<pbi->l_turnover) && (l3<pbi->l_turnover);
+    x = l2;
+    y = l3;
+    z = 0;
+  }
+  else {
+    use_fine_mesh = (l1<pbi->l_turnover) && (l2<pbi->l_turnover) && (l3<pbi->l_turnover);
+    x = l1;
+    y = l2;
+    z = l3;
   }
 
-  /* Use the coarse mesh when any of the multipoles is large. */
 
-  else {
+  // ====================================================================================
+  // =                                Fine or coarse?                                   =
+  // ====================================================================================
 
-    class_call (mesh_2D_int (
-                  mesh[1],
-                  l2,
-                  l3,
-                  result),
-      mesh[1]->error_message,
-      pbi->error_message);
+  /* Choose mesh parameters depending on whether we use the fine or coarse grid */
+  int l_max;
+  double link_length;
+  double group_length;
+  double soft_coeff;
+  struct interpolation_mesh * mesh;
+  int index_mesh;
+
+  if (use_fine_mesh) {
+    
+    l_max = pbi->l_turnover;
+    link_length = pbi->link_lengths[0];
+    group_length = pbi->group_lengths[0];
+    soft_coeff = pbi->soft_coeffs[0];
+    mesh = fine_mesh;
+    index_mesh = 0;
 
   }
   
+  else {
+    
+    l_max = pbi->l_max;
+    link_length = pbi->link_lengths[1];
+    group_length = pbi->group_lengths[1];
+    soft_coeff = pbi->soft_coeffs[1];
+    mesh = coarse_mesh;
+    index_mesh = 1;
+
+  }
+
+  
+  // ====================================================================================
+  // =                                 Create mesh                                      =
+  // ====================================================================================
+
+  /* If the mesh is not ready, then create it. If you are calling this function
+  inside a parallel loop in (l1,l2,l3), beware of race conditions! Two threads 
+  might attempt to initialise the same mesh at the same time, thus leading to
+  unexpected behaviour. For 2D mesh interpolation, this is not a problem as long
+  as l1 is the only parallelised loop. For 3D mesh interpolation, this is always
+  a problem, because the same mesh is used for all (l1,l2,l3) configurations. 
+  Wrapping the next block of code in a #pragma omp critical directive fixes the
+  isse, but slows down the interpolation considerably. */
+
+  if (!mesh->ready) {
+
+    /* Check for race conditions */
+
+    #ifdef _OPENMP
+    class_test (omp_get_num_threads()>1 && pbi->interpolation_method==mesh_interpolation_3D,
+      pbi->error_message,
+      "stopping to prevent race condition");
+    #endif
+    
+    int window_function_parameters[] = {X, Y, Z};
+
+    class_call (bispectra_mesh_create(
+                  ppr, psp, ple, pbi,
+                  index_L1,
+                  pbi->bispectra[index_bt][X][Y][Z],
+                  pbi->window_function[index_bt],
+                  (void *)window_function_parameters,
+                  l_max,
+                  link_length,
+                  group_length,
+                  soft_coeff,
+                  NULL,
+                  mesh),
+      pbi->error_message,
+      pbi->error_message);
+  }
+
+
+
+  // =====================================================================================
+  // =                                 Interpolate                                       =
+  // =====================================================================================
+
+  /* Interpolate the bispectrum in (l1,l2,l3) */
+
+  class_call (mesh_interpolate (
+                mesh,
+                x,y,z,
+                result),
+    mesh->error_message,
+    pbi->error_message);
+
 
 #ifdef DEBUG
   /* Check for nan's and crazy values. A value is crazy when it is much larger than
@@ -9156,97 +9299,11 @@ int bispectra_interpolate_mesh_2D (
 
 
 /**
- * Interpolate the bispectrum in a specific (l1,l2,l3) configuration using 3D mesh
- * interpolation.
- *
- * Refer to bispectra_interpolate_mesh_2D() for further details.
+ * Allocate memory for an array of interpolation meshes with the following
+ * structure: meshes[index_bt][X][Y][Z][2].
  */
 
-int bispectra_interpolate_mesh_3D (
-      struct bispectra * pbi,
-      int index_bt,
-      double l3, double l2, double l1,
-      int X, int Y, int Z,
-      struct interpolation_mesh ** mesh, /**< Input: interpolation table & mesh for the fine and coarse grids */
-      double * result /** Output: value of the bispectrum in (l1,l2,l3) */
-      )
-{
-
-#ifdef DEBUG
-  class_test (!pbi->interpolate_me[index_bt],
-    pbi->error_message,
-    "cannot interpolate %s bispectrum - mesh wasn't computed",
-    pbi->bt_labels[index_bt]);
-
-  class_test (l3 < l2 || l2 < l1,
-    pbi->error_message,
-    "mesh was computed only for l1<=l2<=l3");
-
-  class_test (pbi->interpolation_method != mesh_interpolation_3D,
-    pbi->error_message,
-    "cannot interpolate %s bispectrum - mesh wasn't computed",
-    pbi->bt_labels[index_bt]);
-#endif // DEBUG
-
-  /* Use the fine mesh when all of the multipoles are small. */    
-
-  if ((l1<pbi->l_turnover) && (l2<pbi->l_turnover) && (l3<pbi->l_turnover)) {
-
-    class_call (mesh_3D_int (
-                  mesh[0],
-                  l1,
-                  l2,
-                  l3,
-                  result),
-      mesh[0]->error_message,
-      pbi->error_message);
-
-  }
-
-  /* Use the coarse mesh when any of the multipoles is large. */
-
-  else {
-
-    class_call (mesh_3D_int (
-                  mesh[1],
-                  l1,
-                  l2,
-                  l3,
-                  result),
-      mesh[1]->error_message,
-      pbi->error_message);
-
-  }
-  
-
-#ifdef DEBUG
-  /* Check for nan's and crazy values. A value is crazy when it is much larger than
-  the characteristic scale for a bispectrum, A_s*A_s~1e-20 */
-  if (isnan(*result) || (fabs(*result)>1) )
-    printf ("@@@ WARNING: Interpolated b(%g,%g,%g) = %g for bispectrum %s_%s!!!\n",
-    l1, l2, l3, *result,
-    pbi->bt_labels[index_bt],
-    pbi->bfff_labels[X][Y][Z]);
-#endif // DEBUG
-
-  /* Debug: print the interpolated value of the intrinsic bispectrum */
-  // if ((pbi->has_intrinsic) || (pbi->index_bt_intrinsic==_TRUE_)) {
-  //   printf ("%8g %8g %8g %16.7g\n", l1, l2, l3, *result);
-  // }
-
-  return _SUCCESS_;
-  
-}
-
-
-
-
-
-/**
- * Allocate memory for the input array of interpolation meshes
- */
-
-int bispectra_allocate_interpolation_mesh(
+int bispectra_mesh_allocate(
         struct precision * ppr,
         struct spectra * psp,
         struct lensing * ple,
@@ -9295,6 +9352,8 @@ int bispectra_allocate_interpolation_mesh(
                 sizeof(struct interpolation_mesh),
                 pbi->error_message);
               
+              (*meshes)[index_bt][X][Y][Z][index_mesh]->ready = _FALSE_;
+              
           } // for(index_mesh)
         } // for(Z)
       } // for(Y)
@@ -9311,11 +9370,15 @@ int bispectra_allocate_interpolation_mesh(
  * Deallocate the input array of interpolation meshes
  */
 
-int bispectra_free_interpolation_mesh(
-        struct bispectra * pbi,
-        struct interpolation_mesh ******* meshes
-        )
+int bispectra_mesh_free(
+      struct bispectra * pbi,
+      struct interpolation_mesh ******* meshes
+      )
 {
+  
+  class_call (bispectra_mesh_empty (pbi, meshes),
+    pbi->error_message,
+    pbi->error_message);
 
   for (int index_bt=(pbi->bt_size-1); index_bt >= 0; --index_bt) {
   
@@ -9324,21 +9387,47 @@ int bispectra_free_interpolation_mesh(
   
     for (int X = (pbi->bf_size-1); X >= 0; --X) {
       for (int Y = (pbi->bf_size-1); Y >= 0; --Y) {
-        for (int Z = (pbi->bf_size-1); Z >= 0; --Z) {
-          for (int index_mesh=0; index_mesh < 2; ++index_mesh) {
+        for (int Z = (pbi->bf_size-1); Z >= 0; --Z)
+          free ((*meshes)[index_bt][X][Y][Z]);
+        free ((*meshes)[index_bt][X][Y]);
+      }
+      free ((*meshes)[index_bt][X]);
+    }
+    free ((*meshes)[index_bt]);
+  }
 
-            if (pbi->interpolation_method == mesh_interpolation_2D)
-              mesh_2D_free ((*meshes)[index_bt][X][Y][Z][index_mesh]);
-            
-            else if (pbi->interpolation_method == mesh_interpolation_3D)
-              mesh_3D_free ((*meshes)[index_bt][X][Y][Z][index_mesh]);
+  free (*meshes);
+    
+  return _SUCCESS_;
 
-          } free ((*meshes)[index_bt][X][Y][Z]);
-        } free ((*meshes)[index_bt][X][Y]);
-      } free ((*meshes)[index_bt][X]);
-    } free ((*meshes)[index_bt]);
-  } free ((*meshes));
+}
 
+
+
+
+/**
+ * Empty all grids and meshes in the input mesh structures
+ */
+
+int bispectra_mesh_empty(
+      struct bispectra * pbi,
+      struct interpolation_mesh ******* meshes
+      )
+{
+
+  for (int index_bt=(pbi->bt_size-1); index_bt >= 0; --index_bt) {
+  
+    if (!pbi->interpolate_me[index_bt])
+      continue;
+  
+    for (int X = (pbi->bf_size-1); X >= 0; --X)
+      for (int Y = (pbi->bf_size-1); Y >= 0; --Y)
+        for (int Z = (pbi->bf_size-1); Z >= 0; --Z)
+          for (int index_mesh=0; index_mesh < 2; ++index_mesh)
+            mesh_free ((*meshes)[index_bt][X][Y][Z][index_mesh]);
+
+  }
+  
   return _SUCCESS_;
 
 }
@@ -9360,20 +9449,22 @@ int bispectra_free_interpolation_mesh(
  * correspond to the slowest varying directions in the bispectrum.
  */
 
-int bispectra_create_mesh (
+int bispectra_mesh_create (
       struct precision * ppr,
       struct spectra * psp,
       struct lensing * ple,
       struct bispectra * pbi,
+
       int index_L1, /**< Input: multipole for which the 2D mesh will be computed; if negative, fill a 3D mesh instead */
       double * bispectrum_l1l2l3, /**< Input: the bispectrum interpolate, bispectrum_l1l2l3[index_l1_l2_l3] */
       window_function_type * window_function, /**< Input: window function to apply to the bispectrum; set to NULL to ignore */
       void * window_function_parameters, /**< Input: parameters for the window function, ignored if window_function==NULL */
-      void * grid, /**< Input: interpolation grid for the mesh; can be either 2D (int**) or 3D (int***) grid; set to NULL to recompute it. */
+
       int l_max, /**< Input: the maximum multipole to consider for this mesh */
       double link_length, /**< Input: linking length for this mesh (see bispectra.h) */
       double group_length, /**< Input: grouping length for this mesh (see bispectra.h) */
       double soft_coeff, /**< Input: softening of the linking length for this mesh (see bispectra.h) */
+      int *** grid, /**< Input: interpolation grid for the mesh; can be either 2D (int**) or 3D (int***) grid; set to NULL to recompute it. */
       struct interpolation_mesh * mesh /**< Output: the interpolation mesh to initialise */
       )
 {
@@ -9382,18 +9473,12 @@ int bispectra_create_mesh (
   short is_2D = (index_L1 >= 0);
   int n_dim = (is_2D?2:3);
 
-  /* Initialise the parameters of the grid */
-  mesh->l_max = l_max;
-  mesh->link_length = link_length;
-  mesh->group_length = group_length;
-  mesh->soft_coeff = soft_coeff;
-
   /* Count the number of nodes in the function to be interpolated. For 3D interpolation,
   this is equal to the total number of sampling points in the bispectrum, minus those that
   are larger than l_max. For 2D interpolation, it is equal to the number of (l2,l3) nodes 
   in the considered l1-slice of the bispectrum. In both cases, we consider only those
   points with l1<=l2<=l3<=l_max */
-  mesh->n_points = 0;
+  long int n_nodes = 0;
 
   for(int index_l1 = 0; index_l1 < pbi->l_size; ++index_l1) {
     if (is_2D && index_l1!=index_L1)
@@ -9403,32 +9488,38 @@ int bispectra_create_mesh (
       int index_l3_max = pbi->index_l_triangular_max[index_l1][index_l2];
       for (int index_l3=index_l3_min; index_l3<=index_l3_max; ++index_l3) {
         if (pbi->l[index_l2] <= l_max && pbi->l[index_l3] <= l_max)
-          mesh->n_points++;
+          n_nodes++;
       }
     }
   }
 
   if (is_2D) {
-    printf_log_if (pbi->bispectra_verbose, 3,
-      "     * the l1=%d slice has %ld point%s\n",
-      pbi->l[index_L1], mesh->n_points, ((mesh->n_points==1)?"":"s"));
+    printf_log_if (pbi->bispectra_verbose, 0,
+      "     * the l1=%d slice has %ld node%s\n",
+      pbi->l[index_L1], n_nodes, ((n_nodes==1)?"":"s"));
+  }
+  else {
+    printf_log_if (pbi->bispectra_verbose, 0,
+      "     * mesh has %ld node%s\n",
+      n_nodes, ((n_nodes==1)?"":"s"));
   }
 
 
-  // -------------------------------------------------------------------------------
-  // -                           Rearrange the bispectrum                          -
-  // -------------------------------------------------------------------------------
+  // ====================================================================================
+  // =                             Rearrange the bispectrum                             =
+  // ====================================================================================
 
   /* Allocate the array that will contain the rearranged bispectrum */  
-  double (*values)[n_dim+1] = calloc ((n_dim+1)*mesh->n_points, sizeof(double));
+  double (*values)[4] = calloc (4*n_nodes, sizeof(double));
 
   int abort = _FALSE_;
 
-  # pragma omp parallel for schedule (dynamic)
+  #pragma omp parallel for schedule (dynamic)
   for(int index_l1 = 0; index_l1 < pbi->l_size; ++index_l1) {
 
     int l1 = pbi->l[index_l1];
 
+    /* The bidimensional mesh will only contain one value of l1 */
     if (is_2D && index_l1!=index_L1)
       continue;
 
@@ -9474,6 +9565,7 @@ int bispectra_create_mesh (
           values[index_l2_l3][0] = bispectrum_l1l2l3[index_l1_l2_l3] / inverse_window;
           values[index_l2_l3][1] = (double)(l2);
           values[index_l2_l3][2] = (double)(l3);
+          values[index_l2_l3][3] = 0;
           index_l2_l3++;
         }
         else {
@@ -9491,31 +9583,75 @@ int bispectra_create_mesh (
     return _FAILURE_;
   
 
-  // -------------------------------------------------------------------------------
-  // -                               Generate the mesh                             -
-  // -------------------------------------------------------------------------------
+
+  // ====================================================================================
+  // =                                 Recycle the grid                                 =
+  // ====================================================================================
+
+  /* All bispectra share the same (l1,l2,l3) nodes. We use this fact to recycle the
+  interpolation grid, ie. the binning of the nodes, across the different bispectra
+  types. */
+
+  if (grid == NULL) {
+
+    int index_l1 = is_2D ? index_L1:0;
+
+    for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt) {
+
+      if (!pbi->interpolate_me[index_bt])
+        continue;
+
+      for (int X=0; X < pbi->bf_size; ++X) {
+        for (int Y=0; Y < pbi->bf_size; ++Y) {
+          for (int Z=0; Z < pbi->bf_size; ++Z) {
+
+            for (int index_mesh=0; index_mesh < 2; ++index_mesh) {
+
+              struct interpolation_mesh * m = pbi->meshes[index_l1][index_bt][X][Y][Z][index_mesh];
+
+              if (m->ready &&
+                  m->n_nodes == n_nodes &&
+                  (int)(m->max+_EPS_) == l_max &&
+                  m->link_length == link_length) {
+
+                grid = m->grid;
+                goto create_mesh;
+                
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+
+
+  // ====================================================================================
+  // =                                Generate the mesh                                 =
+  // ====================================================================================
+
+  create_mesh:
 
   /* Generate the mesh; the function is already parallelised */
-  if (is_2D) {
-    class_call (mesh_2D_sort (
-                  mesh,
-                  (int **) grid,
-                  values),
-      mesh->error_message,
-      pbi->error_message);
-  }
-  else {
-    class_call (mesh_3D_sort (
-                  mesh,
-                  (int ***) grid,
-                  values),
-      mesh->error_message,
-      pbi->error_message);    
-  }
+  class_call (mesh_init (
+                n_dim,
+                n_nodes,
+                values,
+                l_max,
+                link_length,
+                group_length,
+                soft_coeff,
+                grid,
+                mesh),
+    mesh->error_message,
+    pbi->error_message);    
 
-  printf_log_if (pbi->bispectra_verbose, 3,
-    "      \\ allocated (grid,mesh)=(%g,%g) MBs\n",
-    mesh->n_allocated_in_grid*8/1e6, mesh->n_allocated_in_mesh*8/1e6);
+  printf_log_if (pbi->bispectra_verbose, 0,
+    "      \\ allocated (grid,mesh)=(%d,%d)=(%g,%g) MBs\n",
+    mesh->n_allocated_in_grid, mesh->n_allocated_in_mesh,
+    mesh->n_allocated_in_grid*sizeof(double)/1e6,
+    mesh->n_allocated_in_mesh*sizeof(double)/1e6);
 
   /* We do not need the node values anymore */
   free (values);
@@ -9528,22 +9664,25 @@ int bispectra_create_mesh (
 
 
 /**
- * Prepare for mesh interpolation the bispectrum corresponding to index_bt.
+ * Initialise interpolation meshes for each probe (TTT, EEE, EET...) of
+ * the bispectrum corresponding to index_bt.
  *
  * This function will initialise two meshes for each probe of the considered
- * bispectrum (probe=TTT, EEE, EET, ..., EEE). The first mesh is the so called
- * fine mesh and will be used to interpolate the configurations where (l1,l2,l3)
- * are all smaller than pbi->l_turnover. The second mesh is the coarse mesh and
- * will be used to interpolate the other configurations.
+ * bispectrum (probe=TTT, EEE, EET...). The first mesh is the so called fine
+ * mesh and will be used to interpolate the configurations where (l1,l2,l3)
+ * are all smaller than pbi->l_turnover. The second mesh is the coarse mesh
+ * and will be used to interpolate the other configurations.
  *
- * If the l1 index provided is negative, the function will initialise 3D
- * mesh instead, ie. it will consider all (l1,l2,l3) points rather than
- * considering only a 2D slice with fixed l1.
+ * If the l1 index provided is negative, the function will create meshes for
+ * the 3D interpolation of the bispectrum; if it is positive, the function
+ * will create 2D meshes for the interpolation of the (l2,l3) plane with
+ * fixed l1 = pbi->l[index_L1].
  *
- * The initialised meshes are stored in the pbi->mesh_2D array.
+ * This function is basically a wrapper to bispectra_mesh_create(); refer
+ * to the documentation there for more details.
  */
 
-int bispectra_create_mesh_for_all_probes (
+int bispectra_mesh_create_for_all_probes (
       struct precision * ppr,
       struct spectra * psp,
       struct lensing * ple,
@@ -9568,65 +9707,46 @@ int bispectra_create_mesh_for_all_probes (
     for (int Y = 0; Y < pbi->bf_size; ++Y) {
       for (int Z = 0; Z < pbi->bf_size; ++Z) {
 
-        int ** mesh_grid = NULL;
         int window_function_parameters[] = {X, Y, Z};
 
-        // for (int index_mesh=0; index_mesh < 2; ++index_mesh) {
-        //
-        //   int ** mesh_grid;
-        //
-        //   /* All bispectra share the same mesh grid, because all bispectra have the same
-        //   (l1,l2,l3) sampling. Therefore, we compute the grid only for the first bispectrum
-        //   and recycle it for the others. Note that the first bispectrum type is not
-        //   necessarily index_bt=0 because the analytical bispectra don't need to be
-        //   interpolated. */
-        //   if ((index_bt == pbi->first_non_analytical_index_bt) && (X == 0) && (Y == 0) && (Z == 0)) {
-        //     mesh_grid = NULL;
-        //   }
-        //   else {
-        //     mesh_grid = meshes[pbi->first_non_analytical_index_bt][0][0][0][index_mesh]->grid_2D;
-        //   }
-        //
-        // }
-
         if (is_3D)
-          printf_log_if (pbi->bispectra_verbose, 2,  
+          printf_log_if (pbi->bispectra_verbose, 0,
             "     * computing fine mesh for bispectrum %s_%s\n",
-            0, pbi->bt_labels[index_bt], pbi->bfff_labels[X][Y][Z]);
+            pbi->bt_labels[index_bt], pbi->bfff_labels[X][Y][Z]);
 
         /* Initialise the fine grid; note that we set l_max=l_turnover */
-        class_call (bispectra_create_mesh (
+        class_call (bispectra_mesh_create (
                       ppr, psp, ple, pbi,
                       index_L1,
                       pbi->bispectra[index_bt][X][Y][Z],
                       pbi->window_function[index_bt],
                       (void *)window_function_parameters,
-                      mesh_grid,
                       pbi->l_turnover,
                       pbi->link_lengths[0],
                       pbi->group_lengths[0],
                       pbi->soft_coeffs[0],
+                      NULL,
                       meshes[index_bt][X][Y][Z][0]),
           pbi->error_message,
           pbi->error_message);
 
         if (is_3D)
-          printf_log_if (pbi->bispectra_verbose, 2,  
+          printf_log_if (pbi->bispectra_verbose, 0,
             "     * computing coarse mesh for bispectrum %s_%s\n",
-            0, pbi->bt_labels[index_bt], pbi->bfff_labels[X][Y][Z]);
+            pbi->bt_labels[index_bt], pbi->bfff_labels[X][Y][Z]);
 
         /* Initialise the coarse grid */
-        class_call (bispectra_create_mesh (
+        class_call (bispectra_mesh_create (
                       ppr, psp, ple, pbi,
                       index_L1,
                       pbi->bispectra[index_bt][X][Y][Z],
                       pbi->window_function[index_bt],
                       (void *)window_function_parameters,
-                      mesh_grid,
                       pbi->l_max,
                       pbi->link_lengths[1],
                       pbi->group_lengths[1],
                       pbi->soft_coeffs[1],
+                      NULL,
                       meshes[index_bt][X][Y][Z][1]),
           pbi->error_message,
           pbi->error_message);

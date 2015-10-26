@@ -337,7 +337,7 @@ enum file_format {class_format,camb_format};
 #include "sys/stat.h"     /* stat, mkdir */
 #include "wordexp.h"      /* expand environment variables and shell symbols */
 
-#define _SONG_VERSION_ "v1.0-beta2"
+#define _SONG_VERSION_ "v1.0-beta3"
 #define _SONG_URL_ "https://github.com/coccoinomane/song"
 
 #define _MINUSCULE_ 1.e-75 /**< Numbers smaller than this will be considered effectively zero */

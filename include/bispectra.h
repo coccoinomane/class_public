@@ -496,26 +496,21 @@ struct bispectra {
    */
   //@{
 
-  double link_lengths[2]; /**< Linking lengths of the interpolation meshes */
-  double group_lengths[2]; /**< Grouping lengths of the interpolation meshes */
-  double soft_coeffs[2]; /**< Softening of the linking length of the interpolation mesh, fixed to 0.5 */
+  double link_lengths[2]; /**< Linking lengths of the fine & coarse interpolation meshes */
+  double group_lengths[2]; /**< Grouping lengths of the fine & coarse interpolation meshes */
+  double soft_coeffs[2]; /**< Softening of the linking length of the fine & coarse interpolation meshes, fixed to 0.5 */
   int l_turnover;  /**< Turnover multipole between the fine and coarse interpolation meshes;
                    determined based on the l-sampling in pbi->l */
 
-  /** Array with two 3D meshes per bispectrum computed in SONG: a fine mesh to
-  interpolate the bispectrum for l < l_turnover, and a coarse mesh to interpolat
-  it for l >= l_turnover. Indexed as pbi->bispectra, but with an extra level:
-  pbi->meshes[index_bt][X][Y][Z][index_mesh]. It is used only if the
-  interpolation method is set to mesh_interpolation_3D. */
-  struct interpolation_mesh ****** mesh_3D;
-
-  /** Array with two 2D meshes per bispectrum computed in SONG: a fine mesh to
-  interpolate the bispectrum for l < l_turnover, and a coarse mesh to interpolat
-  it for l >= l_turnover. Indexed as pbi->bispectra, but with two extra levels:
-  pbi->meshes[index_bt][X][Y][Z][index_l][index_mesh]. index_l is the multipole
-  in pbi->l for which the mesh can be used to interpolate the bispectrum. This 
-  array is used only if the interpolation method is set to mesh_interpolation_2D. */
-  struct interpolation_mesh ****** mesh_2D;
+  /** Array with two interpolation meshes per bispectrum: a fine mesh to interpolate
+  the bispectrum for l < l_turnover, and a coarse mesh to interpolate it for
+  l >= l_turnover. Indexed as pbi->bispectra, but with two extra levels: 
+  pbi->meshes[index_l1][index_bt][X][Y][Z][index_mesh]. For 3D interpolation,
+  the index_l1 level is collapsed to one value, because a single 3D mesh is
+  enough to interpolate the bispectrum for all values of l1; for 2D
+  interpolation, it has size pbi->l_size. index_mesh is either 0 (fine
+  grid) or 1 (coarse grid). */
+  struct interpolation_mesh ******* meshes;
 
   //@}
 
@@ -714,8 +709,8 @@ struct bispectra_workspace_non_separable {
   
 
   /* Array that contains the interpolated values of the above integrals in ptr->k. Each thread has one.
-    Indexed as integral_splines[thread][index_k] and interpolated_integral[thread][index_k], where
-    index_k belongs to ptr->k. */
+  Indexed as integral_splines[thread][index_k] and interpolated_integral[thread][index_k], where
+  index_k belongs to ptr->k. */
   double ** integral_splines;
   double ** interpolated_integral;
   
@@ -1152,16 +1147,6 @@ extern "C" {
       int index_bt
       );
 
-
-  int bispectra_interpolate (
-      struct bispectra * pbi,
-      int index_bt,
-      double l1,
-      double l2,
-      double l3,
-      double * interpolated_value
-      );
-
   int bispectra_galileon_gradient (
     struct primordial * ppm,
     struct bispectra * pbi,
@@ -1360,25 +1345,21 @@ extern "C" {
         );
 
 
-  int bispectra_interpolate_mesh_2D (
+  int bispectra_mesh_interpolate (
+        struct precision * ppr,
+        struct spectra * psp,
+        struct lensing * ple,
         struct bispectra * pbi,
         int index_bt,
-        double l3, double l2, int index_l1,
-        int X, int Y, int Z,
-        struct interpolation_mesh ** mesh,
-        double * result
-        );
-
-  int bispectra_interpolate_mesh_3D (
-        struct bispectra * pbi,
-        int index_bt,
+        int index_L1,
         double l3, double l2, double l1,
         int X, int Y, int Z,
-        struct interpolation_mesh ** mesh,
+        struct interpolation_mesh * fine_mesh,
+        struct interpolation_mesh * coarse_mesh,
         double * result
         );
 
-  int bispectra_allocate_interpolation_mesh(
+  int bispectra_mesh_allocate(
         struct precision * ppr,
         struct spectra * psp,
         struct lensing * ple,
@@ -1387,13 +1368,19 @@ extern "C" {
         );
 
 
-  int bispectra_free_interpolation_mesh(
+  int bispectra_mesh_empty(
         struct bispectra * pbi,
         struct interpolation_mesh ******* meshes
         );
 
 
-  int bispectra_create_mesh (
+  int bispectra_mesh_free(
+        struct bispectra * pbi,
+        struct interpolation_mesh ******* meshes
+        );
+
+
+  int bispectra_mesh_create (
         struct precision * ppr,
         struct spectra * psp,
         struct lensing * ple,
@@ -1402,15 +1389,15 @@ extern "C" {
         double * bispectrum_l1l2l3,
         window_function_type * window_function,
         void * window_function_parameters,
-        void * grid,
         int l_max,
         double link_length,
         double group_length,
         double soft_coeff,
+        int *** grid,
         struct interpolation_mesh * mesh
         );
 
-  int bispectra_create_mesh_for_all_probes (
+  int bispectra_mesh_create_for_all_probes (
         struct precision * ppr,
         struct spectra * psp,
         struct lensing * ple,

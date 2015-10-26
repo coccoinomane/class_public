@@ -168,7 +168,7 @@ int transfer_init(
      For error management, instead of "return _FAILURE_", we will set the variable below
      to "abort = _TRUE_". This will lead to a "return _FAILURE_" jus after leaving the
      parallel region. */
-  int abort;
+  int abort = _FALSE_;
 
 #ifdef _OPENMP
 
@@ -467,6 +467,7 @@ int transfer_free(
     free(ptr->l);
 #ifdef WITH_BISPECTRA
     free (ptr->index_l);
+    free (ptr->index_l_left);
 #endif // WITH_BISPECTRA
     free(ptr->q);
     free(ptr->k);
@@ -485,7 +486,7 @@ int transfer_free(
       free(ptr->nz_evo_dd_dlog_nz);
     }
   }
-
+  
   return _SUCCESS_;
 
 }
@@ -994,6 +995,7 @@ int transfer_get_l_list(
 
     int * l_copy;
     class_alloc (l_copy, ptr->l_size_max*sizeof(int), ptr->error_message);
+
     for (int index_l=0; index_l < ptr->l_size_max; ++index_l)
       l_copy[index_l] = ptr->l[index_l];
 
@@ -1029,7 +1031,9 @@ int transfer_get_l_list(
 
     ptr->l_size_max = index_l;
 
-  } // end of if(compute even/odd l-grid)
+    free (l_copy);
+
+  } // if(compute even/odd l-grid)
 
 
   /* Find out the index in ptr->l corresponding to a given l */

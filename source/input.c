@@ -3858,7 +3858,7 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
 
   /** l.2. Create log file */
   
-  class_call(parser_read_string(pfc,"log file",&string1,&flag1,errmsg),
+  class_call(parser_read_string(pfc,"log_file",&string1,&flag1,errmsg),
              errmsg,
              errmsg);
 

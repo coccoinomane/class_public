@@ -97,43 +97,6 @@ int fisher_init (
     pfi->error_message,
     pfi->error_message);
   
-  
-  
-  // ====================================================================================
-  // =                          Prepare interpolation mesh                              =
-  // ====================================================================================
-
-  /* If the user chose to interpolate the bispectrum with the 3D mesh interpolation
-  method, then compute the 3D mesh. Given a bispectrum b_l1_l2_l3, the mesh is basically
-  its interpolation table conveniently binned in l space.
-    
-  If the user chose to use the mesh 2D interpolation, instead, we shall compute the mesh
-  at the last moment, inside the l1-loop in fisher_cross_correlate(). */
-
-  if (pbi->interpolation_method == mesh_interpolation_3D) {
-
-    class_call (bispectra_allocate_interpolation_mesh(
-                  ppr, psp, ple, pbi,
-                  &pbi->mesh_3D),
-      pbi->error_message,
-      pfi->error_message);
-    
-    for (int index_ft=0; index_ft < pfi->ft_size; ++index_ft) {
-
-      if (pbi->interpolate_me[pfi->index_bt_of_ft[index_ft]]) {
-
-        class_call (bispectra_create_mesh_for_all_probes(
-                      ppr, psp, ple, pbi,
-                      pfi->index_bt_of_ft[index_ft],
-                      -1,
-                      pbi->mesh_3D),
-          pbi->error_message,
-          pfi->error_message);
-          
-      }
-    }
-  }
-
 
 
   // ====================================================================================
@@ -336,12 +299,6 @@ int fisher_free(
         (pbi->interpolation_method != bilinear_interpolation)) 
       free (pfi->I_l1_l2_l3);
     
-    /* Free meshes */
-    if (pbi->interpolation_method == mesh_interpolation_3D)
-      class_call (bispectra_free_interpolation_mesh(pbi,&pbi->mesh_3D),
-        pbi->error_message,
-        pfi->error_message);
-        
     /* Free cross-power spectrum */
     for (int l=pbi->l_min; l <= pbi->l_max; ++l) {
 
@@ -370,8 +327,7 @@ int fisher_free(
 
 
 /**
- * This routine defines indices and allocates tables in the Fisher structure 
- *
+ * Define indices and allocates tables in the Fisher structure
  */
 
 int fisher_indices (
@@ -389,9 +345,9 @@ int fisher_indices (
 {
 
 
-  // ================================================================================================
-  // =                                   Which fields to use?                                       =
-  // ================================================================================================
+  // ====================================================================================
+  // =                             Which fields to use?                                 =
+  // ====================================================================================
 
   /* Find out which fields (index_ff=T,E,B...) to include in the Fisher matrix analysis. By default use
   all the fields that were computed in the bispectrum module (denoted by the indices index_bf), unless
@@ -792,11 +748,12 @@ int fisher_indices (
       }    
     }
     
-    /* Same as above, but for l_max. Note that we allocate these arrays with pfi->l1_size rather than
-    pfi->l3_size, even though so far we associated l3 to the largest multipole and l1 to the smallest one. The
-    reason is that, for mesh interpolation, l3 has a fine grid (e.g. pfi->l3_size=1999 for for l_max=2000),
-    while l1 is always sampled (e.g. pfi->l1_size=O(100) for l_max=2000). Therefore, using l1 intead 
-    of l3 allows us to compute the lensing variance correction a much smaller number of times */
+    /* Same as above, but for l_max. Note that we allocate these arrays with pfi->l1_size
+    rather than pfi->l3_size, even though so far we associated l3 to the largest multipole
+    and l1 to the smallest one. The reason is that, for mesh interpolation, l3 has a fine
+    grid (e.g. pfi->l3_size=1999 for for l_max=2000), while l1 is always sampled (e.g.
+    pfi->l1_size=O(100) for l_max=2000). Therefore, using l1 intead of l3 allows us to
+    compute the lensing variance correction a much smaller number of times */
     if (pfi->compute_lensing_variance_lmax == _TRUE_) {
 
       class_alloc (pfi->fisher_matrix_lensvar_lmax, pfi->l1_size*sizeof(double **), pfi->error_message);
@@ -923,13 +880,13 @@ int fisher_indices (
           //   l1, l2, l3, index_l1_l2_l3, pbi->n_independent_configurations-1,
           //     pfi->I_l1_l2_l3[index_l1_l2_l3], sqrt((2.*l1+1.)*(2.*l2+1.)*(2.*l3+1.)/(4.*_PI_)), temporary_three_j[l3-l3_min]);
   
-        } // end of for(index_l3)
-      } // end of for(index_l2)
-    } // end of for(index_l1)
+        } // for(index_l3)
+      } // for(index_l2)
+    } // for(index_l1)
   
     free (temporary_three_j);
   
-  } // end of if not mesh interpolation
+  } // if not mesh interpolation
 
 
   /* Debug: check the 3j routine */
@@ -959,6 +916,40 @@ int fisher_indices (
 
 
   // ====================================================================================
+  // =                          Prepare interpolation mesh                              =
+  // ====================================================================================
+
+  /* Compute the 3D interpolation mesh if needed. Given a bispectrum b_l1_l2_l3,
+  the mesh is basically its interpolation table conveniently binned in l space.
+  Note that we cannot compute the 3D mesh at the last moment, like we do for the
+  2D mesh, because it would create a race condition in fisher_compute_matrix(). 
+  See comment in bispectra_mesh_interpolate() for more details. */
+
+  if (pbi->interpolation_method == mesh_interpolation_3D) {
+
+    for (int index_ft=0; index_ft < pfi->ft_size; ++index_ft) {
+
+      if (pbi->interpolate_me[pfi->index_bt_of_ft[index_ft]]) {
+
+        /* The array pbi->meshes contains the table required to interpolate the bispectra
+        with the 2D and 3D mesh methods. Its first level, pbi->meshes[index_l1], is used
+        only for the 2D mesh interpolation. For 3D interpolation, this level is redundant
+        because a single 3D mesh is enough to interpolate the whole (l1,l2,l3) space.
+        Therefore, for 3D interpolation we have only one entry: pbi->meshes[0]. */
+        class_call (bispectra_mesh_create_for_all_probes(
+                      ppr, psp, ple, pbi,
+                      pfi->index_bt_of_ft[index_ft],
+                      -1,
+                      pbi->meshes[0]),
+          pbi->error_message,
+          pfi->error_message);
+
+      }
+    }
+  }
+
+
+  // ====================================================================================
   // =                              Compute wasted points                               =
   // ====================================================================================
 
@@ -981,14 +972,16 @@ int fisher_indices (
   }
 
   printf_log_if (pfi->fisher_verbose, 1, 
-    "     * %.3g%% of the computed bispectra configurations will be (directly) used to compute the Fisher matrix (%ld not used)\n",
-    100-count_wasted/(double)(pbi->n_independent_configurations)*100, count_wasted);
+    "     * %.3g%% of the computed bispectra configurations will be (directly) used to compute the Fisher matrix\n",
+    100-count_wasted/(double)(pbi->n_independent_configurations)*100);
+
 
   /* Initialise info strings */
   sprintf (pfi->info, "");
   if (pfi->include_lensing_effects == _TRUE_)
     sprintf (pfi->info_lensvar, "");
-    
+  
+
   return _SUCCESS_;
 
 }
@@ -1838,43 +1831,13 @@ int fisher_compute_matrix (
       if ((l1 < pfi->l1_min_global) || (l1 > pfi->l1_max_global))
         continue;
 
-      /* Determine the mesh to use for the interpolation of the bispectra. If using 3D
-      interpolation, the mesh has already been built above and is stored in pbi->mesh_3D.
-      With 2D interpolation, instead, we create the mesh on the spot, as each different
-      l1-plane will have its own interpolation mesh. */
-
-      struct interpolation_mesh ****** meshes;
-
-      if (pbi->interpolation_method == mesh_interpolation_2D) {
-
-        class_call_parallel (bispectra_allocate_interpolation_mesh(ppr,psp,ple,pbi,&meshes),
-          pbi->error_message,
-          pfi->error_message);
-
-        for (int index_ft=0; index_ft < pfi->ft_size; ++index_ft) {
-
-          int index_bt = pfi->index_bt_of_ft[index_ft];
-
-          if (pbi->interpolate_me[index_bt])
-            class_call_parallel (bispectra_create_mesh_for_all_probes(ppr,psp,ple,pbi,index_bt,index_l1,meshes),
-              pbi->error_message,
-              pfi->error_message);
-        } 
-      }
-
-      else if (pbi->interpolation_method == mesh_interpolation_3D) {
-
-        meshes = pbi->mesh_3D;
-        
-      }
-
       /* Arrays that will contain the 3j symbols for a given (l1,l2) */
       double threej_000[2*pbi->l_max+1];
 
       /* First l-multipole stored in the above arrays */
       int l3_min_000=0;
     
-      printf_log_if (pfi->fisher_verbose, 2, 
+      printf_log_if (pfi->fisher_verbose, 1, 
         "     * computing Fisher matrix for l1=%d\n", l1);
 
       // -------------------------------------------------------------------------------
@@ -2044,12 +2007,14 @@ int fisher_compute_matrix (
 
                     else if (pbi->interpolation_method == mesh_interpolation_2D) {
 
-                      class_call_parallel (bispectra_interpolate_mesh_2D(
-                                             pbi,
+                      class_call_parallel (bispectra_mesh_interpolate(
+                                             ppr, psp, ple, pbi,
                                              index_bt,
-                                             l3, l2, index_l1, /* smallest one goes in third position  */
+                                             index_l1,
+                                             l3, l2, l1, /* smallest one goes in third position  */
                                              X_, Y_, Z_,
-                                             meshes[index_bt][X_][Y_][Z_],
+                                             pbi->meshes[index_l1][index_bt][X_][Y_][Z_][0],
+                                             pbi->meshes[index_l1][index_bt][X_][Y_][Z_][1],
                                              &interpolated_bispectra[thread][index_bt][X_][Y_][Z_]),
                         pbi->error_message,
                         pfi->error_message);
@@ -2057,14 +2022,16 @@ int fisher_compute_matrix (
 
                     else if (pbi->interpolation_method == mesh_interpolation_3D) {
 
-                      class_call_parallel (bispectra_interpolate_mesh_3D(
-                                             pbi,
-                                             index_ft,
+                      class_call_parallel (bispectra_mesh_interpolate(
+                                             ppr, psp, ple, pbi,
+                                             index_bt,
+                                             -1,
                                              l3, l2, l1, /* smallest one goes in third position  */
-                                             X, Y, Z, /* no underscore because they are Fisher field indices */
-                                             meshes[index_ft][X][Y][Z],
-                                             &interpolated_bispectra[thread][index_ft][X][Y][Z]),
-                        pfi->error_message,
+                                             X_, Y_, Z_,
+                                             pbi->meshes[0][index_bt][X_][Y_][Z_][0], /* There is one 3D mesh for all l1 values */
+                                             pbi->meshes[0][index_bt][X_][Y_][Z_][1], /* There is one 3D mesh for all l1 values */
+                                             &interpolated_bispectra[thread][index_bt][X_][Y_][Z_]),
+                        pbi->error_message,
                         pfi->error_message);
                     }
 
@@ -2186,13 +2153,14 @@ int fisher_compute_matrix (
         } // end of for(l3)
       } // end of for(l2)
       
-      /* Free 2D mesh if necessary */
+      /* Free the memory associated to the 2D mesh for this l1 value. If you will
+      be needing to interpolate the bispectra again, comment to gain a speed up. */
       if (pbi->interpolation_method == mesh_interpolation_2D)
-        class_call_parallel (bispectra_free_interpolation_mesh(pbi,&meshes),
+        class_call_parallel (bispectra_mesh_empty (pbi, &pbi->meshes[index_l1]),
           pbi->error_message,
           pfi->error_message);
 
-    } // end of for(index_l1)
+    } // for(index_l1)
     
   } if (abort == _TRUE_) return _FAILURE_; // end of parallel region
   
@@ -2208,9 +2176,13 @@ int fisher_compute_matrix (
     printf ("\n");
   }
   
+
   /* Include the effect of partial sky coverage and symmetrise the Fisher matrix */
-  class_call (fisher_sky_coverage(pfi), pfi->error_message, pfi->error_message);
-    
+  class_call (fisher_sky_coverage(pfi),
+    pfi->error_message,
+    pfi->error_message);
+
+
   return _SUCCESS_;
   
 }

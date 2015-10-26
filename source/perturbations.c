@@ -124,7 +124,7 @@ int perturb_init(
      For error management, instead of "return _FAILURE_", we will set the variable below
      to "abort = _TRUE_". This will lead to a "return _FAILURE_" jus after leaving the
      parallel region. */
-  int abort;
+  int abort = _FALSE_;
 
   /* unsigned integer that will be set to the size of the workspace */
   size_t sz;
