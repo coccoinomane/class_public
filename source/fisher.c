@@ -1772,8 +1772,8 @@ int fisher_compute (
  * The bispectra in the l2 and l3 directions are computed using interpolation.
  * Two methods are supported:
  * 
- * - Bilinear interpolation via the bispectra_at_l2l3_bilinear() function.
- * - Mesh interpolation via the bispectra_at_l2l3_mesh() function.
+ * - Bilinear interpolation via the bispectra_at_l2l3_bilinear_bilinear() function.
+ * - Mesh interpolation via the bispectra_at_l2l3_bilinear_mesh() function.
  * 
  * The following arrays are filled:
  *
@@ -1992,7 +1992,7 @@ int fisher_compute_matrix (
                     
                     if (pbi->interpolation_method == bilinear_interpolation) {
 
-                      class_call_parallel (bispectra_at_l2l3 (
+                      class_call_parallel (bispectra_at_l2l3_bilinear (
                                              ptr,
                                              pbi,
                                              index_bt,

@@ -773,7 +773,7 @@ extern "C" {
       double * bispectrum_unlensed
       );
 
-  int bispectra_at_l3 (
+  int bispectra_at_l3_linear (
       struct transfers * ptr,
       struct bispectra * pbi,
       int index_bt,
@@ -784,13 +784,23 @@ extern "C" {
       double * bispectrum_unlensed
       );
   
-  int bispectra_at_l2l3 (
+  int bispectra_at_l2l3_bilinear (
       struct transfers * ptr,
       struct bispectra * pbi,
       int index_bt,
       int index_l1, int l2, int l3,
       int X, int Y, int Z,
       int extrapolate,
+      double * bispectrum,
+      double * bispectrum_unlensed
+      );
+  
+  int bispectra_at_l2l3_mesh (
+      struct transfers * ptr,
+      struct bispectra * pbi,
+      int index_bt,
+      int index_l1, int l2, int l3,
+      int X, int Y, int Z,
       double * bispectrum,
       double * bispectrum_unlensed
       );
@@ -1394,8 +1404,10 @@ extern "C" {
         double group_length,
         double soft_coeff,
         int *** grid,
+        int **** id,
         struct interpolation_mesh * mesh
         );
+
 
   int bispectra_mesh_create_for_all_probes (
         struct precision * ppr,

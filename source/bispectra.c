@@ -453,7 +453,7 @@ int bispectra_at_node (
  * SONG l-sampling.
  */
 
-int bispectra_at_l3 (
+int bispectra_at_l3_linear (
     struct transfers * ptr,
     struct bispectra * pbi,
     int index_bt,
@@ -738,6 +738,7 @@ int bispectra_at_l3 (
 }
 
 
+
 /**
  * Interpolate the reduced bispectrum in (l2,l3) for a l1 multipole belonging to
  * SONG l-sampling, using bilinear interpolation.
@@ -770,7 +771,7 @@ int bispectra_at_l3 (
  * triangular condition on (l1,l2,l3)), and it is also faster.
  */
 
-int bispectra_at_l2l3 (
+int bispectra_at_l2l3_bilinear (
     struct transfers * ptr,
     struct bispectra * pbi,
     int index_bt,
@@ -805,7 +806,7 @@ int bispectra_at_l2l3 (
 
   if (ptr->index_l[l2] > 0) {
     
-    class_call (bispectra_at_l3 (
+    class_call (bispectra_at_l3_linear (
                   ptr,
                   pbi,
                   index_bt,
@@ -942,7 +943,7 @@ int bispectra_at_l2l3 (
     (say from 4 to 2) can result in abrupt changes in the bispectrum, especially
     for those bispectra peaked on squeezed configurations, like the local and
     CMB-lensing bispectra. This is not much of a problem for the interpolation along
-    l3 (ie. the bispectra_at_l3() function), because our l sampling has a logarithmic
+    l3 (ie. the bispectra_at_l3_linear() function), because our l sampling has a logarithmic
     leg that ensures that the small values (2,3,4,5...) are densely sampled.
 
     The problem is for the l2 interpolation when using the triangular method. In
@@ -1026,7 +1027,7 @@ int bispectra_at_l2l3 (
     double b_left, b_right;
     double b_left_unlensed, b_right_unlensed;
 
-    class_call (bispectra_at_l3 (
+    class_call (bispectra_at_l3_linear (
                   ptr,
                   pbi,
                   index_bt,
@@ -1038,7 +1039,7 @@ int bispectra_at_l2l3 (
       pbi->error_message,
       pbi->error_message);
 
-    class_call (bispectra_at_l3 (
+    class_call (bispectra_at_l3_linear (
                   ptr,
                   pbi,
                   index_bt,
@@ -1092,7 +1093,7 @@ int bispectra_at_l2l3 (
 
     double b_left, b_left_unlensed;
 
-    class_call (bispectra_at_l3 (
+    class_call (bispectra_at_l3_linear (
                   ptr,
                   pbi,
                   index_bt,
@@ -1106,7 +1107,7 @@ int bispectra_at_l2l3 (
 
     double b_right, b_right_unlensed;
 
-    class_call (bispectra_at_l3 (
+    class_call (bispectra_at_l3_linear (
                   ptr,
                   pbi,
                   index_bt,
@@ -1176,7 +1177,7 @@ int bispectra_at_l2l3 (
 
     if (!backward_extrapolation) {
 
-      class_call (bispectra_at_l3 (
+      class_call (bispectra_at_l3_linear (
                     ptr,
                     pbi,
                     index_bt,
@@ -1196,7 +1197,7 @@ int bispectra_at_l2l3 (
       int l2_last = l2_left;
       double b_last, b_last_unlensed;
 
-      class_call (bispectra_at_l3 (
+      class_call (bispectra_at_l3_linear (
                     ptr,
                     pbi,
                     index_bt,
@@ -1212,7 +1213,7 @@ int bispectra_at_l2l3 (
       int l2_penultimate = pbi->l[index_l2_left-1];
       double b_penultimate, b_penultimate_unlensed;
 
-      class_call (bispectra_at_l3 (
+      class_call (bispectra_at_l3_linear (
                     ptr,
                     pbi,
                     index_bt,
@@ -1250,7 +1251,7 @@ int bispectra_at_l2l3 (
 
     if (!forward_extrapolation) {
 
-      class_call (bispectra_at_l3 (
+      class_call (bispectra_at_l3_linear (
                     ptr,
                     pbi,
                     index_bt,
@@ -1270,7 +1271,7 @@ int bispectra_at_l2l3 (
       int l2_first = l2_right;
       double b_first, b_first_unlensed;
 
-      class_call (bispectra_at_l3 (
+      class_call (bispectra_at_l3_linear (
                     ptr,
                     pbi,
                     index_bt,
@@ -1286,7 +1287,7 @@ int bispectra_at_l2l3 (
       int l2_second = pbi->l[index_l2_right+1];
       double b_second, b_second_unlensed;
 
-      class_call (bispectra_at_l3 (
+      class_call (bispectra_at_l3_linear (
                     ptr,
                     pbi,
                     index_bt,
@@ -1314,6 +1315,35 @@ int bispectra_at_l2l3 (
   return _SUCCESS_;
 
 }
+
+
+
+
+
+
+/**
+ * Interpolate the reduced bispectrum in (l2,l3) for a l1 multipole belonging to
+ * SONG l-sampling, using mesh interpolation.
+ */
+
+int bispectra_at_l2l3_mesh (
+    struct transfers * ptr,
+    struct bispectra * pbi,
+    int index_bt,
+    int index_l1, int l2, int l3,
+    int X, int Y, int Z,
+    double * bispectrum,          /**< Output: the bispectrum in (l1,l2,l3) */
+    double * bispectrum_unlensed  /**< Output: the unlensed bispectrum in (l1,l2,l3) */
+    )
+{
+
+  int l1 = pbi->l[index_l1];
+  
+ 
+  return _SUCCESS_;
+  
+}
+
 
 
 
@@ -2294,7 +2324,7 @@ int bispectra_indices (
 
     /* Print some info on the interpolation meshes */
     printf_log_if (pbi->bispectra_verbose, 1, 
-      "     * mesh_interpolation: l_turnover=%d, n_boxes=[%d,%d], linking lengths=[%g,%g], grouping lengths=[%g,%g]\n",
+      "     * mesh_interpolation: l_turnover=%d, n_bins=[%d,%d], linking lengths=[%g,%g], grouping lengths=[%g,%g]\n",
       pbi->l_turnover,
       (int)ceil(pbi->l_turnover/ (pbi->link_lengths[0]*(1+pbi->soft_coeffs[0]))),
       (int)ceil(pbi->l[pbi->l_size-1] / (pbi->link_lengths[1]*(1+pbi->soft_coeffs[1]))),
@@ -3055,7 +3085,7 @@ int bispectra_output (
                 // l2 = MIN (l2+ppr->l_linstep/2, pbi->l_max);
                 // l3 = MAX (MAX (l3-ppr->l_linstep/2, 2), abs(l2-l1));
                 //
-                // class_call (bispectra_at_l2l3 (
+                // class_call (bispectra_at_l2l3_bilinear (
                 //               ptr,
                 //               pbi,
                 //               index_bt,
@@ -3288,7 +3318,7 @@ int bispectra_output (
   
                 for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt) {
                 
-                  class_call (bispectra_at_l2l3 (
+                  class_call (bispectra_at_l2l3_bilinear (
                                 ptr,
                                 pbi,
                                 index_bt,
@@ -6676,7 +6706,7 @@ int bispectra_lensing_convolution (
   // 2) Look again at interpolation of 3j symbol
   // 3) Streamline fisher_compute_matrix() (documentation as well)
   // 4) Get rid of fisher_compute_matrix_nodes()
-  // 5) Implement bispectra_at_l2l3_mesh()
+  // 5) Implement bispectra_at_l2l3_bilinear_mesh()
   // 6) Find memory leak - 1.6 GB for l=1.1/20 is too much
 
   int l1 = pbi->l[index_l1], F_X1 = pbi->field_spin[X1];
@@ -6862,7 +6892,7 @@ int bispectra_lensing_convolution (
 
           double reduced_bispectrum;
 
-          class_call (bispectra_at_l2l3 (
+          class_call (bispectra_at_l2l3_bilinear (
                         ptr,
                         pbi,
                         index_bt,
@@ -7608,7 +7638,7 @@ int bispectra_lensing_convolution_linear (
 
           double reduced_bispectrum;
 
-          class_call (bispectra_at_l3 (
+          class_call (bispectra_at_l3_linear (
                         ptr,
                         pbi,
                         index_bt,
@@ -9123,7 +9153,7 @@ int bispectra_intrinsic_window_function (
  * the fields XYZ (eg. TTT, EEE, EET, ..., EEE).
  *
  * The multipoles must satisfy the condition l1<=l2<=l3<=pbi->l_max. To obtain
- * the bispectrum in a generic configuration, use bispectra_at_l2l3_mesh() 
+ * the bispectrum in a generic configuration, use bispectra_at_l2l3_bilinear_mesh() 
  * instead.
  *
  * If you asked for a window function (ie. pbi->window_function[index_bt] != NULL),
@@ -9255,6 +9285,7 @@ int bispectra_mesh_interpolate (
                   link_length,
                   group_length,
                   soft_coeff,
+                  NULL,
                   NULL,
                   mesh),
       pbi->error_message,
@@ -9438,7 +9469,7 @@ int bispectra_mesh_empty(
  * Initialise an interpolation mesh for the input bispectrum at l1.
  *
  * The mesh thus initialised can be used to interpolate the bispectrum in
- * the l1 bidimensional slice, via the function bispectra_at_l2l3_mesh().
+ * the l1 bidimensional slice, via the function bispectra_at_l2l3_bilinear_mesh().
  *
  * If the l1 index provided is negative, the function will initialise a 3D
  * mesh, ie. it will consider all (l1,l2,l3) points rather than considering
@@ -9460,11 +9491,12 @@ int bispectra_mesh_create (
       window_function_type * window_function, /**< Input: window function to apply to the bispectrum; set to NULL to ignore */
       void * window_function_parameters, /**< Input: parameters for the window function, ignored if window_function==NULL */
 
-      int l_max, /**< Input: the maximum multipole to consider for this mesh */
+      int l_max, /**< Input: the largest multipole to consider for this mesh */
       double link_length, /**< Input: linking length for this mesh (see bispectra.h) */
       double group_length, /**< Input: grouping length for this mesh (see bispectra.h) */
       double soft_coeff, /**< Input: softening of the linking length for this mesh (see bispectra.h) */
-      int *** grid, /**< Input: interpolation grid for the mesh; can be either 2D (int**) or 3D (int***) grid; set to NULL to recompute it. */
+      int *** grid, /**< Input: interpolation grid for the mesh; set to NULL to recompute it */
+      int **** id, /**< Input: id array for the mesh; set to NULL to recompute it */
       struct interpolation_mesh * mesh /**< Output: the interpolation mesh to initialise */
       )
 {
@@ -9474,10 +9506,10 @@ int bispectra_mesh_create (
   int n_dim = (is_2D?2:3);
 
   /* Count the number of nodes in the function to be interpolated. For 3D interpolation,
-  this is equal to the total number of sampling points in the bispectrum, minus those that
-  are larger than l_max. For 2D interpolation, it is equal to the number of (l2,l3) nodes 
-  in the considered l1-slice of the bispectrum. In both cases, we consider only those
-  points with l1<=l2<=l3<=l_max */
+  this is equal to the total number of (l1,l2,l3) sampling points in the bispectrum, minus
+  those with any of l1, l2 or l3 larger than l_max. For 2D interpolation, it is equal to
+  the number of (l2,l3) sampling points in the considered l1-plane, minus those with either
+  l2 or l3 larger than l_max. */
   long int n_nodes = 0;
 
   for(int index_l1 = 0; index_l1 < pbi->l_size; ++index_l1) {
@@ -9487,7 +9519,12 @@ int bispectra_mesh_create (
       int index_l3_min = MAX (index_l2, pbi->index_l_triangular_min[index_l1][index_l2]);
       int index_l3_max = pbi->index_l_triangular_max[index_l1][index_l2];
       for (int index_l3=index_l3_min; index_l3<=index_l3_max; ++index_l3) {
-        if (pbi->l[index_l2] <= l_max && pbi->l[index_l3] <= l_max)
+        int l1 = pbi->l[index_l1];
+        int l2 = pbi->l[index_l2];
+        int l3 = pbi->l[index_l3];
+        if (l2>l_max || l3>l_max || (l1>l_max && !is_2D))
+          continue;
+        else
           n_nodes++;
       }
     }
@@ -9535,7 +9572,7 @@ int bispectra_mesh_create (
 
         int l3 = pbi->l[index_l3];
 
-        if (l2>l_max || l3>l_max)
+        if (l2>l_max || l3>l_max || (l1>l_max && !is_2D))
           continue;
 
         /* Determine the index of this particular index_l1_l2_l3, taking into account that now
@@ -9592,7 +9629,7 @@ int bispectra_mesh_create (
   interpolation grid, ie. the binning of the nodes, across the different bispectra
   types. */
 
-  if (grid == NULL) {
+  if ((grid == NULL) || (id == NULL)) {
 
     int index_l1 = is_2D ? index_L1:0;
 
@@ -9615,6 +9652,7 @@ int bispectra_mesh_create (
                   m->link_length == link_length) {
 
                 grid = m->grid;
+                id = m->id;
                 goto create_mesh;
                 
               }
@@ -9633,16 +9671,19 @@ int bispectra_mesh_create (
 
   create_mesh:
 
-  /* Generate the mesh; the function is already parallelised */
+  /* Generate the mesh calling the mesh_init() function; the function is already
+  parallelised. We slightly increase l_max to make sure that the last point in
+  the l_sampling (eg. lmax=2000) is included in the mesh. */
   class_call (mesh_init (
                 n_dim,
                 n_nodes,
                 values,
-                l_max,
+                l_max * (1+ppr->smallest_allowed_variation),
                 link_length,
                 group_length,
                 soft_coeff,
                 grid,
+                id,
                 mesh),
     mesh->error_message,
     pbi->error_message);    
@@ -9726,6 +9767,7 @@ int bispectra_mesh_create_for_all_probes (
                       pbi->group_lengths[0],
                       pbi->soft_coeffs[0],
                       NULL,
+                      NULL,
                       meshes[index_bt][X][Y][Z][0]),
           pbi->error_message,
           pbi->error_message);
@@ -9746,6 +9788,7 @@ int bispectra_mesh_create_for_all_probes (
                       pbi->link_lengths[1],
                       pbi->group_lengths[1],
                       pbi->soft_coeffs[1],
+                      NULL,
                       NULL,
                       meshes[index_bt][X][Y][Z][1]),
           pbi->error_message,
