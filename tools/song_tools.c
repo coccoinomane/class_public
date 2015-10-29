@@ -3594,6 +3594,8 @@ int replace_string (
 
   *output_string = ostr;
   
+  return _SUCCESS_;
+  
 }
 
   

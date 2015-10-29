@@ -1038,5 +1038,7 @@ int binary_free (
 
   free (file);
 
+  return _SUCCESS_;
+
 }
 

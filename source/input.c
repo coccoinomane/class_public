@@ -572,7 +572,6 @@ int input_init(
     free(fzw.target_value);
   }
   else{
-
     /* just read all parameters from input pfc: */
     class_call(input_read_parameters(pfc,
                                      ppr,
@@ -688,7 +687,8 @@ int input_read_parameters(
 #endif // WITH_BISPECTRA
                           struct output *pop,
                           ErrorMsg errmsg
-                          ) {
+                          )
+{
 
   /** Summary: */
 
@@ -1188,7 +1188,7 @@ int input_read_parameters(
     class_read_double("scf_shooting_parameter",pba->scf_parameters[pba->scf_tuning_index]);
 
     scf_lambda = pba->scf_parameters[0];
-    if ((abs(scf_lambda) <3.)&&(pba->background_verbose>1))
+    if ((fabs(scf_lambda) <3.)&&(pba->background_verbose>1))
       printf("lambda = %e <3 won't be tracking (for exp quint) unless overwritten by tuning function\n",scf_lambda);
 
     class_call(parser_read_string(pfc,
@@ -3673,8 +3673,8 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
          errmsg),
          errmsg,
          errmsg);  
-  
-    if ((flag1 == _TRUE_) && (string1 != NULL)) {
+
+    if (flag1 == _TRUE_) {
       
       /* Expand shell symbols (such as ~ and ..) and environment variables in the path */
       wordexp_t exp_result;
@@ -3776,7 +3776,7 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
       errmsg,
       errmsg);
 
-  if ((flag1 == _TRUE_) && (string1 != NULL)) {
+  if (flag1 == _TRUE_) {
 
     /* Expand shell symbols (such as ~ and ..) and environment variables in the path */
     wordexp_t exp_result;

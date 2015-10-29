@@ -378,7 +378,6 @@ int bispectra_at_node (
   //   l2, pbi->bf_labels[Y], l3, pbi->bf_labels[Z]);
   
 #ifdef DEBUG
-  /* Test that l1, l2 and l3 satisfy the triangular condition */
   class_test (!is_triangular_int(l1,l2,l3),
     pbi->error_message,
     "(l1=%d, l2=%d, l3=%d) is not a triangular configuration", l1, l2, l3);
@@ -392,7 +391,8 @@ int bispectra_at_node (
   int order[4];
 
   class_call (ordering_int (index_l, order, pbi->error_message),
-    pbi->error_message, pbi->error_message);
+    pbi->error_message,
+    pbi->error_message);
 
 
   /* Index of the current (l1,l2,l3) configuration */
@@ -432,10 +432,8 @@ int bispectra_at_node (
 
   /* The squeezed approximation in SONG are computed assuming that l3>=l2>=l1 */ 
 
-  if (((((pbi->has_intrinsic_squeezed == _TRUE_) && (index_bt == pbi->index_bt_intrinsic_squeezed)))
-     ||((pbi->has_local_squeezed == _TRUE_) && (index_bt == pbi->index_bt_local_squeezed))
-     ||((pbi->has_cmb_lensing_squeezed == _TRUE_) && (index_bt == pbi->index_bt_cmb_lensing_squeezed)))
-     && ((l2>l3) || (l1>l3) || (l1>l2))) {
+  if (!pbi->is_symmetric[index_bt] && ((l2>l3) || (l1>l3) || (l1>l2))) {
+
       *bispectrum = 0;
 
       if ((bispectrum_unlensed != NULL) && (pbi->lens_me[index_bt] == _TRUE_))
@@ -1327,17 +1325,70 @@ int bispectra_at_l2l3_bilinear (
  */
 
 int bispectra_at_l2l3_mesh (
-    struct transfers * ptr,
     struct bispectra * pbi,
     int index_bt,
-    int index_l1, int l2, int l3,
+    int index_l1,
+    int l1, int l2, int l3,
     int X, int Y, int Z,
-    double * bispectrum,          /**< Output: the bispectrum in (l1,l2,l3) */
-    double * bispectrum_unlensed  /**< Output: the unlensed bispectrum in (l1,l2,l3) */
+    double * bispectrum    /**< Output: the bispectrum in (l1,l2,l3) */
     )
 {
 
-  int l1 = pbi->l[index_l1];
+  // int l1 = pbi->l[index_l1];
+  //
+  // #ifdef DEBUG
+  // class_test (!is_triangular_int(l1,l2,l3),
+  //   pbi->error_message,
+  //   "(l1=%d, l2=%d, l3=%d) is not a triangular configuration", l1, l2, l3);
+  // #endif // DEBUG
+  //
+  //
+  // /* Find the ordering of (l1,l2,l3) */
+  //
+  // int l[4] = {0, l1, l2, l3};
+  //
+  // int order[4];
+  //
+  // class_call (ordering_int (l, order, pbi->error_message),
+  //   pbi->error_message,
+  //   pbi->error_message);
+  //
+  //
+  // /* Extract the bispectrum in (l1,l2,l3), using the fact that a permutation of
+  // (l1,l2,l3) is cancelled by the same permutation of (X,Y,Z). For example:
+  // b^TTE(l1,l2,l3) = b^TET(l1,l3,l2). */
+  //
+  // int XYZ[4] = {0, X, Y, Z};
+  // int XYZ_1 = XYZ[order[1]];
+  // int XYZ_2 = XYZ[order[2]];
+  // int XYZ_3 = XYZ[order[3]];
+  //
+  // class_call (bispectra_mesh_interpolate(
+  //               ppr, psp, ple, pbi,
+  //               index_bt,
+  //               index_l1,
+  //               l[order[3]], l[order[2]], l[order[1]], /* smallest one goes in third position  */
+  //               XYZ_3, XYZ_2, XYZ_1,
+  //               pbi->meshes[index_l1][index_bt][XYZ_3][XYZ_2][XYZ_1][0],
+  //               pbi->meshes[index_l1][index_bt][XYZ_3][XYZ_2][XYZ_1][1],
+  //               bispectrum),
+  //   pbi->error_message,
+  //   pbi->error_message);
+  //
+  //
+  //
+  //
+  // /* The squeezed approximation in SONG are computed assuming that l3>=l2>=l1 */
+  //
+  // if (((((pbi->has_intrinsic_squeezed == _TRUE_) && (index_bt == pbi->index_bt_intrinsic_squeezed)))
+  //    ||((pbi->has_local_squeezed == _TRUE_) && (index_bt == pbi->index_bt_local_squeezed))
+  //    ||((pbi->has_cmb_lensing_squeezed == _TRUE_) && (index_bt == pbi->index_bt_cmb_lensing_squeezed)))
+  //    && ((l2>l3) || (l1>l3) || (l1>l2))) {
+  //     *bispectrum = 0;
+  //
+  //     if ((bispectrum_unlensed != NULL) && (pbi->lens_me[index_bt] == _TRUE_))
+  //       *bispectrum_unlensed = 0;
+  // }
   
  
   return _SUCCESS_;
@@ -1736,6 +1787,7 @@ int bispectra_indices (
       pbi->bt_labels[i][j] = '\0';
 
   for (int index_bt=0; index_bt < _MAX_NUM_BISPECTRA_; ++index_bt) {
+    pbi->is_symmetric[index_bt] = _TRUE_;
     pbi->lens_me[index_bt] = (pbi->has_lensed_bispectra?_TRUE_:_FALSE_);
     pbi->lens_me_brute_force[index_bt] = _FALSE_;
   }
@@ -1807,24 +1859,6 @@ int bispectra_indices (
   // -                               Analytic bispectra                            -
   // -------------------------------------------------------------------------------
 
-  if (pbi->has_local_squeezed == _TRUE_) {
-    pbi->index_bt_local_squeezed = index_bt;
-    strcpy (pbi->bt_labels[index_bt], "local_sqz");
-    pbi->bispectrum_type[index_bt] = analytical_bispectrum;
-    pbi->n[analytical_bispectrum]++;
-    pbi->has_reduced_bispectrum[index_bt] = _TRUE_;
-    index_bt++;
-  }
-
-  if (pbi->has_intrinsic_squeezed == _TRUE_) {
-    pbi->index_bt_intrinsic_squeezed = index_bt;
-    strcpy (pbi->bt_labels[index_bt], "intrinsic_sqz");
-    pbi->bispectrum_type[index_bt] = analytical_bispectrum;
-    pbi->n[analytical_bispectrum]++;
-    pbi->has_reduced_bispectrum[index_bt] = _TRUE_;
-    index_bt++;
-  }
-
   if (pbi->has_cmb_lensing == _TRUE_) {
     pbi->index_bt_cmb_lensing = index_bt;
     strcpy (pbi->bt_labels[index_bt], "cmb_lensing");
@@ -1832,15 +1866,6 @@ int bispectra_indices (
     pbi->n[analytical_bispectrum]++;
     pbi->has_reduced_bispectrum[index_bt] = _TRUE_;
     pbi->lens_me_brute_force[index_bt] = _TRUE_;
-    index_bt++;
-  }
-  
-  if (pbi->has_cmb_lensing_squeezed == _TRUE_) {
-    pbi->index_bt_cmb_lensing_squeezed = index_bt;
-    strcpy (pbi->bt_labels[index_bt], "cmb_lensing_sqz");
-    pbi->bispectrum_type[index_bt] = analytical_bispectrum;
-    pbi->n[analytical_bispectrum]++;
-    pbi->has_reduced_bispectrum[index_bt] = _TRUE_;
     index_bt++;
   }
   
@@ -1853,7 +1878,52 @@ int bispectra_indices (
     pbi->lens_me[index_bt] = _FALSE_;
     index_bt++;
   }
+  
+  if (pbi->has_local_squeezed == _TRUE_) {
+    pbi->index_bt_local_squeezed = index_bt;
+    strcpy (pbi->bt_labels[index_bt], "local_sqz");
+    pbi->bispectrum_type[index_bt] = analytical_bispectrum;
+    pbi->n[analytical_bispectrum]++;
+    pbi->has_reduced_bispectrum[index_bt] = _TRUE_;
+    pbi->is_symmetric[index_bt] = _FALSE_;
+    index_bt++;
+  }
 
+  if (pbi->has_intrinsic_squeezed == _TRUE_) {
+    pbi->index_bt_intrinsic_squeezed = index_bt;
+    strcpy (pbi->bt_labels[index_bt], "intrinsic_sqz");
+    pbi->bispectrum_type[index_bt] = analytical_bispectrum;
+    pbi->n[analytical_bispectrum]++;
+    pbi->has_reduced_bispectrum[index_bt] = _TRUE_;
+    pbi->is_symmetric[index_bt] = _FALSE_;
+    index_bt++;
+  }
+
+  if (pbi->has_cmb_lensing_squeezed == _TRUE_) {
+    pbi->index_bt_cmb_lensing_squeezed = index_bt;
+    strcpy (pbi->bt_labels[index_bt], "cmb_lensing_sqz");
+    pbi->bispectrum_type[index_bt] = analytical_bispectrum;
+    pbi->n[analytical_bispectrum]++;
+    pbi->has_reduced_bispectrum[index_bt] = _TRUE_;
+    pbi->is_symmetric[index_bt] = _FALSE_;
+    index_bt++;
+  }
+  
+  /* The kernel for the squeezed CMB-lensing bispectrum is needed to compute
+  the lensing contribution to the variance. In the final Fisher matrix, the kernel
+  will be multiplied by C_l^{X\phi} to give the actual squeezed bispectrum (see
+  eq. 5.20 of http://uk.arxiv.org/abs/1101.2234); it will therefore show up as
+  CMB-lensing_sqz rather than kernel_sqz. */
+  if (pbi->has_cmb_lensing_kernel == _TRUE_) {
+    pbi->index_bt_cmb_lensing_kernel = index_bt;
+    strcpy (pbi->bt_labels[index_bt], "cmb_lensing_sqz");
+    pbi->bispectrum_type[index_bt] = analytical_bispectrum;
+    pbi->n[analytical_bispectrum]++;
+    pbi->has_reduced_bispectrum[index_bt] = _TRUE_;
+    pbi->is_symmetric[index_bt] = _FALSE_;
+    index_bt++;
+  }
+  
   if (pbi->has_cosine_shape == _TRUE_) {
     pbi->index_bt_cosine = index_bt;
     strcpy (pbi->bt_labels[index_bt], "cosine");
@@ -1874,20 +1944,6 @@ int bispectra_indices (
     index_bt++;
   }
 
-  /* The kernel for the squeezed CMB-lensing bispectrum is needed to compute
-  the lensing contribution to the variance. In the final Fisher matrix, the kernel
-  will be multiplied by C_l^{X\phi} to give the actual squeezed bispectrum (see
-  eq. 5.20 of http://uk.arxiv.org/abs/1101.2234); it will therefore show up as
-  CMB-lensing_sqz rather than kernel_sqz. */
-  if (pbi->has_cmb_lensing_kernel == _TRUE_) {
-    pbi->index_bt_cmb_lensing_kernel = index_bt;
-    strcpy (pbi->bt_labels[index_bt], "cmb_lensing_sqz");
-    pbi->bispectrum_type[index_bt] = analytical_bispectrum;
-    pbi->n[analytical_bispectrum]++;
-    pbi->has_reduced_bispectrum[index_bt] = _TRUE_;
-    index_bt++;
-  }
-  
 
   // -------------------------------------------------------------------------------
   // -                             Second-order bispectra                          -
@@ -2265,9 +2321,9 @@ int bispectra_indices (
     
     /* Fine mesh parameters. We use a linking length of the same order of magnitude
     of the smallest distance between two points. */
-    pbi->link_lengths[0] = 2 * (pbi->l[1] - pbi->l[0]);
-    pbi->group_lengths[0] = 0.1 * (pbi->l[1] - pbi->l[0]);
-    pbi->soft_coeffs[0] = 0.5;  
+    pbi->mesh_link_lengths[0] = 2 * (pbi->l[1] - pbi->l[0]);
+    pbi->mesh_group_lengths[0] = 0.1 * (pbi->l[1] - pbi->l[0]);
+    pbi->mesh_soft_coeffs[0] = 0.5;  
 
     /* Coarse mesh parameters. We use a linking length of the same order of magnitude
     of the largest distance between two points, ppr->l_linstep (the linear step in l) */
@@ -2280,12 +2336,12 @@ int bispectra_indices (
     if ((l_linstep==1) && (ppr->compute_only_even_ls==_TRUE_))
       l_linstep = 2;
 
-    pbi->link_lengths[1] = 0.5/sqrt(2) * l_linstep;
-    pbi->group_lengths[1] = 0.1 * l_linstep;
-    pbi->soft_coeffs[1] = 0.5;
+    pbi->mesh_link_lengths[1] = 0.5/sqrt(2) * l_linstep;
+    pbi->mesh_group_lengths[1] = 0.1 * l_linstep;
+    pbi->mesh_soft_coeffs[1] = 0.5;
 
     for (int index_mesh=0; index_mesh < 2; ++index_mesh)
-      class_test (pbi->link_lengths[index_mesh] <= pbi->group_lengths[index_mesh],
+      class_test (pbi->mesh_link_lengths[index_mesh] <= pbi->mesh_group_lengths[index_mesh],
         pbi->error_message,
         "the linking length must be larger than the grouping length.");
 
@@ -2304,14 +2360,14 @@ int bispectra_indices (
 
     /* Never use the fine grid if the large step is used since the beginning */
     if ((pbi->l[1]-pbi->l[0]) >= l_linstep) {
-      pbi->l_turnover = pbi->l[0];
+      pbi->mesh_l_turnover = pbi->l[0];
     }
 
     /* Never use the coarse grid if the linstep (ie. the largest possible step)
     is never used. The MAX() is needed because the last point is fixed and does
     not depend on the grid spacing. */
     else if (MAX(pbi->l[pbi->l_size-1]-pbi->l[pbi->l_size-2], pbi->l[pbi->l_size-2]-pbi->l[pbi->l_size-3]) < l_linstep) {
-      pbi->l_turnover = pbi->l[pbi->l_size-1] + 1;
+      pbi->mesh_l_turnover = pbi->l[pbi->l_size-1] + 1;
     }
 
     /* Compute the turnover point in the l-grid where the linear step begins */
@@ -2319,17 +2375,17 @@ int bispectra_indices (
       int index_l = 0;
       while ((index_l < pbi->l_size-1) && ((pbi->l[index_l+1] - pbi->l[index_l]) < l_linstep))
         index_l++;
-      pbi->l_turnover = pbi->l[index_l-1];
+      pbi->mesh_l_turnover = pbi->l[index_l-1];
     }
 
     /* Print some info on the interpolation meshes */
     printf_log_if (pbi->bispectra_verbose, 1, 
       "     * mesh_interpolation: l_turnover=%d, n_bins=[%d,%d], linking lengths=[%g,%g], grouping lengths=[%g,%g]\n",
-      pbi->l_turnover,
-      (int)ceil(pbi->l_turnover/ (pbi->link_lengths[0]*(1+pbi->soft_coeffs[0]))),
-      (int)ceil(pbi->l[pbi->l_size-1] / (pbi->link_lengths[1]*(1+pbi->soft_coeffs[1]))),
-      pbi->link_lengths[0], pbi->link_lengths[1],
-      pbi->group_lengths[0], pbi->group_lengths[1]);
+      pbi->mesh_l_turnover,
+      (int)ceil(pbi->mesh_l_turnover/ (pbi->mesh_link_lengths[0]*(1+pbi->mesh_soft_coeffs[0]))),
+      (int)ceil(pbi->l[pbi->l_size-1] / (pbi->mesh_link_lengths[1]*(1+pbi->mesh_soft_coeffs[1]))),
+      pbi->mesh_link_lengths[0], pbi->mesh_link_lengths[1],
+      pbi->mesh_group_lengths[0], pbi->mesh_group_lengths[1]);
 
     
     // -------------------------------------------------------------------------------
@@ -9167,7 +9223,8 @@ int bispectra_mesh_interpolate (
       struct lensing * ple,
       struct bispectra * pbi,
       int index_bt,
-      int index_L1, /**< Input: l1 multipole for which the interpolation will be performed; ignored for 3D mesh */
+      int index_L1, /**< Input: l1 multipole for which the interpolation will be performed; must be the
+                    smallest of the three multipoles; ignored for 3D mesh interpolation */
       double l3, double l2, double l1,
       int X, int Y, int Z,
       struct interpolation_mesh * fine_mesh, /**< Input: mesh table to use for the small multipoles */
@@ -9202,13 +9259,13 @@ int bispectra_mesh_interpolate (
   int use_fine_mesh;
   
   if (is_2D) {
-    use_fine_mesh = (l2<pbi->l_turnover) && (l3<pbi->l_turnover);
+    use_fine_mesh = (l2<pbi->mesh_l_turnover) && (l3<pbi->mesh_l_turnover);
     x = l2;
     y = l3;
     z = 0;
   }
   else {
-    use_fine_mesh = (l1<pbi->l_turnover) && (l2<pbi->l_turnover) && (l3<pbi->l_turnover);
+    use_fine_mesh = (l1<pbi->mesh_l_turnover) && (l2<pbi->mesh_l_turnover) && (l3<pbi->mesh_l_turnover);
     x = l1;
     y = l2;
     z = l3;
@@ -9229,10 +9286,10 @@ int bispectra_mesh_interpolate (
 
   if (use_fine_mesh) {
     
-    l_max = pbi->l_turnover;
-    link_length = pbi->link_lengths[0];
-    group_length = pbi->group_lengths[0];
-    soft_coeff = pbi->soft_coeffs[0];
+    l_max = pbi->mesh_l_turnover;
+    link_length = pbi->mesh_link_lengths[0];
+    group_length = pbi->mesh_group_lengths[0];
+    soft_coeff = pbi->mesh_soft_coeffs[0];
     mesh = fine_mesh;
     index_mesh = 0;
 
@@ -9241,9 +9298,9 @@ int bispectra_mesh_interpolate (
   else {
     
     l_max = pbi->l_max;
-    link_length = pbi->link_lengths[1];
-    group_length = pbi->group_lengths[1];
-    soft_coeff = pbi->soft_coeffs[1];
+    link_length = pbi->mesh_link_lengths[1];
+    group_length = pbi->mesh_group_lengths[1];
+    soft_coeff = pbi->mesh_soft_coeffs[1];
     mesh = coarse_mesh;
     index_mesh = 1;
 
@@ -9273,14 +9330,12 @@ int bispectra_mesh_interpolate (
       "stopping to prevent race condition");
     #endif
     
-    int window_function_parameters[] = {X, Y, Z};
-
     class_call (bispectra_mesh_create(
                   ppr, psp, ple, pbi,
-                  index_L1,
-                  pbi->bispectra[index_bt][X][Y][Z],
+                  index_bt,
+                  X, Y, Z,
                   pbi->window_function[index_bt],
-                  (void *)window_function_parameters,
+                  index_L1,
                   l_max,
                   link_length,
                   group_length,
@@ -9312,7 +9367,7 @@ int bispectra_mesh_interpolate (
   /* Check for nan's and crazy values. A value is crazy when it is much larger than
   the characteristic scale for a bispectrum, A_s*A_s~1e-20 */
   if (isnan(*result) || (fabs(*result)>1) )
-    printf ("@@@ WARNING: Interpolated b(%d,%g,%g) = %g for bispectrum %s_%s!!!\n",
+    printf ("@@@ WARNING: Interpolated b(%g,%g,%g) = %g for bispectrum %s_%s!!!\n",
     l1, l2, l3, *result,
     pbi->bt_labels[index_bt],
     pbi->bfff_labels[X][Y][Z]);
@@ -9486,10 +9541,10 @@ int bispectra_mesh_create (
       struct lensing * ple,
       struct bispectra * pbi,
 
-      int index_L1, /**< Input: multipole for which the 2D mesh will be computed; if negative, fill a 3D mesh instead */
-      double * bispectrum_l1l2l3, /**< Input: the bispectrum interpolate, bispectrum_l1l2l3[index_l1_l2_l3] */
+      int index_bt, /**< Input: the index corresponding to the bispectrum to interpolate */
+      int X, int Y, int Z,
       window_function_type * window_function, /**< Input: window function to apply to the bispectrum; set to NULL to ignore */
-      void * window_function_parameters, /**< Input: parameters for the window function, ignored if window_function==NULL */
+      int index_L1, /**< Input: multipole for which the 2D mesh will be computed; if negative, fill a 3D mesh instead */
 
       int l_max, /**< Input: the largest multipole to consider for this mesh */
       double link_length, /**< Input: linking length for this mesh (see bispectra.h) */
@@ -9500,6 +9555,8 @@ int bispectra_mesh_create (
       struct interpolation_mesh * mesh /**< Output: the interpolation mesh to initialise */
       )
 {
+
+  pbi->mesh_restrict_l1l2l3 = _TRUE_;
 
   /* Determine whether the user wants to compute a 2D or a 3D mesh */
   short is_2D = (index_L1 >= 0);
@@ -9546,6 +9603,9 @@ int bispectra_mesh_create (
   // =                             Rearrange the bispectrum                             =
   // ====================================================================================
 
+  /* Counter for the (l1,l2,l3) nodes */
+  int counter_l1l2l3 = 0;
+
   /* Allocate the array that will contain the rearranged bispectrum */  
   double (*values)[4] = calloc (4*n_nodes, sizeof(double));
 
@@ -9560,13 +9620,23 @@ int bispectra_mesh_create (
     if (is_2D && index_l1!=index_L1)
       continue;
 
-    long int index_l2_l3 = 0; /* identifier for the current (l2,l3) node */
+    /* Counter for the (l2,l3) nodes */
+    int counter_l2l3 = 0;
+
+    /* Restrict the interpolation to l1<=l2 if requested */
+    int index_l2_min = 0;
+    if (pbi->mesh_restrict_l1l2l3)
+      index_l2_min = index_l1;
 
     for (int index_l2=index_l1; index_l2 < pbi->l_size; ++index_l2) {
 
       int l2 = pbi->l[index_l2];
-      int index_l3_min = MAX (index_l2, pbi->index_l_triangular_min[index_l1][index_l2]);
+      int index_l3_min = pbi->index_l_triangular_min[index_l1][index_l2];
       int index_l3_max = pbi->index_l_triangular_max[index_l1][index_l2];
+
+      /* Restrict the interpolation to l2<=l3 if requested */
+      if (pbi->mesh_restrict_l1l2l3)
+        index_l3_min = MAX (index_l2, index_l3_min);
 
       for (int index_l3=index_l3_min; index_l3<=index_l3_max; ++index_l3) {
 
@@ -9575,10 +9645,8 @@ int bispectra_mesh_create (
         if (l2>l_max || l3>l_max || (l1>l_max && !is_2D))
           continue;
 
-        /* Determine the index of this particular index_l1_l2_l3, taking into account that now
-        l1 is the smallest multipole */
-        int index_l1_max = MIN (index_l2, pbi->index_l_triangular_max[index_l2][index_l3]);
-        long int index_l1_l2_l3 = pbi->index_l1_l2_l3[index_l3][index_l3-index_l2][index_l1_max-index_l1];
+        counter_l1l2l3++;
+        counter_l2l3++;
 
         /* By default, assume that no window function is needed */
         double inverse_window = 1;
@@ -9588,28 +9656,41 @@ int bispectra_mesh_create (
           class_call_parallel ((*window_function) (
                                 ppr, psp, ple, pbi,
                                 l3, l2, l1, /* smallest one goes in third position  */
-                                ((int *)window_function_parameters)[0],
-                                ((int *)window_function_parameters)[1],
-                                ((int *)window_function_parameters)[2],
+                                X, Y, Z,
                                 &inverse_window),
             pbi->error_message,
             pbi->error_message);
         }
 
+        /* Compute the bispectrum in (l1,l2,l3) */
+        double bispectrum;
+
+        class_call_parallel (bispectra_at_node (
+                               pbi,
+                               index_bt,
+                               index_l3, index_l2, index_l1,
+                               X, Y, Z,
+                               &bispectrum,
+                               NULL),
+          pbi->error_message,
+          pbi->error_message);
+
         /* The first element is the value of the function to be interpolated at the
         nodes, the other arguments are the coordinates of the nodes */
-        if (is_2D) {
-          values[index_l2_l3][0] = bispectrum_l1l2l3[index_l1_l2_l3] / inverse_window;
-          values[index_l2_l3][1] = (double)(l2);
-          values[index_l2_l3][2] = (double)(l3);
-          values[index_l2_l3][3] = 0;
-          index_l2_l3++;
+
+        if (is_2D) {          
+          values[counter_l2l3][0] = bispectrum/inverse_window;
+          // values[index_l2_l3][0] = bispectrum_l1l2l3[index_l1_l2_l3] / inverse_window;
+          values[counter_l2l3][1] = (double)(l2);
+          values[counter_l2l3][2] = (double)(l3);
+          values[counter_l2l3][3] = 0;
         }
         else {
-          values[index_l1_l2_l3][0] = bispectrum_l1l2l3[index_l1_l2_l3] / inverse_window;
-          values[index_l1_l2_l3][1] = (double)(l1);
-          values[index_l1_l2_l3][2] = (double)(l2);
-          values[index_l1_l2_l3][3] = (double)(l3);
+          values[counter_l1l2l3][0] = bispectrum/inverse_window;
+          // values[index_l1_l2_l3][0] = bispectrum_l1l2l3[index_l1_l2_l3] / inverse_window;
+          values[counter_l1l2l3][1] = (double)(l1);
+          values[counter_l1l2l3][2] = (double)(l2);
+          values[counter_l1l2l3][3] = (double)(l3);
         }
  
       } // for(index_l3)
@@ -9711,7 +9792,7 @@ int bispectra_mesh_create (
  * This function will initialise two meshes for each probe of the considered
  * bispectrum (probe=TTT, EEE, EET...). The first mesh is the so called fine
  * mesh and will be used to interpolate the configurations where (l1,l2,l3)
- * are all smaller than pbi->l_turnover. The second mesh is the coarse mesh
+ * are all smaller than pbi->mesh_l_turnover. The second mesh is the coarse mesh
  * and will be used to interpolate the other configurations.
  *
  * If the l1 index provided is negative, the function will create meshes for
@@ -9748,8 +9829,6 @@ int bispectra_mesh_create_for_all_probes (
     for (int Y = 0; Y < pbi->bf_size; ++Y) {
       for (int Z = 0; Z < pbi->bf_size; ++Z) {
 
-        int window_function_parameters[] = {X, Y, Z};
-
         if (is_3D)
           printf_log_if (pbi->bispectra_verbose, 0,
             "     * computing fine mesh for bispectrum %s_%s\n",
@@ -9758,14 +9837,14 @@ int bispectra_mesh_create_for_all_probes (
         /* Initialise the fine grid; note that we set l_max=l_turnover */
         class_call (bispectra_mesh_create (
                       ppr, psp, ple, pbi,
-                      index_L1,
-                      pbi->bispectra[index_bt][X][Y][Z],
+                      index_bt,
+                      X, Y, Z,
                       pbi->window_function[index_bt],
-                      (void *)window_function_parameters,
-                      pbi->l_turnover,
-                      pbi->link_lengths[0],
-                      pbi->group_lengths[0],
-                      pbi->soft_coeffs[0],
+                      index_L1,
+                      pbi->mesh_l_turnover,
+                      pbi->mesh_link_lengths[0],
+                      pbi->mesh_group_lengths[0],
+                      pbi->mesh_soft_coeffs[0],
                       NULL,
                       NULL,
                       meshes[index_bt][X][Y][Z][0]),
@@ -9780,14 +9859,14 @@ int bispectra_mesh_create_for_all_probes (
         /* Initialise the coarse grid */
         class_call (bispectra_mesh_create (
                       ppr, psp, ple, pbi,
-                      index_L1,
-                      pbi->bispectra[index_bt][X][Y][Z],
+                      index_bt,
+                      X, Y, Z,
                       pbi->window_function[index_bt],
-                      (void *)window_function_parameters,
+                      index_L1,
                       pbi->l_max,
-                      pbi->link_lengths[1],
-                      pbi->group_lengths[1],
-                      pbi->soft_coeffs[1],
+                      pbi->mesh_link_lengths[1],
+                      pbi->mesh_group_lengths[1],
+                      pbi->mesh_soft_coeffs[1],
                       NULL,
                       NULL,
                       meshes[index_bt][X][Y][Z][1]),

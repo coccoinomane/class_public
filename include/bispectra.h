@@ -199,6 +199,31 @@ struct bispectra {
   int interpolate_me[_MAX_NUM_BISPECTRA_];
   
   /**
+   * Logical array to mark the bispectra that are symmetric with respect to
+   * permutations of (l1,X1), (l2,X2) and (l3,X3).
+   *
+   * By construction, all bispectra must be symmetric with respect to any
+   * simultaneous permutation of a multipole index (l=2,3,4...) and the
+   * associated field index (X=T,E,B...). This follows from the very
+   * definition of a bispectrum: b = <a_l1m1^X1 a_l2m2^X2 a_l3m3^X3>.
+   *
+   * In SONG we rely on this symmetry to compute the bispectra: we store
+   * them only for the configurations where l1>=l2>=l3 and then obtain
+   * other combinations by permuting the field indices (X1, X2, X3).
+   *
+   * Some bispectra however are defined in such a way that the three
+   * multipoles are not on the same ground. For example, in the squeezed
+   * limit approximations (eg. for the CMB-lensing, local and intrinsic
+   * bispectra) one of the multipoles is assigned the large wavelength
+   * mode, ie. the mode with small l.
+   * 
+   * For these bispectra, the 1<->2<->3 symmetry is lost. SONG computes
+   * them only in those configurations that satisfy l1>=l2>=l3 and set
+   * their value to zero for the other ones.
+   */
+  int is_symmetric[_MAX_NUM_BISPECTRA_];
+  
+  /**
    * Logical array to mark the bispectra that will be lensed with the convolution
    * method in the bispectra_lensing() function.
    *
@@ -209,11 +234,13 @@ struct bispectra {
    */
   int lens_me_brute_force[_MAX_NUM_BISPECTRA_];
   
-  /* Add the bolometric and redshift corrections (in the form of C_l*C_l) to the intrinsic
-  bispectrum? Ignore if you are only interested in first-order CLASS, and see function
-  bispectra2_add_quadratic_correction() for a proper documentation. */
+  /**
+   * Add the bolometric and redshift corrections to the second-order bispectra?
+   *
+   * Not used unless you requested the intrinsic bispectrum. Refer to
+   * bispectra2_add_quadratic_correction() for documentation.
+   */
   short add_quadratic_correction;
-
 
   /**
    * Functions to use for the computation of the analytical bispectra.
@@ -225,7 +252,6 @@ struct bispectra {
    * will have NULL entries.
    */
   analytical_function_type * bispectrum_function[_MAX_NUM_BISPECTRA_];
-
 
   /**
    * Window functions to use to interpolate each bispectrum.
@@ -298,7 +324,8 @@ struct bispectra {
   // =                                    Sampling in l                                 =
   // ====================================================================================
 
-  int * l;                /**< 1D list of multipole values, used as a grid to determine the (l1,l2,l3) configurations where to compute the bispectrum */
+  int * l;                /**< 1D list of multipole values, used as a grid to determine
+                          the (l1,l2,l3) configurations where the bispectrum is computed */
   int l_size;             /**< Size of l */
   int l_min;              /**< Minimum value in pbi->l (=2 in most cases) */
   int l_max;              /**< Maximum value in pbi->l */
@@ -444,7 +471,8 @@ struct bispectra {
   // ====================================================================================
   
   /**
-   * What method should we use for interpolating the bispectra (bilinear, mesh...)
+   * What method should we use for interpolating the bispectra (bilinear,
+   * mesh_2D, mesh_3D...)
    */
   enum bispectra_interpolation_method interpolation_method;
 
@@ -492,25 +520,60 @@ struct bispectra {
    * in the region where all l are small, and a coarse mesh with a larger linking length,
    * to interpolate it in the remaining region. The turnover point between the two
    * regions is determined based on the l sampling in pbi->l, and is memorised in
-   * pbi->l_turnover.
+   * pbi->mesh_l_turnover.
    */
   //@{
 
-  double link_lengths[2]; /**< Linking lengths of the fine & coarse interpolation meshes */
-  double group_lengths[2]; /**< Grouping lengths of the fine & coarse interpolation meshes */
-  double soft_coeffs[2]; /**< Softening of the linking length of the fine & coarse interpolation meshes, fixed to 0.5 */
-  int l_turnover;  /**< Turnover multipole between the fine and coarse interpolation meshes;
-                   determined based on the l-sampling in pbi->l */
-
-  /** Array with two interpolation meshes per bispectrum: a fine mesh to interpolate
-  the bispectrum for l < l_turnover, and a coarse mesh to interpolate it for
-  l >= l_turnover. Indexed as pbi->bispectra, but with two extra levels: 
-  pbi->meshes[index_l1][index_bt][X][Y][Z][index_mesh]. For 3D interpolation,
-  the index_l1 level is collapsed to one value, because a single 3D mesh is
-  enough to interpolate the bispectrum for all values of l1; for 2D
-  interpolation, it has size pbi->l_size. index_mesh is either 0 (fine
-  grid) or 1 (coarse grid). */
+  /** 
+   * Data needed to interpolate the bispectra with the mesh technique.
+   *
+   * The meshes array contains two interpolation meshes per bispectrum:
+   *
+   * - A fine mesh to interpolate the bispectrum for l < l_turnover.
+   * - A coarse mesh to interpolate the bispectrum for l >= l_turnover.
+   *
+   * The fine and coarse mesh have a linking length roughly equal to the
+   * distance between the two closest and furthest neighbouring points,
+   * respectively.
+   * 
+   * Why two meshes? Using only a fine mesh all the way to l_max would
+   * imply more memory usage, because a small linking length means more
+   * interpolation boxes to keep track of. On the other hand, the coarse
+   * mesh is quick to compute but takes much more time to use for
+   * interpolation, because larger interpolation boxes mean more nodes
+   * to include and the interpolation algorithm goes as n_nodes^2 or
+   * n_nodes^3.
+   *
+   * The meshes array is indexed in the same way as pbi->bispectra, but
+   * with two extra levels:
+   *
+   *  pbi->meshes[index_l1][index_bt][X][Y][Z][index_mesh]
+   *
+   * For 3D interpolation, the index_l1 level is collapsed to a single
+   * element, because a single 3D mesh is enough to interpolate the bispectrum
+   * for all values of l1. For 2D interpolation, it has size pbi->l_size.
+   *
+   * The level indexed by index_mesh has only two elements, corresponding
+   * to the fine mesh (index_mesh=0) and to the coarse mesh (index_mesh=1).
+   */
   struct interpolation_mesh ******* meshes;
+  
+  double mesh_link_lengths[2];  /**< Linking lengths of the fine & coarse interpolation meshes */
+  double mesh_group_lengths[2]; /**< Grouping lengths of the fine & coarse interpolation meshes */
+  double mesh_soft_coeffs[2];   /**< Softening of the linking length of the fine & coarse interpolation meshes, fixed to 0.5 */
+  int mesh_l_turnover;  /**< Turnover multipole between the fine and coarse interpolation meshes;
+                        determined based on the l-sampling in pbi->l */
+
+  /**
+   * Should we restrict the (l1,l2,l3) domain for the mesh interpolation?
+   *
+   * When building the interpolation mesh for the bispectrum, we can choose to
+   * restrict the domain to those configurations with l1<=l2<=l3, which results
+   * in less memory usage. This is fine to build the Fisher matrix, which is
+   * obtained via a sum over l1<=l2<=l3, but it is not ok to compute the lensing
+   * of the bispectrum, where the sum is unrestricted.
+   */
+  short mesh_restrict_l1l2l3;
 
   //@}
 
@@ -796,13 +859,12 @@ extern "C" {
       );
   
   int bispectra_at_l2l3_mesh (
-      struct transfers * ptr,
       struct bispectra * pbi,
       int index_bt,
-      int index_l1, int l2, int l3,
+      int index_l1,
+      int l1, int l2, int l3,
       int X, int Y, int Z,
-      double * bispectrum,
-      double * bispectrum_unlensed
+      double * bispectrum
       );
   
   int bispectra_free(
@@ -1395,10 +1457,10 @@ extern "C" {
         struct spectra * psp,
         struct lensing * ple,
         struct bispectra * pbi,
-        int index_l1,
-        double * bispectrum_l1l2l3,
+        int index_bt,
+        int X, int Y, int Z,
         window_function_type * window_function,
-        void * window_function_parameters,
+        int index_l1,
         int l_max,
         double link_length,
         double group_length,

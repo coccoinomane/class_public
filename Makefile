@@ -17,7 +17,7 @@ vpath .base build
 ########################################################
 
 # your C compiler:
-CC       = gcc
+CC       = /usr/bin/gcc
 #CC       = icc
 #CC       = pgcc
 
@@ -38,14 +38,26 @@ OMPFLAG   = -fopenmp
 #OMPFLAG   = -openmp
 
 # all other compilation flags
-CCFLAG = -g -fPIC -std=c99
-#CFLAGS += -w
-CCFLAG += -DDEBUG
+CCFLAG = -g -fPIC
 LDFLAG = -g -fPIC
+CCFLAG += -std=c99
+CCFLAG += -DDEBUG
 
-# leave blank to compile without HyRec, or put path to HyRec directory
+
+# Leave blank to compile without HyRec, or put path to HyRec directory
 # (with no slash at the end: e.g. hyrec or ../hyrec)
 HYREC = hyrec
+
+# Flags for the default compiler in Mac Os X, clang. Note that clang
+# does not support openmp, so SONG will be much slower. If you want
+# to run SONG in a parallel way, download gcc from Macports, Homebrew
+# or http://hpc.sourceforge.net/.
+CLANG = $(shell $(CC) --version | grep clang)
+ifneq ($(strip $(CLANG)),)
+OPTFLAG := $(subst -O4, -O3, $(OPTFLAG))
+OMPFLAG := $(subst -fopenmp, -openmp, $(OMPFLAG))
+LDFLAG += -Wl,-stack_size,0x400000000
+endif
 
 
 ########################################################
@@ -88,13 +100,13 @@ endif
 
 # If SONG is required, define the preprocessor macro WITH_SONG_SUPPORT
 ifeq ($(WITH_SONG_SUPPORT),1)
-	WITH_BISPECTRA = 1
-	CCFLAG += -DWITH_SONG_SUPPORT
+WITH_BISPECTRA = 1
+CCFLAG += -DWITH_SONG_SUPPORT
 endif
 
 # If bispectra or Fisher matrix are required, define the macro WITH_BISPECTRA
 ifeq ($(WITH_BISPECTRA),1)
-	CCFLAG += -DWITH_BISPECTRA
+CCFLAG += -DWITH_BISPECTRA
 endif
 
 
