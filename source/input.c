@@ -3372,18 +3372,7 @@ int input_read_parameters(
   
   if (flag1 == _TRUE_) {
 
-    /* For trilinear interpolation, we need an all-even grid */
-    if ((strstr(string1,"trilinear") != NULL) || (strstr(string1,"tri") != NULL)) {
-      pbi->interpolation_method = trilinear_interpolation;
-      ppr->compute_only_even_ls = _TRUE_;
-    }
-  
-    else if ((strstr(string1,"smart") != NULL) || (strstr(string1,"SMART") != NULL)) {
-      pbi->interpolation_method = smart_interpolation;
-      ppr->compute_only_even_ls = _TRUE_;
-    }
-
-    else if (strstr(string1,"bilinear") != NULL) {
+    if (strstr(string1,"bilinear") != NULL) {
       pbi->interpolation_method = bilinear_interpolation;
     }
 
@@ -3393,6 +3382,16 @@ int input_read_parameters(
 
     else if ((strcmp(string1,"mesh_3d") == 0) || (strcmp(string1,"mesh_3D") == 0)) {
       pbi->interpolation_method = mesh_interpolation_3D;
+    }
+
+    else if ((strstr(string1,"trilinear") != NULL) || (strstr(string1,"tri") != NULL)) {
+      pbi->interpolation_method = trilinear_interpolation;
+      ppr->compute_only_even_ls = _TRUE_;
+    }
+  
+    else if ((strstr(string1,"smart") != NULL) || (strstr(string1,"SMART") != NULL)) {
+      pbi->interpolation_method = smart_interpolation;
+      ppr->compute_only_even_ls = _TRUE_;
     }
 
     else {

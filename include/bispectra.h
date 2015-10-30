@@ -836,17 +836,20 @@ extern "C" {
       double * bispectrum_unlensed
       );
 
-  int bispectra_at_l3_linear (
+  int bispectra_at_l2l3 (
+      struct precision * ppr,
       struct transfers * ptr,
+      struct spectra * psp,
+      struct lensing * ple,
       struct bispectra * pbi,
       int index_bt,
-      int index_l1, int index_l2, int l3,
+      int index_l1,
+      int l1, int l2, int l3,
       int X, int Y, int Z,
-      int interpolate,
       double * bispectrum,
       double * bispectrum_unlensed
       );
-  
+
   int bispectra_at_l2l3_bilinear (
       struct transfers * ptr,
       struct bispectra * pbi,
@@ -867,6 +870,18 @@ extern "C" {
       double * bispectrum
       );
   
+
+  int bispectra_at_l3_linear (
+      struct transfers * ptr,
+      struct bispectra * pbi,
+      int index_bt,
+      int index_l1, int index_l2, int l3,
+      int X, int Y, int Z,
+      int interpolate,
+      double * bispectrum,
+      double * bispectrum_unlensed
+      );
+
   int bispectra_free(
        struct precision * ppr,
        struct perturbs * ppt,
