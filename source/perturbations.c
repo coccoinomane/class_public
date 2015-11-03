@@ -1933,14 +1933,14 @@ int perturb_get_k_list(
 
   /* For testing, can be useful to print the k list in a file: */
 
-  FILE * out=fopen("output/k.txt","w");
-
-  for (index_k=0; index_k < ppt->k_size[0]; index_k++) {
-
-    fprintf(out,"%e\n",ppt->k[0][index_k],pba->K);
-
-  }
-     fclose(out);
+  // FILE * out=fopen("output/k.txt","w");
+  //
+  // for (index_k=0; index_k < ppt->k_size[0]; index_k++) {
+  //
+  //   fprintf(out,"%e\n",ppt->k[0][index_k],pba->K);
+  //
+  // }
+  // fclose(out);
 
 
   /* finally, find the global k_min and k_max for the ensemble of all modes 9scalars, vectors, tensors) */
