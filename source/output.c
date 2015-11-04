@@ -2082,9 +2082,9 @@ int output_one_line_of_cl(
     class_fprintf_double(clfile, sqrt(l*(l+1))*factor*pba->T_cmb*1.e6*cl[psp->index_ct_tp], psp->has_tp);
     class_fprintf_double(clfile, sqrt(l*(l+1))*factor*pba->T_cmb*1.e6*cl[psp->index_ct_ep], psp->has_ep);
     /*do we want these factors?? CHR */
-    class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_rr], psp->has_rr);
-    class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_tr], psp->has_tr);
-    class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_er], psp->has_er);
+    class_fprintf_double(clfile, cl[psp->index_ct_rr], psp->has_rr);
+    class_fprintf_double(clfile, cl[psp->index_ct_tr], psp->has_tr);
+    class_fprintf_double(clfile, cl[psp->index_ct_er], psp->has_er);
     index_ct_rest = 0;
     if (psp->has_tt == _TRUE_)
       index_ct_rest++;

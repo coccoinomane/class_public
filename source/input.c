@@ -2974,43 +2974,6 @@ int input_read_parameters(
   /* ppt needs to know the interpolation method in order to correctly free ppt->dd_quadsources */
   ppt->quadsources_time_interpolation = ppr->quadsources_time_interpolation;
 
-
-  /** i.1.3. Evolution of the differential system */
-  
-  class_call(parser_read_string(pfc,
-                                "phi_equation",
-                                &(string1),
-                                &(flag1),
-                                errmsg),
-             errmsg,
-             errmsg);
-
-  if (flag1 == _TRUE_) {
-  
-    if ( (strcmp(string1,"poisson") == 0) || (strcmp(string1,"POISSON") == 0)||
-         (strcmp(string1,"Poisson") == 0) || (strcmp(string1,"P") == 0) ||
-         (strcmp(string1,"p") == 0) ) {
-      ppt->phi_eq = poisson;
-      class_stop (errmsg, "poisson equation not implemented yet in CLASS");
-    }
-    else if ( (strcmp(string1,"longitudinal") == 0) || (strcmp(string1,"LONGITUDINAL") == 0)||
-              (strcmp(string1,"Longitudinal") == 0) || (strcmp(string1,"L") == 0) ||
-              (strcmp(string1,"l") == 0) ) {
-      ppt->phi_eq = longitudinal;
-    }
-    else if ( (strcmp(string1,"huang") == 0) || (strcmp(string1,"HUANG") == 0)||
-              (strcmp(string1,"Huang") == 0) || (strcmp(string1,"H") == 0) ||
-              (strcmp(string1,"h") == 0) || (strcmp(string1,"Z") == 0) ) {
-      ppt->phi_eq = huang;
-    }
-    else {
-      class_stop (errmsg,
-      "phi_equation=%s not supported, choose between poisson, longitudinal and huang",
-      string1);
-    }
-  }
-  
-
 #endif // WITH_SONG_SUPPORT
 
   /** i.2 parameters in the bessels module */
@@ -3040,20 +3003,6 @@ int input_read_parameters(
         "bessels_interpolation=%s, not supported. Choose between 'linear' and 'cubic'",string1);
   }
 
-  /* Compute ppr->l_max_boltzmann, the maximum l_max for the Boltzmann hierarchy. */
-  ppr->l_max_boltzmann = 0;  
-  ppr->l_max_boltzmann = MAX (ppr->l_max_boltzmann, ppr->l_max_g);
-  ppr->l_max_boltzmann = MAX (ppr->l_max_boltzmann, ppr->l_max_pol_g);
-  if (ppt->has_tensors==_TRUE_) {
-    ppr->l_max_boltzmann = MAX (ppr->l_max_boltzmann, ppr->l_max_g_ten);
-    ppr->l_max_boltzmann = MAX (ppr->l_max_boltzmann, ppr->l_max_pol_g_ten);
-  }
-  if (pba->Omega0_ur!=0)
-    ppr->l_max_boltzmann = MAX (ppr->l_max_boltzmann, ppr->l_max_ur);
-  if (pba->N_ncdm>0)
-    ppr->l_max_boltzmann = MAX (ppr->l_max_boltzmann, ppr->l_max_ncdm);  
-
-
   /* Compute pbs->l_max, the largest l we shall compute an observable for. The code below is
   copied from transfer.c, make sure to update it if you update transfer.c. */
   int l_max = 0;
@@ -3078,7 +3027,6 @@ int input_read_parameters(
   }
 
   pbs->l_max = l_max;
-  
 
   /* Determine pbs->x_max, the upper limit of the x-domain of the Bessel functions j_l(x).
   These appear in the bispectrum integral with argument x = k*(tau0-tau), therefore we set
@@ -3613,9 +3561,8 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
   file using a relative path with respect to ppr->run_dir.
   
     For example, let's say the user has used SONG to compute a forecast for
-  an ideal experiment, and stored it in the folder `huge_run`. Now s/he wants
-  to get forecasts for more experiments, say Planck, WMAP and the Prism experiment,
-  without having to re-run SONG from scratch.
+  an ideal experiment, and stored it in the folder `huge_run`. Now they want to get
+  a forecast for the Prism experiment.
     
     The bispectrum computed in `huge_run` can be recycled for this new forecast.
   To avoid a useless recomputation of the bispectrum, the user needs to create a subfolder
@@ -3853,7 +3800,7 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
   /* If the user asks to output the perturbations at some values of k, CLASS adds
   these values to the k-sampling (ppt->k). Here we turn off this this mechanism
   because SONG relies on the k-sampling being unaltered after it is set. */
-  if (ppt->has_perturbations2 == _TRUE_) {
+  if (ppt->has_perturbations2) {
     ppt->k_output_values_num = 0;
     ppt->store_perturbations = _FALSE_;
     pop->write_perturbations = _FALSE_;
@@ -4290,8 +4237,6 @@ int input_default_params(
 
   ppt->has_perturbations2 = _FALSE_;
   ppt->has_polarization2  = _FALSE_;
-
-  ppt->phi_eq = longitudinal;
 
   ppt->has_custom_timesampling_for_quadsources = _FALSE_;
   ppt->custom_tau_ini_quadsources  = 0.1;

@@ -2043,9 +2043,6 @@ int perturb_workspace_init(
     if (ppt->gauge == newtonian) {
       class_define_index(ppw->index_mt_psi,_TRUE_,index_mt,1); /* psi */
       class_define_index(ppw->index_mt_phi_prime,_TRUE_,index_mt,1); /* phi' */
-#ifdef WITH_SONG_SUPPORT
-      class_define_index(ppw->index_mt_phi_prime_prime,_TRUE_,index_mt,1); /* phi' */
-#endif // WITH_SONG_SUPPORT
     }
 
     /* synchronous gauge (note that eta is counted in the vector of
@@ -2611,32 +2608,23 @@ int perturb_solve(
 
     for (index_interval=0; index_interval<interval_number; index_interval++) {
 
-      /* Update the approximation array in the ppw structure with whatever
-      approximations are turned on in the considered time interval */
+      /** (a) fix the approximation scheme */
+
       for (index_ap=0; index_ap<ppw->ap_size; index_ap++)
         ppw->approx[index_ap] = interval_approx[index_interval][index_ap];
 
       /* Maximum time we are interested in, that is, the last time where we need
-      to compute the quadratic sources for the second-order system. This is not
-      necessarily equal to the time where the evolver will stop. By default, the
-      evolver will go all the way to today (tau_0) while we might only be interested
-      in the sources at recombination. */
+      to compute the quadratic sources for the second-order system */
       double tau_max = ppt->tau_sampling_quadsources[ppt->tau_size_quadsources-1];
 
-      /* If we have already sampled all the times we are interested in, then we
-      can stop evolving the system. This is NOT an optimisation adjustment:
-      if you comment this line you will end up with quadratic sources with
-      a few repeated points at the end. Also make sure that the relation is
-      >= (greater or equal than) and not a simple > (greater than). */
-      if (interval_limit[index_interval] >= tau_max) {
-        break;
-      }
+      /* Skip integration intervals that are not needed */
+      if (interval_limit[index_interval] > tau_max)
+        continue;
 
-      /* Stop integrating the system when we have reached tau_max. This is an 
-      optimisation flag, feel free to comment it. */
+      /* Stop integrating the system when we have reached tau_max */
       interval_limit[index_interval+1] = MIN (interval_limit[index_interval+1], tau_max);
 
-      /* Get the previous approximation scheme. If the current
+      /** (b) get the previous approximation scheme. If the current
       interval starts from the initial time tau_ini, the previous
       approximation is set to be a NULL pointer, so that the
       function perturb_vector_init() knows that perturbations must
@@ -2649,7 +2637,7 @@ int perturb_solve(
         previous_approx=interval_approx[index_interval-1];
       }
 
-      /** Dfine the vector of perturbations to be integrated
+      /** (c) define the vector of perturbations to be integrated
       over. If the current interval starts from the initial time
       tau_ini, fill the vector with initial conditions for each
       mode. If it starts from an approximation switching point,
@@ -2670,7 +2658,7 @@ int perturb_solve(
         ppt->error_message);
 
 
-      /* Integrate the perturbations over the current interval. */
+      /** (d) integrate the perturbations over the current interval. */
 
       class_call(generic_evolver(perturb_derivs,
                                  interval_limit[index_interval],
@@ -2691,7 +2679,7 @@ int perturb_solve(
                                  ppt->error_message),
         ppt->error_message,
         ppt->error_message);
-
+              
     } // end of for(index_interval)
   } // end of if(has_perturbations2) 
 
@@ -3464,20 +3452,6 @@ int perturb_vector_init(
        phi) */
     class_define_index(ppv->index_pt_phi,ppt->gauge == newtonian,index_pt,1);
 
-#ifdef WITH_SONG_SUPPORT
-
-    /* CLASS by default evolves the curvature potential phi using its first-order 
-       derivative from the space-time Einstein equation, called the longitudinal 
-       equation. Huang 2012 (http://arxiv.org/abs/1201.5961) uses instead the trace
-       equation combined with the time-time equation to find a second-order differential
-       equation for phi. That is, in Huang's approach also phi_prime is an evolved
-       quantity, and index_pt_phi_prime is the corresponding index in the vectors
-       y and dy.  */
-    if (ppt->phi_eq == huang)
-      class_define_index(ppv->index_pt_phi_prime,ppt->gauge == newtonian,index_pt,1);
-
-#endif // WITH_SONG_SUPPORT
-    
   }
 
   if (_vectors_) {
@@ -3858,13 +3832,7 @@ int perturb_vector_init(
           ppw->pv->y[ppw->pv->index_pt_phi];
 
 #ifdef WITH_SONG_SUPPORT
-
-      /* Second derivative of the curvature potential */
-      if (ppt->gauge == newtonian)
-        if (ppt->phi_eq == huang)
-          ppv->y[ppv->index_pt_phi_prime] =
-            ppw->pv->y[ppw->pv->index_pt_phi_prime];
-
+      
       /* E-mode polarization hierarchy */
       if ((ppt->has_perturbations2 == _TRUE_) && (ppt->has_polarization2))
         for(l=0; l<=ppv->l_max_E; ++l)
@@ -4830,36 +4798,6 @@ int perturb_initial_conditions(struct precision * ppr,
 
       }
 
-#ifdef WITH_SONG_SUPPORT
-      
-      /* Set initial condition for phi_prime starting from psi, using the space-time
-      Einstein equation */
-      if (ppt->phi_eq == huang) {
-
-        double rho_plus_p_theta = 0;
-        rho_plus_p_theta += 4/3.*ppw->pvecback[pba->index_bg_rho_g]*ppw->pv->y[ppw->pv->index_pt_theta_g];
-        rho_plus_p_theta += ppw->pvecback[pba->index_bg_rho_b]*ppw->pv->y[ppw->pv->index_pt_theta_b];
-        if (pba->has_cdm == _TRUE_)
-          rho_plus_p_theta += ppw->pvecback[pba->index_bg_rho_cdm]*ppw->pv->y[ppw->pv->index_pt_theta_cdm];
-        if (pba->has_ur == _TRUE_)
-          rho_plus_p_theta += 4/3.*ppw->pvecback[pba->index_bg_rho_ur]*theta_ur;
-
-        /* Initial conditions for time potential psi from Ma & Bertschinger */
-        double psi = 10 / (15 + 4*fracnu);
-        
-        /* Use the space-time Einstein equation to find initial conditions for phi_prime */
-        double phi_prime = -a_prime_over_a * psi + 1.5 * a*a/(k*k) * rho_plus_p_theta;
-
-        ppw->pv->y[ppw->pv->index_pt_phi_prime] = phi_prime;
-
-        // if (ppw->index_k==(ppt->k_size[ppt->index_md_scalars]-1))
-        //   printf ("%12g %12g %12g %12g\n",
-        //     tau, ppw->pv->y[ppw->pv->index_pt_phi], phi_prime, psi);
-
-      }
-
-#endif // WITH_SONG_SUPPORT
-
     } /* end of gauge transformation to newtonian gauge */
 
       /** (e) In any gauge, we should now implement the relativistic initial conditions in ur and ncdm variables */
@@ -5519,46 +5457,6 @@ int perturb_einstein(
 
       /* equation for phi' */
       ppw->pvecmetric[ppw->index_mt_phi_prime] = -a_prime_over_a * ppw->pvecmetric[ppw->index_mt_psi] + 1.5 * (a2/k2) * ppw->rho_plus_p_theta;
-
-#ifdef WITH_SONG_SUPPORT
-      
-      /* If we are to evolve phi using the phi'' equation, then set the value of phi_prime
-      in ppw->pvecmetric directly from the vector of evolved  perturbations, rather than
-      computing it from a constraint equation */
-      if (ppt->phi_eq == huang)
-        ppw->pvecmetric[ppw->index_mt_phi_prime] = y[ppw->pv->index_pt_phi_prime];
-      
-      /* Extract metric perturbations required to compute phi''. Also psi_prime is required,
-      but we cannot compute it here because it requires in turn the time derivatives of y.
-      The dy vector however is not availabe because perturb2_einstein() is called by
-      perturb2_derivs() right before filling dy. Therefore, for the time being, we set
-      psi_prime to zero. */
-      double psi_prime = 0;
-      double psi = ppw->pvecmetric[ppw->index_mt_psi];
-      double phi = y[ppw->pv->index_pt_phi];
-      double phi_prime = ppw->pvecmetric[ppw->index_mt_phi_prime];
-
-      /* Compute Hubble parameter in conformal time */
-      double Hc = a_prime_over_a; 
-      double Hc_prime = a*ppw->pvecback[pba->index_bg_H_prime] + (a*Hc)*ppw->pvecback[pba->index_bg_H]; 
-
-      /* Compute the density contrasts of baryons and CDM */
-      double rho_monopole_b=0, rho_monopole_cdm=0;
-      rho_monopole_b = ppw->pvecback[pba->index_bg_rho_b]*y[ppw->pv->index_pt_delta_b];
-      if (pba->has_cdm == _TRUE_)
-        rho_monopole_cdm = ppw->pvecback[pba->index_bg_rho_cdm]*y[ppw->pv->index_pt_delta_cdm];
-      
-      /* Compute Phi'' inserting the time-time equation in the trace equation. The resulting
-      equation includes only the cold species monopoles because the matter part of the trace
-      equation only includes the hot species. This equation is essentially the same as eq.
-      2.30 of Huang 2012 (http://arxiv.org/abs/1201.5961). */
-      ppw->pvecmetric[ppw->index_mt_phi_prime_prime] = 
-        + k2/3 * (psi - 2*phi)
-        - Hc * (psi_prime + 3*phi_prime)
-        - 2*psi * (Hc*Hc + Hc_prime)
-        - a2/2 * (rho_monopole_b + rho_monopole_cdm);
-
-#endif // WITH_SONG_SUPPORT
 
       /* eventually, infer radiation streaming approximation for
          gamma and ur (this is exactly the right place to do it
@@ -7872,23 +7770,6 @@ int perturb_derivs(double tau,
         }
       }
     }
-    
-
-    /** -> metric */
-
-    /** --> eta of synchronous gauge */
-
-    if (ppt->gauge == synchronous) {
-
-      dy[pv->index_pt_eta] = pvecmetric[ppw->index_mt_eta_prime];
-
-    }
-
-    if (ppt->gauge == newtonian) {
-
-      dy[pv->index_pt_phi] = pvecmetric[ppw->index_mt_phi_prime];
-
-    }
 
 
 #ifdef WITH_SONG_SUPPORT
@@ -7960,42 +7841,23 @@ int perturb_derivs(double tau,
     
     }  // end of if(has_polarization2)
     
-    /* Compute the second derivative of the curvature potential, phi''. In SONG you can
-    choose to compute phi by either solving a first-order differential equation
-    (phi_eq==longitudinal) or a second-order one (phi_eq==huang). */
-    if (ppt->gauge == newtonian) {
-      
-      /* To compute phi'' we use the equation from Huang 2012 (http://arxiv.org/abs/1201.5961),
-      which requires the time derivative of the time potential psi. This could not be computed
-      in perturb_einstein(), so we do it here and add it to the equation for phi_prime_prime. */
-      double psi_prime;
-      
-      /* This call must be after the quadrupoles in the dy vector have been filled,
-      otherwise you will get inconsistent results. */
-      class_call (perturb_compute_psi_prime (
-                   ppr,
-                   pba,
-                   pth,
-                   ppt,
-                   tau,
-                   y,
-                   dy,
-                   &(psi_prime),
-                   ppw),
-        ppt->error_message,
-        error_message);
+#endif // WITH_SONG_SUPPORT
 
-      /* Add the missing piece to the expression for phi'' */
-      pvecmetric[ppw->index_mt_phi_prime_prime] += - a_prime_over_a * psi_prime;
-      
-      /* If we are using phi'' to evolve the curvature potential, then store
-      its value in the dy array */
-      if (ppt->phi_eq == huang)
-        dy[ppw->pv->index_pt_phi_prime] = pvecmetric[ppw->index_mt_phi_prime_prime];
+    /** -> metric */
+
+    /** --> eta of synchronous gauge */
+
+    if (ppt->gauge == synchronous) {
+
+      dy[pv->index_pt_eta] = pvecmetric[ppw->index_mt_eta_prime];
 
     }
-    
-#endif // WITH_SONG_SUPPORT
+
+    if (ppt->gauge == newtonian) {
+
+      dy[pv->index_pt_phi] = pvecmetric[ppw->index_mt_phi_prime];
+
+    }
 
   }
 
@@ -8804,7 +8666,6 @@ int perturb_song_indices_of_perturbs(
         ppt->index_qs_psi = index_type++;
         ppt->index_qs_phi = index_type++;
         ppt->index_qs_phi_prime = index_type++;
-        ppt->index_qs_phi_prime_prime = index_type++;
         ppt->index_qs_psi_prime = index_type++;
       }
 
@@ -8964,10 +8825,7 @@ int perturb_song_sources(
   class_test (_vectors_ || _tensors_,
     ppt->error_message,
     "at first order, SONG supports only scalar modes");
-  
-  class_test (index_tau >= ppt->tau_size_quadsources,
-    ppt->error_message,
-    "time index cannot be larger than size of time array for quadsources");
+
 
   // ===============================================================================================
   // =                                      Interpolate at tau                                     =
@@ -9246,8 +9104,7 @@ int perturb_song_sources(
     if (ppt->gauge == newtonian) {    
       _set_quadsource_ (ppt->index_qs_psi, pvecmetric[ppw->index_mt_psi], "psi");    
       _set_quadsource_ (ppt->index_qs_phi, y[ppw->pv->index_pt_phi], "phi");    
-      _set_quadsource_ (ppt->index_qs_phi_prime, pvecmetric[ppw->index_mt_phi_prime], "phi'");
-      _set_quadsource_ (ppt->index_qs_phi_prime_prime, pvecmetric[ppw->index_mt_phi_prime_prime], "phi''");
+      _set_quadsource_ (ppt->index_qs_phi_prime, pvecmetric[ppw->index_mt_phi_prime], "phi'");    
       _set_quadsource_ (ppt->index_qs_psi_prime, psi_prime, "psi'");    
     }
 
@@ -9516,8 +9373,8 @@ int perturb_compute_psi_prime(
   // ==================================================================
 
   /* The derivative of the gravitational potential psi, needed to compute the ISW effect */
-  *psi_prime = ppw->pvecmetric[ppw->index_mt_phi_prime]
-             - 4.5 * (a2/k2) * (rho_plus_p_shear_prime - 2*a_prime_over_a*rho_plus_p_shear);
+  *psi_prime = ppw->pvecmetric[ppw->index_mt_phi_prime] - 4.5 * (a2/k2)
+    * (rho_plus_p_shear_prime - 2*a_prime_over_a*rho_plus_p_shear);
 
   /* Debug - print psi_prime together with psi */
   // if (ppw->index_k == 200)
