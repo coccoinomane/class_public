@@ -2177,8 +2177,8 @@ int bispectra_output (
     sprintf (name, "pbi->l3_size");
     int index_l3_size_block = file->n_blocks;
   
-    for (int index_l1=0; index_l1 < pbi->l_size; ++index_l1) {
-      for (int index_l2=0; index_l2 <= index_l1; ++index_l2) {
+    for (int index_l1=0; index_l1 < pbi->l_size; ++index_l1)
+      for (int index_l2=0; index_l2 <= index_l1; ++index_l2)
         class_call (binary_add_block (
                       file,
                       &pbi->l3_size[index_l1][index_l2],
@@ -2190,16 +2190,13 @@ int bispectra_output (
                       index_l3_size_block),
           file->error_message,
           pbi->error_message);
-      }
-    }
 
     sprintf (desc, "l3 array: l3[index_l1][index_l2] with index_l1 < pbi->l_size, index_l2 <= index_l1");
     sprintf (name, "pbi->l3");
     int index_l3_block = file->n_blocks;
   
     for (int index_l1=0; index_l1 < pbi->l_size; ++index_l1)
-      for (int index_l2=0; index_l2 <= index_l1; ++index_l2) {
-                
+      for (int index_l2=0; index_l2 <= index_l1; ++index_l2)
         class_call (binary_add_block (
                       file,
                       pbi->l3[index_l1][index_l2],
@@ -2211,17 +2208,10 @@ int bispectra_output (
                       index_l3_block),
           file->error_message,
           pbi->error_message);
-    }
 
     sprintf (desc, "number of (l1,l2,l3) configurations in each bispectrum (=%d)", pbi->n_independent_configurations);
     sprintf (name, "pbi->n_independent_configurations");
     class_call (binary_append_long_int (file, &pbi->n_independent_configurations, 1, desc, name),
-      file->error_message,
-      pbi->error_message);
-
-    sprintf (desc, "array of indices associated to the (l1,l2,l3) configurations");
-    sprintf (name, "pbi->index_l1_l2_l3");
-    class_call (binary_append_int (file, pbi->index_l1_l2_l3, pbi->n_independent_configurations, desc, name),
       file->error_message,
       pbi->error_message);
 
@@ -2245,7 +2235,7 @@ int bispectra_output (
       file->error_message,
       pbi->error_message);
 
-    sprintf (desc, "unlensed C_l: cls[index_ct] with index_ct < psp->ct_size");
+    sprintf (desc, "unlensed C_l: cls[index_ct][index_l] with index_ct < psp->ct_size, index_l < pbi->full_l_size");
     sprintf (name, "pbi->cls");
     int index_unlensed_cl = file->n_blocks;
     for (int index_ct=0; index_ct < psp->ct_size; ++index_ct)
@@ -2261,7 +2251,7 @@ int bispectra_output (
         file->error_message,
         pbi->error_message);
 
-    sprintf (desc, "unlensed C_l logarithmic derivative: d_lsq_cls[index_ct] with index_ct < psp->ct_size");
+    sprintf (desc, "unlensed C_l logarithmic derivative: d_lsq_cls[index_ct][index_l] with index_ct < psp->ct_size, index_l < pbi->full_l_size");
     sprintf (name, "pbi->d_lsq_cls");
     index_unlensed_cl = file->n_blocks;
     for (int index_ct=0; index_ct < psp->ct_size; ++index_ct)
@@ -2279,7 +2269,7 @@ int bispectra_output (
 
     if (pbi->include_lensing_effects == _TRUE_) {
 
-      sprintf (desc, "lensed C_l: cls[index_ct] with index_ct < psp->ct_size");
+      sprintf (desc, "lensed C_l: cls[index_ct][index_l] with index_ct < psp->ct_size, index_l < pbi->full_l_size");
       sprintf (name, "pbi->lensed_cls");
       int index_lensed_cl = file->n_blocks;
       for (int index_lt=0; index_lt < ple->lt_size; ++index_lt)
@@ -2295,7 +2285,7 @@ int bispectra_output (
           file->error_message,
           pbi->error_message);
 
-      sprintf (desc, "lensed C_l logarithmic derivative: d_lsq_cls[index_ct] with index_ct < psp->ct_size");
+      sprintf (desc, "lensed C_l logarithmic derivative: d_lsq_cls[index_ct][index_l] with index_ct < psp->ct_size, index_l < pbi->full_l_size");
       sprintf (name, "pbi->lensed_d_lsq_cls");
       index_lensed_cl = file->n_blocks;
       for (int index_lt=0; index_lt < ple->lt_size; ++index_lt)
@@ -2341,25 +2331,44 @@ int bispectra_output (
 
     for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt) {
 
-      sprintf (desc, "%s CMB bispectrum for all values of (l1,l2,l3) and for all fields (X,Y,Z)", pbi->bt_labels[index_bt]);
+      sprintf (desc, "%s CMB bispectrum for all values of (l1,l2,l3) and for all fields (X,Y,Z);\
+ indexed as [X][Y][Z][index_l1][index_l2][index_l3] with XYZ < pbi->bf_size, index_l1 < pbi->l_size,\
+ index_l2 <= index_l1, index_l3 < pbi->l3_size[index_l1][index_l2]", pbi->bt_labels[index_bt]);
       sprintf (name, "pbi->bispectra[index_bt=%d]", index_bt);
-      int index_bispectrum = file->n_blocks;      
+      int index_bispectrum = file->n_blocks;
 
       for (int X = 0; X < pbi->bf_size; ++X) {
         for (int Y = 0; Y < pbi->bf_size; ++Y) {
           for (int Z = 0; Z < pbi->bf_size; ++Z) {
 
-            class_call (binary_add_block (
-                          file,
-                          pbi->bispectra[index_bt][X][Y][Z],
-                          pbi->n_independent_configurations,
-                          sizeof (double),
-                          desc,
-                          "double",
-                          name,
-                          index_bispectrum),
-              file->error_message,
-              pbi->error_message);
+            for (int index_l1=0; index_l1 < pbi->l_size; ++index_l1) {        
+              for (int index_l2=0; index_l2 <= index_l1; ++index_l2) {
+
+                /* Determine the limits for l3, which come from the triangular inequality |l1-l2| <= l3 <= l1+l2 */
+                int index_l3_min = pbi->index_l_triangular_min[index_l1][index_l2];
+                int index_l3_max = MIN (index_l2, pbi->index_l_triangular_max[index_l1][index_l2]);
+
+                /* Extract bispectrum for this (l1,l2) as a function of l3 */
+                double bispectrum_l1l2[pbi->l3_size[index_l1][index_l2]];
+                for (int index_l3=index_l3_min; index_l3<=index_l3_max; ++index_l3) {  
+                  long int index_l1_l2_l3 = pbi->index_l1_l2_l3[index_l1][index_l1-index_l2][index_l3_max-index_l3];
+                  bispectrum_l1l2[index_l3] = pbi->bispectra[index_bt][X][Y][Z][index_l1_l2_l3];
+                }
+
+                class_call (binary_add_block (
+                              file,
+                              bispectrum_l1l2,
+                              pbi->l3_size[index_l1][index_l2],
+                              sizeof (double),
+                              desc,
+                              "double",
+                              name,
+                              index_bispectrum),
+                  file->error_message,
+                  pbi->error_message);
+
+              } // for l2
+            } // for l1
 
           } // Z
         } // Y
