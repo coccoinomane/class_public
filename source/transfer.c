@@ -3828,14 +3828,6 @@ int transfer_use_limber(
       if ((ppt->has_cl_cmb_lensing_potential == _TRUE_) && (index_tt == ptr->index_tt_lcmb) && (l>ppr->l_switch_limber)) {
         *use_limber = _TRUE_;
       }
-#ifdef WITH_BISPECTRA
-      if ((ppt->has_cl_cmb_reionisation_potential == _TRUE_) && (index_tt == ptr->index_tt_rcmb0) && (l>ppr->l_switch_limber)) {
-        *use_limber = _TRUE_;
-      }
-      if ((ppt->has_cl_cmb_reionisation_potential == _TRUE_) && (index_tt == ptr->index_tt_rcmb1) && (l>ppr->l_switch_limber)) {
-        *use_limber = _TRUE_;
-      }
-#endif // WITH_BISPECTRA
       if (_index_tt_in_range_(ptr->index_tt_density, ppt->selection_num, ppt->has_nc_density) && (l>=ppr->l_switch_limber_for_cl_density_over_z*ppt->selection_mean[index_tt-ptr->index_tt_density])) {
         if (ppt->selection != dirac) *use_limber = _TRUE_;
       }

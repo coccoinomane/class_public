@@ -761,10 +761,12 @@ int perturb_indices_of_perturbs(
 
 #ifdef WITH_BISPECTRA
       if (ppt->has_cl_cmb_reionisation_potential == _TRUE_) {
+        ppt->has_cmb = _TRUE_;
         ppt->has_source_reionisation = _TRUE_;
       }
 
       if (ppt->has_cl_cmb_zeta == _TRUE_) {
+        ppt->has_cmb = _TRUE_;
         ppt->has_source_zeta = _TRUE_;
       }
 #endif // WITH_BISPECTRA      
@@ -799,7 +801,7 @@ int perturb_indices_of_perturbs(
 #ifdef WITH_BISPECTRA
       class_define_index(ppt->index_tp_r0,       ppt->has_source_reionisation,      index_type,1);
       class_define_index(ppt->index_tp_r1,       ppt->has_source_reionisation,      index_type,1);
-      class_define_index(ppt->index_tp_zeta,     ppt->has_source_zeta,               index_type,1);
+      class_define_index(ppt->index_tp_zeta,     ppt->has_source_zeta,              index_type,1);
 #endif // WITH_BISPECTRA
       ppt->tp_size[index_md] = index_type;
 

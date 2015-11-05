@@ -1625,6 +1625,17 @@ int spectra_init(
     }
   }
 
+
+  /* Debug: print the cls */
+  // int index_mode = 0;
+  // int ic_size = 1;
+  // int index_ic1_ic2 = 0;
+  // int index_ct = psp->index_ct_rr;
+  // for (int index_l=0; index_l < ptr->l_size_max; ++index_l) {
+  //   fprintf (stderr, "%10d %16g\n",
+  //     ptr->l[index_l], psp->cl[index_mode][index_l * psp->ct_size + index_ct]);
+  // }
+
   return _SUCCESS_;
 }
 
