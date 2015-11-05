@@ -1861,8 +1861,6 @@ int spectra_indices(
       psp->has_tp = _FALSE_;
     }
 
-    psp->ct_size = index_ct;
-
     if ((ppt->has_cl_cmb_polarization == _TRUE_) && (ppt->has_cl_cmb_lensing_potential == _TRUE_) && (ppt->has_scalars == _TRUE_)) {
       psp->has_ep = _TRUE_;
       psp->index_ct_ep=index_ct;
@@ -1954,7 +1952,37 @@ int spectra_indices(
     }
 
 #ifdef WITH_BISPECTRA
+
+    /* Recombination potential */
     
+		if ((ppt->has_cl_cmb_reionisation_potential == _TRUE_) && (ppt->has_scalars == _TRUE_)) {
+      psp->has_rr = _TRUE_;
+      strcpy (psp->ct_labels[index_ct], "rr");
+      psp->index_ct_rr = index_ct++;
+    }
+    else {
+      psp->has_rr = _FALSE_;
+    }
+
+		if ((ppt->has_cl_cmb_temperature == _TRUE_) && (ppt->has_cl_cmb_reionisation_potential == _TRUE_) && (ppt->has_scalars == _TRUE_)) {
+      psp->has_tr = _TRUE_;
+      strcpy (psp->ct_labels[index_ct], "tr");
+      psp->index_ct_tr = index_ct++;
+    }
+    else {
+      psp->has_tr = _FALSE_;
+    }
+    
+		if ((ppt->has_cl_cmb_polarization == _TRUE_) && (ppt->has_cl_cmb_reionisation_potential == _TRUE_) && (ppt->has_scalars == _TRUE_)) {
+      psp->has_er = _TRUE_;
+      strcpy (psp->ct_labels[index_ct], "er");
+      psp->index_ct_er = index_ct++;
+    }
+    else {
+      psp->has_er = _FALSE_;
+    }
+
+
     /* Cross correlations with the primordial curvature perturbation zeta (see http://arxiv.org/abs/1204.5018) */
 
     if ((ppt->has_cl_cmb_temperature == _TRUE_) && (ppt->has_cl_cmb_zeta == _TRUE_) && (ppt->has_scalars == _TRUE_)) {
@@ -1969,7 +1997,7 @@ int spectra_indices(
     if ((ppt->has_cl_cmb_polarization == _TRUE_) && (ppt->has_cl_cmb_zeta == _TRUE_) && (ppt->has_scalars == _TRUE_)) {
       psp->has_ez = _TRUE_;
       strcpy (psp->ct_labels[index_ct], "ez");
-      psp->index_ct_ez=index_ct++;
+      psp->index_ct_ez = index_ct++;
     }
     else {
       psp->has_ez = _FALSE_;
@@ -2000,6 +2028,9 @@ int spectra_indices(
       if (psp->has_tp == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_tp] = ppt->l_scalar_max;
       if (psp->has_ep == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_ep] = ppt->l_scalar_max;
 #ifdef WITH_BISPECTRA
+      if (psp->has_rr == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_rr] = ppt->l_scalar_max;
+      if (psp->has_tr == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_tr] = ppt->l_scalar_max;
+      if (psp->has_er == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_er] = ppt->l_scalar_max;
       if (psp->has_tz == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_tz] = ppt->l_scalar_max;
       if (psp->has_ez == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_ez] = ppt->l_scalar_max;
 #endif // WITH_BISPECTRA
@@ -2447,7 +2478,9 @@ int spectra_compute_cl(
   int index_ic1_ic2;
   double transfer_ic1_temp=0.;
   double transfer_ic2_temp=0.;
-  double * transfer_ic1_nc=NULL;
+  double transfer_ic1_r=0.;
+  double transfer_ic2_r=0.;
+	double * transfer_ic1_nc=NULL;
   double * transfer_ic2_nc=NULL;
   double factor;
   int index_q_spline=0;
@@ -2564,6 +2597,19 @@ int spectra_compute_cl(
 
       }
     }
+
+
+#ifdef WITH_BISPECTRA
+    
+    if (ppt->has_cl_cmb_reionisation_potential==_TRUE_ && _scalars_) {
+
+      transfer_ic1_r = transfer_ic1[ptr->index_tt_rcmb0] + transfer_ic1[ptr->index_tt_rcmb1];
+      transfer_ic2_r = transfer_ic2[ptr->index_tt_rcmb0] + transfer_ic2[ptr->index_tt_rcmb1];
+
+    }
+    
+#endif // WITH_BISPECTRA
+
 
     /* integrand of Cl's */
 
@@ -2732,7 +2778,32 @@ int spectra_compute_cl(
     
 #ifdef WITH_BISPECTRA
 
+    /* Recombination potential */
+
+		if (_scalars_ && (psp->has_rr == _TRUE_))
+      cl_integrand[index_q*cl_integrand_num_columns+1+psp->index_ct_rr]=
+        primordial_pk[index_ic1_ic2]
+        * transfer_ic1_r
+        * transfer_ic2_r
+        * factor;
+
+    if (_scalars_ && (psp->has_tr == _TRUE_))
+      cl_integrand[index_q*cl_integrand_num_columns+1+psp->index_ct_tr]=
+        primordial_pk[index_ic1_ic2]
+        * 0.5*(transfer_ic1_temp * transfer_ic2_r +
+               transfer_ic1_r * transfer_ic2_temp)
+        * factor;
+
+		if (_scalars_ && (psp->has_er == _TRUE_))
+      cl_integrand[index_q*cl_integrand_num_columns+1+psp->index_ct_er]=
+        primordial_pk[index_ic1_ic2]
+        * 0.5*(transfer_ic1[ptr->index_tt_e] * transfer_ic2_r +
+               transfer_ic1_r * transfer_ic2[ptr->index_tt_e])
+        * factor;
+
+
     /* Cross correlations with the primordial curvature perturbation zeta */
+
     if (_scalars_ && (psp->has_tz == _TRUE_)) {
       
       cl_integrand[index_q*cl_integrand_num_columns+1+psp->index_ct_tz]=
@@ -2770,7 +2841,11 @@ int spectra_compute_cl(
         (_tensors_ && (psp->has_tl == _TRUE_) && (index_ct == psp->index_ct_tl)) ||
         (_tensors_ && (psp->has_dl == _TRUE_) && (index_ct == psp->index_ct_dl))
 #ifdef WITH_BISPECTRA
-        || (_tensors_ && (psp->has_tz == _TRUE_) && (index_ct == psp->index_ct_tz)) ||
+        ||
+        (_tensors_ && (psp->has_rr == _TRUE_) && (index_ct == psp->index_ct_rr)) ||
+        (_tensors_ && (psp->has_tr == _TRUE_) && (index_ct == psp->index_ct_tr)) ||
+        (_tensors_ && (psp->has_er == _TRUE_) && (index_ct == psp->index_ct_er)) ||
+        (_tensors_ && (psp->has_tz == _TRUE_) && (index_ct == psp->index_ct_tz)) ||
         (_tensors_ && (psp->has_ez == _TRUE_) && (index_ct == psp->index_ct_ez))
 #endif // WITH_BISPECTRA
         ) {

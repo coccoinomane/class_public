@@ -109,9 +109,11 @@ struct transfers {
   int index_tt_nc_g5;   /**< index for first bin of transfer type = gravity term G3 for of number count */
 #ifdef WITH_BISPECTRA
   int index_tt_t;       /**< index for the transfer function of the total temperature perturbation, given by
-                             the sum of the t0+t1+t2 transfer functions. Being a derived transfer function,
-                             index_tt_t can be computed without solving the line of sight integral. */
+                        the sum of the t0+t1+t2 transfer functions. Being a derived transfer function,
+                        index_tt_t can be computed without solving the line of sight integral. */
   int index_tt_zeta;    /**< index for transfer type = zeta curvature perturbation */
+  int index_tt_rcmb0;      /**< index for transfer type = monopole of CMB reionisation */
+  int index_tt_rcmb1;      /**< index for transfer type = dipole of CMB reionisation */
 #endif // WITH_BISPECTRA
 
   int * tt_size;     /**< number of requested transfer types tt_size[index_md] for each mode */
@@ -372,6 +374,7 @@ extern "C" {
   int transfer_source_tau_size_max(
                                    struct precision * ppr,
                                    struct background * pba,
+                                   struct thermo * pth,
                                    struct perturbs * ppt,
                                    struct transfers * ptr,
                                    double tau_rec,
@@ -382,6 +385,7 @@ extern "C" {
   int transfer_source_tau_size(
                                struct precision * ppr,
                                struct background * pba,
+                               struct thermo * pth,
                                struct perturbs * ppt,
                                struct transfers * ptr,
                                double tau_rec,
@@ -394,6 +398,7 @@ extern "C" {
   int transfer_compute_for_each_q(
                                   struct precision * ppr,
                                   struct background * pba,
+                                  struct thermo * pth,
                                   struct perturbs * ppt,
                                   struct transfers * ptr,
                                   int ** tp_of_tt,
@@ -427,6 +432,7 @@ extern "C" {
   int transfer_sources(
                        struct precision * ppr,
                        struct background * pba,
+                       struct thermo * pth,
                        struct perturbs * ppt,
                        struct transfers * ptr,
                        double * interpolated_sources,

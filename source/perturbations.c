@@ -626,6 +626,7 @@ int perturb_indices_of_perturbs(
   ppt->has_source_phi_plus_psi = _FALSE_;
   ppt->has_source_psi = _FALSE_;
 #ifdef WITH_BISPECTRA
+  ppt->has_source_reionisation = _FALSE_;
   ppt->has_source_zeta = _FALSE_;
 #endif // WITH_BISPECTRA
 
@@ -759,6 +760,10 @@ int perturb_indices_of_perturbs(
       }
 
 #ifdef WITH_BISPECTRA
+      if (ppt->has_cl_cmb_reionisation_potential == _TRUE_) {
+        ppt->has_source_reionisation = _TRUE_;
+      }
+
       if (ppt->has_cl_cmb_zeta == _TRUE_) {
         ppt->has_source_zeta = _TRUE_;
       }
@@ -792,7 +797,9 @@ int perturb_indices_of_perturbs(
       class_define_index(ppt->index_tp_phi_plus_psi,ppt->has_source_phi_plus_psi,index_type,1);
       class_define_index(ppt->index_tp_psi,        ppt->has_source_psi,       index_type,1);
 #ifdef WITH_BISPECTRA
-      class_define_index(ppt->index_tp_zeta,       ppt->has_source_zeta,      index_type,1);
+      class_define_index(ppt->index_tp_r0,       ppt->has_source_reionisation,      index_type,1);
+      class_define_index(ppt->index_tp_r1,       ppt->has_source_reionisation,      index_type,1);
+      class_define_index(ppt->index_tp_zeta,     ppt->has_source_zeta,               index_type,1);
 #endif // WITH_BISPECTRA
       ppt->tp_size[index_md] = index_type;
 
@@ -6409,7 +6416,24 @@ int perturb_sources(
 
 #ifdef WITH_BISPECTRA
 
-    /* zeta curvature perturbation */
+    /* Reionisation potential */
+    
+    if (ppt->has_source_reionisation == _TRUE_) {
+   
+      if (ppt->gauge == newtonian) {
+        
+        _set_source_(ppt->index_tp_r0) =
+          pvecthermo[pth->index_th_dkappa] * (pvecmetric[ppw->index_mt_psi] - y[ppw->pv->index_pt_delta_b]);
+
+        _set_source_(ppt->index_tp_r1) =
+          pvecthermo[pth->index_th_dkappa] * y[ppw->pv->index_pt_theta_b]/k;
+        
+      }
+    } // if (source_reio)
+
+
+    /* Curvature perturbation zeta */
+
     if (ppt->has_source_zeta == _TRUE_) {
       
       if (ppt->gauge == newtonian) {
@@ -6450,9 +6474,9 @@ int perturb_sources(
           ppt->error_message,
           "curvature perturbation zeta only supported in Newtonian gauge");
 
-      } // end of if(newtonian)
+      } // if(newtonian)
       
-    } // end of if(has_source_zeta)
+    } // if(has_source_zeta)
     
 #endif // WITH_BISPECTRA
 

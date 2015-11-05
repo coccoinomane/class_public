@@ -85,9 +85,15 @@ struct spectra {
 
 #ifdef WITH_BISPECTRA
 
+  int has_rr; /**< do we want C_l^r-r ? (CMB reionisation potential) */
+  int has_tr; /**< do we want C_l^T-r ? */
+  int has_er; /**< do we want C_l^E-r ? */
   int has_tz; /**< do we want C_l^TZ ? (Z = curvature pertubation, see http://arxiv.org/abs/1204.5018) */
   int has_ez; /**< do we want C_l^EZ ? (Z = curvature pertubation, see http://arxiv.org/abs/1204.5018) */
 
+  int index_ct_rr; /**< index for type C_l^r-r */
+  int index_ct_tr; /**< index for type C_l^T-r */
+  int index_ct_er; /**< index for type C_l^E-r */
   int index_ct_tz; /**< index for type C_l^T-Z */
   int index_ct_ez; /**< index for type C_l^E-Z */
 

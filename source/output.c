@@ -1932,6 +1932,9 @@ int output_open_cl_file(
       class_fprintf_columntitle(*clfile,"TE",psp->has_te,colnum);
       class_fprintf_columntitle(*clfile,"BB",psp->has_bb,colnum);
 #ifdef WITH_BISPECTRA
+      class_fprintf_columntitle(*clfile,"RR",psp->has_rr,colnum);
+      class_fprintf_columntitle(*clfile,"TR",psp->has_tr,colnum);
+      class_fprintf_columntitle(*clfile,"ER",psp->has_er,colnum);
       class_fprintf_columntitle(*clfile,"TZ",psp->has_tz,colnum);
       class_fprintf_columntitle(*clfile,"EZ",psp->has_ez,colnum);
 #endif // WITH_BISPECTRA
@@ -1944,6 +1947,13 @@ int output_open_cl_file(
       class_fprintf_columntitle(*clfile,"EE",psp->has_ee,colnum);
       class_fprintf_columntitle(*clfile,"BB",psp->has_bb,colnum);
       class_fprintf_columntitle(*clfile,"TE",psp->has_te,colnum);
+#ifdef WITH_BISPECTRA
+      class_fprintf_columntitle(*clfile,"rr",psp->has_rr,colnum);
+      class_fprintf_columntitle(*clfile,"tr",psp->has_tr,colnum);
+      class_fprintf_columntitle(*clfile,"er",psp->has_er,colnum);
+      class_fprintf_columntitle(*clfile,"tz",psp->has_tz,colnum);
+      class_fprintf_columntitle(*clfile,"ez",psp->has_ez,colnum);
+#endif // WITH_BISPECTRA
       class_fprintf_columntitle(*clfile,"dd",psp->has_pp,colnum);
       class_fprintf_columntitle(*clfile,"dT",psp->has_tp,colnum);
       class_fprintf_columntitle(*clfile,"dE",psp->has_ep,colnum);
@@ -2072,6 +2082,13 @@ int output_one_line_of_cl(
     class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_ee], psp->has_ee);
     class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_bb], psp->has_bb);
     class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_te], psp->has_te);
+#ifdef WITH_BISPECTRA
+    class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_rr], psp->has_rr);
+    class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_tr], psp->has_tr);
+    class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_er], psp->has_er);
+    class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_tz], psp->has_tz);
+    class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_ez], psp->has_ez);
+#endif // WITH_BISPECTRA
     class_fprintf_double(clfile, l*(l+1)*factor*cl[psp->index_ct_pp], psp->has_pp);
     class_fprintf_double(clfile, sqrt(l*(l+1))*factor*pba->T_cmb*1.e6*cl[psp->index_ct_tp], psp->has_tp);
     class_fprintf_double(clfile, sqrt(l*(l+1))*factor*pba->T_cmb*1.e6*cl[psp->index_ct_ep], psp->has_ep);
@@ -2084,6 +2101,18 @@ int output_one_line_of_cl(
       index_ct_rest++;
     if (psp->has_te == _TRUE_)
       index_ct_rest++;
+#ifdef WITH_BISPECTRA
+    if (psp->has_rr == _TRUE_)
+      index_ct_rest++;
+    if (psp->has_tr == _TRUE_)
+      index_ct_rest++;
+    if (psp->has_er == _TRUE_)
+      index_ct_rest++;
+    if (psp->has_tz == _TRUE_)
+      index_ct_rest++;
+    if (psp->has_ez == _TRUE_)
+      index_ct_rest++;
+#endif // WITH_BISPECTRA
     if (psp->has_pp == _TRUE_)
       index_ct_rest++;
     if (psp->has_tp == _TRUE_)

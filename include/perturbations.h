@@ -406,19 +406,27 @@ struct perturbs
   //@{
 
   short has_cmb_bispectra;         /**< do we need to compute any harmonic space bispectrum b_l1l2l3? */
+
   short has_bi_cmb_temperature;    /**< do we need bispectra for CMB temperature? */
+
   short has_bi_cmb_polarization;   /**< do we need bispectra for CMB polarization? */
 
-  short has_cl_cmb_zeta;              /**< do we need Cl's for the primordial curvature perturbation zeta?
-                                      This is needed to reproduce the analytical approximation of the
-                                      squeezed temperature bispectrum in Lewis
-                                      2012 (arxiv.org/abs/1204.5018). */
+  short has_cl_cmb_zeta;  /**< do we need C_l for the primordial curvature perturbation zeta?
+                          This is needed to reproduce the analytical approximation of the
+                          squeezed temperature bispectrum in Lewis 2012 (arxiv.org/abs/1204.5018). */
   short has_source_zeta; /**< do we need source for the primordial curvature perturbation zeta? */
   short recombination_only_zeta;      /**< should the curvature perturbation zeta only include contributions */  
   int index_tp_zeta; /**< index value for the primordial curvature perturbation zeta */
-  
+
+  short has_cl_cmb_reionisation_potential; /**< do we need C_l for CMB reionisation potential? */
+  short has_source_reionisation; /**< do we need source for reionisation? */
+  int index_tp_r0; /**< index value for monopole reionisation sources */
+  int index_tp_r1; /**< index value for dipole of reionisation sources */
+
   short has_scattering_in_los; /**< Shall we include the scattering terms in the line-of-sight sources? */
+
   short has_photon_monopole_in_los; /**< Shall we include the g/4*delta_g term in the line-of-sight sources? */
+
   short has_metric_in_los; /**< Shall we include the metric terms in the line-of-sight sources? */
   
   /* Shall we include the Sachs-Wolfe (SW) and integrated Sachs-Wolfe (ISW) effects in the line-of-sight

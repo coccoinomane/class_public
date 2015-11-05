@@ -38,7 +38,7 @@ OMPFLAG   = -fopenmp
 #OMPFLAG   = -openmp
 
 # all other compilation flags
-CCFLAG = -g -fPIC -w -std=c99
+CCFLAG = -g -fPIC -std=c99
 CFLAGS += -DDEBUG
 LDFLAG = -g -fPIC
 

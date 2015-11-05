@@ -261,7 +261,7 @@ int transfer_init(
       sources: needs to be known here, in order to allocate a large
       enough workspace */
 
-  class_call(transfer_source_tau_size_max(ppr,pba,ppt,ptr,tau_rec,tau0,&tau_size_max),
+  class_call(transfer_source_tau_size_max(ppr,pba,pth,ppt,ptr,tau_rec,tau0,&tau_size_max),
              ptr->error_message,
              ptr->error_message);
 
@@ -308,7 +308,7 @@ int transfer_init(
   /* beginning of parallel region */
 
 #pragma omp parallel                                                    \
-  shared(tau_size_max,ptr,ppr,pba,ppt,tp_of_tt,tau_rec,sources_spline,abort,BIS,tau0) \
+  shared(tau_size_max,ptr,ppr,pba,pth,ppt,tp_of_tt,tau_rec,sources_spline,abort,BIS,tau0) \
   private(ptw,index_q,tstart,tstop,tspent)
   {
 
@@ -354,6 +354,7 @@ int transfer_init(
 
       class_call_parallel(transfer_compute_for_each_q(ppr,
                                                       pba,
+                                                      pth,
                                                       ppt,
                                                       ptr,
                                                       tp_of_tt,
@@ -554,9 +555,10 @@ int transfer_indices_of_transfers(
     class_define_index(ptr->index_tt_nc_g5,  ppt->has_nc_gr,                   index_tt,ppt->selection_num);
     class_define_index(ptr->index_tt_lensing,ppt->has_cl_lensing_potential,    index_tt,ppt->selection_num);
 #ifdef WITH_BISPECTRA
-    class_define_index(ptr->index_tt_t,      ppt->has_cl_cmb_temperature,      index_tt,1);
-    if (ppt->has_cl_cmb_zeta == _TRUE_)
-      class_define_index(ptr->index_tt_zeta, ppt->has_cl_cmb_zeta,             index_tt,1);
+    class_define_index(ptr->index_tt_t,      ppt->has_cl_cmb_temperature,            index_tt,1);
+    class_define_index(ptr->index_tt_rcmb0,     ppt->has_cl_cmb_reionisation_potential, index_tt,1);
+    class_define_index(ptr->index_tt_rcmb1,     ppt->has_cl_cmb_reionisation_potential, index_tt,1);
+    class_define_index(ptr->index_tt_zeta,   ppt->has_cl_cmb_zeta,                   index_tt,1);
 #endif // WITH_BISPECTRA
 
     ptr->tt_size[ppt->index_md_scalars]=index_tt;
@@ -850,6 +852,10 @@ int transfer_get_l_list(
 
       if ((ppt->has_cl_cmb_temperature == _TRUE_) ||
           (ppt->has_cl_cmb_polarization == _TRUE_) ||
+#ifdef WITH_BISPECTRA
+          (ppt->has_cl_cmb_reionisation_potential == _TRUE_) ||
+          (ppt->has_cl_cmb_zeta == _TRUE_) ||
+#endif // WITH_BISPECTRA
           (ppt->has_cl_cmb_lensing_potential == _TRUE_))
         l_max=MAX(ppt->l_scalar_max,l_max);
 
@@ -1131,7 +1137,9 @@ int transfer_get_l_list(
           l_max=ppt->l_lss_max;
 
 #ifdef WITH_BISPECTRA
-        if ((ppt->has_cl_cmb_zeta == _TRUE_) && (index_tt == ptr->index_tt_zeta))
+        if ((ppt->has_cl_cmb_reionisation_potential == _TRUE_ && index_tt == ptr->index_tt_rcmb0) ||
+            (ppt->has_cl_cmb_reionisation_potential == _TRUE_ && index_tt == ptr->index_tt_rcmb1) ||
+            (ppt->has_cl_cmb_zeta == _TRUE_ && index_tt == ptr->index_tt_zeta))
           l_max=ppt->l_scalar_max;
 #endif // WITH_BISPECTRA
 
@@ -1561,11 +1569,16 @@ int transfer_get_source_correspondence(
           tp_of_tt[index_md][index_tt]=ppt->index_tp_phi_plus_psi;
 
 #ifdef WITH_BISPECTRA
-        /* We flag the derived transfer functions with a negative value, so that no computation
-        is lost to obtain them. */
+        /* We flag the derived transfer functions with a negative value */
         if ((ppt->has_cl_cmb_temperature == _TRUE_) && (index_tt == ptr->index_tt_t)) 
           tp_of_tt[index_md][index_tt]=-1;
-        
+
+        if ((ppt->has_cl_cmb_reionisation_potential == _TRUE_) && (index_tt == ptr->index_tt_rcmb0))
+          tp_of_tt[index_md][index_tt]=ppt->index_tp_r0;
+
+        if ((ppt->has_cl_cmb_reionisation_potential == _TRUE_) && (index_tt == ptr->index_tt_rcmb1))
+          tp_of_tt[index_md][index_tt]=ppt->index_tp_r1;
+
         if ((ppt->has_cl_cmb_zeta == _TRUE_) && (index_tt == ptr->index_tt_zeta))
           tp_of_tt[index_md][index_tt]=ppt->index_tp_zeta;
 #endif // WITH_BISPECTRA
@@ -1623,6 +1636,7 @@ int transfer_free_source_correspondence(
 int transfer_source_tau_size_max(
                                  struct precision * ppr,
                                  struct background * pba,
+                                 struct thermo * pth,
                                  struct perturbs * ppt,
                                  struct transfers * ptr,
                                  double tau_rec,
@@ -1642,6 +1656,7 @@ int transfer_source_tau_size_max(
 
       class_call(transfer_source_tau_size(ppr,
                                           pba,
+                                          pth,
                                           ppt,
                                           ptr,
                                           tau_rec,
@@ -1683,6 +1698,7 @@ int transfer_source_tau_size_max(
 int transfer_source_tau_size(
                              struct precision * ppr,
                              struct background * pba,
+                             struct thermo * pth,
                              struct perturbs * ppt,
                              struct transfers * ptr,
                              double tau_rec,
@@ -1727,8 +1743,38 @@ int transfer_source_tau_size(
     }
 
 #ifdef WITH_BISPECTRA
+
+    /* Reionisation potential */
+
+    if ((ppt->has_cl_cmb_reionisation_potential == _TRUE_) &&
+        (index_tt == ptr->index_tt_rcmb0 || index_tt == ptr->index_tt_rcmb1)) {
+ 
+ 			double tau_reio;
+
+ 			class_call (background_tau_of_z (pba, pth->z_reio_start, &tau_reio),
+                    pba->error_message,
+                    ptr->error_message);
+      // printf("reionisation starts at tau = %f or z = %f\n", tau_reio, pth->z_reio_start);
+
+      /* find times after beginning of reionisation */
+      int index_tau_min = 0;
+      while ((index_tau_min < ppt->tau_size) && (ppt->tau_sampling[index_tau_min] < tau_reio))
+        index_tau_min++;
+
+      class_test (index_tau_min == ppt->tau_size,
+        ptr->error_message,
+        "index_tau_min out of bounds (=%d)", ppt->tau_size);
+       
+      /* infer number of time steps after removing early times */
+      *tau_size = ppt->tau_size-index_tau_min;
+
+    }	
+     
+    /* Curvature perturbation zeta */
+    
     if ((ppt->has_cl_cmb_zeta == _TRUE_) && (index_tt == ptr->index_tt_zeta))
       *tau_size = ppt->tau_size;
+
 #endif // WITH_BISPECTRA
 
     /* density Cl's */
@@ -1867,6 +1913,7 @@ int transfer_source_tau_size(
 int transfer_compute_for_each_q(
                                 struct precision * ppr,
                                 struct background * pba,
+                                struct thermo * pth,
                                 struct perturbs * ppt,
                                 struct transfers * ptr,
                                 int ** tp_of_tt,
@@ -1992,6 +2039,7 @@ int transfer_compute_for_each_q(
 
           class_call(transfer_sources(ppr,
                                       pba,
+                                      pth,
                                       ppt,
                                       ptr,
                                       interpolated_sources,
@@ -2271,6 +2319,7 @@ int transfer_interpolate_sources(
 int transfer_sources(
                      struct precision * ppr,
                      struct background * pba,
+                     struct thermo * pth,
                      struct perturbs * ppt,
                      struct transfers * ptr,
                      double * interpolated_sources,
@@ -2367,6 +2416,12 @@ int transfer_sources(
     if ((ppt->has_cl_lensing_potential == _TRUE_) && (index_tt >= ptr->index_tt_lensing) && (index_tt < ptr->index_tt_lensing+ppt->selection_num))
       redefine_source = _TRUE_;
 
+#ifdef WITH_BISPECTRA
+    /* reionisation potential */
+    if ((ppt->has_cl_cmb_reionisation_potential == _TRUE_) && (index_tt == ptr->index_tt_rcmb0 || index_tt == ptr->index_tt_rcmb1))
+      redefine_source = _TRUE_;
+#endif // WITH_BISPECTRA
+
   }
 
   /* conformal time today */
@@ -2378,6 +2433,7 @@ int transfer_sources(
 
     class_call(transfer_source_tau_size(ppr,
                                         pba,
+                                        pth,
                                         ppt,
                                         ptr,
                                         tau_rec,
@@ -2390,7 +2446,7 @@ int transfer_sources(
 
     if (_scalars_) {
 
-      /* lensing source: throw away times before recombuination, and multiply psi by window function */
+      /* lensing source: throw away times before recombination, and multiply psi by window function */
 
       if ((ppt->has_cl_cmb_lensing_potential == _TRUE_) && (index_tt == ptr->index_tt_lcmb)) {
 
@@ -2456,6 +2512,40 @@ int transfer_sources(
                    ptr->error_message,
                    ptr->error_message);
       }
+
+
+#ifdef WITH_BISPECTRA
+      /* reionisation source: throw away times before reionisation*/
+ 
+      if ((ppt->has_cl_cmb_reionisation_potential == _TRUE_) && (index_tt == ptr->index_tt_rcmb0 || index_tt == ptr->index_tt_rcmb1)) {
+ 
+        /* first time step after removing early times */
+        index_tau_min =  ppt->tau_size - tau_size;
+ 
+        /* loop over time */
+        for (index_tau = index_tau_min; index_tau < ppt->tau_size; index_tau++) {
+ 
+          /* conformal time */
+          tau = ppt->tau_sampling[index_tau];
+ 
+          /* copy from input array to output array */
+          sources[index_tau-index_tau_min] =
+            interpolated_sources[index_tau];
+
+          /* store value of (tau0-tau) */
+          tau0_minus_tau[index_tau-index_tau_min] = tau0 - tau;
+ 
+        }
+ 
+        /* Compute trapezoidal weights for integration over tau */
+        class_call(array_trapezoidal_mweights(tau0_minus_tau,
+                                              tau_size,
+                                              w_trapz,
+                                              ptr->error_message),
+                   ptr->error_message,
+                   ptr->error_message);
+      }
+#endif // WITH_BISPECTRA
 
       /* density source: redefine the time sampling, multiply by
          coefficient of Poisson equation, and multiply by selection
@@ -3419,7 +3509,7 @@ int transfer_selection_times(
                                  z,
                                  tau_min),
              pba->error_message,
-             ppt->error_message);
+             ptr->error_message);
 
   /* higher edge of time interval for this bin */
 
@@ -3437,7 +3527,7 @@ int transfer_selection_times(
                                  z,
                                  tau_max),
              pba->error_message,
-             ppt->error_message);
+             ptr->error_message);
 
   /* central value of time interval for this bin */
 
@@ -3447,7 +3537,7 @@ int transfer_selection_times(
                                  z,
                                  tau_mean),
              pba->error_message,
-             ppt->error_message);
+             ptr->error_message);
 
   return _SUCCESS_;
 
@@ -3699,7 +3789,12 @@ int transfer_compute_for_each_l(
                           * ptr->q_size + index_q]
     = transfer_function;
 
-
+#ifdef WITH_BISPECTRA
+  /* Debug: print the lensing and reionisation potential transfer functions */
+  // if (index_tt == ptr->index_tt_lcmb && index_l == 10 && index_q == 100) {printf("lens = %g\n",transfer_function);}
+  // if (index_tt == ptr->index_tt_rcmb && index_l == 10 && index_q == 100) {printf("reio = %g\n",transfer_function);}
+#endif // WITH_BISPECTRA
+  
   return _SUCCESS_;
 
 }
@@ -3733,6 +3828,14 @@ int transfer_use_limber(
       if ((ppt->has_cl_cmb_lensing_potential == _TRUE_) && (index_tt == ptr->index_tt_lcmb) && (l>ppr->l_switch_limber)) {
         *use_limber = _TRUE_;
       }
+#ifdef WITH_BISPECTRA
+      if ((ppt->has_cl_cmb_reionisation_potential == _TRUE_) && (index_tt == ptr->index_tt_rcmb0) && (l>ppr->l_switch_limber)) {
+        *use_limber = _TRUE_;
+      }
+      if ((ppt->has_cl_cmb_reionisation_potential == _TRUE_) && (index_tt == ptr->index_tt_rcmb1) && (l>ppr->l_switch_limber)) {
+        *use_limber = _TRUE_;
+      }
+#endif // WITH_BISPECTRA
       if (_index_tt_in_range_(ptr->index_tt_density, ppt->selection_num, ppt->has_nc_density) && (l>=ppr->l_switch_limber_for_cl_density_over_z*ppt->selection_mean[index_tt-ptr->index_tt_density])) {
         if (ppt->selection != dirac) *use_limber = _TRUE_;
       }
@@ -3951,7 +4054,7 @@ int transfer_integrate(
   }
   
 #ifdef WITH_BISPECTRA
-  /* Debug - print the transfer function for the zeta curvature perturbation */
+  /* Debug: print the transfer function for the zeta curvature perturbation */
   // if ((ppt->has_cl_cmb_zeta == _TRUE_) && (index_tt == ptr->index_tt_zeta))
   //   printf ("%12g %12g\n", k, trsf);
 #endif // WITH_BISPECTRA
@@ -4711,8 +4814,19 @@ int transfer_select_radial_function(
       *radial_type = SCALAR_TEMPERATURE_1;
 
 #ifdef WITH_BISPECTRA
+
+		if (ppt->has_cl_cmb_reionisation_potential == _TRUE_) {
+
+      if (index_tt == ptr->index_tt_rcmb0)
+        *radial_type = SCALAR_TEMPERATURE_0;
+
+      if (index_tt == ptr->index_tt_rcmb1)
+        *radial_type = SCALAR_TEMPERATURE_1;
+    }
+
     if ((ppt->has_cl_cmb_zeta == _TRUE_) && (index_tt == ptr->index_tt_zeta))
       *radial_type = SCALAR_TEMPERATURE_0;
+
 #endif // WITH_BISPECTRA
 
   }

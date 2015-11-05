@@ -1405,6 +1405,12 @@ int input_read_parameters(
 
 #ifdef WITH_BISPECTRA
 
+    if ((strstr(string1,"rCl") != NULL) || (strstr(string1,"RCl") != NULL) || (strstr(string1,"RCL") != NULL)) {
+      ppt->has_cl_cmb_reionisation_potential = _TRUE_;
+      ppt->has_perturbations = _TRUE_;
+      ppt->has_cls = _TRUE_;
+    }
+
     if ((strstr(string1,"zCl") != NULL) || (strstr(string1,"ZCl") != NULL) || (strstr(string1,"ZCL") != NULL)) {
       ppt->has_cl_cmb_zeta = _TRUE_;
       ppt->has_perturbations = _TRUE_;  
@@ -1741,6 +1747,12 @@ int input_read_parameters(
       class_test(ppt->has_cl_cmb_lensing_potential == _TRUE_,
                  errmsg,
                  "Inconsistency: you want C_l's for cmb lensing potential, but no scalar modes\n");
+                 
+#ifdef WITH_BISPECTRA
+       class_test(ppt->has_cl_cmb_reionisation_potential == _TRUE_,
+                  errmsg,
+                  "Inconsistency: you want C_l's for cmb reionisation potential, but no scalar modes\n");
+#endif // WITH_BISPECTRA
 
       class_test(ppt->has_pk_matter == _TRUE_,
                  errmsg,
@@ -2279,6 +2291,10 @@ int input_read_parameters(
     if (ppt->has_scalars == _TRUE_) {
       if ((ppt->has_cl_cmb_temperature == _TRUE_) ||
           (ppt->has_cl_cmb_polarization == _TRUE_) ||
+#ifdef WITH_BISPECTRA
+          (ppt->has_cl_cmb_reionisation_potential == _TRUE_) ||
+          (ppt->has_cl_cmb_zeta == _TRUE_) ||
+#endif // WITH_BISPECTRA
           (ppt->has_cl_cmb_lensing_potential == _TRUE_))
         class_read_double("l_max_scalars",ppt->l_scalar_max);
 
@@ -2916,9 +2932,11 @@ int input_read_parameters(
     errmsg,
     "Support for custom 1st-order line of sight temporarily disabled in SONG");
 
-  /* The zeta-T correlation is not implemented yet in synchronous gauge */
-  if (ppt->gauge == synchronous)
+  /* The zeta and reionisation C_l are not implemented yet in synchronous gauge */
+  if (ppt->gauge == synchronous) {
     ppt->has_cl_cmb_zeta = _FALSE_;  
+    ppt->has_cl_cmb_reionisation_potential = _FALSE_;  
+  }
 
   /* Should the curvature perturbation zeta only include contributions from recombination?
   I.e. should we ignore reionisation when computing zeta? */
@@ -3427,6 +3445,7 @@ int input_read_parameters(
 
       if ((ppt->has_cl_cmb_temperature == _TRUE_) ||
           (ppt->has_cl_cmb_polarization == _TRUE_) ||
+          (ppt->has_cl_cmb_reionisation_potential == _TRUE_) ||
           (ppt->has_cl_cmb_lensing_potential == _TRUE_))
         l_max=MAX(ppt->l_scalar_max,l_max);
 
@@ -4181,23 +4200,18 @@ int input_default_params(
 
 #ifdef WITH_BISPECTRA
   
-  /* Let the perturb module know whether we will need to compute bispectra */
   ppt->has_cmb_bispectra = _FALSE_;
   ppt->has_bi_cmb_temperature = _FALSE_;
   ppt->has_bi_cmb_polarization = _FALSE_;
   
-  /* What is in the line-of-sight integral at first order? */
   ppt->has_scattering_in_los = _TRUE_;
   ppt->has_photon_monopole_in_los = _TRUE_;
   ppt->has_metric_in_los = _TRUE_;
   ppt->has_sw = _FALSE_;
   ppt->has_isw = _FALSE_;
 
-  /* Alternative initial conditions at 1st order */
-  // ppt->has_ad_maberty=_FALSE_;
-  // ppt->has_zero_ic=_FALSE_;
+  ppt->has_cl_cmb_reionisation_potential = _FALSE_;
 
-  /* Compute curvature perturbation zeta? */
   ppt->has_cl_cmb_zeta = _FALSE_;
   ppt->recombination_only_zeta = _TRUE_;
   
