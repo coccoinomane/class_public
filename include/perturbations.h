@@ -176,7 +176,8 @@ struct perturbs
   short has_cl_cmb_lensing_potential; /**< do we need Cl's for CMB lensing potential? */
   short has_cl_lensing_potential;     /**< do we need Cl's for galaxy lensing potential? */
   short has_cl_number_count;          /**< do we need Cl's for density number count? */
-  short has_pk_matter;                /**< do we need matter Fourier spectrum? */
+  short has_pk_delta;                 /**< do we need matter density Fourier spectrum? */
+  short has_pk_theta;                 /**< do we need matter velocity Fourier spectrum? */
   short has_density_transfers;        /**< do we need to output individual matter density transfer functions? */
   short has_velocity_transfers;       /**< do we need to output individual matter velocity transfer functions? */
 
