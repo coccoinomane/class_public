@@ -146,7 +146,12 @@ int input_init_from_arguments(
   }
 
 #ifdef WITH_BISPECTRA
+
   read_input_files:
+  
+  /** - save the parameter filename into the ppr structure */
+  strcpy (ppr->ini_filename, input_file);
+
 #endif // WITH_BISPECTRA
 
   /** - if there is an 'xxx.ini' file, read it and store its content. */
@@ -156,11 +161,6 @@ int input_init_from_arguments(
     class_call(parser_read_file(input_file,&fc_input,errmsg),
                errmsg,
                errmsg);
-
-#ifdef WITH_BISPECTRA
-    /** - save the parameter filename into the ppr structure */
-    strcpy (ppr->ini_filename, input_file);
-#endif // WITH_BISPECTRA
 
 #ifndef WITH_BISPECTRA
     /** - check whether a root name has been set */
@@ -210,16 +210,18 @@ int input_init_from_arguments(
 
   /** - if there is an 'xxx.pre' file, read it and store its content. */
 
+#ifdef WITH_BISPECTRA
+
+  /** - save the parameter filename into the ppr structure */
+  strcpy (ppr->pre_filename, precision_file);
+
+#endif // WITH_BISPECTRA
+
   if (precision_file[0] != '\0')
 
     class_call(parser_read_file(precision_file,&fc_precision,errmsg),
                errmsg,
                errmsg);
-
-#ifdef WITH_BISPECTRA
-  /** - save the parameter filename into the ppr structure */
-  strcpy (ppr->pre_filename, precision_file);
-#endif // WITH_BISPECTRA
 
   /** - if one or two files were read, merge their contents in a
       single 'file_content' structure. */
