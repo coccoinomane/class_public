@@ -32,6 +32,10 @@ struct spectra {
                    and number of bins minus one means all
                    correlations */
 
+#ifdef WITH_BISPECTRA
+  int has_pk_halo_contraction; /**< include the effect of dm halo contraction to the cold dark matter density P(k) */
+#endif // WITH_BISPECTRA
+
   //@}
 
   /** @name - information on number of modes and pairs of initial conditions */
@@ -479,6 +483,21 @@ extern "C" {
         struct spectra * psp
         );
 
+#ifdef WITH_BISPECTRA
+  int spectra_pk_halo_contraction (
+        double h,
+        double k,
+        double * result,
+        ErrorMsg errmsg
+        );
+#endif // WITH_BISPECTRA
+
+  int spectra_nfw (
+        double eta,
+        double c,
+        double * result,
+        ErrorMsg errmsg
+        );
 
   int spectra_pk_compute_derivatives(
         int index_pk,

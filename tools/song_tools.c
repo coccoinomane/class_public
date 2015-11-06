@@ -22,8 +22,8 @@
  * ( -m2-m3    m2     m3   )
  * 
  * The result shall be stored into 'threej'.
- *
  */
+
 int threej_single(
        int l1, int l2, int l3, int m2, int m3, // In
        double *threej,                         // Out
@@ -100,8 +100,8 @@ int threej_single(
  * 1) Allow odd increments. I want to be able to compute stuff like 3J(l1+3 l2 l2+3)/3J(l1 l2 l2).
  * 
  * 2) Allow for l1+l2+l3 to be odd.
- *
  */
+
 int threej_ratio_L (
       int L1, int L2, int L3,            // In
       int N1, int N2, int N3,            // In
@@ -226,8 +226,8 @@ int threej_ratio_L (
  * interpolating the ratio for odd values of l1+l2+l3.
  *
  * Caution: this function was never tested!
- *  
  */
+
 int threej_ratio_L_recursive (
       int l1, int l2, int l3, int N1,     // In
       double *result,                     // Out, should be allocated with M+1 elements
@@ -277,8 +277,8 @@ int threej_ratio_L_recursive (
  *
  * This function calls threej_ratio_L_recursive() and only outputs the last element
  * of the result array. See comments in 'threej_ratio_L_recursive' for more detail.
- *
  */
+
 int threej_ratio_L1 (
       int l1, int l2, int l3, int N1,     // In
       double *result,                    // Out
@@ -400,6 +400,7 @@ int threej_ratio_M (
  * Support function for 'threej_ratio_L_recursive'. The first argument
  * (l1) is the multipole with a zero in the lower row.
  */
+
 int threej_A (
       int l1, int l2, int l3,
       int m1,
@@ -434,6 +435,7 @@ int threej_A (
  * Support function for 'threej_ratio_L_recursive'. The first argument
  * (l1) is the multipole with a zero in the lower row.
  */
+
 int threej_B (
       int l1, int l2, int l3,
       int m1, int m2, int m3,
@@ -456,6 +458,7 @@ int threej_B (
  * Support function for 'threej_ratio_M_recursive'. The first argument
  * (l1) is the one for which we are computing the recursion.
  */
+
 int threej_C (
       int l1, int l2, int l3,
       int m2, int m3,
@@ -474,6 +477,7 @@ int threej_C (
  * Support function for 'threej_ratio_M_recursive'. The first argument
  * (l1) is the one for which we are computing the recursion.
  */
+
 int threej_D (
       int l1, int l2, int l3,
       int m2, int m3,
@@ -493,6 +497,7 @@ int threej_D (
  * (l1) is the one for which we are computing the recursion.
  * The values of l1,l2,l3 do not need to satisfy a triangular condition.
  */
+
 int threej_A_factor (
       int l1, int l2, int l3,
       int n1,
@@ -556,17 +561,502 @@ int threej_A_factor (
 }
 
 
+
 // ======================================================================================
-// =                                   Bessel functions                                 =
+// =                                 Coupling factors                                   =
+// ======================================================================================
+
+/**
+ * Compute the C_minus coupling coefficient appearing in the in the Boltzmann hierarchy.
+ *
+ * The coupling coefficients are defined in eqs. A.11 and 2.18 of Beneke & Fidler 2011.
+ * They are basically compact forms of 3j symbols that naturally arise when peforming
+ * the multipole expansion of the Boltzmann equation. For their explicit form, refer to
+ * section A.4.1 of http://arxiv.org/abs/1405.2280.
+ */
+
+double coupling_c_minus (int l, int m1, int m) {
+
+  if ((abs(m1-m)>1) && (abs(m)>l))
+    printf("WARNING: 'c_minus' called with wrong arguments: l=%d, m1=%d, m=%d.\n", l, m1, m);
+
+  double result;
+
+  if (m1 == m+1) {
+    if (l==m)
+      result = 0;
+    else
+      result = sqrt((l-1.-m)*(l-m)) / (sqrt_2*(2*l-1.));
+  }
+
+  if (m1 == m-1) {
+    if (l==-m)
+      result = 0;
+    else
+      result = sqrt((l-1.+m)*(l+m))/(sqrt_2*(2*l-1.));
+  }
+
+  if (m1 == m) {
+    if (m == 0)
+      result = l/(2*l-1.);
+    else
+      result = sqrt((double)l*l-m*m)/(2*l-1.);
+  }
+  
+  // *** Some debug
+  // printf("c_minus(%d,%d,%d)=%g\n", l, m1, m, result);
+  
+  return result;
+      
+}
+
+/**
+ * Compute the C_plus coupling coefficient appearing in the in the Boltzmann hierarchy.
+ *
+ * The coupling coefficients are defined in eqs. A.11 and 2.18 of Beneke & Fidler 2011.
+ * They are basically compact forms of 3j symbols that naturally arise when peforming
+ * the multipole expansion of the Boltzmann equation. For their explicit form, refer to
+ * section A.4.1 of http://arxiv.org/abs/1405.2280.
+ */
+
+double coupling_c_plus (int l, int m1, int m) {
+  
+  if ((abs(m1-m)>1) && (abs(m)>l))
+    printf("WARNING: 'c_plus' called with wrong arguments: l=%d, m1=%d, m=%d.\n", l, m1, m);
+
+  double result;
+
+  if (m1 == m+1)
+    result = -sqrt((l+1.+m)*(l+2+m))/(sqrt_2*(2*l+3.));
+
+  if (m1 == m-1)
+    result = -sqrt((l+1.-m)*(l+2-m))/(sqrt_2*(2*l+3.));
+
+  if (m1 == m) {
+    if (m == 0)
+      result = (l+1)/(2*l+3.);
+    else
+      result = sqrt((l+1.)*(l+1)-m*m)/(2*l+3.);
+  }
+ 
+  return result;
+      
+}
+
+
+/**
+ * Compute the D_zero coupling coefficient appearing in the in the Boltzmann hierarchy.
+ *
+ * The coupling coefficients are defined in eqs. A.11 and 2.18 of Beneke & Fidler 2011.
+ * They are basically compact forms of 3j symbols that naturally arise when peforming
+ * the multipole expansion of the Boltzmann equation. For their explicit form, refer to
+ * section A.4.1 of http://arxiv.org/abs/1405.2280.
+ */
+
+double coupling_d_zero (int l, int m1, int m) {
+
+  if ((abs(m1-m)>1) && (abs(m)>l))
+    printf("WARNING: 'd_zero' called with wrong arguments: l=%d, m1=%d, m=%d.\n", l, m1, m);
+
+  double result;
+
+  if (m1 == m+1) {
+    if (l==m)
+      result = 0;
+    else
+      result = -sqrt(2*(l+1.+m)*(l-m)) / (l*(l+1.));
+  }
+
+  if (m1 == m-1) {
+    if (l==-m)
+      result = 0;
+    else
+      result = sqrt(2*(l+1.-m)*(l+m)) / (l*(l+1.));
+  }
+
+  if (m1 == m) {
+    if (m == 0)
+      result = 0;
+    else
+      result = -2*m/(l*(l+1.));
+  }
+        
+  // *** Some debug
+  // printf("d_zero(%d,%d,%d)=%g\n", l, m1, m, result);
+  
+  return result;
+      
+}
+
+/**
+ * Compute the D_minus coupling coefficient appearing in the in the Boltzmann hierarchy.
+ *
+ * The coupling coefficients are defined in eqs. A.11 and 2.18 of Beneke & Fidler 2011.
+ * They are basically compact forms of 3j symbols that naturally arise when peforming
+ * the multipole expansion of the Boltzmann equation. For their explicit form, refer to
+ * section A.4.1 of http://arxiv.org/abs/1405.2280.
+ */
+
+double coupling_d_minus (int l, int m1, int m) {
+  
+  return sqrt(l*l-4.)/l * coupling_c_minus(l,m1,m);
+  
+}
+
+/**
+ * Compute the D_plus coupling coefficient appearing in the in the Boltzmann hierarchy.
+ *
+ * The coupling coefficients are defined in eqs. A.11 and 2.18 of Beneke & Fidler 2011.
+ * They are basically compact forms of 3j symbols that naturally arise when peforming
+ * the multipole expansion of the Boltzmann equation. For their explicit form, refer to
+ * section A.4.1 of http://arxiv.org/abs/1405.2280.
+ */
+
+double coupling_d_plus (int l, int m1, int m) {
+ 
+  return sqrt( (l-1.)*(l+3.) )/(l+1.) * coupling_c_plus(l,m1,m);
+  
+}
+
+
+
+/**
+ * Compute the Gaunt-like coupling coefficients.
+ *
+ * These coefficients are quadratic in the 3j-symbols:
+ * 
+ *    (-1)^m3 * (2*l3+1) * ( l1  l2  l3 ) * (  l1   l2      l3  )
+ *                         ( 0    F  -F )   (  m1   m2  -m1-m2  )
+ *   
+ *     = ( l1  l2 | l3 ) * (  l1   l2  |    l3  )
+ *       ( 0    F |  F )   (  m1   m2  | m1+m2  )
+ *
+ * and will be computed by this function for all allowed values of l1 and m2.
+ * The result is stored in as result[l1-l1_min][m2-m2_min]; the result array
+ * should be preallocated. , where
+ * l1_min and m2_min are outputs of this function.
+
+ *
+ * In the above formula
+ * - m3=-m1-m2
+ * - (   ) denotes a 3j symbol
+ * - (   | ) denotes a Clebsch-Gordan coefficient
+ */
+
+int coupling_general (
+  int l2, int l3, int m1, int F,
+  double * three_j_000, /**< output, should be preallocated with at least l2_max doubles */
+  int three_j_000_size, /**< input */
+  double * three_j_mmm, /**< output, should be preallocated with at least m1_max doubles */
+  int three_j_mmm_size, /**< input */
+  int * l1_min, /**< output */
+  int * l1_max, /**< output */
+  int * m2_min, /**< output */
+  int * m2_max, /**< output */
+  double ** result,  /**< output, should be preallocated with at least l2_max*m1_max doubles */
+  ErrorMsg errmsg 
+  )
+{
+  
+  /* Test input */
+  class_test (abs(m1)>l2+l3, errmsg, "m1 is out of bounds: abs(%d)>%d+%d", m1, l2, l3);
+  class_test ((l2<F) || (l3<F), errmsg, "l2 and l3 out of bounds, should be smaller than F=%d", F);
+ 
+  /* Temporary values needed for the computation of the 3j symbol */
+  double l1_min_D, l1_max_D;
+  double m2_min_D, m2_max_D;
+
+  /* Compute 
+  * (  l1  l2  l3  )
+  * (  0   F   -F   )
+  * for all allowed values of l2 */
+  class_call (drc3jj (
+                l2, l3, F, -F,
+                &l1_min_D, &l1_max_D,
+                three_j_000,
+                three_j_000_size,
+                errmsg       
+                ),
+    errmsg,
+    errmsg);
+    
+  *l1_min = (int)(l1_min_D+_EPS_);
+  *l1_max = (int)(l1_max_D+_EPS_);
+    
+  /* Adjust the range of l1, so to exclude from the output those values of l1 that are
+  smaller than the requested m1. Note that even after increasing l1_min, it will always be
+  smaller than l1_max because, above, we have already ensured that abs(m1)<=l2+l3=l_max. */
+  double * three_j_000_correct = three_j_000;
+  if (abs(m1) > *l1_min) {
+    three_j_000_correct += abs(m1) - *l1_min;
+    *l1_min = abs(m1);
+  }
+  
+  /* Paranoid check */
+  class_test (*l1_min>*l1_max, errmsg, "paranoid android");
+
+  /* LOOP ON L1 - made in such a way that it always respects the triangular condition */
+  for (int l1=*l1_min; l1 <= *l1_max; ++l1) {
+
+    class_test ((F==0) && ((l1+l2+l3)%2!=0) && (three_j_000_correct[l1-*l1_min]!=0),
+      errmsg,
+      "error in computation of 3j, odd is not zero! three_j(%d,%d,%d)=%g", l1, l2, l3, three_j_000_correct[l1-*l1_min]);
+
+    /* Compute
+    * (  l1   l2   l3       )
+    * (  m1   m2   -m1-m2  )
+    * for all allowed values of m2 */
+    class_call (drc3jm (
+                  l1, l2, l3, m1,
+                  &m2_min_D, &m2_max_D,
+                  three_j_mmm,
+                  three_j_mmm_size,
+                  errmsg       
+                  ),
+      errmsg,
+      errmsg);
+
+    *m2_min = (int)(m2_min_D + SIGN(m2_min_D)*_EPS_);
+    *m2_max = (int)(m2_max_D + SIGN(m2_max_D)*_EPS_);
+
+    /* LOOP ON M2 */
+    for (int m2 = *m2_min; m2 <= *m2_max; ++m2) {
+
+      int m3 = -m1-m2;
+
+      /* Coupling coefficient for this (l1,l2,l3,m1,m2) */
+      result[l1-*l1_min][m2-*m2_min] = 
+        ALTERNATING_SIGN(m3) * (2*l3+1.) * three_j_000_correct[l1-*l1_min] * three_j_mmm[m2-*m2_min];
+  
+      /* Debug - print result */
+      // if ((l1==2)&&(l2==2)&&(l3==1)&&(m1==1)&&(m3==0))
+      //   printf ("*** C(l1=%d,l2=%d,l3=%d,m1=%d,m2=%d,m3=%d)=%g\n",
+      //     l1, l2, l3, m1, m2, m3, result[l1-*l1_min][m2-*m2_min]);
+  
+    } // end of for(m)            
+  } // end of for(l)
+  
+  return _SUCCESS_;
+}
+
+
+// ======================================================================================
+// =                               Legendre polynomials                                 =
+// ======================================================================================
+
+/**
+ * Associate Legendre Polynomials for non-negative values of m (from Numerical Recipes,
+ * Third edition, pag. 294, Press et al. 2002).
+ *
+ * Return the associated Legendre polynomial using a recurrence relation algorithm. The
+ * returned polynomials include the same normalisation constant found in the definition
+ * of the spherical harmonics, that is sqrt((2l+1)/(4pi) * (l-m)!/(l+m)!).
+ *
+ * This function does not accept negative m values. To obtain the associated Legendre
+ * polynomials for negative m, simply multiply P_l|m| by (-1)^m. This follows from
+ * http://dlmf.nist.gov/14.9#E3 and from the fact that we are not computing the actual
+ * Legendre polynomials but those that include the spherical harmonics normalisation.
+ */
+
+double plegendre_lm (int l, int m, double x) {
+  
+  int i,ll;
+  double fact,oldfact,pll,pmm,pmmp1,omx2;
+
+  if (m < 0 || m > l || fabs(x) > 1.0) {
+    printf("ERROR: Bad arguments in routine plegendre_lm\n");
+ }
+
+  pmm=1.0;
+  /* Compute P_m^m */
+  if (m > 0) {
+    omx2=(1.0-x)*(1.0+x);
+    fact=1.0;
+    for (i=1;i<=m;i++) {
+      pmm *= omx2*fact/(fact+1.0);
+      fact += 2.0;
+    }
+  }
+  pmm=sqrt((2*m+1)*pmm/(4.0*_PI_));
+  if (m & 1)
+    pmm=-pmm;
+  if (l == m)
+    return pmm;
+  else {
+    /* Compute P_m+1^m */
+    pmmp1=x*sqrt(2.0*m+3.0)*pmm;
+    if (l == (m+1))
+      return pmmp1;
+    else {
+      /* Compute P_l^m, l>m+1 */
+      oldfact=sqrt(2.0*m+3.0);
+      for (ll=m+2;ll<=l;ll++) {
+        fact=sqrt((4.0*ll*ll-1.0)/(ll*ll-m*m));
+        pll=(x*pmmp1-pmm/oldfact)*fact;
+        oldfact=fact;
+        pmm=pmmp1;
+        pmmp1=pll; 
+      }
+      return pll; 
+    }
+  }
+}
+
+
+/**
+ * Return P_lm(x)/(1-x^2)^(m/2) where P_lm(x) is the associated Legendre polynomial,
+ * for non-negative values of m.
+ *
+ * The returned polynomials include the same normalisation constant found in the
+ * definition of the spherical harmonics, that is sqrt((2l+1)/(4pi) * (l-m)!/(l+m)!).
+ * The function accepts only positive values of m. For negative values, just use the normal
+ * plegendre_lm() and multiply it by (1-x^2)^(m/2).
+ *
+ * The credits for this function go to Press et al. 2002. ("Numerical Recipes, Third edition",
+ * pag.294) for the computation of the Legendre polynomial, and to Wolfgang Ehrhardt
+ * (https://groups.google.com/forum/#!topic/sci.math.num-analysis/13ZmcOtpWzg) for the
+ * trick to rescale the function by (1-x^2)^(m/2) analitically.
+ */
+
+double plegendre_lm_rescaled_analytically (int l, int m, double x) {
+  
+  int i,ll;
+  double fact,oldfact,pll,pmm,pmmp1,omx2;
+
+  if (m < 0 || m > l || fabs(x) > 1.0) {
+    printf("ERROR: Bad arguments in routine plegendre_lm\n");
+ }
+
+  pmm=1.0;
+  /* Compute P_m^m/(1-x*x)^(m/2) */
+  if (m > 0) {
+    omx2=1;
+    /* Uncomment the following line to compute the usual associate Legendre polynomials */
+    // omx2=(1.0-x)*(1.0+x);
+    fact=1.0;
+    for (i=1;i<=m;i++) {
+      pmm *= omx2*fact/(fact+1.0);
+      fact += 2.0;
+    }
+  }
+  pmm=sqrt((2*m+1)*pmm/(4.0*_PI_));
+  if (m & 1)
+    pmm=-pmm;
+  if (l == m)
+    return pmm;
+  else {
+    /* Compute P_m+1^m */
+    pmmp1=x*sqrt(2.0*m+3.0)*pmm;
+    if (l == (m+1))
+      return pmmp1;
+    else {
+      /* Compute P_l^m, l>m+1 */
+      oldfact=sqrt(2.0*m+3.0);
+      for (ll=m+2;ll<=l;ll++) {
+        fact=sqrt((4.0*ll*ll-1.0)/(ll*ll-m*m));
+        pll=(x*pmmp1-pmm/oldfact)*fact;
+        oldfact=fact;
+        pmm=pmmp1;
+        pmmp1=pll; 
+      }
+      return pll; 
+    }
+  } 
+}
+
+
+
+
+/**
+ * Return P_lm(x)/(1-x^2)^(m/2) where P_lm(x) is the associated Legendre polynomial,
+ * for any value of m.
+ */
+
+double plegendre_lm_rescaled (int l, int m, double x) {
+  
+  /* For scalar modes, the sin(1-x^2)^m factor is equal to one, and the rescaling
+  has no effect */
+
+  if (m == 0) {
+    return plegendre_lm (l, m, x);
+  }
+
+  /* For m>0, the sin(1-x^2)^|m| factor is in the denominator. Since this factor can be 
+  very small for x->1, we compute the whole expression P_lm/sin(1-x^2)^|m| using a
+  recursive algorithm. */
+  else if (m > 0) {
+    return plegendre_lm_rescaled_analytically (l, m, x);
+  }
+  
+  /* For negative m, there is no risk of numerical instability, because the sin(1-x^2)^|m|
+  factor is in the numerator; we can then treat this case explicitly. We also include a factor
+  (-1)^m coming from flipping the sign of m in the associated Legendre polynomials
+  (http://dlmf.nist.gov/14.9#E3). */
+
+  else if (m < 0) {
+    if (fabs(x)!=1)
+      return ALTERNATING_SIGN(m) * plegendre_lm (l,abs(m),x) * pow(1.0-x*x, 0.5*abs(m));
+    else
+      return 0;
+  }
+
+  printf ("ERROR (%s): Should not be here!\n", __func__);
+  
+  return 0;
+
+}
+
+
+
+/**
+ * Legendre Polynomials from alglib-3.6.0 (http://www.alglib.net/specialfunctions/polynomials/legendre.php)
+ */
+
+double plegendre (int n, double x)
+{
+    double a;
+    double b;
+    int i;
+    double result;
+
+
+    result = 1;
+    a = 1;
+    b = x;
+    if( n==0 )
+    {
+        result = a;
+        return result;
+    }
+    if( n==1 )
+    {
+        result = b;
+        return result;
+    }
+    for(i=2; i<=n; i++)
+    {
+        result = ((2*i-1)*x*b-(i-1)*a)/i;
+        a = b;
+        b = result;
+    }
+    return result;
+}
+
+
+
+
+// ======================================================================================
+// =                                  Special functions                                 =
 // ======================================================================================
 
 /**
  * Compute spherical Bessel function j_l(x) for a given l and x.
  *
  * Inspired from Numerical Recipies. This is the same as the function
- * bessel_j in the Bessel structure, but without requiring pbs as an
+ * bessel_j() in the Bessel module, but without requiring pbs as an
  * argument, so that it can be called from anywhere.
  */
+
 double spherical_bessel_j(
        int l,
        double x
@@ -742,477 +1232,103 @@ double spherical_bessel_j(
 
 }
 
-// ======================================================================================
-// =                                 Coupling factors                                   =
-// ======================================================================================
-
-/**
- * Compute the C_minus coupling coefficient appearing in the in the Boltzmann hierarchy.
- *
- * The coupling coefficients are defined in eqs. A.11 and 2.18 of Beneke & Fidler 2011.
- * They are basically compact forms of 3j symbols that naturally arise when peforming
- * the multipole expansion of the Boltzmann equation. For their explicit form, refer to
- * section A.4.1 of http://arxiv.org/abs/1405.2280.
- */
-double coupling_c_minus (int l, int m1, int m) {
-
-  if ((abs(m1-m)>1) && (abs(m)>l))
-    printf("WARNING: 'c_minus' called with wrong arguments: l=%d, m1=%d, m=%d.\n", l, m1, m);
-
-  double result;
-
-  if (m1 == m+1) {
-    if (l==m)
-      result = 0;
-    else
-      result = sqrt((l-1.-m)*(l-m)) / (sqrt_2*(2*l-1.));
-  }
-
-  if (m1 == m-1) {
-    if (l==-m)
-      result = 0;
-    else
-      result = sqrt((l-1.+m)*(l+m))/(sqrt_2*(2*l-1.));
-  }
-
-  if (m1 == m) {
-    if (m == 0)
-      result = l/(2*l-1.);
-    else
-      result = sqrt((double)l*l-m*m)/(2*l-1.);
-  }
-  
-  // *** Some debug
-  // printf("c_minus(%d,%d,%d)=%g\n", l, m1, m, result);
-  
-  return result;
-      
-}
-
-/**
- * Compute the C_plus coupling coefficient appearing in the in the Boltzmann hierarchy.
- *
- * The coupling coefficients are defined in eqs. A.11 and 2.18 of Beneke & Fidler 2011.
- * They are basically compact forms of 3j symbols that naturally arise when peforming
- * the multipole expansion of the Boltzmann equation. For their explicit form, refer to
- * section A.4.1 of http://arxiv.org/abs/1405.2280.
- */
-double coupling_c_plus (int l, int m1, int m) {
-  
-  if ((abs(m1-m)>1) && (abs(m)>l))
-    printf("WARNING: 'c_plus' called with wrong arguments: l=%d, m1=%d, m=%d.\n", l, m1, m);
-
-  double result;
-
-  if (m1 == m+1)
-    result = -sqrt((l+1.+m)*(l+2+m))/(sqrt_2*(2*l+3.));
-
-  if (m1 == m-1)
-    result = -sqrt((l+1.-m)*(l+2-m))/(sqrt_2*(2*l+3.));
-
-  if (m1 == m) {
-    if (m == 0)
-      result = (l+1)/(2*l+3.);
-    else
-      result = sqrt((l+1.)*(l+1)-m*m)/(2*l+3.);
-  }
- 
-  return result;
-      
-}
 
 
 /**
- * Compute the D_zero coupling coefficient appearing in the in the Boltzmann hierarchy.
- *
- * The coupling coefficients are defined in eqs. A.11 and 2.18 of Beneke & Fidler 2011.
- * They are basically compact forms of 3j symbols that naturally arise when peforming
- * the multipole expansion of the Boltzmann equation. For their explicit form, refer to
- * section A.4.1 of http://arxiv.org/abs/1405.2280.
- */
-double coupling_d_zero (int l, int m1, int m) {
-
-  if ((abs(m1-m)>1) && (abs(m)>l))
-    printf("WARNING: 'd_zero' called with wrong arguments: l=%d, m1=%d, m=%d.\n", l, m1, m);
-
-  double result;
-
-  if (m1 == m+1) {
-    if (l==m)
-      result = 0;
-    else
-      result = -sqrt(2*(l+1.+m)*(l-m)) / (l*(l+1.));
-  }
-
-  if (m1 == m-1) {
-    if (l==-m)
-      result = 0;
-    else
-      result = sqrt(2*(l+1.-m)*(l+m)) / (l*(l+1.));
-  }
-
-  if (m1 == m) {
-    if (m == 0)
-      result = 0;
-    else
-      result = -2*m/(l*(l+1.));
-  }
-        
-  // *** Some debug
-  // printf("d_zero(%d,%d,%d)=%g\n", l, m1, m, result);
-  
-  return result;
-      
-}
-
-/**
- * Compute the D_minus coupling coefficient appearing in the in the Boltzmann hierarchy.
- *
- * The coupling coefficients are defined in eqs. A.11 and 2.18 of Beneke & Fidler 2011.
- * They are basically compact forms of 3j symbols that naturally arise when peforming
- * the multipole expansion of the Boltzmann equation. For their explicit form, refer to
- * section A.4.1 of http://arxiv.org/abs/1405.2280.
- */
-double coupling_d_minus (int l, int m1, int m) {
-  
-  return sqrt(l*l-4.)/l * coupling_c_minus(l,m1,m);
-  
-}
-
-/**
- * Compute the D_plus coupling coefficient appearing in the in the Boltzmann hierarchy.
- *
- * The coupling coefficients are defined in eqs. A.11 and 2.18 of Beneke & Fidler 2011.
- * They are basically compact forms of 3j symbols that naturally arise when peforming
- * the multipole expansion of the Boltzmann equation. For their explicit form, refer to
- * section A.4.1 of http://arxiv.org/abs/1405.2280.
- */
-double coupling_d_plus (int l, int m1, int m) {
- 
-  return sqrt( (l-1.)*(l+3.) )/(l+1.) * coupling_c_plus(l,m1,m);
-  
-}
-
-
-
-/**
- * Compute the Gaunt-like coupling coefficients.
- *
- * These coefficients are quadratic in the 3j-symbols:
+ * Compute the cosine and sine integrals Ci(x) and Si(x).
  * 
- *    (-1)^m3 * (2*l3+1) * ( l1  l2  l3 ) * (  l1   l2      l3  )
- *                         ( 0    F  -F )   (  m1   m2  -m1-m2  )
- *   
- *     = ( l1  l2 | l3 ) * (  l1   l2  |    l3  )
- *       ( 0    F |  F )   (  m1   m2  | m1+m2  )
+ * This is the cisi() function of Numerical Recipes, 3rd edition,
+ * translated from C++ to C. I have quickly tested the function
+ * with Mathematica up to the 15th digit in the range x=[1e-6,20],
+ * and it works fine.
  *
- * and will be computed by this function for all allowed values of l1 and m2.
- * The result is stored in as result[l1-l1_min][m2-m2_min]; the result array
- * should be preallocated. , where
- * l1_min and m2_min are outputs of this function.
-
+ * To convert the C++ numerical limits to the equivalent C limits,
+ * I have used the C++/C correspondances in
+ * http://www.cplusplus.com/reference/limits/numeric_limits/.
  *
- * In the above formula
- * - m3=-m1-m2
- * - (   ) denotes a 3j symbol
- * - (   | ) denotes a Clebsch-Gordan coefficient
+ * Ci(0) is returned as a large negative number and no error message
+ * is generated. For x<0 the routine returns Ci(-x) and you must supply
+ * the -􏱉i*pi􏰸 yourself.
  *
+ * Algorithm by Numerical Recipes adapted by Guido Walter Pettinari
+ * on 01.12.2014.
  */
-int coupling_general (
-  int l2, int l3, int m1, int F,
-  double * three_j_000, /**< output, should be preallocated with at least l2_max doubles */
-  int three_j_000_size, /**< input */
-  double * three_j_mmm, /**< output, should be preallocated with at least m1_max doubles */
-  int three_j_mmm_size, /**< input */
-  int * l1_min, /**< output */
-  int * l1_max, /**< output */
-  int * m2_min, /**< output */
-  int * m2_max, /**< output */
-  double ** result,  /**< output, should be preallocated with at least l2_max*m1_max doubles */
-  ErrorMsg errmsg 
-  )
+
+int cisi (
+      double x,
+      double * ci,
+      double * si,
+      ErrorMsg errmsg)
 {
-  
-  /* Test input */
-  class_test (abs(m1)>l2+l3, errmsg, "m1 is out of bounds: abs(%d)>%d+%d", m1, l2, l3);
-  class_test ((l2<F) || (l3<F), errmsg, "l2 and l3 out of bounds, should be smaller than F=%d", F);
- 
-  /* Temporary values needed for the computation of the 3j symbol */
-  double l1_min_D, l1_max_D;
-  double m2_min_D, m2_max_D;
 
-  /* Compute 
-  * (  l1  l2  l3  )
-  * (  0   F   -F   )
-  * for all allowed values of l2 */
-  class_call (drc3jj (
-                l2, l3, F, -F,
-                &l1_min_D, &l1_max_D,
-                three_j_000,
-                three_j_000_size,
-                errmsg       
-                ),
-    errmsg,
-    errmsg);
-    
-  *l1_min = (int)(l1_min_D+_EPS_);
-  *l1_max = (int)(l1_max_D+_EPS_);
-    
-  /* Adjust the range of l1, so to exclude from the output those values of l1 that are
-  smaller than the requested m1. Note that even after increasing l1_min, it will always be
-  smaller than l1_max because, above, we have already ensured that abs(m1)<=l2+l3=l_max. */
-  double * three_j_000_correct = three_j_000;
-  if (abs(m1) > *l1_min) {
-    three_j_000_correct += abs(m1) - *l1_min;
-    *l1_min = abs(m1);
-  }
-  
-  /* Paranoid check */
-  class_test (*l1_min>*l1_max, errmsg, "paranoid android");
+  /* Here EULER is Euler’s constant􏰷; PIBY2 is pi/2; TMIN is the dividing line
+  between using the series and continued fraction; EPS is the relative error,
+  or absolute error near a zero of Ci(x); FPMIN is a number close to the smallest
+  representable floating-point number; and BIG is a number near the machine
+  overflow limit. */
+	double EULER=0.577215664901533, PIBY2=1.570796326794897,
+         TMIN=2.0, EPS=DBL_EPSILON,
+         FPMIN=DBL_MIN*4.0,
+         BIG=DBL_MAX*EPS;
+	int MAXIT=200;
+	int i,k;
+	short odd;
+	double a,err,fact,sign,sum,sumc,sums,t,term;
+	double complex h,b,c,d,del,cs;
+  t = fabs(x);
+	class_test (t == 0.0, errmsg, "Ci(0) diverges!");
+	if (t > TMIN) { /* Evaluate continued fraction by modified Lentz’s method */
+		b=1.0+IMAG*t;
+		c=BIG;
+		d=h=1.0/b;
+		for (i=1;i<MAXIT;i++) {
+			a= -i*i;
+			b += 2.0;
+			d=1.0/(a*d+b); /* Denominators cannot be zero */
+			c=b+a/c;
+			del=c*d;
+			h *= del;
+			if (fabs(creal(del)-1.0)+fabs(cimag(del)) <= EPS) break;
+		}
+		class_test (i >= MAXIT, errmsg, "cf failed in cisi");
+		h=(cos(t)-IMAG*sin(t))*h;
+		cs= -conj(h)+IMAG*PIBY2;
+	} else { /* Evaluate both series simultaneously */
+		if (t < sqrt(FPMIN)) { /* Special case: Avoid failure of convergence test because of underflow. */
+			sumc=0.0;
+			sums=t;
+		} else {
+			sum=sums=sumc=0.0;
+			sign=fact=1.0;
+			odd=_TRUE_;
+			for (k=1;k<=MAXIT;k++) {
+				fact *= t/k;
+				term=fact/k;
+				sum += sign*term;
+				err=term/fabs(sum);
+				if (odd==_TRUE_) {
+					sign = -sign;
+					sums=sum;
+					sum=sumc;
+				} else {
+					sumc=sum;
+					sum=sums;
+				}
+				if (err < EPS) break;
+				odd=!odd;
+			}
+			class_test (k > MAXIT, errmsg, "maxits exceeded in cisi");
+		}
+		cs=sumc+log(t)+EULER+IMAG*sums;
+	}
+	if (x < 0.0) cs = conj(cs);
+  *ci = creal(cs);
+  *si = cimag(cs);
 
-  /* LOOP ON L1 - made in such a way that it always respects the triangular condition */
-  for (int l1=*l1_min; l1 <= *l1_max; ++l1) {
-
-    class_test ((F==0) && ((l1+l2+l3)%2!=0) && (three_j_000_correct[l1-*l1_min]!=0),
-      errmsg,
-      "error in computation of 3j, odd is not zero! three_j(%d,%d,%d)=%g", l1, l2, l3, three_j_000_correct[l1-*l1_min]);
-
-    /* Compute
-    * (  l1   l2   l3       )
-    * (  m1   m2   -m1-m2  )
-    * for all allowed values of m2 */
-    class_call (drc3jm (
-                  l1, l2, l3, m1,
-                  &m2_min_D, &m2_max_D,
-                  three_j_mmm,
-                  three_j_mmm_size,
-                  errmsg       
-                  ),
-      errmsg,
-      errmsg);
-
-    *m2_min = (int)(m2_min_D + SIGN(m2_min_D)*_EPS_);
-    *m2_max = (int)(m2_max_D + SIGN(m2_max_D)*_EPS_);
-
-    /* LOOP ON M2 */
-    for (int m2 = *m2_min; m2 <= *m2_max; ++m2) {
-
-      int m3 = -m1-m2;
-
-      /* Coupling coefficient for this (l1,l2,l3,m1,m2) */
-      result[l1-*l1_min][m2-*m2_min] = 
-        ALTERNATING_SIGN(m3) * (2*l3+1.) * three_j_000_correct[l1-*l1_min] * three_j_mmm[m2-*m2_min];
-  
-      /* Debug - print result */
-      // if ((l1==2)&&(l2==2)&&(l3==1)&&(m1==1)&&(m3==0))
-      //   printf ("*** C(l1=%d,l2=%d,l3=%d,m1=%d,m2=%d,m3=%d)=%g\n",
-      //     l1, l2, l3, m1, m2, m3, result[l1-*l1_min][m2-*m2_min]);
-  
-    } // end of for(m)            
-  } // end of for(l)
-  
   return _SUCCESS_;
-}
-
-
-// ======================================================================================
-// =                               Legendre polynomials                                 =
-// ======================================================================================
-
-
-/**
- * Associate Legendre Polynomials for non-negative values of m (from Numerical Recipes,
- * Third edition, pag. 294, Press et al. 2002).
- *
- * Return the associated Legendre polynomial using a recurrence relation algorithm. The
- * returned polynomials include the same normalisation constant found in the definition
- * of the spherical harmonics, that is sqrt((2l+1)/(4pi) * (l-m)!/(l+m)!).
- *
- * This function does not accept negative m values. To obtain the associated Legendre
- * polynomials for negative m, simply multiply P_l|m| by (-1)^m. This follows from
- * http://dlmf.nist.gov/14.9#E3 and from the fact that we are not computing the actual
- * Legendre polynomials but those that include the spherical harmonics normalisation.
- */
-double plegendre_lm (int l, int m, double x) {
-  
-  int i,ll;
-  double fact,oldfact,pll,pmm,pmmp1,omx2;
-
-  if (m < 0 || m > l || fabs(x) > 1.0) {
-    printf("ERROR: Bad arguments in routine plegendre_lm\n");
- }
-
-  pmm=1.0;
-  /* Compute P_m^m */
-  if (m > 0) {
-    omx2=(1.0-x)*(1.0+x);
-    fact=1.0;
-    for (i=1;i<=m;i++) {
-      pmm *= omx2*fact/(fact+1.0);
-      fact += 2.0;
-    }
-  }
-  pmm=sqrt((2*m+1)*pmm/(4.0*_PI_));
-  if (m & 1)
-    pmm=-pmm;
-  if (l == m)
-    return pmm;
-  else {
-    /* Compute P_m+1^m */
-    pmmp1=x*sqrt(2.0*m+3.0)*pmm;
-    if (l == (m+1))
-      return pmmp1;
-    else {
-      /* Compute P_l^m, l>m+1 */
-      oldfact=sqrt(2.0*m+3.0);
-      for (ll=m+2;ll<=l;ll++) {
-        fact=sqrt((4.0*ll*ll-1.0)/(ll*ll-m*m));
-        pll=(x*pmmp1-pmm/oldfact)*fact;
-        oldfact=fact;
-        pmm=pmmp1;
-        pmmp1=pll; 
-      }
-      return pll; 
-    }
-  }
-}
-
-
-/**
- * Return P_lm(x)/(1-x^2)^(m/2) where P_lm(x) is the associated Legendre polynomial,
- * for non-negative values of m.
- *
- * The returned polynomials include the same normalisation constant found in the
- * definition of the spherical harmonics, that is sqrt((2l+1)/(4pi) * (l-m)!/(l+m)!).
- * The function accepts only positive values of m. For negative values, just use the normal
- * plegendre_lm() and multiply it by (1-x^2)^(m/2).
- *
- * The credits for this function go to Press et al. 2002. ("Numerical Recipes, Third edition",
- * pag.294) for the computation of the Legendre polynomial, and to Wolfgang Ehrhardt
- * (https://groups.google.com/forum/#!topic/sci.math.num-analysis/13ZmcOtpWzg) for the
- * trick to rescale the function by (1-x^2)^(m/2) analitically.
- */
-double plegendre_lm_rescaled_analytically (int l, int m, double x) {
-  
-  int i,ll;
-  double fact,oldfact,pll,pmm,pmmp1,omx2;
-
-  if (m < 0 || m > l || fabs(x) > 1.0) {
-    printf("ERROR: Bad arguments in routine plegendre_lm\n");
- }
-
-  pmm=1.0;
-  /* Compute P_m^m/(1-x*x)^(m/2) */
-  if (m > 0) {
-    omx2=1;
-    /* Uncomment the following line to compute the usual associate Legendre polynomials */
-    // omx2=(1.0-x)*(1.0+x);
-    fact=1.0;
-    for (i=1;i<=m;i++) {
-      pmm *= omx2*fact/(fact+1.0);
-      fact += 2.0;
-    }
-  }
-  pmm=sqrt((2*m+1)*pmm/(4.0*_PI_));
-  if (m & 1)
-    pmm=-pmm;
-  if (l == m)
-    return pmm;
-  else {
-    /* Compute P_m+1^m */
-    pmmp1=x*sqrt(2.0*m+3.0)*pmm;
-    if (l == (m+1))
-      return pmmp1;
-    else {
-      /* Compute P_l^m, l>m+1 */
-      oldfact=sqrt(2.0*m+3.0);
-      for (ll=m+2;ll<=l;ll++) {
-        fact=sqrt((4.0*ll*ll-1.0)/(ll*ll-m*m));
-        pll=(x*pmmp1-pmm/oldfact)*fact;
-        oldfact=fact;
-        pmm=pmmp1;
-        pmmp1=pll; 
-      }
-      return pll; 
-    }
-  } 
-}
-
-
-
-
-/**
- * Return P_lm(x)/(1-x^2)^(m/2) where P_lm(x) is the associated Legendre polynomial,
- * for any value of m.
- */
-double plegendre_lm_rescaled (int l, int m, double x) {
-  
-  /* For scalar modes, the sin(1-x^2)^m factor is equal to one, and the rescaling
-  has no effect */
-
-  if (m == 0) {
-    return plegendre_lm (l, m, x);
-  }
-
-  /* For m>0, the sin(1-x^2)^|m| factor is in the denominator. Since this factor can be 
-  very small for x->1, we compute the whole expression P_lm/sin(1-x^2)^|m| using a
-  recursive algorithm. */
-  else if (m > 0) {
-    return plegendre_lm_rescaled_analytically (l, m, x);
-  }
-  
-  /* For negative m, there is no risk of numerical instability, because the sin(1-x^2)^|m|
-  factor is in the numerator; we can then treat this case explicitly. We also include a factor
-  (-1)^m coming from flipping the sign of m in the associated Legendre polynomials
-  (http://dlmf.nist.gov/14.9#E3). */
-
-  else if (m < 0) {
-    if (fabs(x)!=1)
-      return ALTERNATING_SIGN(m) * plegendre_lm (l,abs(m),x) * pow(1.0-x*x, 0.5*abs(m));
-    else
-      return 0;
-  }
-
-  printf ("ERROR (%s): Should not be here!\n", __func__);
-  
-  return 0;
 
 }
 
-
-
-/**
- * Legendre Polynomials from alglib-3.6.0 (http://www.alglib.net/specialfunctions/polynomials/legendre.php)
- */
-double plegendre (int n, double x)
-{
-    double a;
-    double b;
-    int i;
-    double result;
-
-
-    result = 1;
-    a = 1;
-    b = x;
-    if( n==0 )
-    {
-        result = a;
-        return result;
-    }
-    if( n==1 )
-    {
-        result = b;
-        return result;
-    }
-    for(i=2; i<=n; i++)
-    {
-        result = ((2*i-1)*x*b-(i-1)*a)/i;
-        a = b;
-        b = result;
-    }
-    return result;
-}
 
 
 
@@ -1245,6 +1361,7 @@ double plegendre (int n, double x)
  *   6,1 -> 16
  *   6,2 -> 17
  */
+
 int multipole2offset_l_m(int l, int m, int m_max) {
   
   /* Check input (comment for more speed) */
@@ -1296,6 +1413,7 @@ int multipole2offset_l_m(int l, int m, int m_max) {
  *   3        2         ->       9
  *   3        3         ->       10
  */
+
 int size_l_m(int l_max, int m_max) {
   
   return multipole2offset_l_m(l_max, MIN(l_max,m_max), m_max) + 1;
@@ -1338,6 +1456,7 @@ int size_l_m(int l_max, int m_max) {
  *		5,2 -> 10
  *		5,4 -> 11
  */
+
 int multipole2offset_l_indexm (int L, int M, int * m_vec, int m_size) {
   
 
@@ -1423,6 +1542,7 @@ int multipole2offset_l_indexm (int L, int M, int * m_vec, int m_size) {
  * determine the unique (l,m) pair associated with that offset. The output is written into
  * L, index_M.
  */
+
 int offset2multipole_l_indexm (int offset, int l_max, int * m_vec, int m_size,
                                int * L, int * index_M)
 {
@@ -1494,6 +1614,7 @@ int offset2multipole_l_indexm (int offset, int l_max, int * m_vec, int m_size,
  * Return the number of elements in the l,m hierarchy considering that the m-index is constrained to the
  * values contained in m_vec 
  */
+
 int size_l_indexm(int l_max, int * m_vec, int m_size) {
     
   /* Return 0 and a warning if the smallest m is larger than l_max */
@@ -1552,6 +1673,7 @@ int size_l_indexm(int l_max, int * m_vec, int m_size) {
  *    8,4 -> 13
  *
  */
+
 int multipole2offset_indexl_indexm(int L, int M, int * l_vec, int l_size, int * m_vec, int m_size) {
   
 	int index_l=0, index_m=0;
@@ -1648,6 +1770,7 @@ int multipole2offset_indexl_indexm(int L, int M, int * l_vec, int l_size, int * 
  * Return the number of elements in the l,m hierarchy considering that the l-index
  * and m-index are constrained to the values contained in l_vec and m_vec, respectively.
  */
+
 int size_indexl_indexm(int * l_vec, int l_size, int * m_vec, int m_size) {
 
   int l_max = l_vec[l_size-1];
@@ -1663,6 +1786,7 @@ int size_indexl_indexm(int * l_vec, int l_size, int * m_vec, int m_size) {
  * determine the unique (l,m) pair associated with that offset. The output is written into
  * index_L, index_M.
  */
+
 int offset2multipole_indexl_indexm(int offset, int * l_vec, int l_size, int * m_vec, int m_size,
                                    int * index_L, int * index_M)
 {
@@ -1756,6 +1880,7 @@ int offset2multipole_indexl_indexm(int offset, int * l_vec, int l_size, int * m_
  *   4,2,0      ->       17
  *   4,2,1      ->       18
  */
+
 int multipole2offset_unconstrained_n_l_m(int n, int l, int m, int l_max, int m_max) {
   
   // Check input
@@ -1812,6 +1937,7 @@ int multipole2offset_unconstrained_n_l_m(int n, int l, int m, int l_max, int m_m
  *   5,0,0      ->       11
  *   6,0,0      ->       12
  */
+
 int multipole2offset_n_l_m(int n, int l, int m, int l_max, int m_max) {
   
   /* Check input */
@@ -1867,6 +1993,7 @@ int multipole2offset_n_l_m(int n, int l, int m, int l_max, int m_max) {
 /* Return the number of elements in a massive hierarchy with n_max, l_max, m_max,
  * where the constraints are: l=0 or l=n, if 'n' even there is no l=n moment.
  */   
+
 int size_n_l_m (int n_max, int l_max, int m_max) {
  
   return multipole2offset_n_l_m (n_max, MIN(l_max,n_max), MIN(l_max,m_max), l_max, m_max) + 1;
@@ -1889,6 +2016,7 @@ int size_n_l_m (int n_max, int l_max, int m_max) {
  * higher moments (like the shear) which vanish for a perfect fluid.
  *
  */
+
 int multipole2offset_n_l_indexm(int N, int L, int M, int l_max, int * m_vec, int m_size) {
 
 
@@ -1981,6 +2109,7 @@ int multipole2offset_n_l_indexm(int N, int L, int M, int l_max, int * m_vec, int
 /* Return the number of elements in a massive hierarchy with n_max, l_max, m_max,
  * where the constraints are: l=0 or l=n, if 'n' even there is no l=n moment.
  */   
+
 int size_n_l_indexm (int n_max, int l_max, int * m_vec, int m_size) {
  
   /* Return zero if the smallest m is larger than l_max */
@@ -2229,6 +2358,7 @@ int spline_sources_derivs(
  *     [index_ic * ppt->tp_size[index_mode] + index_type]
  *     [index_tau * ppt->k_size[index_mode] + index_k]
  */
+
 int spline_sources_interpolate(
 			     double * x_array,
 			     int tau_size,
@@ -2337,6 +2467,7 @@ int spline_sources_interpolate(
  * in growing order, and the requested point x is close to the previous point x
  * from the last call of this function.
  */
+
 int spline_sources_interpolate_growing_closeby(
 			     double * x_array,
 			     int tau_size,
@@ -2803,6 +2934,7 @@ int spline_interpolate_two_levels_growing_closeby(
  *
  * Useful for debugging the splines thoroughout CLASS.
  */
+
 int array_interpolate_linear_nospline(
 			     double * x_array,
 			     int n_lines,
@@ -2993,6 +3125,7 @@ int array_spline_derive_table_lines(
  * Fill an array with logarithmically spaced points. The array should already be
  * allocated with 'n_points' doubles
  */
+
 int log_space (double * x, double x_min, double x_max, int n_points) {
 
 	x[0] = x_min;
@@ -3012,6 +3145,7 @@ int log_space (double * x, double x_min, double x_max, int n_points) {
  * Fill an array with linearly spaced points. The array should already be
  * allocated with 'n_points' doubles
  */
+
 int lin_space (double * x, double x_min, double x_max, int n_points) {
 
 	x[0] = x_min;
@@ -3039,6 +3173,7 @@ int lin_space (double * x, double x_min, double x_max, int n_points) {
  * Recursive definition of determinate using expansion by minors.
  * Credits to Christopher M. Brown (http://www.cs.rochester.edu/~brown/Crypto/assts/projects/adj.html)
  */
+
 double Determinant(double **a,int n)
 {
    int i,j,j1,j2;
@@ -3080,10 +3215,12 @@ double Determinant(double **a,int n)
 }
 
 
-/*
-   Find the cofactor matrix of a square matrix
-   Credits to Christopher M. Brown (http://www.cs.rochester.edu/~brown/Crypto/assts/projects/adj.html)
-*/
+/**
+ * Find the cofactor matrix of a square matrix
+ *
+ * Credits to Christopher M. Brown (http://www.cs.rochester.edu/~brown/Crypto/assts/projects/adj.html)
+ */
+
 void CoFactor(double **a,int n,double **b)
 {
    int i,j,ii,jj,i1,j1;
@@ -3127,9 +3264,11 @@ void CoFactor(double **a,int n,double **b)
 
 
 /*
-   Transpose of a square matrix, do it in place
-   Credits to Christopher M. Brown (http://www.cs.rochester.edu/~brown/Crypto/assts/projects/adj.html)
-*/
+ * Transpose of a square matrix, do it in place
+ *
+ * Credits to Christopher M. Brown (http://www.cs.rochester.edu/~brown/Crypto/assts/projects/adj.html)
+ */
+
 void Transpose(double **a,int n)
 {
    int i,j;
@@ -3148,7 +3287,10 @@ void Transpose(double **a,int n)
 /** 
  * Inverse of a square matrix. The inversion can be done in-place, that is, the
  * the user can select in=out.
+ *
+ * Credits to Christopher M. Brown (http://www.cs.rochester.edu/~brown/Crypto/assts/projects/adj.html)
  */
+
 void InverseMatrix(double **in,int n,double **out)
 {
 
@@ -3184,6 +3326,7 @@ void InverseMatrix(double **in,int n,double **out)
 /** 
  * Print a matrix to standard output.
  */
+
 void PrintMatrix(double **in,int n)
 {
 
@@ -3213,6 +3356,7 @@ void PrintMatrix(double **in,int n)
  * Check whether a triad of numbers (l1,l2,l3) satisfies the triangular condition
  * |l1-l2| <= l3 <= l1+l2 (integer input)
  */
+
 int is_triangular_int (int l1, int l2, int l3) {
   
   if ((l3>=abs(l1-l2)) && (l3<=(l1+l2)))
@@ -3227,6 +3371,7 @@ int is_triangular_int (int l1, int l2, int l3) {
  * Check whether a triad of numbers (l1,l2,l3) satisfies the triangular condition
  * |l1-l2| <= l3 <= l1+l2 (floating point input)
  */
+
 int is_triangular_double (double l1, double l2, double l3) {
 
   if ((l3>=fabs(l1-l2)) && (l3<=(l1+l2)))
@@ -3245,13 +3390,16 @@ int is_triangular_double (double l1, double l2, double l3) {
 /** 
  * Identity function.
  */  
+
 double identity_double (double x) {
   return x;
 }
 
+
 /**
  * Return +1 if positive, -1 if negative, 0 if zero.
  */
+
 int sign_int (int x) {
 
   if (x>0) {
@@ -3265,6 +3413,7 @@ int sign_int (int x) {
   }
 }
 
+
 /**
  * Given three numbers, return their list that orders them in ascending order.
  *
@@ -3273,6 +3422,7 @@ int sign_int (int x) {
  * The input array (n) and the output array (ordering) must
  * be pre-allocated with 4 values, as we start counting from 1.
  */
+
 int ordering_int (
       int * n,            /* In */
       int * ordering,     /* Out */
@@ -3332,6 +3482,7 @@ int ordering_int (
  * The modification is made in-place. Both arrays must be pre-allocated
  * with 4 values, as we start counting from 1.
  */
+
 int reorder_int (
       int * n,             /* In/Out */
       int * ordering,      /* In */
@@ -3371,6 +3522,7 @@ int reorder_int (
  * it will be modified in place and its size will be extended using
  * realloc.
  */
+
 int merge_arrays_double (
       double *v1,      /**< input array to be merged */
       int v1_size,     /**< input, size of v1 */
@@ -3439,6 +3591,7 @@ int merge_arrays_double (
  *
  * Please refer to merge_arrays_double() for the documentation.
  */
+
 int merge_arrays_int (
       int *v1,      /**< input array to be merged */
       int v1_size,     /**< input, size of v1 */

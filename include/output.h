@@ -197,9 +197,11 @@ extern "C" {
                           );
 
   int output_one_line_of_pk(
-                            FILE * tkfile,
-                            double one_k,
-                            double one_pk
+                            struct background * pba,
+                            struct spectra * psp,
+                            FILE * pkfile,
+                            double k,
+                            double * pk
                             );
 
   int output_open_pk_nl_file(

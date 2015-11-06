@@ -4,6 +4,9 @@
 #define __SONG_TOOLS__
 
 #include "common.h"
+#include "complex.h"
+#undef I
+#define IMAG _Complex_I
 
 /** Constants needed by all spline functions */
 //@{
@@ -109,15 +112,23 @@ extern "C" {
 
     
 
-  // ======================================================================
-  // =                           Bessel functions                         =
-  // ======================================================================
+// ======================================================================================
+// =                                  Special functions                                 =
+// ======================================================================================
 
   double spherical_bessel_j(
          int l,
          double x
          );
          
+  int cisi (
+        double x,
+        double * ci,
+        double * si,
+        ErrorMsg errmsg
+        );
+
+
 
   // ====================================================================================
   // =                                Coupling factors                                  =

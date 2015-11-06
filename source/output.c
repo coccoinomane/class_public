@@ -120,7 +120,7 @@ int output_init(
 
   /** - check that we really want to output at least one file */
 
-  if ((ppt->has_cls == _FALSE_) && (ppt->has_pk_matter == _FALSE_) && (ppt->has_density_transfers == _FALSE_) && (ppt->has_velocity_transfers == _FALSE_) && (pop->write_background == _FALSE_) && (pop->write_thermodynamics == _FALSE_) && (pop->write_primordial == _FALSE_)
+  if ((ppt->has_cls == _FALSE_) && (psp->pk_size == 0) && (ppt->has_density_transfers == _FALSE_) && (ppt->has_velocity_transfers == _FALSE_) && (pop->write_background == _FALSE_) && (pop->write_thermodynamics == _FALSE_) && (pop->write_primordial == _FALSE_)
 #ifdef WITH_BISPECTRA
     && (pbi->has_bispectra == _FALSE_) && (pfi->has_fisher == _FALSE_)
 #endif // WITH_BISPECTRA
@@ -145,7 +145,7 @@ int output_init(
 
   /** - deal with all Fourier matter power spectra P(k)'s */
 
-  if (ppt->has_pk_matter == _TRUE_) {
+  if (psp->pk_size > 0) {
 
     class_call(output_pk(pba,ppt,psp,pop),
                pop->error_message,
@@ -726,11 +726,11 @@ int output_pk(
 
   FILE * out;     /* (will contain total P(k) summed eventually over initial conditions) */
 
-  double * pk_ic=NULL;  /* array with argument
-                           pk_ic[index_k * psp->ic_ic_size[index_md] + index_ic1_ic2] */
+  double ** pk_ic=NULL;  /* array with argument
+                           pk_ic[index_k * psp->ic_ic_size[index_md] + index_ic1_ic2][index_pk] */
 
-  double * pk_tot; /* array with argument
-                      pk_tot[index_k] */
+  double ** pk_tot; /* array with argument
+                      pk_tot[index_k][index_pk] */
 
   int index_md;
   int index_ic1,index_ic2;
@@ -772,9 +772,19 @@ int output_pk(
                pop->error_message,
                pop->error_message);
 
-    class_alloc(pk_tot,
-                psp->ln_k_size*sizeof(double),
+    class_alloc(pk_ic,
+                psp->pk_size*sizeof(double*),
                 pop->error_message);
+
+    class_alloc(pk_tot,
+                psp->pk_size*sizeof(double*),
+                pop->error_message);
+
+    for (int index_pk=0; index_pk < psp->pk_size; ++index_pk) {
+      class_alloc(pk_tot[index_pk],
+                  psp->ln_k_size*sizeof(double),
+                  pop->error_message);
+    }
 
     if (psp->ic_size[index_md] > 1) {
 
@@ -783,8 +793,15 @@ int output_pk(
                   pop->error_message);
 
       class_alloc(pk_ic,
-                  psp->ln_k_size*psp->ic_ic_size[index_md]*sizeof(double),
+                  psp->pk_size*sizeof(double*),
                   pop->error_message);
+
+      for (int index_pk=0; index_pk < psp->pk_size; ++index_pk) {
+
+        class_alloc(pk_ic[index_pk],
+                    psp->ln_k_size*psp->ic_ic_size[index_md]*sizeof(double),
+                    pop->error_message);
+      }
 
       for (index_ic1 = 0; index_ic1 < ppt->ic_size[index_md]; index_ic1++) {
 
@@ -793,105 +810,105 @@ int output_pk(
           if ((ppt->has_ad == _TRUE_) &&
               (index_ic1 == ppt->index_ic_ad) && (index_ic2 == ppt->index_ic_ad)) {
 
-            sprintf(file_name,"%s%s%s",pop->root,redshift_suffix,"pk_ad.dat");
+            sprintf(file_name,"%s%s%s",pop->root,redshift_suffix,"ad.dat");
             strcpy(first_line,"for adiabatic (AD) mode ");
           }
 
           if ((ppt->has_bi == _TRUE_) &&
               (index_ic1 == ppt->index_ic_bi) && (index_ic2 == ppt->index_ic_bi)) {
 
-            sprintf(file_name,"%s%s%s",pop->root,redshift_suffix,"pk_bi.dat");
+            sprintf(file_name,"%s%s%s",pop->root,redshift_suffix,"bi.dat");
             strcpy(first_line,"for baryon isocurvature (BI) mode ");
           }
 
           if ((ppt->has_cdi == _TRUE_) &&
               (index_ic1 == ppt->index_ic_cdi) && (index_ic2 == ppt->index_ic_cdi)) {
 
-            sprintf(file_name,"%s%s%s",pop->root,redshift_suffix,"pk_cdi.dat");
+            sprintf(file_name,"%s%s%s",pop->root,redshift_suffix,"cdi.dat");
             strcpy(first_line,"for CDM isocurvature (CDI) mode ");
           }
 
           if ((ppt->has_nid == _TRUE_) &&
               (index_ic1 == ppt->index_ic_nid) && (index_ic2 == ppt->index_ic_nid)) {
 
-            sprintf(file_name,"%s%s%s",pop->root,redshift_suffix,"pk_nid.dat");
+            sprintf(file_name,"%s%s%s",pop->root,redshift_suffix,"nid.dat");
             strcpy(first_line,"for neutrino density isocurvature (NID) mode ");
           }
 
           if ((ppt->has_niv == _TRUE_) &&
               (index_ic1 == ppt->index_ic_niv) && (index_ic2 == ppt->index_ic_niv)) {
 
-            sprintf(file_name,"%s%s%s",pop->root,redshift_suffix,"pk_niv.dat");
+            sprintf(file_name,"%s%s%s",pop->root,redshift_suffix,"niv.dat");
             strcpy(first_line,"for neutrino velocity isocurvature (NIV) mode ");
           }
 
           if ((ppt->has_ad == _TRUE_) &&
               (ppt->has_bi == _TRUE_) && (index_ic1 == ppt->index_ic_ad) && (index_ic2 == ppt->index_ic_bi)) {
 
-            sprintf(file_name,"%s%s%s",pop->root,redshift_suffix,"pk_ad_bi.dat");
+            sprintf(file_name,"%s%s%s",pop->root,redshift_suffix,"ad_bi.dat");
             strcpy(first_line,"for cross ADxBI mode ");
           }
 
           if ((ppt->has_ad == _TRUE_) && (ppt->has_cdi == _TRUE_) &&
               (index_ic1 == ppt->index_ic_ad) && (index_ic2 == ppt->index_ic_cdi)) {
 
-            sprintf(file_name,"%s%s%s",pop->root,redshift_suffix,"pk_ad_cdi.dat");
+            sprintf(file_name,"%s%s%s",pop->root,redshift_suffix,"ad_cdi.dat");
             strcpy(first_line,"for cross ADxCDI mode ");
           }
 
           if ((ppt->has_ad == _TRUE_) && (ppt->has_nid == _TRUE_) &&
               (index_ic1 == ppt->index_ic_ad) && (index_ic2 == ppt->index_ic_nid)) {
 
-            sprintf(file_name,"%s%s%s",pop->root,redshift_suffix,"pk_ad_nid.dat");
+            sprintf(file_name,"%s%s%s",pop->root,redshift_suffix,"ad_nid.dat");
             strcpy(first_line,"for scalar cross ADxNID mode ");
           }
 
           if ((ppt->has_ad == _TRUE_) && (ppt->has_niv == _TRUE_) &&
               (index_ic1 == ppt->index_ic_ad) && (index_ic2 == ppt->index_ic_niv)) {
 
-            sprintf(file_name,"%s%s%s",pop->root,redshift_suffix,"pk_ad_niv.dat");
+            sprintf(file_name,"%s%s%s",pop->root,redshift_suffix,"ad_niv.dat");
             strcpy(first_line,"for cross ADxNIV mode ");
           }
 
           if ((ppt->has_bi == _TRUE_) && (ppt->has_cdi == _TRUE_) &&
               (index_ic1 == ppt->index_ic_bi) && (index_ic2 == ppt->index_ic_cdi)) {
 
-            sprintf(file_name,"%s%s%s",pop->root,redshift_suffix,"pk_bi_cdi.dat");
+            sprintf(file_name,"%s%s%s",pop->root,redshift_suffix,"bi_cdi.dat");
             strcpy(first_line,"for cross BIxCDI mode ");
           }
 
           if ((ppt->has_bi == _TRUE_) && (ppt->has_nid == _TRUE_) &&
               (index_ic1 == ppt->index_ic_bi) && (index_ic2 == ppt->index_ic_nid)) {
 
-            sprintf(file_name,"%s%s%s",pop->root,redshift_suffix,"pk_bi_nid.dat");
+            sprintf(file_name,"%s%s%s",pop->root,redshift_suffix,"bi_nid.dat");
             strcpy(first_line,"for cross BIxNID mode ");
           }
 
           if ((ppt->has_bi == _TRUE_) && (ppt->has_niv == _TRUE_) &&
               (index_ic1 == ppt->index_ic_bi) && (index_ic2 == ppt->index_ic_niv)) {
 
-            sprintf(file_name,"%s%s%s",pop->root,redshift_suffix,"pk_bi_niv.dat");
+            sprintf(file_name,"%s%s%s",pop->root,redshift_suffix,"bi_niv.dat");
             strcpy(first_line,"for cross BIxNIV mode ");
           }
 
           if ((ppt->has_cdi == _TRUE_) && (ppt->has_nid == _TRUE_) &&
               (index_ic1 == ppt->index_ic_cdi) && (index_ic2 == ppt->index_ic_nid)) {
 
-            sprintf(file_name,"%s%s%s",pop->root,redshift_suffix,"pk_cdi_nid.dat");
+            sprintf(file_name,"%s%s%s",pop->root,redshift_suffix,"cdi_nid.dat");
             strcpy(first_line,"for cross CDIxNID mode ");
           }
 
           if ((ppt->has_cdi == _TRUE_) && (ppt->has_niv == _TRUE_) &&
               (index_ic1 == ppt->index_ic_cdi) && (index_ic2 == ppt->index_ic_niv)) {
 
-            sprintf(file_name,"%s%s%s",pop->root,redshift_suffix,"pk_cdi_niv.dat");
+            sprintf(file_name,"%s%s%s",pop->root,redshift_suffix,"cdi_niv.dat");
             strcpy(first_line,"for cross CDIxNIV mode ");
           }
 
           if ((ppt->has_nid == _TRUE_) && (ppt->has_niv == _TRUE_) &&
               (index_ic1 == ppt->index_ic_nid) && (index_ic2 == ppt->index_ic_niv)) {
 
-            sprintf(file_name,"%s%s%s",pop->root,redshift_suffix,"pk_nid_niv.dat");
+            sprintf(file_name,"%s%s%s",pop->root,redshift_suffix,"nid_niv.dat");
             strcpy(first_line,"for cross NIDxNIV mode ");
           }
 
@@ -916,55 +933,88 @@ int output_pk(
 
     /** - third, compute P(k) for each k (if several ic's, compute it for each ic and compute also the total); if z_pk = 0, this is done by directly reading inside the pre-computed table; if not, this is done by interpolating the table at the correct value of tau. */
 
-    /* if z_pk = 0, no interpolation needed */
+    for (int index_pk=0; index_pk < psp->pk_size; ++index_pk) {
 
-    if (pop->z_pk[index_z] == 0.) {
+      /* if z_pk = 0, no interpolation needed */
+      if (pop->z_pk[index_z] == 0.) {
 
-      for (index_k=0; index_k<psp->ln_k_size; index_k++) {
+        for (index_k=0; index_k<psp->ln_k_size; index_k++) {
 
-        if (psp->ic_size[index_md] == 1) {
-          pk_tot[index_k] = exp(psp->ln_pk[(psp->ln_tau_size-1) * psp->ln_k_size + index_k]);
-        }
-        else {
-          pk_tot[index_k] = 0.;
-          for (index_ic1=0; index_ic1 < psp->ic_size[index_md]; index_ic1++) {
-            index_ic1_ic2 = index_symmetric_matrix(index_ic1,index_ic1,psp->ic_size[index_md]);
-            pk_ic[index_k * psp->ic_ic_size[index_md] + index_ic1_ic2] = exp(psp->ln_pk[((psp->ln_tau_size-1) * psp->ln_k_size + index_k) * psp->ic_ic_size[index_md] + index_ic1_ic2]);
-            pk_tot[index_k] += pk_ic[index_k * psp->ic_ic_size[index_md] + index_ic1_ic2];
+          if (psp->ic_size[index_md] == 1) {
+            if (psp->is_cross_pk[index_pk] == _FALSE_)
+              pk_tot[index_pk][index_k] = exp(psp->ln_pk[index_pk][(psp->ln_tau_size-1) * psp->ln_k_size + index_k]);
+            else
+              pk_tot[index_pk][index_k] = psp->ln_pk[index_pk][(psp->ln_tau_size-1) * psp->ln_k_size + index_k];
           }
-          for (index_ic1=0; index_ic1 < psp->ic_size[index_md]; index_ic1++) {
-            for (index_ic2 = index_ic1+1; index_ic2 < psp->ic_size[index_md]; index_ic2++) {
-              pk_ic[index_k * psp->ic_ic_size[index_md] + index_symmetric_matrix(index_ic1,index_ic2,psp->ic_size[index_md])] =
-                psp->ln_pk[index_k * psp->ic_ic_size[index_md] + index_symmetric_matrix(index_ic1,index_ic2,psp->ic_size[index_md])]
-                *sqrt(pk_ic[index_k * psp->ic_ic_size[index_md] + index_symmetric_matrix(index_ic1,index_ic1,psp->ic_size[index_md])] *
-                      pk_ic[index_k * psp->ic_ic_size[index_md] + index_symmetric_matrix(index_ic2,index_ic2,psp->ic_size[index_md])]);
-              pk_tot[index_k] += 2.*pk_ic[index_k * psp->ic_ic_size[index_md] + index_ic1_ic2];
+          else {
+            pk_tot[index_pk][index_k] = 0.;
+            for (index_ic1=0; index_ic1 < psp->ic_size[index_md]; index_ic1++) {
+              index_ic1_ic2 = index_symmetric_matrix(index_ic1,index_ic1,psp->ic_size[index_md]);
+              if (psp->is_cross_pk[index_pk] == _FALSE_)
+                pk_ic[index_pk][index_k * psp->ic_ic_size[index_md] + index_ic1_ic2] =
+                  exp(psp->ln_pk[index_pk][((psp->ln_tau_size-1) * psp->ln_k_size + index_k)
+                  * psp->ic_ic_size[index_md] + index_ic1_ic2]);
+              else
+                pk_ic[index_pk][index_k * psp->ic_ic_size[index_md] + index_ic1_ic2] =
+                  psp->ln_pk[index_pk][((psp->ln_tau_size-1) * psp->ln_k_size + index_k)
+                  * psp->ic_ic_size[index_md] + index_ic1_ic2];
+              pk_tot[index_pk][index_k] += pk_ic[index_pk][index_k * psp->ic_ic_size[index_md] + index_ic1_ic2];
+            }
+            for (index_ic1=0; index_ic1 < psp->ic_size[index_md]; index_ic1++) {
+              for (index_ic2 = index_ic1+1; index_ic2 < psp->ic_size[index_md]; index_ic2++) {
+                pk_ic[index_pk][index_k * psp->ic_ic_size[index_md] + index_symmetric_matrix(index_ic1,index_ic2,psp->ic_size[index_md])] =
+                  psp->ln_pk[index_pk][index_k * psp->ic_ic_size[index_md] + index_symmetric_matrix(index_ic1,index_ic2,psp->ic_size[index_md])]
+                  *sqrt(pk_ic[index_pk][index_k * psp->ic_ic_size[index_md] + index_symmetric_matrix(index_ic1,index_ic1,psp->ic_size[index_md])] *
+                        pk_ic[index_pk][index_k * psp->ic_ic_size[index_md] + index_symmetric_matrix(index_ic2,index_ic2,psp->ic_size[index_md])]);
+                pk_tot[index_pk][index_k] += 2.*pk_ic[index_pk][index_k * psp->ic_ic_size[index_md] + index_ic1_ic2];
+              }
             }
           }
         }
       }
-    }
 
-    /* if 0 <= z_pk <= z_max_pk, interpolation needed, */
-    else {
+      /* if 0 <= z_pk <= z_max_pk, interpolation needed, */
+      else {
 
-      class_call(spectra_pk_at_z(pba,
-                                 psp,
-                                 linear,
-                                 pop->z_pk[index_z],
-                                 pk_tot,
-                                 pk_ic),
-                 psp->error_message,
-                 pop->error_message);
-    }
+        class_call(spectra_any_pk_at_z(pba,
+                                   psp,
+                                   linear,
+                                   pop->z_pk[index_z],
+                                   pk_tot[index_pk],
+                                   pk_ic[index_pk],
+                                   index_pk),
+                   psp->error_message,
+                   pop->error_message);
+      }
+
+    } // end of for (index_pk)
 
     /** - fourth, write in files */
 
-    for (index_k=0; index_k<psp->ln_k_size; index_k++) {
+    double * pk_tot_of_pk;
+    double * pk_ic_of_pk;
+    
+    class_alloc(pk_tot_of_pk,
+                psp->pk_size*sizeof(double),
+                pop->error_message);
 
-      class_call(output_one_line_of_pk(out,
-                                       exp(psp->ln_k[index_k])/pba->h,
-                                       pk_tot[index_k]*pow(pba->h,3)),
+    if (psp->ic_size[index_md] > 1) {
+
+      class_alloc(pk_ic_of_pk,
+                  psp->pk_size*sizeof(double),
+                  pop->error_message);
+    }
+
+    for (index_k=0; index_k<psp->ln_k_size; index_k++) {
+      
+      for (int index_pk=0; index_pk < psp->pk_size; ++index_pk)
+        pk_tot_of_pk[index_pk] = pk_tot[index_pk][index_k];
+
+      class_call(output_one_line_of_pk(pba,
+                                       psp,
+                                       out,
+                                       exp(psp->ln_k[index_k]),
+                                       pk_tot_of_pk),
                  pop->error_message,
                  pop->error_message);
 
@@ -972,11 +1022,16 @@ int output_pk(
 
         for (index_ic1_ic2 = 0; index_ic1_ic2 < psp->ic_ic_size[index_md]; index_ic1_ic2++) {
 
+          for (int index_pk=0; index_pk < psp->pk_size; ++index_pk)
+            pk_ic_of_pk[index_pk] = pk_ic[index_pk][index_k * psp->ic_ic_size[index_md] + index_ic1_ic2];
+
           if (psp->is_non_zero[index_md][index_ic1_ic2] == _TRUE_) {
 
-            class_call(output_one_line_of_pk(out_ic[index_ic1_ic2],
-                                             exp(psp->ln_k[index_k])/pba->h,
-                                             pk_ic[index_k * psp->ic_ic_size[index_md] + index_ic1_ic2]*pow(pba->h,3)),
+            class_call(output_one_line_of_pk(pba,
+                                             psp,
+                                             out_ic[index_ic1_ic2],
+                                             exp(psp->ln_k[index_k]),
+                                             pk_ic_of_pk),
                        pop->error_message,
                        pop->error_message);
           }
@@ -986,7 +1041,10 @@ int output_pk(
 
     /** - fifth, free memory and close files */
 
+    for (int index_pk=0; index_pk < psp->pk_size; ++index_pk)
+      free(pk_tot[index_pk]);
     free(pk_tot);
+    free(pk_tot_of_pk);
     fclose(out);
 
     if (psp->ic_size[index_md] > 1) {
@@ -996,7 +1054,10 @@ int output_pk(
         }
       }
       free(out_ic);
+      for (int index_pk=0; index_pk < psp->pk_size; ++index_pk)
+        free(pk_ic[index_pk]);
       free(pk_ic);
+      free(pk_ic_of_pk);
     }
 
   }
@@ -1027,7 +1088,7 @@ int output_pk_nl(
 
   FILE * out;     /* (will contain total P(k) summed eventually over initial conditions) */
 
-  double * pk_tot; /* array with argument pk_tot[index_k] */
+  double ** pk_tot; /* array with argument pk_tot[index_k] */
 
   int index_k;
   int index_z;
@@ -1064,50 +1125,76 @@ int output_pk_nl(
                pop->error_message);
 
     class_alloc(pk_tot,
-                psp->ln_k_size*sizeof(double),
+                psp->pk_size*sizeof(double*),
                 pop->error_message);
+
+    for (int index_pk=0; index_pk < psp->pk_size; ++index_pk) {
+      class_alloc(pk_tot[index_pk],
+                  psp->ln_k_size*sizeof(double),
+                  pop->error_message);
+    }
 
     /** - third, compute P(k) for each k (if several ic's, compute it for each ic and compute also the total); if z_pk = 0, this is done by directly reading inside the pre-computed table; if not, this is done by interpolating the table at the correct value of tau. */
 
-    /* if z_pk = 0, no interpolation needed */
+    for (int index_pk=0; index_pk < psp->pk_size; ++index_pk) {
 
-    if (pop->z_pk[index_z] == 0.) {
+      /* if z_pk = 0, no interpolation needed */
 
-      for (index_k=0; index_k<psp->ln_k_size; index_k++) {
+      if (pop->z_pk[index_z] == 0.) {
 
-        pk_tot[index_k] = exp(psp->ln_pk_nl[(psp->ln_tau_size-1) * psp->ln_k_size + index_k]);
+        for (index_k=0; index_k<psp->ln_k_size; index_k++) {
 
+          if (psp->is_cross_pk[index_pk] == _FALSE_)
+            pk_tot[index_pk][index_k] = exp(psp->ln_pk_nl[index_pk][(psp->ln_tau_size-1) * psp->ln_k_size + index_k]);
+          else
+            pk_tot[index_pk][index_k] = psp->ln_pk_nl[index_pk][(psp->ln_tau_size-1) * psp->ln_k_size + index_k];
+
+        }
       }
-    }
 
-    /* if 0 <= z_pk <= z_max_pk, interpolation needed, */
-    else {
+      /* if 0 <= z_pk <= z_max_pk, interpolation needed, */
+      else {
 
-      class_call(spectra_pk_nl_at_z(pba,
-                                    psp,
-                                    linear,
-                                    pop->z_pk[index_z],
-                                    pk_tot),
-                 psp->error_message,
-                 pop->error_message);
+        class_call(spectra_any_pk_nl_at_z(pba,
+                                      psp,
+                                      linear,
+                                      pop->z_pk[index_z],
+                                      pk_tot[index_pk],
+                                      index_pk),
+                   psp->error_message,
+                   pop->error_message);
+      }
     }
 
     /** - fourth, write in files */
 
+    double * pk_tot_of_pk;
+
+    class_alloc(pk_tot_of_pk,
+                psp->pk_size*sizeof(double),
+                pop->error_message);
+
     for (index_k=0; index_k<psp->ln_k_size; index_k++) {
 
-      class_call(output_one_line_of_pk(out,
-                                       exp(psp->ln_k[index_k])/pba->h,
-                                       pk_tot[index_k]*pow(pba->h,3)),
+      for (int index_pk=0; index_pk < psp->pk_size; ++index_pk)
+        pk_tot_of_pk[index_pk] = pk_tot[index_pk][index_k];
+
+      class_call(output_one_line_of_pk(pba,
+                                       psp,
+                                       out,
+                                       exp(psp->ln_k[index_k]),
+                                       pk_tot_of_pk),
                  pop->error_message,
                  pop->error_message);
-
     }
 
     /** - fifth, free memory and close files */
 
     fclose(out);
+    for (int index_pk=0; index_pk < psp->pk_size; ++index_pk)
+      free(pk_tot[index_pk]);
     free(pk_tot);
+    free(pk_tot_of_pk);
 
   }
 
@@ -2166,8 +2253,14 @@ int output_open_pk_file(
     fprintf(*pkfile,"# number of wavenumbers equal to %d\n",psp->ln_k_size);
 
     fprintf(*pkfile,"#");
+
     class_fprintf_columntitle(*pkfile,"k (h/Mpc)",_TRUE_,colnum);
-    class_fprintf_columntitle(*pkfile,"P (Mpc/h)^3",_TRUE_,colnum);
+
+    char buffer[_MAXTITLESTRINGLENGTH_];
+    for (int index_pk=0; index_pk < psp->pk_size; ++index_pk) {
+      sprintf (buffer, "P_%s (Mpc/h)^3", psp->pk_labels[index_pk]);
+      class_fprintf_columntitle(*pkfile, buffer, _TRUE_, colnum);
+    }
 
     fprintf(*pkfile,"\n");
   }
@@ -2185,15 +2278,34 @@ int output_open_pk_file(
  */
 
 int output_one_line_of_pk(
+                          struct background * pba,
+                          struct spectra * psp,
                           FILE * pkfile,
-                          double one_k,
-                          double one_pk
+                          double k,
+                          double * pk
                           ) {
 
   fprintf(pkfile," ");
-  class_fprintf_double(pkfile,one_k,_TRUE_);
-  class_fprintf_double(pkfile,one_pk,_TRUE_);
-  fprintf(pkfile,"\n");
+  class_fprintf_double(pkfile, k/pba->h, _TRUE_);
+
+  for (int index_pk=0; index_pk < psp->pk_size; ++index_pk) {
+
+    double pk_value = pk[index_pk];
+
+    /* Should we output the velocity (_TRUE_) or velocity divergence theta (_FALSE_) power spectra? */
+    int use_velocity = _TRUE_;
+
+    if (use_velocity == _TRUE_) {
+      if ((psp->has_pk_theta_theta == _TRUE_) && (index_pk == psp->index_pk_theta_theta))
+        pk_value /= k*k;
+      else if ((psp->has_pk_delta_theta == _TRUE_) && (index_pk == psp->index_pk_delta_theta))
+        pk_value /= k;
+    }
+
+    class_fprintf_double(pkfile, pk_value*pow(pba->h,3), _TRUE_);
+  }
+
+  fprintf(pkfile, "\n");
 
   return _SUCCESS_;
 

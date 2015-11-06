@@ -1390,7 +1390,12 @@ int input_read_parameters(
     }
 
     if ((strstr(string1,"mPk") != NULL) || (strstr(string1,"MPk") != NULL) || (strstr(string1,"MPK") != NULL)) {
-      ppt->has_pk_matter=_TRUE_;
+      ppt->has_pk_delta=_TRUE_;
+      ppt->has_perturbations = _TRUE_;
+    }
+
+    if ((strstr(string1,"vPk") != NULL) || (strstr(string1,"VPk") != NULL) || (strstr(string1,"VPK") != NULL)) {
+      ppt->has_pk_theta=_TRUE_;
       ppt->has_perturbations = _TRUE_;
     }
 
@@ -1465,16 +1470,17 @@ int input_read_parameters(
       ppt->has_cls = _TRUE_;
     }
 
-    if (((strstr(string1,"delta_cdm_pk") != NULL) || (strstr(string1,"pk_delta_cdm") != NULL) || (strstr(string1,"mPk") != NULL))) {
+    if (((strstr(string1,"delta_cdm_pk") != NULL) || (strstr(string1,"pk_delta_cdm") != NULL) || (strstr(string1,"mPk2") != NULL))) {
       ppt->has_perturbations = _TRUE_;
       ppt->has_perturbations2 = _TRUE_;
-      ppt->has_pk_matter = _TRUE_;
+      ppt->has_pk_delta = _TRUE_;
     }
 
-    if (((strstr(string1,"delta_cdm_bk") != NULL) || (strstr(string1,"bk_delta_cdm") != NULL) || (strstr(string1,"mBisp") != NULL))) {
+    if (((strstr(string1,"delta_cdm_bk") != NULL) || (strstr(string1,"bk_delta_cdm") != NULL) ||
+         (strstr(string1,"mBisp") != NULL) || (strstr(string1,"mBisp2") != NULL))) {
       ppt->has_perturbations = _TRUE_;
       ppt->has_perturbations2 = _TRUE_;
-      ppt->has_pk_matter = _TRUE_;
+      ppt->has_pk_delta = _TRUE_;
     }
 
     if ((strstr(string1,"stop_at_perturbations1") != NULL) || (strstr(string1,"P1") != NULL)) {
@@ -1756,7 +1762,7 @@ int input_read_parameters(
                   "Inconsistency: you want C_l's for cmb reionisation potential, but no scalar modes\n");
 #endif // WITH_BISPECTRA
 
-      class_test(ppt->has_pk_matter == _TRUE_,
+      class_test((ppt->has_pk_delta == _TRUE_) || (ppt->has_pk_theta),
                  errmsg,
                  "Inconsistency: you want P(k) of matter, but no scalar modes\n");
 
@@ -2347,7 +2353,8 @@ int input_read_parameters(
 
   }
 
-  if ((ppt->has_pk_matter == _TRUE_) || (ppt->has_density_transfers == _TRUE_) || (ppt->has_velocity_transfers == _TRUE_)) {
+  if ((ppt->has_pk_delta == _TRUE_) || (ppt->has_pk_theta == _TRUE_) ||
+      (ppt->has_density_transfers == _TRUE_) || (ppt->has_velocity_transfers == _TRUE_)) {
 
     class_call(parser_read_double(pfc,"P_k_max_h/Mpc",&param1,&flag1,errmsg),
                errmsg,
@@ -2398,6 +2405,21 @@ int input_read_parameters(
       for (i=0; i<pop->z_pk_num; i++)
         psp->z_max_pk = MAX(psp->z_max_pk,pop->z_pk[i]);
     }
+
+#ifdef WITH_BISPECTRA
+    class_call(parser_read_string(pfc,
+                                  "dm_halo_contraction",
+                                  &(string1),
+                                  &(flag1),
+                                  errmsg),
+               errmsg,
+               errmsg);
+
+    if ((flag1 == _TRUE_) && ((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL))) {
+      psp->has_pk_halo_contraction = _TRUE_;
+    }
+#endif // WITH_BISPECTRA
+
   }
 
   /* deal with selection functions */
@@ -2588,6 +2610,16 @@ int input_read_parameters(
     }
 
   }
+
+  /* CLASS can only compute nonlinear corrections for the density P(k). The kSZ
+  power spectrum, however, is obtained from both density and velocity power spectra.
+  Therefore, when nonlinear corrections are requested, the non-linear velocity power
+  spectrum is derived from the non-linear density power spectrum using the linear
+  relation v=delta*a'*f/k. */
+  if ((pnl->method != nl_none) && (ppt->has_pk_theta == _TRUE_)) {
+    printf ("WARNING: nonlinear velocity power spectra not implemented - will use linear\n");
+  }
+
 
   /** (g) amount of information sent to standard output (none if all set to zero) */
 
@@ -4146,7 +4178,8 @@ int input_default_params(
   ppt->has_cl_cmb_lensing_potential = _FALSE_;
   ppt->has_cl_number_count = _FALSE_;
   ppt->has_cl_lensing_potential = _FALSE_;
-  ppt->has_pk_matter = _FALSE_;
+  ppt->has_pk_delta = _FALSE_;
+  ppt->has_pk_theta = _FALSE_;
   ppt->has_density_transfers = _FALSE_;
   ppt->has_velocity_transfers = _FALSE_;
 
@@ -4331,6 +4364,7 @@ int input_default_params(
   psp->z_max_pk = pop->z_pk[0];
   psp->non_diag=0;
 #ifdef WITH_BISPECTRA
+  psp->has_pk_halo_contraction = _FALSE_;
   psp->compute_cl_derivative = _FALSE_;
 #endif // WITH_BISPECTRA
 

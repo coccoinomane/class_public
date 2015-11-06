@@ -3320,34 +3320,6 @@ int spectra_pk(
             exp(psp->ln_k[psp->ln_k_size-1])/pba->h);
 
 
-  /** - compute free electron density power spectrum */
-
-  if (psp->has_pk_delta_delta_e == _TRUE_) {
-
-    class_call(spectra_pk_free_electron(pba,ppt,ppm,pnl,psp),
-               psp->error_message,
-               psp->error_message);    
-  }
-
-
-  /** - compute kSZ power spectra */
-  
-  if ((psp->has_pk_ksz_parallel == _TRUE_) || (psp->has_pk_ksz_perpendicular == _TRUE_)) {
-
-    /* use linear P(k) */
-    class_call(spectra_pk_ksz(ppr,pba,ppt,ppm,pnl,psp,_FALSE_),
-               psp->error_message,
-               psp->error_message);
-               
-    /* use non-linear P(k) */
-    if (pnl->method != nl_none) {
-
-      class_call(spectra_pk_ksz(ppr,pba,ppt,ppm,pnl,psp,_TRUE_),
-                 psp->error_message,
-                 psp->error_message);
-    }          
-  }
-
   /* Debug - Test that interpolation works */
   // int z = 0;
   // int N = 200;
@@ -3561,12 +3533,13 @@ int spectra_pk_from_source(
               ln_pk_tot
               + 2.*log(pnl->nl_corr_density[(index_tau-psp->ln_tau_size+ppt->tau_size) * ppt->k_size[index_md] + index_k]);
             
+#ifdef WITH_BISPECTRA
             /* Compute the effect of the presence of stars and gas at the center of DM halos, which results
             in a steepening of the DM profile. For more details, see Sec. 2.2 of Shaw et al. */
-            if (psp->has_dm_halo_contraction == _TRUE_) {
+            if (psp->has_pk_halo_contraction == _TRUE_) {
 
               double Phi;
-              class_call (spectra_dm_halo_contraction (pba->h, exp(psp->ln_k[index_k]), &Phi, psp->error_message),
+              class_call (spectra_pk_halo_contraction (pba->h, exp(psp->ln_k[index_k]), &Phi, psp->error_message),
                 psp->error_message, psp->error_message);
               psp->ln_pk_nl[index_pk][index_tau * psp->ln_k_size + index_k] += log(Phi*Phi);
               
@@ -3576,18 +3549,23 @@ int spectra_pk_from_source(
               //     exp(psp->ln_pk_nl[index_pk][index_tau * psp->ln_k_size + index_k]-log(Phi*Phi)),
               //     exp(psp->ln_pk_nl[index_pk][index_tau * psp->ln_k_size + index_k]), Phi*Phi);
 
-            } // end of if(has_dm_halo_contraction)
+            } // if(has_pk_halo_contraction)
+#endif // WITH_BISPECTRA
 
           }
-          /* TODO: implement nonlinear corrections for velocity power spectra */
+
+          /* So far the nonlinear corrections are implemented only for the matter density.
+          In the future we should implement the corrections for the velocity (TODO) */
+
           else {
-            double nl_corr_velocity = 1;
-            psp->ln_pk_nl[index_pk][index_tau * psp->ln_k_size + index_k] = nl_corr_velocity * ln_pk_tot;
+
+            psp->ln_pk_nl[index_pk][index_tau * psp->ln_k_size + index_k] = ln_pk_tot;
+
           }
 
-        } // end of if(nonlinear)
-      } // end of for(index_k)
-    } // end of for(index_tau)
+        } // if(nonlinear)
+      } // for(index_k)
+    } // for(index_tau)
 
 
     /**- if interpolation of P(k,tau) will be needed (as a function of tau),
@@ -3606,6 +3584,116 @@ int spectra_pk_from_source(
   return _SUCCESS_;
 }
 
+
+
+#ifdef WITH_BISPECTRA
+
+/**
+ * Compute effect of halo contraction on the dark matter power spectrum.
+ * 
+ * Corrective factor that, multiplied with the CDM power spectrum, gives the baryon effect
+ * on the DM distribution known as halo contraction. This consists of the pull exerted by gas
+ * and stars in the core of a DM halo on the DM itself, which results in a steepening of the
+ * DM radial profile. The net result on the DM power spectrum is an increase at scales of
+ * k>1 h/Mpc, as can be seen by the dashed line in the left panel of Fig. 8 of Rudd et al. 2008
+ * (http://arxiv.org/abs/astro-ph/0703741), which we reproduce accurately. We implement
+ * the effect using Eq. 10 of Rudd et al. 2008 (see also Eq. 14 of Shaw et al. 2012,
+ * http://arxiv.org/abs/1109.0553v2):
+ * 
+ * P^CSF_DM(k,z) = Phi(k,z)^2 P_DM(k,z).
+ *
+ * This function computes Phi, using a fitting formula calibrated with the numerical simulations
+ * of Rudd et al. at z=0.55. CSF stands for "radiative cooling and star formation", one of the
+ * models considered in Shaw et al. and in Rudd et al. In the words of Shaw et al., Sec. 2.2:
+ * 
+ *   "We incorporate the effects of halo contraction using the simple modification to
+ *   HaloFit suggested by Rudd et al. (2008). This is implemented by multiplying the
+ *   matter power spectrum by the ratio of Fourier-transformed NFW density profiles (Navarro
+ *   et al. 1997) with two different concentrations."
+ *
+ * Note that to reproduce the CSF model of Shaw et al. 2012, we would need to further multiply
+ * P^CSF_DM(k,z) by the window function plotted in the right panel of Fig. 2 in that paper. 
+ * However, this is not possible because they do not provide an analytical function for 
+ * the curve. Our best approximation is coded in 'spectra_baryon_filter_function', which,
+ * without the Phi correction, implements the NR (no radiation cooling) model in Eq. 21
+ * of their paper.
+ */
+
+int spectra_pk_halo_contraction (
+      double h,
+      double k,
+      double * result,
+      ErrorMsg errmsg)
+{
+
+  /* Numerical values taken from Sec. 4.3 of Rudd et al. 2008 (http://arxiv.org/abs/astro-ph/0703741).
+  The virial radius is expressed in Mpc and is fixed at z=0.55. According to Fig. 4 of Shaw et al,
+  the approximation is accurate all the way to z<=4. I guess the reason is that we are dealing with
+  a ratio of profiles where the numerator and denominator have a similar evolution, thus resulting
+  in a net small evolution. */
+  double c1 = 5;
+  double c2 = 8.5;
+  double R_vir = 1.1/h;
+  
+  /* Compute the Fourier transformed NFW profiles using Eq. 11 of the same paper */
+  double lambda_1, lambda_2;
+  class_call (spectra_nfw (R_vir*k/c2, c2, &lambda_2, errmsg), errmsg, errmsg);
+  class_call (spectra_nfw (R_vir*k/c1, c1, &lambda_1, errmsg), errmsg, errmsg);
+
+  /* Compute the Phi function as the ratio of the two profiles */
+  class_test (fabs(lambda_1) < _MINUSCULE_, errmsg, "stopping to prevent segfault");
+  *result = lambda_2/lambda_1;
+  
+  return _SUCCESS_;
+  
+}
+
+
+
+/**
+ * Fourier transform of an NFW (Navarro, Frenk & White, 1997) radial profile of concentration
+ * c. The parameter 'eta' is the rescaled Fourier variable: eta = k * R_vir/c, where R_vir is
+ * the halo virial radius.
+ * 
+ * Here, we use the original formula in Eq. 11 of Scoccimarro et al. 2001
+ * (http://arxiv.org/abs/astro-ph/0006319). We first used the one in Eq. 11 of Rudd
+ * et al. 2008 (http://arxiv.org/abs/astro-ph/0703741), but then we noted a typo:
+ * the numerator of the last term in parentheses should be sin(eta*c) rather than sin(eta).
+ * 
+ */
+int spectra_nfw (
+      double eta,
+      double c,
+      double * result,
+      ErrorMsg errmsg)
+{
+  
+  /* Compute pre-factor */
+  double f = log(1+c) - c/(1+c);
+  class_test (fabs(f) < _MINUSCULE_, errmsg, "stopping to prevent segfault");
+  
+  /* Compute cosine and sine integrals */
+  double Ci_eta, Si_eta, Ci_eta_1_plus_c, Si_eta_1_plus_c;
+  class_call (cisi (eta, &Ci_eta, &Si_eta, errmsg), errmsg, errmsg);
+  class_call (cisi (eta*(1+c), &Ci_eta_1_plus_c, &Si_eta_1_plus_c, errmsg), errmsg, errmsg);
+  
+  /* Debug - print Ci(x) and Si(x) */
+  // printf ("CosIntegral[%25.16g]=%25.16g\n", eta, Ci_eta);
+  // printf ("SinIntegral[%25.16g]=%25.16g\n", eta, Si_eta);
+    
+  /* Build the Fourier transform of the NFW profile */
+  *result = 1/f * (
+    sin(eta)*(Si_eta_1_plus_c-Si_eta) +
+    cos(eta)*(Ci_eta_1_plus_c-Ci_eta) -
+    sin(eta*c)/((1+c)*eta)
+  );
+  
+  return _SUCCESS_;
+  
+}
+
+#endif // WITH_BISPECTRA
+  
 
 
 /**
