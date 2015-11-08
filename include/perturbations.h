@@ -444,8 +444,16 @@ struct perturbs
 
   //@{
 
-  short has_perturbations2;   /**< Do we need to store the sources for Song? */
-  short has_polarization2;    /**< Do we need to compute the E polarisation for Song? */
+  short has_perturbations2;   /**< Do we need to store the sources for SONG? */
+
+  short has_polarization2;    /**< Do we need to compute the E polarisation for SONG? */
+
+  short has_cl_cmb_temperature2;       /**< Do we need Cl for second-order CMB temperature? */
+
+  short has_cl_cmb_polarization_e2;    /**< Do we need Cl for second-order CMB e-polarization? */
+
+  short has_cl_cmb_polarization_b2;    /**< Do we need Cl for second-order CMB b-polarization? */
+
   short has_perturbed_recombination_stz; /**< Shall we compute perturbed ionization fraction as in Senatore,
                                          Tassev, Zaldarriaga, 2009 (http://arxiv.org/abs/0812.3652)? We
                                          describe our approach in sec. 5.3.4 of http://arxiv.org/abs/1405.2280. */

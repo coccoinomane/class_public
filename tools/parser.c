@@ -762,7 +762,7 @@ int parser_replace_entry (
   int index=0;
   while ((index < pfc->size) && (strcmp(pfc->name[index],name) != 0))
     index++;
-
+  
   if (found == NULL) {
     class_test (index == pfc->size,
       errmsg,
@@ -901,6 +901,68 @@ int parser_remove_entry (
   pfc->changed[index] = _TRUE_;
 
   /* if everything proceeded normally, return _SUCCESS_ */
+
+  return _SUCCESS_;
+
+}
+
+
+/**
+ * Add an entry from the file_content structure.
+ *
+ * If the value already exists, then it will be overwritten.
+ * 
+ * If 'found' is a NULL pointer and the entry corresponding to 'name' does not exist,
+ * print an error message. Otherwise, overwrite 'found' with either _TRUE_ or _FALSE_
+ * whether the entry was found or not, with no error messages.
+ */
+int parser_add_entry (
+        struct file_content * pfc,
+        char * name,
+        char * value,
+        int * found,
+        ErrorMsg errmsg
+        )
+{
+  
+  /* Search for the entry */
+  int index=0;
+  while ((index < pfc->size) && (strcmp(pfc->name[index],name) != 0))
+    index++;
+
+  if (index < pfc->size)
+    *found = _TRUE_;
+  else
+    *found = _FALSE_;
+
+  /* Make space for the entry if it does not exist already */
+  if (!(*found)) {
+
+    pfc->size += 1;
+    
+    class_realloc(pfc->name,
+                  pfc->name,
+                  pfc->size*sizeof(FileArg),
+                  errmsg);
+
+    strcpy (pfc->name[index], name);
+    
+    class_realloc(pfc->read,
+                  pfc->read,
+                  pfc->size*sizeof(short),
+                  errmsg);
+
+    pfc->read[index] = _TRUE_;
+
+    class_realloc(pfc->changed,
+                  pfc->changed,
+                  pfc->size*sizeof(short),
+                  errmsg);
+  }
+
+  /* Update the value of the entry */
+  strcpy (pfc->value[index], value);
+  pfc->changed[index] = _TRUE_;
 
   return _SUCCESS_;
 

@@ -10,9 +10,9 @@
 #include "binary.h"
 
 /**
- * Categories of bispectra that SONG can compute.
+ * Kinds of bispectrum that SONG can compute.
  *
- * For details, see documentation for the bispectra.c file.
+ * For details, see documentation in bispectra.c.
  */
 enum bispectra_types {
   separable_bispectrum,     /**< bispectra derived from a separable shape function S(k1,k2,k3) (e.g. local, equilateral, orthogonal)*/
@@ -55,8 +55,8 @@ struct bispectra {
   short has_equilateral_model;        /* Equilateral model */  
   short has_orthogonal_model;         /* Orthogonal model */
   short has_galileon_model;           /* Galileon inflation (arXiv:1108.0305) */
-  short has_intrinsic;                /* Bispectrum induced by non-linear dynamics */
-  short has_intrinsic_squeezed;       /* Squeezed limit for the 2nd-order bispectrum (Creminelli et al. 2012, Bartolo et al. 2012, Lewis 2012) */
+  short has_intrinsic;                /* Bispectrum induced by non-linear dynamics (see bispectra2.c) */
+  short has_intrinsic_squeezed;       /* Squeezed limit for the intrinsic bispectrum (Creminelli et al. 2012, Bartolo et al. 2012, Lewis 2012) */
   short has_intrinsic_squeezed_unlensed; /* Same as above, but unlensed */
   short has_local_squeezed;           /* Squeezed limit for local model (Guangui et al. 1994) */
   short has_cosine_shape;             /* The above, multiplied by an oscillating function in l */

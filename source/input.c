@@ -1466,7 +1466,24 @@ int input_read_parameters(
       ppt->has_perturbations = _TRUE_;
       ppt->has_perturbations2 = _TRUE_;
       ppt->has_cl_cmb_temperature = _TRUE_;
+      ppt->has_cl_cmb_temperature2 = _TRUE_;
+      ppt->has_cls = _TRUE_;
+    }
+
+    if ((strstr(string1,"pCl2") != NULL) || (strstr(string1,"PCL2") != NULL) ||
+        (strstr(string1,"eCl2") != NULL) || (strstr(string1,"ECL2") != NULL)) {
+      ppt->has_perturbations = _TRUE_;
+      ppt->has_perturbations2 = _TRUE_;
       ppt->has_cl_cmb_polarization = _TRUE_;
+      ppt->has_cl_cmb_polarization_e2 = _TRUE_;
+      ppt->has_cls = _TRUE_;
+    }
+
+    if ((strstr(string1,"bCl2") != NULL) || (strstr(string1,"BCL2") != NULL)) {
+      ppt->has_perturbations = _TRUE_;
+      ppt->has_perturbations2 = _TRUE_;
+      ppt->has_cl_cmb_polarization = _TRUE_;
+      ppt->has_cl_cmb_polarization_b2 = _TRUE_;
       ppt->has_cls = _TRUE_;
     }
 
@@ -4358,6 +4375,9 @@ int input_default_params(
   pop->write_thermodynamics = _FALSE_;
   pop->write_perturbations = _FALSE_;
   pop->write_primordial = _FALSE_;
+#ifdef WITH_BISPECTRA
+  pop->write_bispectra = _FALSE_;
+#endif // WITH_BISPECTRA
 
   /** - spectra structure */
 
@@ -4429,16 +4449,15 @@ int input_default_params(
   pfi->squeezed_ratio = 0;
   pfi->compute_lensing_variance_lmax = _FALSE_;
   
-  /** - output structure */
-
-  pop->write_bispectra = _FALSE_;
-
 #ifdef WITH_SONG_SUPPORT
 
   /** - Parameters specific to a second-order computation */
 
   ppt->has_perturbations2 = _FALSE_;
   ppt->has_polarization2  = _FALSE_;
+  ppt->has_cl_cmb_temperature2 = _FALSE_;
+  ppt->has_cl_cmb_polarization_e2 = _FALSE_;
+  ppt->has_cl_cmb_polarization_b2 = _FALSE_;
 
   ppt->phi_eq = longitudinal;
 

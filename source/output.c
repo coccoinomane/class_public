@@ -630,6 +630,9 @@ int output_cl(
       class_call(output_one_line_of_cl(pba,psp,pop,out_lensed,l,cl_tot,psp->ct_size),
                  pop->error_message,
                  pop->error_message);
+      // class_call(output_one_line_of_cl(pba,psp,pop,out_lensed,l,cl_tot,psp->ct_size),
+      //            pop->error_message,
+      //            pop->error_message);
     }
 
     if (ppt->md_size > 1) {
@@ -2019,6 +2022,12 @@ int output_open_cl_file(
       class_fprintf_columntitle(*clfile,"TE",psp->has_te,colnum);
       class_fprintf_columntitle(*clfile,"BB",psp->has_bb,colnum);
 #ifdef WITH_BISPECTRA
+#ifdef WITH_SONG_SUPPORT
+      class_fprintf_columntitle(*clfile,"intrinsic_TT",psp->has_tt2,colnum);
+      class_fprintf_columntitle(*clfile,"intrinsic_EE",psp->has_ee2,colnum);
+      class_fprintf_columntitle(*clfile,"intrinsic_TE",psp->has_te2,colnum);
+      class_fprintf_columntitle(*clfile,"intrinsic_BB",psp->has_bb2,colnum);
+#endif // WITH_SONG_SUPPORT
       class_fprintf_columntitle(*clfile,"RR",psp->has_rr,colnum);
       class_fprintf_columntitle(*clfile,"TR",psp->has_tr,colnum);
       class_fprintf_columntitle(*clfile,"ER",psp->has_er,colnum);
@@ -2035,11 +2044,17 @@ int output_open_cl_file(
       class_fprintf_columntitle(*clfile,"BB",psp->has_bb,colnum);
       class_fprintf_columntitle(*clfile,"TE",psp->has_te,colnum);
 #ifdef WITH_BISPECTRA
-      class_fprintf_columntitle(*clfile,"rr",psp->has_rr,colnum);
-      class_fprintf_columntitle(*clfile,"tr",psp->has_tr,colnum);
-      class_fprintf_columntitle(*clfile,"er",psp->has_er,colnum);
-      class_fprintf_columntitle(*clfile,"tz",psp->has_tz,colnum);
-      class_fprintf_columntitle(*clfile,"ez",psp->has_ez,colnum);
+#ifdef WITH_SONG_SUPPORT
+      class_fprintf_columntitle(*clfile,"intrinsic_TT",psp->has_tt2,colnum);
+      class_fprintf_columntitle(*clfile,"intrinsic_EE",psp->has_ee2,colnum);
+      class_fprintf_columntitle(*clfile,"intrinsic_TE",psp->has_te2,colnum);
+      class_fprintf_columntitle(*clfile,"intrinsic_BB",psp->has_bb2,colnum);
+#endif // WITH_SONG_SUPPORT
+      class_fprintf_columntitle(*clfile,"RR",psp->has_rr,colnum);
+      class_fprintf_columntitle(*clfile,"TR",psp->has_tr,colnum);
+      class_fprintf_columntitle(*clfile,"ER",psp->has_er,colnum);
+      class_fprintf_columntitle(*clfile,"TZ",psp->has_tz,colnum);
+      class_fprintf_columntitle(*clfile,"EZ",psp->has_ez,colnum);
 #endif // WITH_BISPECTRA
       class_fprintf_columntitle(*clfile,"dd",psp->has_pp,colnum);
       class_fprintf_columntitle(*clfile,"dT",psp->has_tp,colnum);
@@ -2170,6 +2185,12 @@ int output_one_line_of_cl(
     class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_bb], psp->has_bb);
     class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_te], psp->has_te);
 #ifdef WITH_BISPECTRA
+#ifdef WITH_SONG_SUPPORT
+    class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_tt2], psp->has_tt2);
+    class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_ee2], psp->has_ee2);
+    class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_bb2], psp->has_bb2);
+    class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_te2], psp->has_te2);
+#endif // WITH_SONG_SUPPORT
     class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_rr], psp->has_rr);
     class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_tr], psp->has_tr);
     class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_er], psp->has_er);
@@ -2189,6 +2210,16 @@ int output_one_line_of_cl(
     if (psp->has_te == _TRUE_)
       index_ct_rest++;
 #ifdef WITH_BISPECTRA
+#ifdef WITH_SONG_SUPPORT
+    if (psp->has_tt2 == _TRUE_)
+      index_ct_rest++;
+    if (psp->has_ee2 == _TRUE_)
+      index_ct_rest++;
+    if (psp->has_bb2 == _TRUE_)
+      index_ct_rest++;
+    if (psp->has_te2 == _TRUE_)
+      index_ct_rest++;
+#endif // WITH_SONG_SUPPORT
     if (psp->has_rr == _TRUE_)
       index_ct_rest++;
     if (psp->has_tr == _TRUE_)

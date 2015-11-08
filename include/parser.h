@@ -148,6 +148,14 @@ int parser_remove_entry (
         ErrorMsg errmsg
         );
         
+int parser_add_entry (
+        struct file_content * pfc,
+        char * name,
+        char * value,
+        int * found,
+        ErrorMsg errmsg
+        );
+
 int parser_return_entry (
         struct file_content * pfc,
         char * name,

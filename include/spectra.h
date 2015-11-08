@@ -5,6 +5,20 @@
 
 #include "transfer.h"
 
+#ifdef WITH_SONG_SUPPORT
+
+/**
+ * Kinds of spectrum that SONG can compute.
+ *
+ * For details, see documentation in spectra.c.
+ */
+enum spectra_types {
+  first_order,        /**< spectrum obtained from the first-order transfer functions */
+  second_order        /**< spectrum obtained from the second-order transfer functions */
+};
+
+#endif // WITH_SONG_SUPPORT
+
 /**
  * Structure containing everything about anisotropy and Fourier power spectra that other modules need to know.
  *
@@ -33,7 +47,9 @@ struct spectra {
                    correlations */
 
 #ifdef WITH_BISPECTRA
+
   int has_pk_halo_contraction; /**< include the effect of dm halo contraction to the cold dark matter density P(k) */
+
 #endif // WITH_BISPECTRA
 
   //@}
@@ -101,9 +117,24 @@ struct spectra {
   int index_ct_tz; /**< index for type C_l^T-Z */
   int index_ct_ez; /**< index for type C_l^E-Z */
 
-  char ct_labels[_MAX_NUM_SPECTRA_][_MAX_LENGTH_LABEL_]; /**< Labels of various C_l types */
+#ifdef WITH_SONG_SUPPORT
+  
+  int has_tt2; /**< do we want second-order C_l^TT? */
+  int has_ee2; /**< do we want second-order C_l^EE? */
+  int has_te2; /**< do we want second-order C_l^TE? */
+  int has_bb2; /**< do we want second-order C_l^BB? */
 
+  int index_ct_tt2; /**< index for the intrinsic C_l^TT */
+  int index_ct_ee2; /**< index for the intrinsic C_l^EE */
+  int index_ct_te2; /**< index for the intrinsic C_l^TE */
+  int index_ct_bb2; /**< index for the intrinsic C_l^BB */
+
+  enum spectra_types cl_type[_MAX_NUM_SPECTRA_]; /**< is the considered spectrum first or second order? */
+
+#endif // WITH_SONG_SUPPORT
 #endif // WITH_BISPECTRA
+  
+  char ct_labels[_MAX_NUM_SPECTRA_][_MAX_LENGTH_LABEL_]; /**< Labels of various C_l types */
 
   //@}
 
@@ -283,6 +314,40 @@ struct spectra {
   ErrorMsg error_message; /**< zone for writing error messages */
 
   //@}
+  
+
+  // ====================================================================================
+  // =                                  SONG parameters                                 =
+  // ====================================================================================
+
+  /**
+   * Variables needed to compute the intrinsic power spectra C_l and P(k)
+   */
+  //@{
+
+  double ** spectra;
+
+  /* For a given (k1,k2), index of the first value of k3 that satisfies the triangular condition. All
+  entries must be equal zero when no extrapolation is used */
+  int ** k_physical_start_k1k2;
+	int ** k_true_physical_start_k1k2;
+
+	// physical start is based on ppt2 k sampling, true physical start is based on the triangular condition and usually contains a bit more based on the k smapling. 
+
+  /* For a given (k1,k2), number of k3 values that satisfy the triangular condition */
+  int ** k_physical_size_k1k2;
+
+ 	int k_size;
+ 	double * k; // k grid for fourier spectra (not numerical parameter)
+
+ 	double * k3_grid; // k grid for angular power spectra 
+
+  char spectra_filename[_FILENAMESIZE_];  
+  FILE * spectra_file;
+
+  //@}
+  
+  
 };
 
 /*************************************************************************************************************/
@@ -442,6 +507,17 @@ extern "C" {
                   struct primordial * ppm,
                   struct spectra * psp
                   );
+
+#ifdef WITH_BISPECTRA
+  int spectra_cls_spline(
+                struct background * pba,
+                struct perturbs * ppt,
+                struct transfers * ptr,
+                struct primordial * ppm,
+                struct spectra * psp,
+                int index_md
+                );
+#endif // WITH_BISPECTRA
 
   int spectra_compute_cl(
                          struct background * pba,

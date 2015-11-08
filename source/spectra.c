@@ -1936,14 +1936,16 @@ int spectra_indices(
 
   if (ppt->has_cls == _TRUE_) {
 
-#ifdef WITH_BISPECTRA
-
     /* Initialise labels */
     for (int i=0; i < _MAX_NUM_SPECTRA_; ++i)
       for (int j=0; j < _MAX_LENGTH_LABEL_; ++j)
         psp->ct_labels[i][j] = '\0';
 
-#endif // WITH_BISPECTRA
+#ifdef WITH_SONG_SUPPORT
+    /* Initialise type array */
+    for (int i=0; i < _MAX_NUM_SPECTRA_; ++i)
+      psp->cl_type[i] = first_order;
+#endif // WITH_SONG_SUPPORT
 
     /* types of C_l's relevant for both scalars and tensors: TT, EE, TE */
 
@@ -1952,9 +1954,7 @@ int spectra_indices(
     if (ppt->has_cl_cmb_temperature == _TRUE_) {
       psp->has_tt = _TRUE_;
       psp->index_ct_tt=index_ct;
-#ifdef WITH_BISPECTRA
       strcpy (psp->ct_labels[index_ct], "tt");
-#endif // WITH_BISPECTRA
       index_ct++;
     }
     else {
@@ -1964,9 +1964,7 @@ int spectra_indices(
     if (ppt->has_cl_cmb_polarization == _TRUE_) {
       psp->has_ee = _TRUE_;
       psp->index_ct_ee=index_ct;
-#ifdef WITH_BISPECTRA
       strcpy (psp->ct_labels[index_ct], "ee");
-#endif // WITH_BISPECTRA
       index_ct++;
     }
     else {
@@ -1977,9 +1975,7 @@ int spectra_indices(
         (ppt->has_cl_cmb_polarization == _TRUE_)) {
       psp->has_te = _TRUE_;
       psp->index_ct_te=index_ct;
-#ifdef WITH_BISPECTRA
       strcpy (psp->ct_labels[index_ct], "te");
-#endif // WITH_BISPECTRA
       index_ct++;
     }
     else {
@@ -1989,9 +1985,7 @@ int spectra_indices(
     if (ppt->has_cl_cmb_polarization == _TRUE_) {
       psp->has_bb = _TRUE_;
       psp->index_ct_bb=index_ct;
-#ifdef WITH_BISPECTRA
       strcpy (psp->ct_labels[index_ct], "bb");
-#endif // WITH_BISPECTRA
       index_ct++;
     }
     else {
@@ -2003,9 +1997,7 @@ int spectra_indices(
     if ((ppt->has_cl_cmb_lensing_potential == _TRUE_) && (ppt->has_scalars == _TRUE_)) {
       psp->has_pp = _TRUE_;
       psp->index_ct_pp=index_ct;
-#ifdef WITH_BISPECTRA
       strcpy (psp->ct_labels[index_ct], "pp");
-#endif // WITH_BISPECTRA
       index_ct++;
     }
     else {
@@ -2015,9 +2007,7 @@ int spectra_indices(
     if ((ppt->has_cl_cmb_temperature == _TRUE_) && (ppt->has_cl_cmb_lensing_potential == _TRUE_) && (ppt->has_scalars == _TRUE_)) {
       psp->has_tp = _TRUE_;
       psp->index_ct_tp=index_ct;
-#ifdef WITH_BISPECTRA
       strcpy (psp->ct_labels[index_ct], "tp");
-#endif // WITH_BISPECTRA
       index_ct++;
     }
     else {
@@ -2027,9 +2017,7 @@ int spectra_indices(
     if ((ppt->has_cl_cmb_polarization == _TRUE_) && (ppt->has_cl_cmb_lensing_potential == _TRUE_) && (ppt->has_scalars == _TRUE_)) {
       psp->has_ep = _TRUE_;
       psp->index_ct_ep=index_ct;
-#ifdef WITH_BISPECTRA
       strcpy (psp->ct_labels[index_ct], "ep");
-#endif // WITH_BISPECTRA
       index_ct++;
     }
     else {
@@ -2151,7 +2139,7 @@ int spectra_indices(
     if ((ppt->has_cl_cmb_temperature == _TRUE_) && (ppt->has_cl_cmb_zeta == _TRUE_) && (ppt->has_scalars == _TRUE_)) {
       psp->has_tz = _TRUE_;
       strcpy (psp->ct_labels[index_ct], "tz");
-      psp->index_ct_tz=index_ct++;
+      psp->index_ct_tz = index_ct++;
     }
     else {
       psp->has_tz = _FALSE_;
@@ -2165,6 +2153,46 @@ int spectra_indices(
     else {
       psp->has_ez = _FALSE_;
     }
+    
+    
+#ifdef WITH_SONG_SUPPORT
+
+    /* Intrinsic angular power spectra */
+
+    psp->has_tt2 = _FALSE_;
+    psp->has_ee2 = _FALSE_;
+    psp->has_te2 = _FALSE_;
+    psp->has_bb2 = _FALSE_;
+
+    if (ppt->has_cl_cmb_temperature2) {
+      psp->has_tt2 = _TRUE_;
+      strcpy (psp->ct_labels[index_ct], "tt2");
+      psp->cl_type[index_ct] = second_order;
+      psp->index_ct_tt2 = index_ct++;
+    }
+
+    if (ppt->has_cl_cmb_polarization_e2) {
+      psp->has_ee2 = _TRUE_;
+      strcpy (psp->ct_labels[index_ct], "ee2");
+      psp->cl_type[index_ct] = second_order;
+      psp->index_ct_ee2 = index_ct++;
+    }
+
+    if (ppt->has_cl_cmb_temperature2 && ppt->has_cl_cmb_polarization_e2) {
+      psp->has_te2 = _TRUE_;
+      strcpy (psp->ct_labels[index_ct], "te2");
+      psp->cl_type[index_ct] = second_order;
+      psp->index_ct_te2 = index_ct++;
+    }
+
+    if (ppt->has_cl_cmb_polarization_b2) {
+      psp->has_bb2 = _TRUE_;
+      strcpy (psp->ct_labels[index_ct], "bb2");
+      psp->cl_type[index_ct] = second_order;
+      psp->index_ct_bb2 = index_ct++;
+    }
+
+#endif // WITH_SONG_SUPPORT
         
 #endif // WITH_BISPECTRA
 
@@ -2191,6 +2219,12 @@ int spectra_indices(
       if (psp->has_tp == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_tp] = ppt->l_scalar_max;
       if (psp->has_ep == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_ep] = ppt->l_scalar_max;
 #ifdef WITH_BISPECTRA
+#ifdef WITH_SONG_SUPPORT
+      if (psp->has_tt2 == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_tt2] = ppt->l_scalar_max;
+      if (psp->has_ee2 == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_ee2] = ppt->l_scalar_max;
+      if (psp->has_te2 == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_te2] = ppt->l_scalar_max;
+      if (psp->has_bb2 == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_bb2] = ppt->l_scalar_max;
+#endif // WITH_SONG_SUPPORT
       if (psp->has_rr == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_rr] = ppt->l_scalar_max;
       if (psp->has_tr == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_tr] = ppt->l_scalar_max;
       if (psp->has_er == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_er] = ppt->l_scalar_max;
@@ -2526,6 +2560,9 @@ int spectra_cls(
       }
     }
 
+
+#ifndef WITH_BISPECTRA
+
     /** - e) now that for a given mode, all possible C_l's have been computed,
         compute second derivative of the array in which they are stored,
         in view of spline interpolation. */
@@ -2539,100 +2576,150 @@ int spectra_cls(
                                         psp->error_message),
                psp->error_message,
                psp->error_message);
-                   
-#ifdef WITH_BISPECTRA
 
-    /* - f) Compute the first derivative of the C_l. To do so, we first compute and store l^2*C_l
-    and then take its derivative. This is numerically more stable than computing 2*l*C_l + l^2*dC_l
-    because the function l^2*C_l is smoother than the normal C_l's.  */
+#else
 
-    if (psp->compute_cl_derivative == _TRUE_) {
-    
-      /* First of all, store l^2*C_l in psp->lsq_cl. */
-      
-      for (index_ic1 = 0; index_ic1 < psp->ic_size[index_md]; index_ic1++) {
-        for (index_ic2 = index_ic1; index_ic2 < psp->ic_size[index_md]; index_ic2++) {
-
-          index_ic1_ic2 = index_symmetric_matrix(index_ic1,index_ic2,psp->ic_size[index_md]);
-
-          for (index_l=0; index_l < ptr->l_size[index_md]; index_l++) {
-
-            double l = (double)psp->l[index_l];
-
-            for (index_ct=0; index_ct<psp->ct_size; index_ct++) {
-          
-              psp->lsq_cl[index_md][(index_l * psp->ic_ic_size[index_md] + index_ic1_ic2) * psp->ct_size + index_ct] =
-                psp->cl[index_md][(index_l * psp->ic_ic_size[index_md] + index_ic1_ic2) * psp->ct_size + index_ct] * l * l;
-                  
-            }
-          }
-        }
-      } 
-
-      /* Compute the second derivatives of l^2*C_l */
-      
-      class_call(array_spline_table_lines(
-                   psp->l,
-                   psp->l_size[index_md],
-                   psp->lsq_cl[index_md],
-                   psp->ic_ic_size[index_md]*psp->ct_size,
-                   psp->dd_lsq_cl[index_md],
-                   _SPLINE_EST_DERIV_,
-                   psp->error_message),
-        psp->error_message,
-        psp->error_message);
-
-      /* Compute the first derivative using the above information */
-        
-      class_call (array_spline_derive_table_lines(
-                    psp->l,
-                    psp->l_size[index_md],
-                    psp->lsq_cl[index_md],
-                    psp->dd_lsq_cl[index_md],
-                    psp->ic_ic_size[index_md]*psp->ct_size,
-                    psp->d_lsq_cl[index_md],
-                    psp->error_message),
-        psp->error_message,
-        psp->error_message);
-
-      /* Compute second derivative of d_lsq_cl in view of spline interpolation */
-        
-      class_call(array_spline_table_lines(psp->l,
-                   psp->l_size[index_md],
-                   psp->d_lsq_cl[index_md],
-                   psp->ic_ic_size[index_md]*psp->ct_size,
-                   psp->spline_d_lsq_cl[index_md],
-                   _SPLINE_EST_DERIV_,
-                   psp->error_message),
-        psp->error_message,
-        psp->error_message);
-
-
-      /* Debug: print the cl derivative */
-      // for (index_ic1 = 0; index_ic1 < psp->ic_size[index_md]; index_ic1++) {
-      //   for (index_ic2 = index_ic1; index_ic2 < psp->ic_size[index_md]; index_ic2++) {
-      //     index_ic1_ic2 = index_symmetric_matrix(index_ic1,index_ic2,psp->ic_size[index_md]);
-      //     for (index_l=0; index_l < ptr->l_size[index_md]; index_l++) {
-      //       double l = (double)psp->l[index_l];
-      //       for (index_ct=0; index_ct<psp->ct_size; index_ct++) {
-      //         if (index_ct==0)
-      //           fprintf (stderr, "%12g %12g\n", l,
-      //           psp->d_lsq_cl[index_md][(index_l * psp->ic_ic_size[index_md]
-      //           + index_ic1_ic2) * psp->ct_size + index_ct]);
-      //       }
-      //     }
-      //   }
-      // }
-
-    } // end of(compute_cl_derivative)
+    class_call (spectra_cls_spline(
+                  pba,
+                  ppt,
+                  ptr,
+                  ppm,
+                  psp,
+                  index_md),
+      psp->error_message,
+      psp->error_message);
 
 #endif // WITH_BISPECTRA
     
-  }
+  } // for(index_md)
 
   return _SUCCESS_;
 
 }
+
+
+
+#ifdef WITH_BISPECTRA
+
+/**
+ * Prepare the C_l and its derivative for spline interpolation.
+ */
+
+int spectra_cls_spline(
+                struct background * pba,
+                struct perturbs * ppt,
+                struct transfers * ptr,
+                struct primordial * ppm,
+                struct spectra * psp,
+                int index_md
+                ) {
+
+  /* Compute second-derivative of C_l */
+
+  class_call(array_spline_table_lines(psp->l,
+                                      psp->l_size[index_md],
+                                      psp->cl[index_md],
+                                      psp->ic_ic_size[index_md]*psp->ct_size,
+                                      psp->ddcl[index_md],
+                                      _SPLINE_EST_DERIV_,
+                                      psp->error_message),
+             psp->error_message,
+             psp->error_message);
+
+
+  /* Compute the first derivative of the C_l and prepare it for spline
+  interpolation. To do so, we first compute and store l^2*C_l and then
+  take its derivative. This is numerically more stable than computing
+  2*l*C_l + l^2*dC_l because the function l^2*C_l is smoother than the
+  normal C_l.  */
+
+  if (psp->compute_cl_derivative == _TRUE_) {
+
+    /* First of all, store l^2*C_l in psp->lsq_cl. */
+  
+    for (int index_ic1 = 0; index_ic1 < psp->ic_size[index_md]; index_ic1++) {
+      for (int index_ic2 = index_ic1; index_ic2 < psp->ic_size[index_md]; index_ic2++) {
+
+        int index_ic1_ic2 = index_symmetric_matrix(index_ic1,index_ic2,psp->ic_size[index_md]);
+
+        for (int index_l=0; index_l < ptr->l_size[index_md]; index_l++) {
+
+          double l = (double)psp->l[index_l];
+
+          for (int index_ct=0; index_ct<psp->ct_size; index_ct++) {
+      
+            psp->lsq_cl[index_md][(index_l * psp->ic_ic_size[index_md] + index_ic1_ic2) * psp->ct_size + index_ct] =
+              psp->cl[index_md][(index_l * psp->ic_ic_size[index_md] + index_ic1_ic2) * psp->ct_size + index_ct] * l * l;
+              
+          }
+        }
+      }
+    } 
+
+    /* Compute the second derivatives of l^2*C_l */
+  
+    class_call(array_spline_table_lines(
+                 psp->l,
+                 psp->l_size[index_md],
+                 psp->lsq_cl[index_md],
+                 psp->ic_ic_size[index_md]*psp->ct_size,
+                 psp->dd_lsq_cl[index_md],
+                 _SPLINE_EST_DERIV_,
+                 psp->error_message),
+      psp->error_message,
+      psp->error_message);
+
+    /* Compute the first derivative using the above information */
+    
+    class_call (array_spline_derive_table_lines(
+                  psp->l,
+                  psp->l_size[index_md],
+                  psp->lsq_cl[index_md],
+                  psp->dd_lsq_cl[index_md],
+                  psp->ic_ic_size[index_md]*psp->ct_size,
+                  psp->d_lsq_cl[index_md],
+                  psp->error_message),
+      psp->error_message,
+      psp->error_message);
+
+    /* Compute second derivative of d_lsq_cl in view of spline interpolation */
+    
+    class_call(array_spline_table_lines(
+                 psp->l,
+                 psp->l_size[index_md],
+                 psp->d_lsq_cl[index_md],
+                 psp->ic_ic_size[index_md]*psp->ct_size,
+                 psp->spline_d_lsq_cl[index_md],
+                 _SPLINE_EST_DERIV_,
+                 psp->error_message),
+      psp->error_message,
+      psp->error_message);
+
+
+    /* Debug: print the cl derivative */
+    // for (index_ic1 = 0; index_ic1 < psp->ic_size[index_md]; index_ic1++) {
+    //   for (index_ic2 = index_ic1; index_ic2 < psp->ic_size[index_md]; index_ic2++) {
+    //     index_ic1_ic2 = index_symmetric_matrix(index_ic1,index_ic2,psp->ic_size[index_md]);
+    //     for (index_l=0; index_l < ptr->l_size[index_md]; index_l++) {
+    //       double l = (double)l[index_l];
+    //       for (index_ct=0; index_ct<psp->ct_size; index_ct++) {
+    //         if (index_ct==0)
+    //           fprintf (stderr, "%12g %12g\n", l,
+    //           psp->d_lsq_cl[index_md][(index_l * psp->ic_ic_size[index_md]
+    //           + index_ic1_ic2) * psp->ct_size + index_ct]);
+    //       }
+    //     }
+    //   }
+    // }
+
+  } // end of(compute_cl_derivative)
+
+  return _SUCCESS_;
+
+}
+
+#endif // WITH_BISPECTRA
+
 
 /**
  * This routine computes the C_l's for a given mode, pair of initial conditions

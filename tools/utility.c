@@ -65,10 +65,21 @@ int compute_cls(
   if (ppr->extend_lensed_cls == _TRUE_) {
 
     /* Increase l_max so that the lensing C_l's are computed up to l_max */
-    int new_l_max_scalars = ppt->l_scalar_max + ppr->delta_l_max;
+    int old_l_max_scalars = ppt->l_scalar_max;
+    int new_l_max_scalars = old_l_max_scalars + ppr->delta_l_max;
     char buffer[_ARGUMENT_LENGTH_MAX_];
     sprintf (buffer, "%d", new_l_max_scalars);
-    class_call (parser_overwrite_entry (pfc, "l_max_scalars", buffer, NULL, error_message),
+
+    class_call (parser_add_entry (pfc, "l_max_scalars", buffer, &found, error_message),
+      error_message,
+      error_message);
+
+    /* Make sure that the old l_max is included in the sampling */
+    sprintf (buffer, "%d", old_l_max_scalars);
+    class_call (parser_add_entry (pfc, "l1_out", buffer, &found, error_message),
+      error_message,
+      error_message);
+    class_call (parser_add_entry (pfc, "l2_out", buffer, &found, error_message),
       error_message,
       error_message);
 
@@ -136,22 +147,27 @@ int compute_cls(
     tr.error_message,
     error_message);
 
+  /* If we extended the range of the C_l, then we l_out contains one
+  value, for which we do not want any output to be produced. */
+  pr.l_out_size = 0;
+
+  int spectra_verbose = psp->spectra_verbose;
   psp->spectra_verbose = 0;
   class_call (spectra_init(&pr,pba,&pt,&pm,&nl,&tr,psp),
     psp->error_message,
     error_message);
+  psp->spectra_verbose = spectra_verbose;
 
+  int lensing_verbose = ple->lensing_verbose;
   ple->lensing_verbose = 0;
   class_call (lensing_init(&pr,&pt,psp,&nl,ple),
     ple->error_message,
     error_message);
-
-  /* Skip output of bispectra and Fisher matrices, because they haven't been
-  computed yet. */
-  bi.has_bispectra = _FALSE_;
-  fi.has_fisher = _FALSE_;
+  ple->lensing_verbose = lensing_verbose;
 
   op.output_verbose = 0;
+  bi.has_bispectra = _FALSE_; /* no bispectra output */
+  fi.has_fisher = _FALSE_; /* no fisher output */
   class_call (output_init(pba,pth,&pt,&pm,&tr,psp,&nl,ple,&bi,&fi,&op),
     op.error_message,
     error_message);
