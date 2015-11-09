@@ -309,7 +309,8 @@ int output_cl(
                                  &out,
                                  file_name,
                                  "total [l(l+1)/2pi] C_l's",
-                                 psp->l_max_tot
+                                 psp->l_max_tot,
+                                 _FALSE_
                                  ),
              pop->error_message,
              pop->error_message);
@@ -327,7 +328,8 @@ int output_cl(
                                    &out_lensed,
                                    file_name,
                                    "total lensed [l(l+1)/2pi] C_l's",
-                                   ple->l_lensed_max
+                                   ple->l_lensed_max,
+                                   _TRUE_
                                    ),
                pop->error_message,
                pop->error_message);
@@ -356,7 +358,8 @@ int output_cl(
                                      &(out_md[index_md]),
                                      file_name,
                                      first_line,
-                                     psp->l_max[index_md]
+                                     psp->l_max[index_md],
+                                     _FALSE_
                                      ),
                  pop->error_message,
                  pop->error_message);
@@ -418,7 +421,8 @@ int output_cl(
            &out_dcl,
            file_name,
            first_paragraph,
-           psp->l_max_tot
+           psp->l_max_tot,
+           _FALSE_
            ),
          pop->error_message,
          pop->error_message);
@@ -561,7 +565,8 @@ int output_cl(
                                            &(out_md_ic[index_md][index_ic1_ic2]),
                                            file_name,
                                            first_line,
-                                           psp->l_max[index_md]
+                                           psp->l_max[index_md],
+                                           _FALSE_
                                            ),
                        pop->error_message,
                        pop->error_message);
@@ -586,7 +591,7 @@ int output_cl(
                psp->error_message,
                pop->error_message);
 
-    class_call(output_one_line_of_cl(pba,psp,pop,out,(double)l,cl_tot,psp->ct_size),
+    class_call(output_one_line_of_cl(pba,psp,pop,out,(double)l,cl_tot,psp->ct_size,_FALSE_),
                pop->error_message,
                pop->error_message);
 
@@ -609,9 +614,20 @@ int output_cl(
       for (int index_ct=0; index_ct < psp->ct_size; index_ct++)
         dcl_tot[index_ct] /= (l*cl_tot[index_ct]);
 
-      class_call(output_one_line_of_cl(pba,psp,pop,out_dcl,l,dcl_tot,psp->ct_size),
-           pop->error_message,
-           pop->error_message);      
+      /* The logarithmic derivative is a ratio of cl, hence there is no need to
+      distinguish between CAMB and CLASS output. Note however that it blows when
+      the cls vanish, as it happens when mixed cls such as TE cross the zero line,
+      and for the BB (with scalar perturbations and no lensing). */
+      if (psp->compute_cl_derivative == _TRUE_) {
+    
+        fprintf(out_dcl,"%4d ",(int)l);
+
+        for (int index_ct=0; index_ct < psp->ct_size; index_ct++)
+          class_fprintf_double(out_dcl, dcl_tot[index_ct], _TRUE_);
+
+        fprintf(out_dcl,"\n"); 
+
+      }
     }
 
     /* TODO: output also lensed dcl */
@@ -627,19 +643,16 @@ int output_cl(
                  ple->error_message,
                  pop->error_message);
 
-      class_call(output_one_line_of_cl(pba,psp,pop,out_lensed,l,cl_tot,psp->ct_size),
+      class_call(output_one_line_of_cl(pba,psp,pop,out_lensed,l,cl_tot,psp->ct_size,_TRUE_),
                  pop->error_message,
                  pop->error_message);
-      // class_call(output_one_line_of_cl(pba,psp,pop,out_lensed,l,cl_tot,psp->ct_size),
-      //            pop->error_message,
-      //            pop->error_message);
     }
 
     if (ppt->md_size > 1) {
       for (index_md = 0; index_md < ppt->md_size; index_md++) {
         if (l <= psp->l_max[index_md]) {
 
-          class_call(output_one_line_of_cl(pba,psp,pop,out_md[index_md],l,cl_md[index_md],psp->ct_size),
+          class_call(output_one_line_of_cl(pba,psp,pop,out_md[index_md],l,cl_md[index_md],psp->ct_size,_FALSE_),
                      pop->error_message,
                      pop->error_message);
         }
@@ -650,8 +663,10 @@ int output_cl(
       if ((ppt->ic_size[index_md] > 1) && (l <= psp->l_max[index_md])) {
         for (index_ic1_ic2 = 0; index_ic1_ic2 < psp->ic_ic_size[index_md]; index_ic1_ic2++) {
           if (psp->is_non_zero[index_md][index_ic1_ic2] == _TRUE_) {
-
-            class_call(output_one_line_of_cl(pba,psp,pop,out_md_ic[index_md][index_ic1_ic2],l,&(cl_md_ic[index_md][index_ic1_ic2*psp->ct_size]),psp->ct_size),
+                    
+            class_call(output_one_line_of_cl(pba,psp,pop,
+                       out_md_ic[index_md][index_ic1_ic2],l,
+                       &(cl_md_ic[index_md][index_ic1_ic2*psp->ct_size]),psp->ct_size,_FALSE_),
                        pop->error_message,
                        pop->error_message);
           }
@@ -1980,7 +1995,8 @@ int output_open_cl_file(
                         FILE * * clfile,
                         FileName filename,
                         char * first_line,
-                        int lmax
+                        int lmax,
+                        short lensed_output /**< if true, output for lensed cl */ 
                         ) {
 
   int index_d1,index_d2;
@@ -2023,10 +2039,10 @@ int output_open_cl_file(
       class_fprintf_columntitle(*clfile,"BB",psp->has_bb,colnum);
 #ifdef WITH_BISPECTRA
 #ifdef WITH_SONG_SUPPORT
-      class_fprintf_columntitle(*clfile,"intrinsic_TT",psp->has_tt2,colnum);
-      class_fprintf_columntitle(*clfile,"intrinsic_EE",psp->has_ee2,colnum);
-      class_fprintf_columntitle(*clfile,"intrinsic_TE",psp->has_te2,colnum);
-      class_fprintf_columntitle(*clfile,"intrinsic_BB",psp->has_bb2,colnum);
+      class_fprintf_columntitle(*clfile,"TT_2",psp->has_tt2 && !lensed_output,colnum);
+      class_fprintf_columntitle(*clfile,"EE_2",psp->has_ee2 && !lensed_output,colnum);
+      class_fprintf_columntitle(*clfile,"TE_2",psp->has_te2 && !lensed_output,colnum);
+      class_fprintf_columntitle(*clfile,"BB_2",psp->has_bb2 && !lensed_output,colnum);
 #endif // WITH_SONG_SUPPORT
       class_fprintf_columntitle(*clfile,"RR",psp->has_rr,colnum);
       class_fprintf_columntitle(*clfile,"TR",psp->has_tr,colnum);
@@ -2045,10 +2061,10 @@ int output_open_cl_file(
       class_fprintf_columntitle(*clfile,"TE",psp->has_te,colnum);
 #ifdef WITH_BISPECTRA
 #ifdef WITH_SONG_SUPPORT
-      class_fprintf_columntitle(*clfile,"intrinsic_TT",psp->has_tt2,colnum);
-      class_fprintf_columntitle(*clfile,"intrinsic_EE",psp->has_ee2,colnum);
-      class_fprintf_columntitle(*clfile,"intrinsic_TE",psp->has_te2,colnum);
-      class_fprintf_columntitle(*clfile,"intrinsic_BB",psp->has_bb2,colnum);
+      class_fprintf_columntitle(*clfile,"TT_2",psp->has_tt2 && !lensed_output,colnum);
+      class_fprintf_columntitle(*clfile,"EE_2",psp->has_ee2 && !lensed_output,colnum);
+      class_fprintf_columntitle(*clfile,"BB_2",psp->has_bb2 && !lensed_output,colnum);
+      class_fprintf_columntitle(*clfile,"TE_2",psp->has_te2 && !lensed_output,colnum);
 #endif // WITH_SONG_SUPPORT
       class_fprintf_columntitle(*clfile,"RR",psp->has_rr,colnum);
       class_fprintf_columntitle(*clfile,"TR",psp->has_tr,colnum);
@@ -2131,36 +2147,14 @@ int output_one_line_of_cl(
                           struct output * pop,
                           FILE * clfile,
                           double l,
-                          double * cl, /* array with argument cl[index_ct] */
-                          int ct_size
+                          double * cl, /**< array with argument cl[index_ct] */
+                          int ct_size,
+                          short lensed_output /**< if true, output lensed cl */ 
                           ) {
   int index_ct, index_ct_rest;
   double factor;
 
   factor = l*(l+1)/2./_PI_;
-
-#ifdef WITH_BISPECTRA
-
-  /* If psp->compute_cl_derivative==_TRUE_, then the argument cl is actually
-  the logarithmic derivative dln(l*l*cl)/dln(l). We do not apply any factor. Note
-  that this quantity blows when the cls vanish, as it happens when mixed cls such
-  as TE cross the zero line and for the BB (with scalar perturbations and no
-  lensing). */
-
-  if (psp->compute_cl_derivative == _TRUE_) {
-    
-    fprintf(clfile,"%4d ",(int)l);
-
-    for (index_ct=0; index_ct < ct_size; index_ct++) {
-      class_fprintf_double(clfile, cl[index_ct], _TRUE_);
-    }
-
-    fprintf(clfile,"\n");  
-
-    return _SUCCESS_;    
-  }
-  
-#endif // WITH_BISPECTRA
 
   fprintf(clfile," ");
 
@@ -2174,6 +2168,10 @@ int output_one_line_of_cl(
   if (pop->output_format == class_format) {
 
     for (index_ct=0; index_ct < ct_size; index_ct++) {
+
+      if (lensed_output && !psp->lens_me[index_ct])
+        continue;
+
       class_fprintf_double(clfile, factor*cl[index_ct], _TRUE_);
     }
     fprintf(clfile,"\n");
@@ -2186,10 +2184,10 @@ int output_one_line_of_cl(
     class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_te], psp->has_te);
 #ifdef WITH_BISPECTRA
 #ifdef WITH_SONG_SUPPORT
-    class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_tt2], psp->has_tt2);
-    class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_ee2], psp->has_ee2);
-    class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_bb2], psp->has_bb2);
-    class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_te2], psp->has_te2);
+    class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_tt2], psp->has_tt2 && !lensed_output);
+    class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_ee2], psp->has_ee2 && !lensed_output);
+    class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_bb2], psp->has_bb2 && !lensed_output);
+    class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_te2], psp->has_te2 && !lensed_output);
 #endif // WITH_SONG_SUPPORT
     class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_rr], psp->has_rr);
     class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_tr], psp->has_tr);
@@ -2248,6 +2246,7 @@ int output_one_line_of_cl(
   return _SUCCESS_;
 
 }
+
 
 /**
  * This routine opens one file where some P(k)'s will be written, and writes

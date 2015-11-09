@@ -704,6 +704,12 @@ int array_spline_table_lines(
   free(p);
   free(u);
 
+  /* Debug: print to screen input & output */
+  // for (index_y=0; index_y < y_size; index_y++)
+  //   for (index_x=0; index_x < x_size; index_x++)
+  //     printf ("%12g[%4d],%4d -> y = %12g, ddy = %12g\n", x[index_x], index_x, index_y,
+  //       y_array[index_x*y_size+index_y], ddy_array[index_x*y_size+index_y]);
+
   return _SUCCESS_;
  }
 

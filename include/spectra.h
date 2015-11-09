@@ -136,6 +136,8 @@ struct spectra {
   
   char ct_labels[_MAX_NUM_SPECTRA_][_MAX_LENGTH_LABEL_]; /**< Labels of various C_l types */
 
+  int lens_me[_MAX_NUM_SPECTRA_]; /**< should we apply lensing to this C_l in the lensing module? */
+
   //@}
 
   /** @name - table of pre-computed C_l values, and related quantitites */
@@ -325,7 +327,15 @@ struct spectra {
    */
   //@{
 
-  double ** spectra;
+  int * l_song; /**< Multipole sampling for the second-order C_l; it coincides with
+                the sampling of the second-order transfer functions (ptr2->l). In
+                most cases, psp->l_song is the same as the sampling for the first
+                order C_l, psp->l. If lensing is included,  however, then it is probable
+                that psp->l extends farther than psp->l_song.  This mechanism is implemented
+                in compute_cls() and is crucial to obtain the lensed C_l all the way to
+                ptr2->l_max. */
+
+  int l_size_song; /**< Number of multipoles for which we sample the second-order C_l */
 
   /* For a given (k1,k2), index of the first value of k3 that satisfies the triangular condition. All
   entries must be equal zero when no extrapolation is used */
@@ -339,8 +349,6 @@ struct spectra {
 
  	int k_size;
  	double * k; // k grid for fourier spectra (not numerical parameter)
-
- 	double * k3_grid; // k grid for angular power spectra 
 
   char spectra_filename[_FILENAMESIZE_];  
   FILE * spectra_file;

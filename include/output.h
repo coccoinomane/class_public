@@ -173,7 +173,8 @@ extern "C" {
                           FILE ** clfile,
                           FileName filename,
                           char * first_line,
-                          int lmax
+                          int lmax,
+                          short lensed_output
                           );
 
   int output_one_line_of_cl(
@@ -183,7 +184,8 @@ extern "C" {
                             FILE * clfile,
                             double l,
                             double * cl,
-                            int ct_size
+                            int ct_size,
+                            short lensed_output
                             );
 
   int output_open_pk_file(

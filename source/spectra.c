@@ -1941,10 +1941,16 @@ int spectra_indices(
       for (int j=0; j < _MAX_LENGTH_LABEL_; ++j)
         psp->ct_labels[i][j] = '\0';
 
+    /* By default, all C_l will be lensed in the lensing module */
+    for (int i=0; i < _MAX_NUM_SPECTRA_; ++i)
+      psp->lens_me[i] = _TRUE_;
+
 #ifdef WITH_SONG_SUPPORT
-    /* Initialise type array */
+
+    /* By default, all C_l are considered first order */
     for (int i=0; i < _MAX_NUM_SPECTRA_; ++i)
       psp->cl_type[i] = first_order;
+
 #endif // WITH_SONG_SUPPORT
 
     /* types of C_l's relevant for both scalars and tensors: TT, EE, TE */
@@ -2017,6 +2023,7 @@ int spectra_indices(
     if ((ppt->has_cl_cmb_polarization == _TRUE_) && (ppt->has_cl_cmb_lensing_potential == _TRUE_) && (ppt->has_scalars == _TRUE_)) {
       psp->has_ep = _TRUE_;
       psp->index_ct_ep=index_ct;
+      psp->lens_me[index_ct] = _FALSE_;
       strcpy (psp->ct_labels[index_ct], "ep");
       index_ct++;
     }
@@ -2059,6 +2066,8 @@ int spectra_indices(
     if ((ppt->has_cl_cmb_lensing_potential == _TRUE_) && (ppt->has_cl_number_count == _TRUE_) && (ppt->has_scalars == _TRUE_)) {
       psp->has_pd = _TRUE_;
       psp->index_ct_pd=index_ct;
+      for (int i=0; i < psp->d_size; ++i)
+        psp->lens_me[index_ct+i] = _FALSE_;
       index_ct+=psp->d_size;
     }
     else {
@@ -2096,7 +2105,10 @@ int spectra_indices(
     if ((ppt->has_cl_number_count == _TRUE_) && (ppt->has_cl_lensing_potential == _TRUE_) && (ppt->has_scalars == _TRUE_)) {
       psp->has_dl = _TRUE_;
       psp->index_ct_dl=index_ct;
-      index_ct += psp->d_size*psp->d_size - (psp->d_size-psp->non_diag)*(psp->d_size-1-psp->non_diag);
+      int size = psp->d_size*psp->d_size - (psp->d_size-psp->non_diag)*(psp->d_size-1-psp->non_diag);
+      for (int i=0; i < size; ++i)
+        psp->lens_me[index_ct+i] = _FALSE_;
+      index_ct += size;
     }
     else {
       psp->has_dl = _FALSE_;
@@ -2168,6 +2180,7 @@ int spectra_indices(
       psp->has_tt2 = _TRUE_;
       strcpy (psp->ct_labels[index_ct], "tt2");
       psp->cl_type[index_ct] = second_order;
+      psp->lens_me[index_ct] = _FALSE_;
       psp->index_ct_tt2 = index_ct++;
     }
 
@@ -2175,6 +2188,7 @@ int spectra_indices(
       psp->has_ee2 = _TRUE_;
       strcpy (psp->ct_labels[index_ct], "ee2");
       psp->cl_type[index_ct] = second_order;
+      psp->lens_me[index_ct] = _FALSE_;
       psp->index_ct_ee2 = index_ct++;
     }
 
@@ -2182,6 +2196,7 @@ int spectra_indices(
       psp->has_te2 = _TRUE_;
       strcpy (psp->ct_labels[index_ct], "te2");
       psp->cl_type[index_ct] = second_order;
+      psp->lens_me[index_ct] = _FALSE_;
       psp->index_ct_te2 = index_ct++;
     }
 
@@ -2189,6 +2204,7 @@ int spectra_indices(
       psp->has_bb2 = _TRUE_;
       strcpy (psp->ct_labels[index_ct], "bb2");
       psp->cl_type[index_ct] = second_order;
+      psp->lens_me[index_ct] = _FALSE_;
       psp->index_ct_bb2 = index_ct++;
     }
 
@@ -2443,16 +2459,18 @@ int spectra_cls(
 
     /** - b) allocate arrays where results will be stored */
 
-    class_alloc(psp->cl[index_md],sizeof(double)*psp->l_size[index_md]*psp->ct_size*psp->ic_ic_size[index_md],psp->error_message);
-    class_alloc(psp->ddcl[index_md],sizeof(double)*psp->l_size[index_md]*psp->ct_size*psp->ic_ic_size[index_md],psp->error_message);
+    int cl_size = psp->l_size[index_md]*psp->ct_size*psp->ic_ic_size[index_md];
+
+    class_calloc(psp->cl[index_md], cl_size, sizeof(double), psp->error_message);
+    class_calloc(psp->ddcl[index_md], cl_size, sizeof(double), psp->error_message);
     cl_integrand_num_columns = 1+psp->ct_size*2; /* one for k, ct_size for each type, ct_size for each second derivative of each type */
 
 #ifdef WITH_BISPECTRA
     if (psp->compute_cl_derivative == _TRUE_) {
-      class_alloc(psp->lsq_cl[index_md],sizeof(double)*psp->l_size[index_md]*psp->ct_size*psp->ic_ic_size[index_md],psp->error_message);
-      class_alloc(psp->d_lsq_cl[index_md],sizeof(double)*psp->l_size[index_md]*psp->ct_size*psp->ic_ic_size[index_md],psp->error_message);
-      class_alloc(psp->dd_lsq_cl[index_md],sizeof(double)*psp->l_size[index_md]*psp->ct_size*psp->ic_ic_size[index_md],psp->error_message);
-      class_alloc(psp->spline_d_lsq_cl[index_md],sizeof(double)*psp->l_size[index_md]*psp->ct_size*psp->ic_ic_size[index_md],psp->error_message);
+      class_calloc(psp->lsq_cl[index_md], cl_size, sizeof(double), psp->error_message);
+      class_calloc(psp->d_lsq_cl[index_md], cl_size, sizeof(double), psp->error_message);
+      class_calloc(psp->dd_lsq_cl[index_md], cl_size, sizeof(double), psp->error_message);
+      class_calloc(psp->spline_d_lsq_cl[index_md], cl_size, sizeof(double), psp->error_message);
     }
 #endif // WITH_BISPECTRA
 
@@ -2631,7 +2649,7 @@ int spectra_cls_spline(
   interpolation. To do so, we first compute and store l^2*C_l and then
   take its derivative. This is numerically more stable than computing
   2*l*C_l + l^2*dC_l because the function l^2*C_l is smoother than the
-  normal C_l.  */
+  normal C_l. */
 
   if (psp->compute_cl_derivative == _TRUE_) {
 
@@ -2694,7 +2712,6 @@ int spectra_cls_spline(
                  psp->error_message),
       psp->error_message,
       psp->error_message);
-
 
     /* Debug: print the cl derivative */
     // for (index_ic1 = 0; index_ic1 < psp->ic_size[index_md]; index_ic1++) {
@@ -3117,6 +3134,11 @@ int spectra_compute_cl(
   }
 
   for (index_ct=0; index_ct<psp->ct_size; index_ct++) {
+
+    /* This module deals only with first-order C_l; spectra2.c deals with the
+    second-order ones */
+    if (psp->cl_type[index_ct] != first_order)
+      continue;
 
     /* treat null spectra (C_l^BB of scalars, C_l^pp of tensors, etc. */
 
