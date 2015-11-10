@@ -1284,6 +1284,11 @@ int perturb_timesampling_for_sources(
 
   if (ppt->has_perturbations2 == _TRUE_) {
 
+    /* Debug - print the time sampling for the quadratic sources */
+    // printf ("# ~~~ tau-sampling for quadratic sources (size=%d) ~~~\n", ppt->tau_size_quadsources);
+    // for (int index_tau=0; index_tau < ppt->tau_size_quadsources; ++index_tau)
+    //   fprintf(stderr, "%12d %17.7g\n", index_tau, ppt->tau_sampling_quadsources[index_tau]);
+
     if (ppt->perturbations_verbose > 1)
       printf("    * 1st-order LOS sources time sampling: %d times in the range tau=(%g,%g)\n",
         ppt->tau_size, ppt->tau_sampling[0], ppt->tau_sampling[ppt->tau_size-1]);
