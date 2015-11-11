@@ -586,7 +586,7 @@ int background_init(
               pba->error_message,
               pba->error_message);
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
   /* Write some information on the cosmological model for debug purposes */
   class_call (background_print_info (
@@ -596,7 +596,7 @@ int background_init(
     pba->error_message,
     pba->error_message);
 
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
   return _SUCCESS_;
 
@@ -2142,7 +2142,7 @@ int background_epoch_of_equality (
 
 
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
 /**
  * Simple function to fill the pba->info string with useful information about
@@ -2187,7 +2187,7 @@ int background_print_info (
 
 }
 
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
 
 

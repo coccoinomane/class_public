@@ -858,11 +858,11 @@ int bispectra_indices (
    "exceeded maximum number of allowed bispectra, increase _MAX_NUM_BISPECTRA_ in common.h",
    pbi->error_message);
 
-#ifndef WITH_SONG_SUPPORT
+#ifndef WITH_SONG2
    class_test (pbi->has_intrinsic == _TRUE_,
      pbi->error_message,
      "cannot compute the intrinsic bispectrum without SONG support\n");
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
   /* Are the Wigner 3j-symbols needed to compute the requested bispectra? */
   pbi->need_3j_symbols = ((pbi->has_bispectra_e) &&

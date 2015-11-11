@@ -111,12 +111,12 @@ int compute_cls(
     error_message);
 
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
   /* Turn off the second-order perturbations by setting the flag 'pt.has_perturbations2' to
   _FALSE_. In this way, SONG is ignored and the standard CLASS will compute the linear C_l's
   for the parameters specified in the input files. */    
   pt.has_perturbations2 = _FALSE_;
-#endif // WITH_SONG_SUPPORT  
+#endif // WITH_SONG2  
   
 
   // ======================================================================================

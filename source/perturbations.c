@@ -151,7 +151,7 @@ int perturb_init(
              "In the synchronous gauge, it is not self-consistent to assume no CDM: the later is used to define the initial timelike hypersurface. You can either add a negligible amount of CDM or switch to newtonian gauge");
 
   class_test ((ppr->tight_coupling_approximation < first_order_MB) ||
-#ifndef WITH_BISPECTRA
+#ifndef WITH_SONG1
               (ppr->tight_coupling_approximation > compromise_CLASS),
 #else
               /* In SONG we introduced the option to turn off the TCA */
@@ -246,7 +246,7 @@ int perturb_init(
              ppt->error_message,
              ppt->error_message);
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
 
   /** - initialize indices and lists in the perturbs structure related to the computation
       of second-order perturbations  */
@@ -260,7 +260,7 @@ int perturb_init(
                ppt->error_message);
   }
 
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
              
   /** - define the common time sampling for all sources using
       perturb_timesampling_for_sources() */
@@ -447,7 +447,7 @@ int perturb_free(
                  struct perturbs * ppt
                  ) {
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
   /* Free arrays used to store the quadratic sources. This should be done before freeing
   the standard ppt arrays because it relies on them. */
   
@@ -484,7 +484,7 @@ int perturb_free(
     free(ppt->tau_sampling_quadsources);
     
   }
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
   int index_md,index_ic,index_type;
   int filenum;
@@ -627,10 +627,10 @@ int perturb_indices_of_perturbs(
   ppt->has_source_phi_prime = _FALSE_;
   ppt->has_source_phi_plus_psi = _FALSE_;
   ppt->has_source_psi = _FALSE_;
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
   ppt->has_source_reionisation = _FALSE_;
   ppt->has_source_zeta = _FALSE_;
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
   /** - source flags and indices, for sources that all modes have in
       common (temperature, polarization, ...). For temperature, the
@@ -659,7 +659,7 @@ int perturb_indices_of_perturbs(
   class_define_index(ppt->index_tp_perturbed_recombination_delta_chi,ppt->has_perturbed_recombination,index_type,1);
 
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
   if (ppt->has_perturbations2 == _TRUE_) {
     /* In SONG, the wavemode list is determined by the function in perturb2_get_k_lists() in the
     perturbations2.c module. If we are here, perturb2_get_k_lists() has already been 
@@ -667,7 +667,7 @@ int perturb_indices_of_perturbs(
     anything. */
     goto loop_over_modes;
   }
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
   /** define k values with perturb_get_k_list() */
 
@@ -678,9 +678,9 @@ int perturb_indices_of_perturbs(
              ppt->error_message,
              ppt->error_message);
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
   loop_over_modes:
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
   /** - loop over modes. Initialize flags and indices which are specific to each mode. */
 
@@ -766,7 +766,7 @@ int perturb_indices_of_perturbs(
         }
       }
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
       if (ppt->has_cl_cmb_reionisation_potential == _TRUE_) {
         ppt->has_cmb = _TRUE_;
         ppt->has_source_reionisation = _TRUE_;
@@ -776,7 +776,7 @@ int perturb_indices_of_perturbs(
         ppt->has_cmb = _TRUE_;
         ppt->has_source_zeta = _TRUE_;
       }
-#endif // WITH_BISPECTRA      
+#endif // WITH_SONG1      
       
       index_type = index_type_common;
       class_define_index(ppt->index_tp_t0,         ppt->has_source_t,         index_type,1);
@@ -805,11 +805,11 @@ int perturb_indices_of_perturbs(
       class_define_index(ppt->index_tp_phi_prime,  ppt->has_source_phi_prime, index_type,1);
       class_define_index(ppt->index_tp_phi_plus_psi,ppt->has_source_phi_plus_psi,index_type,1);
       class_define_index(ppt->index_tp_psi,        ppt->has_source_psi,       index_type,1);
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
       class_define_index(ppt->index_tp_r0,       ppt->has_source_reionisation,      index_type,1);
       class_define_index(ppt->index_tp_r1,       ppt->has_source_reionisation,      index_type,1);
       class_define_index(ppt->index_tp_zeta,     ppt->has_source_zeta,              index_type,1);
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
       ppt->tp_size[index_md] = index_type;
 
       class_test(index_type == 0,
@@ -1261,7 +1261,7 @@ int perturb_timesampling_for_sources(
   }
 
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
 
   /* Uncomment the following lines in order to use a custom time sampling for the line
   of sight sources */
@@ -1342,7 +1342,7 @@ int perturb_timesampling_for_sources(
 
   } // end of if(has_perturbations2)
 
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
 
   return _SUCCESS_;
@@ -1549,7 +1549,7 @@ int perturb_get_k_list(
 
       step *= (k*k/scale2+1.)/(k*k/scale2+1./ppr->k_step_super_reduction);
 
-#ifndef WITH_BISPECTRA
+#ifndef WITH_SONG1
       class_test(step / k < ppr->smallest_allowed_variation,
                  ppt->error_message,
                  "k step =%e < machine precision : leads either to numerical error or infinite loop",
@@ -1575,7 +1575,7 @@ int perturb_get_k_list(
       else
         k *= ppr->k_logstep_super;
       
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
       class_test(k <= ppt->k[ppt->index_md_scalars][index_k-1],
                  ppt->error_message,
@@ -1615,10 +1615,10 @@ int perturb_get_k_list(
     }
 
     ppt->k_size[ppt->index_md_scalars] = index_k;
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
     /* Last sampling point = exactly k_max */
     ppt->k[ppt->index_md_scalars][index_k-1] = k_max; 
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
     
     class_realloc(ppt->k[ppt->index_md_scalars],
                   ppt->k[ppt->index_md_scalars],
@@ -2057,9 +2057,9 @@ int perturb_workspace_init(
     if (ppt->gauge == newtonian) {
       class_define_index(ppw->index_mt_psi,_TRUE_,index_mt,1); /* psi */
       class_define_index(ppw->index_mt_phi_prime,_TRUE_,index_mt,1); /* phi' */
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
       class_define_index(ppw->index_mt_phi_prime_prime,_TRUE_,index_mt,1); /* phi' */
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
     }
 
     /* synchronous gauge (note that eta is counted in the vector of
@@ -2105,11 +2105,11 @@ int perturb_workspace_init(
       values of background, thermodynamics, metric and source
       quantities at a given time */
 
-#ifndef WITH_BISPECTRA
+#ifndef WITH_SONG1
   class_alloc(ppw->pvecback,pba->bg_size_normal*sizeof(double),ppt->error_message);
 #else
   class_alloc(ppw->pvecback,pba->bg_size*sizeof(double),ppt->error_message);
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
   class_alloc(ppw->pvecthermo,pth->th_size*sizeof(double),ppt->error_message);
   class_alloc(ppw->pvecmetric,ppw->mt_size*sizeof(double),ppt->error_message);
 
@@ -2310,7 +2310,7 @@ int perturb_solve(
   /** - get wavenumber value */
   k = ppt->k[index_md][index_k];
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
   /* Include information on the considered k in order to print meaningful debug */
   ppw->index_k = index_k;
@@ -2318,7 +2318,7 @@ int perturb_solve(
   /* Reset the counter that keeps track of the number of calls of the function perturb_derivs() */
   ppw->derivs_count = 0;
 
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
   class_test(k == 0.,
              ppt->error_message,
@@ -2393,13 +2393,13 @@ int perturb_solve(
   /* is at most the time at which sources must be sampled */
   tau_upper = ppt->tau_sampling[0];
   
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
 
   /* Start at least the smallest time needed by the second-order system */
   if (ppt->has_perturbations2 == _TRUE_)
     tau_upper = MIN (tau_upper, ppt->tau_sampling_quadsources[0]);
 
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
   /* start bisection */
   tau_mid = 0.5*(tau_lower + tau_upper);
@@ -2611,7 +2611,7 @@ int perturb_solve(
   }
 
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
 
   /* Re-solve the system to obtain the quadratic sources. We do that because the time needed to re-solve
   the first-order system is negligible compared to the second-order one. The alternative would be to
@@ -2709,7 +2709,7 @@ int perturb_solve(
     } // end of for(index_interval)
   } // end of if(has_perturbations2) 
 
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
 
   /** - if perturbations were printed in a file, close the file */
@@ -2729,7 +2729,7 @@ int perturb_solve(
   }
 
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
 
   /* Compute second derivatives of the quadratic sources for SONG, in view of 
   spline interpolation. */  
@@ -2755,7 +2755,7 @@ int perturb_solve(
       ppt->error_message);
   }
 
-#endif // WITH_SONG_SUPPORT  
+#endif // WITH_SONG2  
 
   /** - free quantitites allocated at the beginning of the routine */
 
@@ -3361,7 +3361,7 @@ int perturb_vector_init(
       }
     }
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
 
     /* Include the E-mode polarization hierarchy (scalar modes).  Note that we shall
     execute the following block of code no matter what is the adopted approximation
@@ -3378,20 +3378,20 @@ int perturb_vector_init(
             
     } // end of if(has_polarization2)
     
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
     /* baryons */
 
     class_define_index(ppv->index_pt_delta_b,_TRUE_,index_pt,1); /* baryon density */
     class_define_index(ppv->index_pt_theta_b,_TRUE_,index_pt,1); /* baryon velocity */
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
 
     /* Evolve the perturbed fraction of free electrons, which is needed by the second-order
     module to compute the photon collision term (see Sec. 5.3.4 of http://arxiv.org/abs/1405.2280) */
     class_define_index(ppv->index_pt_delta_Xe,ppt->has_perturbed_recombination_stz,index_pt,1);
 
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
     /* cdm */
 
@@ -3478,7 +3478,7 @@ int perturb_vector_init(
        phi) */
     class_define_index(ppv->index_pt_phi,ppt->gauge == newtonian,index_pt,1);
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
 
     /* CLASS by default evolves the curvature potential phi using its first-order 
        derivative from the space-time Einstein equation, called the longitudinal 
@@ -3490,7 +3490,7 @@ int perturb_vector_init(
     if (ppt->phi_eq == huang)
       class_define_index(ppv->index_pt_phi_prime,ppt->gauge == newtonian,index_pt,1);
 
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
     
   }
 
@@ -3702,7 +3702,7 @@ int perturb_vector_init(
   }
 
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
 
   /* In order to compute the source terms for the second-order equations,
   we do need all the perturbations computed at first order */
@@ -3711,7 +3711,7 @@ int perturb_vector_init(
       ppv->used_in_sources[index_pt] = _TRUE_;
   }
 
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
   
 
   /** - case of setting initial conditions for a new wavenumber */
@@ -3748,10 +3748,10 @@ int perturb_vector_init(
       }
 
 
-  #ifdef WITH_BISPECTRA
+  #ifdef WITH_SONG1
       /* Avoid the following test if the user chose not to use the TCA */
       if (ppr->tight_coupling_approximation != tca_none)
-  #endif // WITH_BISPECTRA
+  #endif // WITH_SONG1
 
       class_test(ppw->approx[ppw->index_ap_tca] == (int)tca_off,
                  ppt->error_message,
@@ -3871,7 +3871,7 @@ int perturb_vector_init(
         ppv->y[ppv->index_pt_phi] =
           ppw->pv->y[ppw->pv->index_pt_phi];
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
 
       /* Second derivative of the curvature potential */
       if (ppt->gauge == newtonian)
@@ -3889,7 +3889,7 @@ int perturb_vector_init(
         ppv->y[ppv->index_pt_delta_Xe] = ppw->pv->y[ppw->pv->index_pt_delta_Xe];
       }
 
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
 
       /* -- case of switching off tight coupling
@@ -4844,7 +4844,7 @@ int perturb_initial_conditions(struct precision * ppr,
 
       }
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
       
       /* Set initial condition for phi_prime starting from psi, using the space-time
       Einstein equation */
@@ -4872,7 +4872,7 @@ int perturb_initial_conditions(struct precision * ppr,
 
       }
 
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
     } /* end of gauge transformation to newtonian gauge */
 
@@ -5187,14 +5187,14 @@ int perturb_approximations(
 
     }
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
     /* Always turn the TCA off if the user asked for tca_none  */
     if (ppr->tight_coupling_approximation == tca_none) {
       ppw->approx[ppw->index_ap_tca] = (int)tca_off;
     }
 
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
     /* (c) free-streaming approximations */
 
@@ -5534,7 +5534,7 @@ int perturb_einstein(
       /* equation for phi' */
       ppw->pvecmetric[ppw->index_mt_phi_prime] = -a_prime_over_a * ppw->pvecmetric[ppw->index_mt_psi] + 1.5 * (a2/k2) * ppw->rho_plus_p_theta;
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
       
       /* If we are to evolve phi using the phi'' equation, then set the value of phi_prime
       in ppw->pvecmetric directly from the vector of evolved  perturbations, rather than
@@ -5572,7 +5572,7 @@ int perturb_einstein(
         - 2*psi * (Hc*Hc + Hc_prime)
         - a2/2 * (rho_monopole_b + rho_monopole_cdm);
 
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
       /* eventually, infer radiation streaming approximation for
          gamma and ur (this is exactly the right place to do it
@@ -6250,7 +6250,7 @@ int perturb_sources(
 
   /** - get background/thermo quantities in this point */
 
-#ifndef WITH_BISPECTRA
+#ifndef WITH_SONG1
   class_call(background_at_tau(pba,
                                tau,
                                pba->normal_info,
@@ -6341,7 +6341,7 @@ int perturb_sources(
       }
 
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
       
       /* Uncomment to include only the late ISW effect */
       // ppt->switch_sw = 0;
@@ -6356,7 +6356,7 @@ int perturb_sources(
       // if (z < ppt->eisw_lisw_split_z)
       //   switch_isw = 0;
 
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
       /* newtonian gauge: simplest form, not efficient numerically */
       /*
@@ -6429,7 +6429,7 @@ int perturb_sources(
 
     }
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
     /* Reionisation potential */
     
@@ -6493,7 +6493,7 @@ int perturb_sources(
       
     } // if(has_source_zeta)
     
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
 
     /* now, non-CMB sources */
@@ -6748,7 +6748,7 @@ int perturb_print_variables(double tau,
                             ErrorMsg error_message
                             ) {
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
   /* This function is called at every time step of the differential system AND
   for every time inside ppt->tau_sampling. In the latter case, index_tau is
   negative. In SONG, we use need both cases in order to output the perturbaitons
@@ -6756,7 +6756,7 @@ int perturb_print_variables(double tau,
   standard CLASS behaviour. */
   if (index_tau < 0)
     return _SUCCESS_;
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
   
   struct perturb_parameters_and_workspace * pppaw;
 
@@ -7264,10 +7264,10 @@ int perturb_derivs(double tau,
   pvecmetric = ppw->pvecmetric;
   pv = ppw->pv;
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
   /* Update counter of calls to this function */
   ppw->derivs_count++;
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
   /** - get background/thermo quantities in this point */
 
@@ -7587,7 +7587,7 @@ int perturb_derivs(double tau,
 
     }
     
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
 
     /* Equation for perturbed recombination (only hydrogen recombination). Here we follow
     the approach used in Senatore et al. 2009 (http://arxiv.org/abs/0812.3652). We describe
@@ -7614,7 +7614,7 @@ int perturb_derivs(double tau,
       
     } // end of if(has_perturbed_recombination_stz)
 
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
     /** -> dcdm and dr */
 
@@ -7937,7 +7937,7 @@ int perturb_derivs(double tau,
     }
 
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
 
     /* Include the equations for the E-mode polarization hierarchy.  Note that we shall
     execute the following block of code no matter what is the adopted approximation
@@ -8041,7 +8041,7 @@ int perturb_derivs(double tau,
 
     }
     
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
   }
 
@@ -8643,9 +8643,9 @@ int perturb_tca_slip_and_shear(double * y,
 
   ppw->tca_shear_g = shear_g;
   ppw->tca_slip = slip;
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
   ppw->tca_shear_g_prime = shear_g_prime;
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
 
   return _SUCCESS_;
@@ -8768,7 +8768,7 @@ int perturb_rsa_delta_and_theta(
 }
 
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
 
 /**
  * Determine which perturbations will be needed by SONG.
@@ -9839,5 +9839,5 @@ int perturb_song_sources_at_tau_spline (
 }
   
 
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 

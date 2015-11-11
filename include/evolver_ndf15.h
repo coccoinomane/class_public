@@ -113,7 +113,7 @@ int evolver_ndf15(
 		ErrorMsg error_message),
 	int (*print_variables)(double x, int index_x, double y[], double dy[], void *parameters_and_workspace,
 		ErrorMsg error_message),
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
   int (*exit_strategy)(
         int (*derivs)(double x,double * y,double * dy,
           void * parameters_and_workspace, ErrorMsg error_message),
@@ -137,7 +137,7 @@ int evolver_ndf15(
         int (*print_variables)(double x, int index_x, double y[], double dy[], void *parameters_and_workspace,
              ErrorMsg error_message),
         ErrorMsg error_message),
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 	ErrorMsg error_message);
 
 

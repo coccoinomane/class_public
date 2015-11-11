@@ -739,7 +739,7 @@ int parser_overwrite_entry (
 
 
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 /**
  * Find and replace text within an entry of a file_content structure.
  * 
@@ -805,7 +805,7 @@ int parser_replace_entry (
   return _SUCCESS_;
 
 }
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
 
 

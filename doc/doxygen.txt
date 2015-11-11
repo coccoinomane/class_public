@@ -36,7 +36,7 @@ FILE_PATTERNS          = *.c *.h
 EXCLUDE                =
 
 # Make sure that the documentation includes the SONG bits
-PREDEFINED             = WITH_SONG_SUPPORT WITH_BISPECTRA
+PREDEFINED             = WITH_SONG2 WITH_SONG1
 
 # Uncomment to compile without latex (much quicker). Sometimes you need
 # also to give a non-existent latex executables to actually prevent doxygen 

@@ -2,9 +2,9 @@
 #define __PARSER__
 
 #include "common.h"
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 #include "song_tools.h"
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
 #define _LINE_LENGTH_MAX_ 1024 /**< size of the string read in each line of the file (extra characters not taken into account) */
 #define _ARGUMENT_LENGTH_MAX_ 1024 /**< maximum size of each argument (name or value), including the final null character */
@@ -122,7 +122,7 @@ int parser_cat(
 	       ErrorMsg errmsg
 	       );
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 int parser_replace_entry (
         struct file_content * pfc,
         char * name,
@@ -131,7 +131,7 @@ int parser_replace_entry (
         int * found,
         ErrorMsg errmsg
         );
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
 int parser_overwrite_entry (
 		    struct file_content * pfc,

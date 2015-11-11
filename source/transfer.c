@@ -392,7 +392,7 @@ int transfer_init(
 
   if (abort == _TRUE_) return _FAILURE_;
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
   /* Compute the derived transfer functions */
   for (int index_q = 0; index_q < ptr->q_size; index_q++) {  
@@ -416,7 +416,7 @@ int transfer_init(
     }
   }
 
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
   
   /* finally, free arrays allocated outside parallel zone */
 
@@ -466,9 +466,9 @@ int transfer_free(
     free(ptr->l_size_tt);
     free(ptr->l_size);
     free(ptr->l);
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
     free (ptr->index_l);
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
     free(ptr->q);
     free(ptr->k);
     free(ptr->transfer);
@@ -554,12 +554,12 @@ int transfer_indices_of_transfers(
     class_define_index(ptr->index_tt_nc_g4,  ppt->has_nc_gr,                   index_tt,ppt->selection_num);
     class_define_index(ptr->index_tt_nc_g5,  ppt->has_nc_gr,                   index_tt,ppt->selection_num);
     class_define_index(ptr->index_tt_lensing,ppt->has_cl_lensing_potential,    index_tt,ppt->selection_num);
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
     class_define_index(ptr->index_tt_t,      ppt->has_cl_cmb_temperature,            index_tt,1);
     class_define_index(ptr->index_tt_rcmb0,     ppt->has_cl_cmb_reionisation_potential, index_tt,1);
     class_define_index(ptr->index_tt_rcmb1,     ppt->has_cl_cmb_reionisation_potential, index_tt,1);
     class_define_index(ptr->index_tt_zeta,   ppt->has_cl_cmb_zeta,                   index_tt,1);
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
     ptr->tt_size[ppt->index_md_scalars]=index_tt;
 
@@ -852,10 +852,10 @@ int transfer_get_l_list(
 
       if ((ppt->has_cl_cmb_temperature == _TRUE_) ||
           (ppt->has_cl_cmb_polarization == _TRUE_) ||
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
           (ppt->has_cl_cmb_reionisation_potential == _TRUE_) ||
           (ppt->has_cl_cmb_zeta == _TRUE_) ||
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
           (ppt->has_cl_cmb_lensing_potential == _TRUE_))
         l_max=MAX(ppt->l_scalar_max,l_max);
 
@@ -951,7 +951,7 @@ int transfer_get_l_list(
     
   }
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
   /* The user might have asked to output the bispectra at specific configurations
   of l1, l2 and l3 using the l1_out and l2_out parameters. Here we add these l-values
@@ -1094,7 +1094,7 @@ int transfer_get_l_list(
   //   printf ("\n");
   // }
 
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
 
   /* for each mode and type, find relevant size of l array,
@@ -1136,12 +1136,12 @@ int transfer_get_l_list(
         if ((ppt->has_cl_lensing_potential == _TRUE_) && (index_tt >= ptr->index_tt_lensing) && (index_tt < ptr->index_tt_lensing+ppt->selection_num))
           l_max=ppt->l_lss_max;
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
         if ((ppt->has_cl_cmb_reionisation_potential == _TRUE_ && index_tt == ptr->index_tt_rcmb0) ||
             (ppt->has_cl_cmb_reionisation_potential == _TRUE_ && index_tt == ptr->index_tt_rcmb1) ||
             (ppt->has_cl_cmb_zeta == _TRUE_ && index_tt == ptr->index_tt_zeta))
           l_max=ppt->l_scalar_max;
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
       }
 
@@ -1568,7 +1568,7 @@ int transfer_get_source_correspondence(
         if ((ppt->has_cl_lensing_potential == _TRUE_) && (index_tt >= ptr->index_tt_lensing) && (index_tt < ptr->index_tt_lensing+ppt->selection_num))
           tp_of_tt[index_md][index_tt]=ppt->index_tp_phi_plus_psi;
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
         /* We flag the derived transfer functions with a negative value */
         if ((ppt->has_cl_cmb_temperature == _TRUE_) && (index_tt == ptr->index_tt_t)) 
           tp_of_tt[index_md][index_tt]=-1;
@@ -1581,7 +1581,7 @@ int transfer_get_source_correspondence(
 
         if ((ppt->has_cl_cmb_zeta == _TRUE_) && (index_tt == ptr->index_tt_zeta))
           tp_of_tt[index_md][index_tt]=ppt->index_tp_zeta;
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
       }
 
       if (_vectors_) {
@@ -1742,7 +1742,7 @@ int transfer_source_tau_size(
       *tau_size = ppt->tau_size-index_tau_min;
     }
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
     /* Reionisation potential */
 
@@ -1775,7 +1775,7 @@ int transfer_source_tau_size(
     if ((ppt->has_cl_cmb_zeta == _TRUE_) && (index_tt == ptr->index_tt_zeta))
       *tau_size = ppt->tau_size;
 
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
     /* density Cl's */
     if ((_index_tt_in_range_(ptr->index_tt_density, ppt->selection_num, ppt->has_nc_density)) ||
@@ -1998,13 +1998,13 @@ int transfer_compute_for_each_q(
 
         for (index_tt = 0; index_tt < ptr->tt_size[index_md]; index_tt++) {
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
           /* Skip the indices corresponding to the derived transfer functions. These
           are those transfer functions that can be obtained from the others and thus
           do not require to be computed by solving the line of sight integral. */
           if (tp_of_tt[index_md][index_tt] < 0)
             continue;
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
           /** check if we must now deal with a new source with a
               new index ppt->index_type. If yes, interpolate it at the
@@ -2416,11 +2416,11 @@ int transfer_sources(
     if ((ppt->has_cl_lensing_potential == _TRUE_) && (index_tt >= ptr->index_tt_lensing) && (index_tt < ptr->index_tt_lensing+ppt->selection_num))
       redefine_source = _TRUE_;
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
     /* reionisation potential */
     if ((ppt->has_cl_cmb_reionisation_potential == _TRUE_) && (index_tt == ptr->index_tt_rcmb0 || index_tt == ptr->index_tt_rcmb1))
       redefine_source = _TRUE_;
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
   }
 
@@ -2514,7 +2514,7 @@ int transfer_sources(
       }
 
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
       /* reionisation source: throw away times before reionisation*/
  
       if ((ppt->has_cl_cmb_reionisation_potential == _TRUE_) && (index_tt == ptr->index_tt_rcmb0 || index_tt == ptr->index_tt_rcmb1)) {
@@ -2545,7 +2545,7 @@ int transfer_sources(
                    ptr->error_message,
                    ptr->error_message);
       }
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
       /* density source: redefine the time sampling, multiply by
          coefficient of Poisson equation, and multiply by selection
@@ -3766,7 +3766,7 @@ int transfer_compute_for_each_l(
                ptr->error_message);
   }
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
   /* TODO: verify that this is really needed; if this is the case, move it
   to the second-order module rather than keeping it here, where it affects
@@ -3780,7 +3780,7 @@ int transfer_compute_for_each_l(
     transfer_function *= -1;
   }
         
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
 
   /* store transfer function in transfer structure */
@@ -3789,11 +3789,11 @@ int transfer_compute_for_each_l(
                           * ptr->q_size + index_q]
     = transfer_function;
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
   /* Debug: print the lensing and reionisation potential transfer functions */
   // if (index_tt == ptr->index_tt_lcmb && index_l == 10 && index_q == 100) {printf("lens = %g\n",transfer_function);}
   // if (index_tt == ptr->index_tt_rcmb && index_l == 10 && index_q == 100) {printf("reio = %g\n",transfer_function);}
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
   
   return _SUCCESS_;
 
@@ -4045,11 +4045,11 @@ int transfer_integrate(
       radial_function[index_tau_max]*sources[index_tau_max];
   }
   
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
   /* Debug: print the transfer function for the zeta curvature perturbation */
   // if ((ppt->has_cl_cmb_zeta == _TRUE_) && (index_tt == ptr->index_tt_zeta))
   //   printf ("%12g %12g\n", k, trsf);
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
   free(radial_function);
   return _SUCCESS_;
@@ -4805,7 +4805,7 @@ int transfer_select_radial_function(
     if (_index_tt_in_range_(ptr->index_tt_nc_g5,   ppt->selection_num, ppt->has_nc_gr))
       *radial_type = SCALAR_TEMPERATURE_1;
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
 		if (ppt->has_cl_cmb_reionisation_potential == _TRUE_) {
 
@@ -4819,7 +4819,7 @@ int transfer_select_radial_function(
     if ((ppt->has_cl_cmb_zeta == _TRUE_) && (index_tt == ptr->index_tt_zeta))
       *radial_type = SCALAR_TEMPERATURE_0;
 
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
   }
 

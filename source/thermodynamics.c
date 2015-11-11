@@ -165,7 +165,7 @@ int thermodynamics_at_z(
     /* in this regime, variation rate = dkappa/dtau */
     pvecthermo[pth->index_th_rate] = pvecthermo[pth->index_th_dkappa];
     
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
     
     /* Perturbed recombination */
     
@@ -206,7 +206,7 @@ int thermodynamics_at_z(
 
     }
     
-#endif // WITH_SONG_SUPPORT    
+#endif // WITH_SONG2    
 
   }
 
@@ -572,7 +572,7 @@ int thermodynamics_init(
                pth->error_message);
   }
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
 
   /** -> derivatives of baryon sound speed (only computed if some non-minimal tight-coupling schemes is requested) */
   if (pth->compute_xe_derivatives == _TRUE_) {
@@ -603,7 +603,7 @@ int thermodynamics_init(
          pth->error_message);
   }
 
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
   free(tau_table);
 
@@ -779,7 +779,7 @@ int thermodynamics_init(
              pba->error_message,
              pth->error_message);
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
 
   /* Compute functions needed to obtain the first-order fraction of free electrons */
   if (pth->has_perturbed_recombination_stz == _TRUE_) {
@@ -792,7 +792,7 @@ int thermodynamics_init(
       pth->error_message);
   }
   
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
   /** - if verbose flag set to next-to-minimum value, print the main results */
 
@@ -909,7 +909,7 @@ int thermodynamics_indices(
   pth->index_th_rate = index;
   index++;
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
   
   /* Derivatives of ionization fraction (needed for the approximated perturbed recombination) */  
   if (pth->compute_xe_derivatives == _TRUE_) {
@@ -928,7 +928,7 @@ int thermodynamics_indices(
     pth->index_th_Q = index++;
   }
 
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
   /* end of indices */
   pth->th_size = index;
@@ -1785,10 +1785,10 @@ int thermodynamics_reionization(
 
     }
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
     /* Pass to the thermodynamics structure the redshift where reionization starts */
     pth->z_reio_start = preio->reionization_parameters[preio->index_reio_start];
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
     
     free(preio->reionization_parameters);
 
@@ -1873,10 +1873,10 @@ int thermodynamics_reionization(
 
     pth->tau_reio=preio->reionization_optical_depth;
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
     /* Pass to the thermodynamics structure the redshift where reionization starts */
     pth->z_reio_start = preio->reionization_parameters[preio->index_reio_start];
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
     return _SUCCESS_;
 
@@ -3294,7 +3294,7 @@ int thermodynamics_merge_reco_and_reio(
 }
 
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
 
 /**
  * Compute the derivatives of the Q function for perturbed recombination.
@@ -3628,7 +3628,7 @@ int thermodynamics_compute_Q_derivatives_at_z (
   
 }
 
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
 
 

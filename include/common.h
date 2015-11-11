@@ -335,7 +335,7 @@ enum file_format {class_format,camb_format};
 
 
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
 /* Includes, macros and enum structures required by SONG */
 
@@ -523,7 +523,7 @@ enum bispectra_r_samplings {
 };
 
 
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
 
 
@@ -970,7 +970,7 @@ struct precision
   struct file_content * parameter_files_content;
   
 
-  #ifdef WITH_BISPECTRA
+  #ifdef WITH_SONG1
 
   /** @name - parameters related to bispectra, Fisher matrices and second-order
   perturbations (specific to SONG) */
@@ -1148,7 +1148,7 @@ struct precision
 
   //@}
   
-  #endif // WITH_BISPECTRA
+  #endif // WITH_SONG1
   
 };
 

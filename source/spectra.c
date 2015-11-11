@@ -306,7 +306,7 @@ int spectra_cl_at_l(
 
 
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
 /**
  * Interpolate the derivative of the angular power spectrum at a given value of l.
@@ -534,7 +534,7 @@ int spectra_dcl_at_l(
 
 }
 
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
 
 /**
@@ -1814,14 +1814,14 @@ int spectra_free(
         free(psp->l_max_ct[index_md]);
         free(psp->cl[index_md]);
         free(psp->ddcl[index_md]);
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
         if (psp->compute_cl_derivative == _TRUE_) {
           free(psp->lsq_cl[index_md]);
           free(psp->d_lsq_cl[index_md]);
           free(psp->dd_lsq_cl[index_md]);
           free(psp->spline_d_lsq_cl[index_md]);
         }
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
       }
       free(psp->l);
       free(psp->l_size);
@@ -1830,14 +1830,14 @@ int spectra_free(
       free(psp->cl);
       free(psp->ddcl);
       
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
       if (psp->compute_cl_derivative == _TRUE_) {
         free(psp->lsq_cl);
         free(psp->d_lsq_cl);
         free(psp->dd_lsq_cl);
         free(psp->spline_d_lsq_cl);
       }
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
       
     }
 
@@ -1946,13 +1946,13 @@ int spectra_indices(
     for (int i=0; i < _MAX_NUM_SPECTRA_; ++i)
       psp->lens_me[i] = _TRUE_;
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
 
     /* By default, all C_l are considered first order */
     for (int i=0; i < _MAX_NUM_SPECTRA_; ++i)
       psp->cl_type[i] = first_order;
 
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
     /* types of C_l's relevant for both scalars and tensors: TT, EE, TE */
 
@@ -2115,7 +2115,7 @@ int spectra_indices(
       psp->has_dl = _FALSE_;
     }
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
     /* Recombination potential */
     
@@ -2168,7 +2168,7 @@ int spectra_indices(
     }
     
     
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
 
     /* Intrinsic angular power spectra */
 
@@ -2209,9 +2209,9 @@ int spectra_indices(
       psp->index_ct_bb2 = index_ct++;
     }
 
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
         
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
     psp->ct_size = index_ct;
 
@@ -2235,19 +2235,19 @@ int spectra_indices(
       if (psp->has_pp == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_pp] = ppt->l_scalar_max;
       if (psp->has_tp == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_tp] = ppt->l_scalar_max;
       if (psp->has_ep == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_ep] = ppt->l_scalar_max;
-#ifdef WITH_BISPECTRA
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG1
+#ifdef WITH_SONG2
       if (psp->has_tt2 == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_tt2] = ppt->l_scalar_max;
       if (psp->has_ee2 == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_ee2] = ppt->l_scalar_max;
       if (psp->has_te2 == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_te2] = ppt->l_scalar_max;
       if (psp->has_bb2 == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_bb2] = ppt->l_scalar_max;
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
       if (psp->has_rr == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_rr] = ppt->l_scalar_max;
       if (psp->has_tr == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_tr] = ppt->l_scalar_max;
       if (psp->has_er == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_er] = ppt->l_scalar_max;
       if (psp->has_tz == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_tz] = ppt->l_scalar_max;
       if (psp->has_ez == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_ez] = ppt->l_scalar_max;
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
       /* spectra computed up to l_lss_max */
 
@@ -2438,14 +2438,14 @@ int spectra_cls(
   class_alloc(psp->cl,sizeof(double *)*psp->md_size,psp->error_message);
   class_alloc(psp->ddcl,sizeof(double *)*psp->md_size,psp->error_message);
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
   if (psp->compute_cl_derivative == _TRUE_) {
     class_alloc(psp->lsq_cl,sizeof(double *)*psp->md_size,psp->error_message);
     class_alloc(psp->d_lsq_cl,sizeof(double *)*psp->md_size,psp->error_message);
     class_alloc(psp->dd_lsq_cl,sizeof(double *)*psp->md_size,psp->error_message);
     class_alloc(psp->spline_d_lsq_cl,sizeof(double *)*psp->md_size,psp->error_message);
   }
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
   psp->l_size_max = ptr->l_size_max;
   class_alloc(psp->l,sizeof(double)*psp->l_size_max,psp->error_message);
@@ -2471,14 +2471,14 @@ int spectra_cls(
     class_calloc(psp->ddcl[index_md], cl_size, sizeof(double), psp->error_message);
     cl_integrand_num_columns = 1+psp->ct_size*2; /* one for k, ct_size for each type, ct_size for each second derivative of each type */
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
     if (psp->compute_cl_derivative == _TRUE_) {
       class_calloc(psp->lsq_cl[index_md], cl_size, sizeof(double), psp->error_message);
       class_calloc(psp->d_lsq_cl[index_md], cl_size, sizeof(double), psp->error_message);
       class_calloc(psp->dd_lsq_cl[index_md], cl_size, sizeof(double), psp->error_message);
       class_calloc(psp->spline_d_lsq_cl[index_md], cl_size, sizeof(double), psp->error_message);
     }
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
     /** d) loop over initial conditions */
 
@@ -2585,7 +2585,7 @@ int spectra_cls(
     }
 
 
-#ifndef WITH_BISPECTRA
+#ifndef WITH_SONG1
 
     /** - e) now that for a given mode, all possible C_l's have been computed,
         compute second derivative of the array in which they are stored,
@@ -2613,7 +2613,7 @@ int spectra_cls(
       psp->error_message,
       psp->error_message);
 
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
     
   } // for(index_md)
 
@@ -2623,7 +2623,7 @@ int spectra_cls(
 
 
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
 /**
  * Prepare the C_l and its derivative for spline interpolation.
@@ -2741,7 +2741,7 @@ int spectra_cls_spline(
 
 }
 
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
 
 /**
@@ -2912,7 +2912,7 @@ int spectra_compute_cl(
     }
 
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
     
     if (ppt->has_cl_cmb_reionisation_potential==_TRUE_ && _scalars_) {
 
@@ -2921,7 +2921,7 @@ int spectra_compute_cl(
 
     }
     
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
 
     /* integrand of Cl's */
@@ -3089,7 +3089,7 @@ int spectra_compute_cl(
       }
     }
     
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
     /* Recombination potential */
 
@@ -3135,18 +3135,18 @@ int spectra_compute_cl(
         * factor;
     }
 
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
   }
 
   for (index_ct=0; index_ct<psp->ct_size; index_ct++) {
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
     /* This module deals only with first-order C_l; spectra2.c deals with the
     second-order ones */
     if (psp->cl_type[index_ct] != first_order)
       continue;
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
     /* treat null spectra (C_l^BB of scalars, C_l^pp of tensors, etc. */
 
@@ -3160,14 +3160,14 @@ int spectra_compute_cl(
         (_tensors_ && (psp->has_ll == _TRUE_) && (index_ct == psp->index_ct_ll)) ||
         (_tensors_ && (psp->has_tl == _TRUE_) && (index_ct == psp->index_ct_tl)) ||
         (_tensors_ && (psp->has_dl == _TRUE_) && (index_ct == psp->index_ct_dl))
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
         ||
         (_tensors_ && (psp->has_rr == _TRUE_) && (index_ct == psp->index_ct_rr)) ||
         (_tensors_ && (psp->has_tr == _TRUE_) && (index_ct == psp->index_ct_tr)) ||
         (_tensors_ && (psp->has_er == _TRUE_) && (index_ct == psp->index_ct_er)) ||
         (_tensors_ && (psp->has_tz == _TRUE_) && (index_ct == psp->index_ct_tz)) ||
         (_tensors_ && (psp->has_ez == _TRUE_) && (index_ct == psp->index_ct_ez))
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
         ) {
 
       psp->cl[index_md]
@@ -3650,7 +3650,7 @@ int spectra_pk_from_source(
               ln_pk_tot
               + 2.*log(pnl->nl_corr_density[(index_tau-psp->ln_tau_size+ppt->tau_size) * ppt->k_size[index_md] + index_k]);
             
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
             /* Compute the effect of the presence of stars and gas at the center of DM halos, which results
             in a steepening of the DM profile. For more details, see Sec. 2.2 of Shaw et al. */
             if (psp->has_pk_halo_contraction == _TRUE_) {
@@ -3667,7 +3667,7 @@ int spectra_pk_from_source(
               //     exp(psp->ln_pk_nl[index_pk][index_tau * psp->ln_k_size + index_k]), Phi*Phi);
 
             } // if(has_pk_halo_contraction)
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
           }
 
@@ -3703,7 +3703,7 @@ int spectra_pk_from_source(
 
 
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
 /**
  * Compute effect of halo contraction on the dark matter power spectrum.
@@ -3809,7 +3809,7 @@ int spectra_nfw (
   
 }
 
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
   
 
 

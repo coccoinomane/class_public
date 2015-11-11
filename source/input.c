@@ -26,11 +26,11 @@ int input_init_from_arguments(
                               struct spectra *psp,
                               struct nonlinear * pnl,
                               struct lensing *ple,
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
                               struct bessels * pbs,
                               struct bispectra *pbi,
                               struct fisher *pfi,
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
                               struct output *pop,
                               ErrorMsg errmsg
                               ) {
@@ -72,7 +72,7 @@ int input_init_from_arguments(
   precision_file[0]='\0';
 
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
   /** - Check wether the first argument is a directory, and if this is the case
       load its content as if it was a previous run of SONG. */
@@ -110,18 +110,18 @@ int input_init_from_arguments(
     printf("# We shall load the run contained in the folder '%s'.\n", ppr->run_dir);
   }
 
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
 
   /** If some arguments are passed, identify eventually some 'xxx.ini'
       and 'xxx.pre' files, and store their name. */
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
   /* No need to read the parameter files from the command line if we are loading a
   previous run */
   if (ppr->load_run == _TRUE_)
     goto read_input_files;
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
   if (argc > 1) {
     for (i=1; i<argc; i++) {
@@ -145,14 +145,14 @@ int input_init_from_arguments(
     }
   }
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
   read_input_files:
   
   /** - save the parameter filename into the ppr structure */
   strcpy (ppr->ini_filename, input_file);
 
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
   /** - if there is an 'xxx.ini' file, read it and store its content. */
 
@@ -162,7 +162,7 @@ int input_init_from_arguments(
                errmsg,
                errmsg);
 
-#ifndef WITH_BISPECTRA
+#ifndef WITH_SONG1
     /** - check whether a root name has been set */
 
     class_call(parser_read_string(&fc_input,"root",&stringoutput,&flag1,errmsg),
@@ -204,18 +204,18 @@ int input_init_from_arguments(
       class_call(parser_free(&fc_root),errmsg,errmsg);
       pfc_input = &fc_inputroot;
     }
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
   }
 
   /** - if there is an 'xxx.pre' file, read it and store its content. */
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
   /** - save the parameter filename into the ppr structure */
   strcpy (ppr->pre_filename, precision_file);
 
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
   if (precision_file[0] != '\0')
 
@@ -249,11 +249,11 @@ int input_init_from_arguments(
                         psp,
                         pnl,
                         ple,
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
                         pbs,
                         pbi,
                         pfi,
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
                         pop,
                         errmsg),
              errmsg,
@@ -280,11 +280,11 @@ int input_init(
                struct spectra *psp,
                struct nonlinear * pnl,
                struct lensing *ple,
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
                struct bessels * pbs,
                struct bispectra *pbi,
                struct fisher *pfi,
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
                struct output *pop,
                ErrorMsg errmsg
                ) {
@@ -321,7 +321,7 @@ int input_init(
 
   class_read_int("input_verbose",input_verbose);
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
   /* Store date and time */
   time_t now;
@@ -331,7 +331,7 @@ int input_init(
   strftime(ppr->date, 1024, "%d/%m/%Y, %H:%M:%S", d);
   strftime(ppr->date_no_spaces, 1024, "%Y-%m-%d_%H-%M-%S", d);
 
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
   /* Do we need to fix unknown parameters? */
   unknown_parameters_size = 0;
@@ -545,11 +545,11 @@ int input_init(
                                      psp,
                                      pnl,
                                      ple,
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
                                      pbs,
                                      pbi,
                                      pfi,
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
                                      pop,
                                      errmsg),
                errmsg,
@@ -585,11 +585,11 @@ int input_init(
                                      psp,
                                      pnl,
                                      ple,
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
                                      pbs,
                                      pbi,
                                      pfi,
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
                                      pop,
                                      errmsg),
                errmsg,
@@ -661,7 +661,7 @@ int input_free(
   parser_free(ppr->parameter_files_content);
   free (ppr->parameter_files_content);
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
   if (log_file != NULL)
     fclose(log_file);
 
@@ -676,7 +676,7 @@ int input_free(
     free (ppr->l_out_files_2D);
   }
 
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
  
   return _SUCCESS_;
                  
@@ -694,11 +694,11 @@ int input_read_parameters(
                           struct spectra *psp,
                           struct nonlinear * pnl,
                           struct lensing *ple,
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
                           struct bessels * pbs,
                           struct bispectra *pbi,
                           struct fisher *pfi,
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
                           struct output *pop,
                           ErrorMsg errmsg
                           ) {
@@ -715,11 +715,11 @@ int input_read_parameters(
   double fnu_factor;
   double * pointer1;
   char string1[_ARGUMENT_LENGTH_MAX_];
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
   int * int_pointer1;
   char string[_ARGUMENT_LENGTH_MAX_];
   char string2[_ARGUMENT_LENGTH_MAX_];
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
   double k1=0.;
   double k2=0.;
   double prr1=0.;
@@ -756,11 +756,11 @@ int input_read_parameters(
                                   psp,
                                   pnl,
                                   ple,
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
                                   pbs,
                                   pbi,
                                   pfi,
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
                                   pop),
              errmsg,
              errmsg);
@@ -1422,7 +1422,7 @@ int input_read_parameters(
       ppt->has_perturbations = _TRUE_;
     }
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
     if ((strstr(string1,"rCl") != NULL) || (strstr(string1,"RCl") != NULL) || (strstr(string1,"RCL") != NULL)) {
       ppt->has_cl_cmb_reionisation_potential = _TRUE_;
@@ -1472,7 +1472,7 @@ int input_read_parameters(
     }
 
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
 
     if ((strstr(string1,"tCl2") != NULL) || (strstr(string1,"TCL2") != NULL)) {
       ppt->has_perturbations = _TRUE_;
@@ -1534,14 +1534,14 @@ int input_read_parameters(
       ppt->has_perturbations2 = _TRUE_;      
     }
 
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
     
   }
   
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
   if (pbi->has_bispectra == _TRUE_) {
 
@@ -1623,7 +1623,7 @@ int input_read_parameters(
         pbi->has_quadratic_correction = _TRUE_;
       }
 
-  #ifdef WITH_SONG_SUPPORT
+  #ifdef WITH_SONG2
 
       /* Intrinsic bispectrum. This is induced by second-order effects in the evolution of the cosmological
       perturbations. */
@@ -1633,13 +1633,13 @@ int input_read_parameters(
         ppt->has_perturbations2 = _TRUE_;
       }
 
-  #endif // WITH_SONG_SUPPORT
+  #endif // WITH_SONG2
     
     } // end of bispectrum_types parsing
   
   } // if has_bispectra
 
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
   if (ppt->has_cl_cmb_temperature == _TRUE_) {
 
@@ -1785,11 +1785,11 @@ int input_read_parameters(
                  errmsg,
                  "Inconsistency: you want C_l's for cmb lensing potential, but no scalar modes\n");
                  
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
        class_test(ppt->has_cl_cmb_reionisation_potential == _TRUE_,
                   errmsg,
                   "Inconsistency: you want C_l's for cmb reionisation potential, but no scalar modes\n");
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
       class_test((ppt->has_pk_delta == _TRUE_) || (ppt->has_pk_theta),
                  errmsg,
@@ -2328,10 +2328,10 @@ int input_read_parameters(
     if (ppt->has_scalars == _TRUE_) {
       if ((ppt->has_cl_cmb_temperature == _TRUE_) ||
           (ppt->has_cl_cmb_polarization == _TRUE_) ||
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
           (ppt->has_cl_cmb_reionisation_potential == _TRUE_) ||
           (ppt->has_cl_cmb_zeta == _TRUE_) ||
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
           (ppt->has_cl_cmb_lensing_potential == _TRUE_))
         class_read_double("l_max_scalars",ppt->l_scalar_max);
 
@@ -2359,12 +2359,12 @@ int input_read_parameters(
   if ((flag1 == _TRUE_) && ((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL))) {
 
     if ((ppt->has_scalars == _TRUE_) &&
-#ifndef WITH_BISPECTRA
+#ifndef WITH_SONG1
         ((ppt->has_cl_cmb_temperature == _TRUE_) || (ppt->has_cl_cmb_polarization == _TRUE_)) &&
 #else
         ((ppt->has_cl_cmb_temperature == _TRUE_) || (ppt->has_cl_cmb_polarization == _TRUE_) ||
          (ppt->has_bi_cmb_temperature == _TRUE_) || (ppt->has_bi_cmb_polarization == _TRUE_)) &&
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
         (ppt->has_cl_cmb_lensing_potential == _TRUE_)) {
       ple->has_lensed_cls = _TRUE_;
     }
@@ -2435,7 +2435,7 @@ int input_read_parameters(
         psp->z_max_pk = MAX(psp->z_max_pk,pop->z_pk[i]);
     }
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
     class_call(parser_read_string(pfc,
                                   "dm_halo_contraction",
                                   &(string1),
@@ -2447,7 +2447,7 @@ int input_read_parameters(
     if ((flag1 == _TRUE_) && ((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL))) {
       psp->has_pk_halo_contraction = _TRUE_;
     }
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
   }
 
@@ -2882,7 +2882,7 @@ int input_read_parameters(
   class_read_double("q_linstep_trans",ppr->q_linstep); // obsolete precision parameter: read for compatibility with old precision files
   class_read_double("q_logstep_trans",ppr->q_logstep_spline); // obsolete precision parameter: read for compatibility with old precision files
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
   /* Older versions of CLASS used the parameter 'k_step_trans_scalars' instead of 'q_linstep'
   to specify the frequency of the k-sampling for the transfer functions. The change is not
@@ -2902,7 +2902,7 @@ int input_read_parameters(
       param1, ppr->q_linstep, ratio);
   }
   
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
   class_read_double("transfer_neglect_delta_k_S_t0",ppr->transfer_neglect_delta_k_S_t0);
   class_read_double("transfer_neglect_delta_k_S_t1",ppr->transfer_neglect_delta_k_S_t1);
@@ -2939,7 +2939,7 @@ int input_read_parameters(
     class_read_int("num_mu_minus_lmax",ppr->num_mu_minus_lmax);
     class_read_int("tol_gauss_legendre",ppr->tol_gauss_legendre);
   }
-#ifndef WITH_BISPECTRA
+#ifndef WITH_SONG1
   /* When computing bispectra, we need the lensed C_l to be computed up to the
   same l_max as the unlensed C_l. This can be achieved by increasing the overall
   l_max by delta_l_max, as it is done in standard CLASS. However, this becomes
@@ -2949,9 +2949,9 @@ int input_read_parameters(
   compute_cls() function in the utility.c file */
   if (ple->has_lensed_cls == _TRUE_)
     ppt->l_scalar_max+=ppr->delta_l_max;
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
   /** (i) all kind of parameters related to bispectra, Fisher and SONG computations */
 
@@ -3014,7 +3014,7 @@ int input_read_parameters(
   }
   
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
 
   /** i.1.2. Time sampling for quadratic sources */
 
@@ -3125,7 +3125,7 @@ int input_read_parameters(
   }
   
 
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
   /** i.2. parameters in the bispectra module */
   
@@ -3961,7 +3961,7 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
     ppr->output_single_precision = _FALSE_;
 
   
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
   /** m.1. shall we write background quantitites in a file? */
 
@@ -4042,7 +4042,7 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
 
   }
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
   /** m.5. shall we write bispectra to file? (NOT IMPLEMENTED YET) */
 
@@ -4056,7 +4056,7 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
 
   }
   
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
   return _SUCCESS_;
 
@@ -4072,9 +4072,9 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
  * @param ppm Input : pointer to primordial structure
  * @param psp Input : pointer to spectra structure
  * @param ple Input : pointer to lensing structure
- * @param pbs Input : (present only if WITH_BISPECTRA is defined) pointer to bessels structure
- * @param pbi Input : (present only if WITH_BISPECTRA is defined) pointer to bispectra structure
- * @param pfi Input : (present only if WITH_BISPECTRA is defined) pointer to fisher structure
+ * @param pbs Input : (present only if WITH_SONG1 is defined) pointer to bessels structure
+ * @param pbi Input : (present only if WITH_SONG1 is defined) pointer to bispectra structure
+ * @param pfi Input : (present only if WITH_SONG1 is defined) pointer to fisher structure
  * @param pop Input : pointer to output structure
  * @return the error status
  */
@@ -4088,11 +4088,11 @@ int input_default_params(
                          struct spectra *psp,
                          struct nonlinear * pnl,
                          struct lensing *ple,
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
                          struct bessels * pbs,
                          struct bispectra *pbi,
                          struct fisher *pfi,
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
                          struct output *pop
                          ) {
 
@@ -4250,7 +4250,7 @@ int input_default_params(
   ppt->index_k_output_values=NULL;
 
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
   
   ppt->has_cmb_bispectra = _FALSE_;
   ppt->has_bi_cmb_temperature = _FALSE_;
@@ -4267,7 +4267,7 @@ int input_default_params(
   ppt->has_cl_cmb_zeta = _FALSE_;
   ppt->recombination_only_zeta = _TRUE_;
   
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
 
   /** - primordial structure */
@@ -4375,18 +4375,18 @@ int input_default_params(
   pop->write_thermodynamics = _FALSE_;
   pop->write_perturbations = _FALSE_;
   pop->write_primordial = _FALSE_;
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
   pop->write_bispectra = _FALSE_;
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
   /** - spectra structure */
 
   psp->z_max_pk = pop->z_pk[0];
   psp->non_diag=0;
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
   psp->has_pk_halo_contraction = _FALSE_;
   psp->compute_cl_derivative = _FALSE_;
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
   /** - nonlinear structure */
 
@@ -4399,7 +4399,7 @@ int input_default_params(
   pnl->method = nl_none;
 
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
   /** - bessels structure */
 
@@ -4449,7 +4449,7 @@ int input_default_params(
   pfi->squeezed_ratio = 0;
   pfi->compute_lensing_variance_lmax = _FALSE_;
   
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
 
   /** - Parameters specific to a second-order computation */
 
@@ -4475,9 +4475,9 @@ int input_default_params(
   pth->compute_xe_derivatives = _FALSE_;
   pth->perturbed_recombination_turnx = 36;
 
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
   /** - all verbose parameters */
 
@@ -4489,11 +4489,11 @@ int input_default_params(
   psp->spectra_verbose = 0;
   pnl->nonlinear_verbose = 0;
   ple->lensing_verbose = 0;
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
   pbs->bessels_verbose = 0;
   pbi->bispectra_verbose = 0;
   pfi->fisher_verbose = 0;
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
   pop->output_verbose = 0;
 
   return _SUCCESS_;
@@ -4757,7 +4757,7 @@ int input_default_precision ( struct precision * ppr ) {
   ppr->tol_gauss_legendre = ppr->smallest_allowed_variation;
 
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
   /**
    * - parameters related to the computation of bispectra and Fisher matrices
@@ -4816,7 +4816,7 @@ int input_default_precision ( struct precision * ppr ) {
   for ppr->load_run. These variables are not set in input_init() but in the
   parent function, input_init_from_arguments() */  
 
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
 
   return _SUCCESS_;
@@ -4973,11 +4973,11 @@ int input_try_unknown_parameters(double * unknown_parameter,
   struct spectra sp;          /* for output spectra */
   struct nonlinear nl;        /* for non-linear spectra */
   struct lensing le;          /* for lensed spectra */
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
   struct bessels bs;          /* for bessel functions */
   struct bispectra bi;        /* for bispectra */  
   struct fisher fi;           /* for fisher matrix */
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
   struct output op;           /* for output files */
   int i;
   double rho_dcdm_today, rho_dr_today;
@@ -5003,11 +5003,11 @@ int input_try_unknown_parameters(double * unknown_parameter,
                                    &sp,
                                    &nl,
                                    &le,
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
                                    &bs,
                                    &bi,
                                    &fi,
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
                                    &op,
                                    errmsg),
              errmsg,
@@ -5078,7 +5078,7 @@ int input_try_unknown_parameters(double * unknown_parameter,
 
   /* TODO: uncomment once you have implemented these modules in SONG */
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
   if (pfzw->required_computation_stage >= cs_bessels){
     if (input_verbose>2)
@@ -5101,7 +5101,7 @@ int input_try_unknown_parameters(double * unknown_parameter,
     class_call(fisher_init(&pr,&ba,&th,&pt,&bs,&tr,&pm,&sp,&le,&bi,&fi),fi.error_message, errmsg);
   }
 
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
   for (i=0; i < pfzw->target_size; i++) {
     switch (pfzw->target_name[i]) {
@@ -5146,7 +5146,7 @@ int input_try_unknown_parameters(double * unknown_parameter,
 
   /* TODO: uncomment once you have implemented these modules in SONG */
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
   if (pfzw->required_computation_stage >= cs_fisher){
     class_call(fisher_free(&bi,&fi), fi.error_message, errmsg);
   }
@@ -5156,7 +5156,7 @@ int input_try_unknown_parameters(double * unknown_parameter,
   if (pfzw->required_computation_stage >= cs_bessels){
     class_call(bessel_free(&bs), bs.error_message, errmsg);
   }
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
   if (pfzw->required_computation_stage >= cs_spectra){
     class_call(spectra_free(&sp), sp.error_message, errmsg);
   }
@@ -5201,11 +5201,11 @@ int input_get_guess(double *xguess,
   struct spectra sp;          /* for output spectra */
   struct nonlinear nl;        /* for non-linear spectra */
   struct lensing le;          /* for lensed spectra */
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
   struct bessels bs;          /* for bessel functions */
   struct bispectra bi;        /* for bispectra */  
   struct fisher fi;           /* for fisher matrix */
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
   struct output op;           /* for output files */
   int i;
 
@@ -5224,11 +5224,11 @@ int input_get_guess(double *xguess,
                                    &sp,
                                    &nl,
                                    &le,
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
                                    &bs,
                                    &bi,
                                    &fi,
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
                                    &op,
                                    errmsg),
              errmsg,

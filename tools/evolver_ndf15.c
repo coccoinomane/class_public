@@ -81,7 +81,7 @@ int evolver_ndf15(
     		ErrorMsg error_message),
       int (*print_variables)(double x, int index_x, double y[], double dy[], void *parameters_and_workspace,
     		ErrorMsg error_message),
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
       int (*exit_strategy)( /**< Function invoked when something goes wrong (unless NULL) */
             int (*derivs)(double x,double * y,double * dy,
               void * parameters_and_workspace, ErrorMsg error_message),
@@ -105,7 +105,7 @@ int evolver_ndf15(
             int (*print_variables)(double x, int index_x, double y[], double dy[], void *parameters_and_workspace,
                  ErrorMsg error_message),
             ErrorMsg error_message),
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 		  ErrorMsg error_message){
 
   /* Constants: */
@@ -240,7 +240,7 @@ int evolver_ndf15(
   t0 = x_ini;
   tfinal = x_final;
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
 
   /* Check that the initial conditions do not contain NaN's */
   for (ii=0; ii < neq; ++ii) {
@@ -270,19 +270,19 @@ int evolver_ndf15(
   //
   // fprintf (stderr, "\n\n");
 
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
 
   /* Some CLASS-specific stuff:*/
   next=0;
   while (t_vec[next] < t0) next++;
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
   class_test (next >= tres,
     error_message,
     "stopping to prevent seg fault; accessing time array out of bounds: t0=%g, t_vec[tres-1]=%g",
     t0, t_vec[next-1]);
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
   if (verbose > 1){
     numidx=0;
@@ -528,7 +528,7 @@ int evolver_ndf15(
 	    Jcurrent = _TRUE_;
 	  }
 	  else if (absh <= hmin){
-#ifndef WITH_SONG_SUPPORT
+#ifndef WITH_SONG2
       class_test(absh <= hmin, error_message,
            "Step size too small: step:%g, minimum:%g, in interval: [%g:%g]\n",
            absh,hmin,t0,tfinal);
@@ -568,7 +568,7 @@ int evolver_ndf15(
             "Step size too small: t=%g, step:%g, minimum:%g, in interval: [%g:%g]\n",
             t,absh,hmin,t0,tfinal);
       }
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 	  }
 	  else{
 	    abshlast = absh;
@@ -597,7 +597,7 @@ int evolver_ndf15(
 	/*Step failed */
 	stepstat[1]+= 1;
 	if (absh <= hmin){
-#ifndef WITH_SONG_SUPPORT
+#ifndef WITH_SONG2
       class_test(absh <= hmin, error_message,
            "Step size too small: step:%g, minimum:%g, in interval: [%g:%g]\n",
            absh,hmin,t0,tfinal);
@@ -637,7 +637,7 @@ int evolver_ndf15(
             "Step size too small: t=%g, step:%g, minimum:%g, in interval: [%g:%g]\n",
             t,absh,hmin,t0,tfinal);
       }
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 	}
 	abshlast = absh;
 	if (nofailed==_TRUE_){
@@ -706,7 +706,7 @@ int evolver_ndf15(
 */
 
         
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
        /* In SONG, we call the print_variables() function for every time step AND
        for every time in the t_vec array. The name of the function actually called
        is perturb2_save_perturbations(). */
@@ -715,7 +715,7 @@ int evolver_ndf15(
                 parameters_and_workspace_for_derivs,error_message),
                error_message,error_message);
         }
-#endif // WITH_SONG_SUPPORT        
+#endif // WITH_SONG2        
        
       }
       else {
@@ -725,7 +725,7 @@ int evolver_ndf15(
 	class_call((*output)(t_vec[next],yinterp+1,ypinterp+1,next,parameters_and_workspace_for_derivs,
 			     error_message),error_message,error_message);
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
        /* In SONG, we call the print_variables() function for every time step AND
        for every time in the t_vec array. The name of the function actually called
        is perturb2_save_perturbations(). */
@@ -734,7 +734,7 @@ int evolver_ndf15(
                 parameters_and_workspace_for_derivs,error_message),
                error_message,error_message);
         }
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
       }
       next++;
     }
@@ -1692,12 +1692,12 @@ int initialize_jacobian(struct jacobian *jac, int neq, ErrorMsg error_message){
   jac->repeated_pattern = 0;
   jac->trust_sparse = 4;
 
-  #ifdef WITH_SONG_SUPPORT
+  #ifdef WITH_SONG2
 
   /* Suggested by Thomas Tram to fix the sparse matrices bug */
   // jac->trust_sparse = 10000;
 
-  #endif // WITH_SONG_SUPPORT
+  #endif // WITH_SONG2
 
   /* Number of times a pattern is repeated before we trust it. */
   jac->has_grouping = 0;

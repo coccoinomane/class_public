@@ -109,10 +109,10 @@ int output_init(
                 struct spectra * psp,
                 struct nonlinear * pnl,
                 struct lensing * ple,
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
                 struct bispectra * pbi,
                 struct fisher * pfi,
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
                 struct output * pop
                 ) {
 
@@ -121,9 +121,9 @@ int output_init(
   /** - check that we really want to output at least one file */
 
   if ((ppt->has_cls == _FALSE_) && (psp->pk_size == 0) && (ppt->has_density_transfers == _FALSE_) && (ppt->has_velocity_transfers == _FALSE_) && (pop->write_background == _FALSE_) && (pop->write_thermodynamics == _FALSE_) && (pop->write_primordial == _FALSE_)
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
     && (pbi->has_bispectra == _FALSE_) && (pfi->has_fisher == _FALSE_)
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
   ) {
     if (pop->output_verbose > 0)
       printf("No output files requested. Output module skipped.\n");
@@ -207,7 +207,7 @@ int output_init(
 
   }
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
   /** - deal with fisher matrices */
   
   if (pfi->has_fisher == _TRUE_) {
@@ -217,7 +217,7 @@ int output_init(
          pop->error_message);
 
   }
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
 
   return _SUCCESS_;
@@ -371,7 +371,7 @@ int output_cl(
     }
   }
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
   /* Do the same as above but for the derivative of the cls */
 
@@ -428,7 +428,7 @@ int output_cl(
          pop->error_message);
   }
   
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
   
 
   for (index_md = 0; index_md < ppt->md_size; index_md++) {
@@ -596,7 +596,7 @@ int output_cl(
                pop->error_message);
 
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
   
     /* Write to file the quantity dln(l*l*cl)/dln(l), needed to compute the analytical
     approximations of the bispectrum in Creminelli, Pitrou & Vernizzi (2011) and in
@@ -632,7 +632,7 @@ int output_cl(
 
     /* TODO: output also lensed dcl */
 
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
 
     if ((ple->has_lensed_cls == _TRUE_) && (l<=ple->l_lensed_max)) {
@@ -697,14 +697,14 @@ int output_cl(
   if (ple->has_lensed_cls == _TRUE_) {
     fclose(out_lensed);
   }
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
   if (psp->compute_cl_derivative == _TRUE_) {
     fclose(out_dcl);
     free(dcl_tot);
     free(dcl_md_ic);
     free(dcl_md);
   }
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
   free(cl_tot);
   for (index_md = 0; index_md < ppt->md_size; index_md++) {
     free(out_md_ic[index_md]);
@@ -1368,7 +1368,7 @@ int output_tk(
 }
 
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
 int output_fisher(
         struct bispectra * pbi,
@@ -1733,7 +1733,7 @@ int output_fisher(
   
 }
 
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
 int output_background(
                       struct background * pba,
@@ -2037,19 +2037,19 @@ int output_open_cl_file(
       class_fprintf_columntitle(*clfile,"EE",psp->has_ee,colnum);
       class_fprintf_columntitle(*clfile,"TE",psp->has_te,colnum);
       class_fprintf_columntitle(*clfile,"BB",psp->has_bb,colnum);
-#ifdef WITH_BISPECTRA
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG1
+#ifdef WITH_SONG2
       class_fprintf_columntitle(*clfile,"TT_2",psp->has_tt2 && !lensed_output,colnum);
       class_fprintf_columntitle(*clfile,"EE_2",psp->has_ee2 && !lensed_output,colnum);
       class_fprintf_columntitle(*clfile,"TE_2",psp->has_te2 && !lensed_output,colnum);
       class_fprintf_columntitle(*clfile,"BB_2",psp->has_bb2 && !lensed_output,colnum);
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
       class_fprintf_columntitle(*clfile,"RR",psp->has_rr,colnum);
       class_fprintf_columntitle(*clfile,"TR",psp->has_tr,colnum);
       class_fprintf_columntitle(*clfile,"ER",psp->has_er,colnum);
       class_fprintf_columntitle(*clfile,"TZ",psp->has_tz,colnum);
       class_fprintf_columntitle(*clfile,"EZ",psp->has_ez,colnum);
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
       class_fprintf_columntitle(*clfile,"phiphi",psp->has_pp,colnum);
       class_fprintf_columntitle(*clfile,"TPhi",psp->has_tp,colnum);
       class_fprintf_columntitle(*clfile,"Ephi",psp->has_ep,colnum);
@@ -2059,19 +2059,19 @@ int output_open_cl_file(
       class_fprintf_columntitle(*clfile,"EE",psp->has_ee,colnum);
       class_fprintf_columntitle(*clfile,"BB",psp->has_bb,colnum);
       class_fprintf_columntitle(*clfile,"TE",psp->has_te,colnum);
-#ifdef WITH_BISPECTRA
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG1
+#ifdef WITH_SONG2
       class_fprintf_columntitle(*clfile,"TT_2",psp->has_tt2 && !lensed_output,colnum);
       class_fprintf_columntitle(*clfile,"EE_2",psp->has_ee2 && !lensed_output,colnum);
       class_fprintf_columntitle(*clfile,"BB_2",psp->has_bb2 && !lensed_output,colnum);
       class_fprintf_columntitle(*clfile,"TE_2",psp->has_te2 && !lensed_output,colnum);
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
       class_fprintf_columntitle(*clfile,"RR",psp->has_rr,colnum);
       class_fprintf_columntitle(*clfile,"TR",psp->has_tr,colnum);
       class_fprintf_columntitle(*clfile,"ER",psp->has_er,colnum);
       class_fprintf_columntitle(*clfile,"TZ",psp->has_tz,colnum);
       class_fprintf_columntitle(*clfile,"EZ",psp->has_ez,colnum);
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
       class_fprintf_columntitle(*clfile,"dd",psp->has_pp,colnum);
       class_fprintf_columntitle(*clfile,"dT",psp->has_tp,colnum);
       class_fprintf_columntitle(*clfile,"dE",psp->has_ep,colnum);
@@ -2182,19 +2182,19 @@ int output_one_line_of_cl(
     class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_ee], psp->has_ee);
     class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_bb], psp->has_bb);
     class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_te], psp->has_te);
-#ifdef WITH_BISPECTRA
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG1
+#ifdef WITH_SONG2
     class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_tt2], psp->has_tt2 && !lensed_output);
     class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_ee2], psp->has_ee2 && !lensed_output);
     class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_bb2], psp->has_bb2 && !lensed_output);
     class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_te2], psp->has_te2 && !lensed_output);
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
     class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_rr], psp->has_rr);
     class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_tr], psp->has_tr);
     class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_er], psp->has_er);
     class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_tz], psp->has_tz);
     class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_ez], psp->has_ez);
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
     class_fprintf_double(clfile, l*(l+1)*factor*cl[psp->index_ct_pp], psp->has_pp);
     class_fprintf_double(clfile, sqrt(l*(l+1))*factor*pba->T_cmb*1.e6*cl[psp->index_ct_tp], psp->has_tp);
     class_fprintf_double(clfile, sqrt(l*(l+1))*factor*pba->T_cmb*1.e6*cl[psp->index_ct_ep], psp->has_ep);
@@ -2207,8 +2207,8 @@ int output_one_line_of_cl(
       index_ct_rest++;
     if (psp->has_te == _TRUE_)
       index_ct_rest++;
-#ifdef WITH_BISPECTRA
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG1
+#ifdef WITH_SONG2
     if (psp->has_tt2 == _TRUE_)
       index_ct_rest++;
     if (psp->has_ee2 == _TRUE_)
@@ -2217,7 +2217,7 @@ int output_one_line_of_cl(
       index_ct_rest++;
     if (psp->has_te2 == _TRUE_)
       index_ct_rest++;
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
     if (psp->has_rr == _TRUE_)
       index_ct_rest++;
     if (psp->has_tr == _TRUE_)
@@ -2228,7 +2228,7 @@ int output_one_line_of_cl(
       index_ct_rest++;
     if (psp->has_ez == _TRUE_)
       index_ct_rest++;
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
     if (psp->has_pp == _TRUE_)
       index_ct_rest++;
     if (psp->has_tp == _TRUE_)

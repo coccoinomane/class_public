@@ -107,14 +107,14 @@ struct transfers {
   int index_tt_nc_g3;   /**< index for first bin of transfer type = gravity term G3 for of number count */
   int index_tt_nc_g4;   /**< index for first bin of transfer type = gravity term G3 for of number count */
   int index_tt_nc_g5;   /**< index for first bin of transfer type = gravity term G3 for of number count */
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
   int index_tt_t;       /**< index for the transfer function of the total temperature perturbation, given by
                         the sum of the t0+t1+t2 transfer functions. Being a derived transfer function,
                         index_tt_t can be computed without solving the line of sight integral. */
   int index_tt_zeta;    /**< index for transfer type = zeta curvature perturbation */
   int index_tt_rcmb0;      /**< index for transfer type = monopole of CMB reionisation */
   int index_tt_rcmb1;      /**< index for transfer type = dipole of CMB reionisation */
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
   int * tt_size;     /**< number of requested transfer types tt_size[index_md] for each mode */
 
@@ -132,9 +132,9 @@ struct transfers {
 
   int * l;        /**< list of multipole values l[index_l] */
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
   int * index_l;  /**< pbs->index_l[L] is the index of L inside ptr->l, or -1 if L does not belong to pbs->l */
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
   //int * l_size_bessel; /**< for each wavenumber, maximum value of l at which bessel functions must be evaluated */
 

@@ -16,11 +16,11 @@
 #include "lensing.h"
 #include "output.h"
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 #include "bessel.h"
 #include "bispectra.h"
 #include "fisher.h"
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
 /* macro for reading parameter values with routines from the parser */
 #define class_read_double(name,destination)				\
@@ -182,11 +182,11 @@ extern "C" {
 		 struct spectra *psp,
 		 struct nonlinear *pnl,
 		 struct lensing *ple,
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
      struct bessels * pbs,
      struct bispectra *pbi,
      struct fisher *pfi,
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 		 struct output *pop,
 		 ErrorMsg errmsg
 		 );
@@ -202,11 +202,11 @@ extern "C" {
 		 struct spectra *psp,
 		 struct nonlinear *pnl,
 		 struct lensing *ple,
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
      struct bessels * pbs,
      struct bispectra *pbi,
      struct fisher *pfi,
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 		 struct output *pop,
 		 ErrorMsg errmsg
 		 );
@@ -227,11 +227,11 @@ extern "C" {
         struct spectra *psp,
         struct nonlinear *pnl,
         struct lensing *ple,
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
         struct bessels * pbs,
         struct bispectra *pbi,
         struct fisher *pfi,
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
         struct output *pop,
         ErrorMsg errmsg
         );
@@ -245,11 +245,11 @@ extern "C" {
 			   struct spectra *psp,
 			   struct nonlinear *pnl,
 			   struct lensing *ple,
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
          struct bessels * pbs,
          struct bispectra *pbi,
          struct fisher *pfi,
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 			   struct output *pop
 			   );
 

@@ -73,9 +73,9 @@ struct thermo
 
   double z_reio;   /**< if above set to z,   input value of reionization redshift */
   
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
   double z_reio_start;   /**< redshift when reionization starts, depends on reionization algorithm */
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
   short compute_cb2_derivatives; /**< do we want to include in computation derivatives of baryon sound speed? */
 
@@ -231,7 +231,7 @@ struct thermo
   //@}
 
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
 
   /** @name - parameters related to perturbed recombination, as in Senatore,
   Tassev & Zaldarriaga 2009 (http://arxiv.org/abs/0812.3652) */
@@ -271,7 +271,7 @@ struct thermo
 
   //@}
 
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
   /** @name - technical parameters */
 
@@ -622,7 +622,7 @@ extern "C" {
                                  double *data
                                  );
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
   int thermodynamics_compute_Q_derivatives(
             struct precision * ppr,
             struct background * pba,
@@ -636,7 +636,7 @@ extern "C" {
             double X_e,
             double z
             );
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
 #ifdef __cplusplus
 }

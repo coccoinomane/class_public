@@ -44,9 +44,9 @@ extern "C" {
 					     double dy[],
 					     void * parameters_and_workspace,
 					     ErrorMsg error_message),
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
           int (*exit_strategy)(),
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 		      ErrorMsg error_message);
 
 #ifdef __cplusplus

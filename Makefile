@@ -85,15 +85,17 @@ INCLUDES += -I../hyrec
 EXTERNAL += hyrectools.o helium.o hydrogen.o history.o
 endif
 
-# If SONG is required, define the preprocessor macro WITH_SONG_SUPPORT
-ifeq ($(WITH_SONG_SUPPORT),1)
-	WITH_BISPECTRA = 1
-	CFLAGS += -DWITH_SONG_SUPPORT
+# If the environment variable WITH_SONG2 is equal to one, then compile SONG
+# rather than CLASS, and include full support for second-order perturbations
+ifeq ($(WITH_SONG2),1)
+	WITH_SONG1 = 1
+	CFLAGS += -DWITH_SONG2
 endif
 
-# If bispectra or Fisher matrix are required, define the macro WITH_BISPECTRA
-ifeq ($(WITH_BISPECTRA),1)
-	CFLAGS += -DWITH_BISPECTRA
+# If the environment variable WITH_SONG1 is equal to one, then compile SONG
+# rather than CLASS, but without support for second-order perturbations
+ifeq ($(WITH_SONG1),1)
+	CFLAGS += -DWITH_SONG1
 endif
 
 
@@ -149,7 +151,7 @@ TEST_HYPERSPHERICAL = test_hyperspherical.o
 TEST_STEPHANE = test_stephane.o
 
 # Compile source files specific to SONG
-ifeq ($(WITH_BISPECTRA),1)
+ifeq ($(WITH_SONG1),1)
 	SOURCE += bessel.o bispectra.o fisher.o
 	TOOLS += utility.o song_tools.o mesh_interpolation.o slatec_3j_C.o binary.o
 endif

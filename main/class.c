@@ -15,15 +15,15 @@ int main(int argc, char **argv) {
   struct spectra sp;          /* for output spectra */
   struct nonlinear nl;        /* for non-linear spectra */
   struct lensing le;          /* for lensed spectra */
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
   struct bessels bs;          /* for bessel functions */
   struct bispectra bi;        /* for bispectra */  
   struct fisher fi;           /* for fisher matrix */
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
   struct output op;           /* for output files */
   ErrorMsg errmsg;            /* for error messages */
 
-#ifndef WITH_BISPECTRA
+#ifndef WITH_SONG1
   if (input_init_from_arguments(argc, argv,&pr,&ba,&th,&pt,&tr,&pm,&sp,&nl,&le,&op,errmsg) == _FAILURE_) {
     printf("\n\nError running input_init_from_arguments \n=>%s\n",errmsg);
     return _FAILURE_;
@@ -33,15 +33,15 @@ int main(int argc, char **argv) {
     printf("\n\nError running input_init_from_arguments \n=>%s\n",errmsg);
     return _FAILURE_;
   }
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
   /* This file is meant only for computations that involve first-order perturbations */
   if (pt.has_perturbations2 == _TRUE_) {
     printf ("\nThe computation you requested is non-linear. Use 'song' rather than 'class'.\n");
     return _FAILURE_;
   }
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
   if (background_init(&pr,&ba) == _FAILURE_) {
     printf("\n\nError running background_init \n=>%s\n",ba.error_message);
@@ -53,12 +53,12 @@ int main(int argc, char **argv) {
     return _FAILURE_;
   }
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
   if (compute_cls (&pr,&ba,&th,&pt,&sp,&le,errmsg) == _FAILURE_) {
     printf("\n\nError in compute_cls \n=>%s\n",errmsg);
     return _FAILURE_;
   }
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
   if (perturb_init(&pr,&ba,&th,&pt) == _FAILURE_) {
     printf("\n\nError in perturb_init \n=>%s\n",pt.error_message);
@@ -80,7 +80,7 @@ int main(int argc, char **argv) {
     return _FAILURE_;
   }
 
-#ifndef WITH_BISPECTRA
+#ifndef WITH_SONG1
   if (spectra_init(&pr,&ba,&pt,&pm,&nl,&tr,&sp) == _FAILURE_) {
     printf("\n\nError in spectra_init \n=>%s\n",sp.error_message);
     return _FAILURE_;
@@ -90,9 +90,9 @@ int main(int argc, char **argv) {
     printf("\n\nError in lensing_init \n=>%s\n",le.error_message);
     return _FAILURE_;
   }
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
   if (bessel_init(&pr,&ba,&th,&tr,&bs) == _FAILURE_) {
     printf("\n\nError in bessel_init \n =>%s\n",bs.error_message);
     return _FAILURE_;
@@ -107,9 +107,9 @@ int main(int argc, char **argv) {
     printf("\n\nError in fisher_init \n=>%s\n",fi.error_message);
     return _FAILURE_;
   }
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
-#ifndef WITH_BISPECTRA
+#ifndef WITH_SONG1
   if (output_init(&ba,&th,&pt,&pm,&tr,&sp,&nl,&le,&op) == _FAILURE_) {
     printf("\n\nError in output_init \n=>%s\n",op.error_message);
     return _FAILURE_;
@@ -124,7 +124,7 @@ int main(int argc, char **argv) {
   
   /****** all calculations done, now free the structures ******/
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
   if (fisher_free(&bi,&fi) == _FAILURE_) {
     printf("\n\nError in fisher_free \n=>%s\n",fi.error_message);
     return _FAILURE_;
@@ -139,7 +139,7 @@ int main(int argc, char **argv) {
     printf("\n\nError in bessel_free \n=>%s\n",bs.error_message);
     return _FAILURE_;
   }
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
   if (lensing_free(&le) == _FAILURE_) {
     printf("\n\nError in lensing_free \n=>%s\n",le.error_message);

@@ -6,9 +6,9 @@
 #include "thermodynamics.h"
 #include "evolver_ndf15.h"
 #include "evolver_rkck.h"
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 #include "song_tools.h"  /* needed to access d_minus and d_plus */
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
 #define _scalars_ ((ppt->has_scalars == _TRUE_) && (index_md == ppt->index_md_scalars))
 #define _vectors_ ((ppt->has_vectors == _TRUE_) && (index_md == ppt->index_md_vectors))
@@ -41,7 +41,7 @@ enum ncdmfa_flags {ncdmfa_off, ncdmfa_on};
  */
 
 //@{
-#ifndef WITH_BISPECTRA
+#ifndef WITH_SONG1
 enum tca_method {first_order_MB,first_order_CAMB,first_order_CLASS,second_order_CRS,second_order_CLASS,compromise_CLASS};
 #else
 /* In SONG, we add a tca_none option where the TCA approximation is turned off */
@@ -68,7 +68,7 @@ enum possible_gauges {
 //@}
 
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
 
 /**
  * Possible time-sampling methods for the quadratic sources.
@@ -96,7 +96,7 @@ enum phi_equation {
     sprintf(ppt->qs_labels[index], args);                                            \
   }
 
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
 
 //@{
@@ -392,7 +392,7 @@ struct perturbs
 
   //@}
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
   /** @name - variables to compute bispectra and Fisher matrices */
 
@@ -430,7 +430,7 @@ struct perturbs
 
   //@}
     
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
 
   /** @name - variables to compute the quadratic sources for the second-order system */
 
@@ -575,9 +575,9 @@ struct perturbs
 
 
   //@}
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
     
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
         
     
   /** @name - technical parameters */
@@ -656,7 +656,7 @@ struct perturb_vector
                             perturbations enter in the calculation of
                             source functions */
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
 
   /** CLASS by default evolves the curvature potential phi using its first-order 
   derivative from the space-time Einstein equation, called the longitudinal 
@@ -676,7 +676,7 @@ struct perturb_vector
   int l_max_E;             /**< max momentum in Boltzmann hierarchy (at least 3) */
   int index_pt_delta_Xe;   /**< index for the perturbed density of free electrons */
 
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
 
 };
@@ -711,9 +711,9 @@ struct perturb_workspace
   int index_mt_hv_prime_prime;/**< Second derivative of Synchronous gauge vector metric perturbation h_v */
   int mt_size;                /**< size of metric perturbation vector */
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
   int index_mt_phi_prime_prime; /**< (d^2 phi/d conf.time^2) in longitudinal gauge; see documentation for pv->index_pt_phi_prime */
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
   //@}
 
@@ -739,9 +739,9 @@ struct perturb_workspace
   double vector_source_v;
 
   double tca_shear_g; /**< photon shear in tight-coupling approximation */
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
   double tca_shear_g_prime; /**< photon shear derivative in tight-coupling approximation */
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
   double tca_slip;    /**< photon-baryon slip in tight-coupling approximation */
   double rsa_delta_g; /**< photon density in radiation streaming approximation */
   double rsa_theta_g; /**< photon velocity in radiation streaming approximation */
@@ -794,7 +794,7 @@ struct perturb_workspace
 
   //@}
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
   /** @name - debug parameters */
 
   //@{
@@ -805,7 +805,7 @@ struct perturb_workspace
   int index_k; /**< include information on the considered k in order to print meaningful debug */
 
   //@}
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
 };
 
@@ -1058,7 +1058,7 @@ extern "C" {
                              struct perturbs * ppt);
                              
                              
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
 
   int perturb_song_sources_at_tau(
              struct precision * ppr,
@@ -1123,7 +1123,7 @@ extern "C" {
          struct perturb_workspace * ppw
          );
 
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
 #ifdef __cplusplus
 }

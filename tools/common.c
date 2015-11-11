@@ -31,7 +31,7 @@ int get_number_of_titles(char * titlestring){
   return number_of_titles;
 }
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
 /* Initialise the file pointer to the log file */
 FILE * log_file = NULL;
@@ -108,7 +108,7 @@ void fprintf_3way(
   }
 }
 
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
 
 

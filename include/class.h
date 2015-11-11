@@ -19,10 +19,10 @@
 #include "parser.h"
 
 /* tools for SONG */
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 #include "utility.h"
 #include "song_tools.h"
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
 /* class modules */
 #include "common.h"

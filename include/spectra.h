@@ -5,7 +5,7 @@
 
 #include "transfer.h"
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
 
 /**
  * Kinds of spectrum that SONG can compute.
@@ -17,7 +17,7 @@ enum spectra_types {
   second_order        /**< spectrum obtained from the second-order transfer functions */
 };
 
-#endif // WITH_SONG_SUPPORT
+#endif // WITH_SONG2
 
 /**
  * Structure containing everything about anisotropy and Fourier power spectra that other modules need to know.
@@ -46,11 +46,11 @@ struct spectra {
                    and number of bins minus one means all
                    correlations */
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
   int has_pk_halo_contraction; /**< include the effect of dm halo contraction to the cold dark matter density P(k) */
 
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
   //@}
 
@@ -103,7 +103,7 @@ struct spectra {
 
   int ct_size; /**< number of C_l types requested */
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
   int has_rr; /**< do we want C_l^r-r ? (CMB reionisation potential) */
   int has_tr; /**< do we want C_l^T-r ? */
@@ -117,7 +117,7 @@ struct spectra {
   int index_ct_tz; /**< index for type C_l^T-Z */
   int index_ct_ez; /**< index for type C_l^E-Z */
 
-#ifdef WITH_SONG_SUPPORT
+#ifdef WITH_SONG2
   
   int has_tt2; /**< do we want second-order C_l^TT? */
   int has_ee2; /**< do we want second-order C_l^EE? */
@@ -131,8 +131,8 @@ struct spectra {
 
   enum spectra_types cl_type[_MAX_NUM_SPECTRA_]; /**< is the considered spectrum first or second order? */
 
-#endif // WITH_SONG_SUPPORT
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG2
+#endif // WITH_SONG1
   
   char (*ct_labels)[_MAX_LENGTH_LABEL_]; /**< Labels of various C_l types */
 
@@ -172,7 +172,7 @@ struct spectra {
   double ** cl;   /**< table of anisotropy spectra for each mode, multipole, pair of initial conditions and types, cl[index_md][(index_l * psp->ic_ic_size[index_md] + index_ic1_ic2) * psp->ct_size + index_ct] */
   double ** ddcl; /**< second derivatives of previous table with respect to l, in view of spline interpolation */
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
 
   /* Should we compute and store the derivative d(l*l*C_l)/dl? Needed by the bispectrum
   module to compute the analytical approximations of the intrinsic bispectrum in Creminelli,
@@ -184,7 +184,7 @@ struct spectra {
   double ** dd_lsq_cl; /**< array with d^2(l*l*C_l)/d^2l, indexed like psp->cl  */
   double ** spline_d_lsq_cl; /**< array with the second derivative of d_lsq_cl, in view of spline interpolation, indexed like psp->cl  */         
 
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
   double alpha_II_2_20;
   double alpha_RI_2_20;
@@ -384,7 +384,7 @@ extern "C" {
                       double ** cl_md_ic
                       );
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
   int spectra_dcl_at_l(
                        struct spectra * psp,
                        double l,
@@ -392,7 +392,7 @@ extern "C" {
                        double * * cl_md,
                        double * * cl_md_ic
                        );
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
           
   int spectra_any_pk_at_z(
                       struct background * pba,
@@ -516,7 +516,7 @@ extern "C" {
                   struct spectra * psp
                   );
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
   int spectra_cls_spline(
                 struct background * pba,
                 struct perturbs * ppt,
@@ -525,7 +525,7 @@ extern "C" {
                 struct spectra * psp,
                 int index_md
                 );
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
   int spectra_compute_cl(
                          struct background * pba,
@@ -567,14 +567,14 @@ extern "C" {
         struct spectra * psp
         );
 
-#ifdef WITH_BISPECTRA
+#ifdef WITH_SONG1
   int spectra_pk_halo_contraction (
         double h,
         double k,
         double * result,
         ErrorMsg errmsg
         );
-#endif // WITH_BISPECTRA
+#endif // WITH_SONG1
 
   int spectra_nfw (
         double eta,
