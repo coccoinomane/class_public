@@ -6,6 +6,7 @@
 #include "string.h"
 #include "float.h"
 #include "svnversion.h"
+#include "errno.h"
 #include <stdarg.h>
 
 #ifdef _OPENMP
@@ -119,7 +120,8 @@ int get_number_of_titles(char * titlestring);
 
 // Alloc
 #define class_alloc_message(err_out,extra,sz)                                                                    \
-  class_build_error_string(err_out,"could not allocate %s with size %d",extra,sz);
+  class_build_error_string(err_out,"could not allocate %s with size %d.\n\nError message: %s",                   \
+    extra,sz,strerror(errno));
 
 /* macro for allocating memory and returning error if it failed */
 #define class_alloc(pointer, size, error_message_output)  {                                                      \
@@ -218,7 +220,8 @@ int get_number_of_titles(char * titlestring);
 #define class_open(pointer, filename,	mode, error_output) {                                                      \
   pointer=fopen(filename,mode);                                                                                  \
   if (pointer == NULL) {                                                                                         \
-    class_build_error_string(error_output,"could not open %s with name %s and mode %s",#pointer,filename,#mode); \
+    class_build_error_string(error_output,"could not open %s with name %s and mode %s.\n\nError message: %s",    \
+      #pointer,filename,#mode,strerror(errno)); \
     return _FAILURE_;                                                                                            \
   }                                                                                                              \
 }
