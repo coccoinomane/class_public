@@ -59,7 +59,7 @@ typedef char FileName[_FILENAMESIZE_];
 
 #define _DELIMITER_ "\t" /**< character used for delimiting titles in the title strings */
 
-#define _MAX_NUM_SPECTRA_ 64 /**< Maximum number of spectra that can be computed */
+#define _MAX_NUM_SPECTRA_ 128 /**< Maximum number of spectra that can be computed */
 
 #define _MAX_LENGTH_LABEL_ 64 /**< Maximum length allowed for the label strings (e.g. for the perturbation variables such as 'phi', 'psi') */
 
@@ -356,7 +356,6 @@ enum file_format {class_format,camb_format};
  * of the data. As long as you only increase these parameters, you are safe.
  */
 //@{
-#define _MAX_NUM_LABELS_ 1000 /**< Maximum number of labels for a give index type. This number is totally arbitrary and will not affect any result. */
 #define _MAX_NUM_COLUMNS_ 1024 /**< Maximum number of columns in output ASCII files */
 #define _MAX_NUM_BISPECTRA_ 32 /**< Maximum number of bispectra types that can be computed */
 #define _MAX_NUM_FIELDS_ 5 /**< Maximum number of fields (T, E, B...) that can be computed */
@@ -374,12 +373,6 @@ enum file_format {class_format,camb_format};
  * Maximum number of points in the time samplings.
  */
 #define TAU_SIZE_MAX 500000
-
-/**
- * Maximum number of output files that can be produced with the l1_out
- * and l2_out options.
- */
-#define _MAX_NUMBER_OF_L_FILES_ 100
 
 #define _ODD_ 1 /**< Value assigned to the ODD parity state */
 #define _EVEN_ 0 /**< Value assigned to the EVEN parity state */
@@ -1067,33 +1060,33 @@ struct precision
 
   int l_out_size; /**< Number of (l1,l2) pairs where to output the bispectra (default=0) */
 
-  int l1_out[_MAX_NUMBER_OF_L_FILES_]; /**< List of l1 values where the bispectra output is requested,
-                                          with size l_out_size; filled in input2.c */
+  int * l1_out; /**< List of l1 values where the bispectra output is requested,
+                with size l_out_size; filled in input2.c */
 
-  int l2_out[_MAX_NUMBER_OF_L_FILES_]; /**< List of l2 values where the bispectra output is requested,
-                                          with size l_out_size; filled in input2.c */
+  int * l2_out; /**< List of l2 values where the bispectra output is requested,
+                with size l_out_size; filled in input2.c */
 
-  int index_l1_out[_MAX_NUMBER_OF_L_FILES_]; /**< index_l1_out[index_l_output] is the index in pbi->l corresponding to
-                                             l1=l1_out[index_l_output]; filled in bispectra.c */
+  int * index_l1_out; /**< index_l1_out[index_l_output] is the index in pbi->l corresponding to
+                      l1=l1_out[index_l_output]; filled in bispectra.c */
 
-  int index_l2_out[_MAX_NUMBER_OF_L_FILES_]; /**< index_l2_out[index_l_output] is the index in pbi->l corresponding to
-                                             l2=l2_out[index_l_output]; filled in bispectra.c */
+  int * index_l2_out; /**< index_l2_out[index_l_output] is the index in pbi->l corresponding to
+                      l2=l2_out[index_l_output]; filled in bispectra.c */
     
-  /**< Path of the ASCII files that will contain the bispectra as a function
+  /** Path of the ASCII files that will contain the bispectra as a function
   of l3 for the desired (l1_out,l2_out) pairs; filled in the input2.c module */
-  char l_out_paths_1D[_MAX_NUMBER_OF_L_FILES_][_MAX_NUM_BISPECTRUM_PROBES_][_FILENAMESIZE_];
+  char (*l_out_paths_1D)[_MAX_NUM_BISPECTRUM_PROBES_][_FILENAMESIZE_];
 
-  /**< ASCII files that will contain the bispectra as a function of l3 for
+  /** ASCII files that will contain the bispectra as a function of l3 for
   the desired  (l1_out,l2_out) pairs; filled in the input2.c module */
-  FILE * l_out_files_1D[_MAX_NUMBER_OF_L_FILES_][_MAX_NUM_BISPECTRUM_PROBES_]; 
+  FILE * (*l_out_files_1D)[_MAX_NUM_BISPECTRUM_PROBES_]; 
     
-  /**< Path of the ASCII files that will contain the bispectra as a function
+  /** Path of the ASCII files that will contain the bispectra as a function
   of l2 and l3 for the desired l1_out value; filled in the input2.c module */
-  char l_out_paths_2D[_MAX_NUMBER_OF_L_FILES_][_MAX_NUM_BISPECTRUM_PROBES_][_FILENAMESIZE_];
+  char (*l_out_paths_2D)[_MAX_NUM_BISPECTRUM_PROBES_][_FILENAMESIZE_];
 
-  /**< ASCII file that will contain the bispectra as a function of l2
+  /** ASCII file that will contain the bispectra as a function of l2
   and l3 at the desired l1_out value; filled in the input2.c module */
-  FILE * l_out_files_2D[_MAX_NUMBER_OF_L_FILES_][_MAX_NUM_BISPECTRUM_PROBES_]; 
+  FILE * (*l_out_files_2D)[_MAX_NUM_BISPECTRUM_PROBES_]; 
     
   char l_out_path_3D[_FILENAMESIZE_]; /**< Path of the binary file that will contain the bispectra for all computed (l1,l2,l3)
                                        configurations; filled in the input2.c module */
@@ -1101,9 +1094,6 @@ struct precision
   FILE * l_out_file_3D; /**< Binary file that will contain the bispectra for all computed (l1,l2,l3)
                          configurations; filled in the input2.c module */
     
-  char l_out_swap_message[_MAX_INFO_SIZE_]; /**< Message to be printed to the bispectra output files when the user asks for a (l1,l2) pair with l2>l1 */
-  
-  short l_out_was_swapped[_MAX_NUMBER_OF_L_FILES_]; /**< Logical array to keep track whether an l_out configuration had l1 and l2 swapped */
   
   /**
    * Should SONG compute only a specific set of multipoles?

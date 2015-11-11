@@ -368,6 +368,10 @@ int bispectra_free(
 
   if (pbi->has_bispectra == _TRUE_) {
 
+    free(pbi->bt_labels);
+    free(pbi->bf_labels);
+    free(pbi->bfff_labels);
+
     free(pbi->l);
     free(pbi->pk);
     free(pbi->pk_pt);
@@ -571,10 +575,16 @@ int bispectra_indices (
   pbi->has_bispectra_t = _FALSE_;
   pbi->has_bispectra_e = _FALSE_;
   pbi->has_bispectra_b = _FALSE_;
-  for (int i=0; i < _MAX_NUM_FIELDS_; ++i)
-    for (int j=0; j < _MAX_LENGTH_LABEL_; ++j)
-      pbi->bf_labels[i][j] = '\0';
 
+  class_calloc (pbi->bf_labels,
+    _MAX_NUM_FIELDS_*_MAX_LENGTH_LABEL_,
+    sizeof(char),
+    pbi->error_message);
+    
+  class_calloc (pbi->bfff_labels,
+    _MAX_NUM_FIELDS_*_MAX_NUM_FIELDS_*_MAX_NUM_FIELDS_*_MAX_LENGTH_LABEL_,
+    sizeof(char),
+    pbi->error_message);
     
   if (ppt->has_bi_cmb_temperature == _TRUE_) {
     pbi->has_bispectra_t = _TRUE_;
@@ -693,9 +703,11 @@ int bispectra_indices (
   pbi->n[analytical_bispectrum] = 0;
   pbi->n[intrinsic_bispectrum] = 0;
 
-  for (int i=0; i < _MAX_NUM_BISPECTRA_; ++i)
-    for (int j=0; j < _MAX_LENGTH_LABEL_; ++j)
-      pbi->bt_labels[i][j] = '\0';
+  class_calloc (pbi->bt_labels,
+    _MAX_NUM_BISPECTRA_*_MAX_LENGTH_LABEL_,
+    sizeof(char),
+    pbi->error_message);
+
 
   // *** Separable bispectra
   

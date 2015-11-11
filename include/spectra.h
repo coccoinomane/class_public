@@ -134,7 +134,7 @@ struct spectra {
 #endif // WITH_SONG_SUPPORT
 #endif // WITH_BISPECTRA
   
-  char ct_labels[_MAX_NUM_SPECTRA_][_MAX_LENGTH_LABEL_]; /**< Labels of various C_l types */
+  char (*ct_labels)[_MAX_LENGTH_LABEL_]; /**< Labels of various C_l types */
 
   int lens_me[_MAX_NUM_SPECTRA_]; /**< should we apply lensing to this C_l in the lensing module? */
 
@@ -255,7 +255,7 @@ struct spectra {
 
   int pk_size; /**< Number of Fourier-space power spectra to compute */
 
-  char pk_labels[_MAX_NUM_SPECTRA_][_MAX_LENGTH_LABEL_]; /**< String labels for the pk spectra */
+  char (*pk_labels)[_MAX_LENGTH_LABEL_]; /**< String labels for the pk spectra */
   
   int is_source_pk[_MAX_NUM_SPECTRA_]; /**< If is_source_pk[index_pk]==_TRUE_, then the considered P(k)
                                           can be computed using the standard procedure, that is

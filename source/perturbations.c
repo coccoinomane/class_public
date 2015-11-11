@@ -453,6 +453,8 @@ int perturb_free(
   
   if (ppt->has_perturbations2 == _TRUE_) {  
 
+    free (ppt->qs_labels);
+
     for (int index_md = 0; index_md < ppt->md_size; index_md++) {
     
       for (int index_ic = 0; index_ic < ppt->ic_size[index_md]; index_ic++) {
@@ -8929,9 +8931,10 @@ int perturb_song_indices_of_perturbs(
       "no quadsources to be computed; this is suspect, what have you asked as ouput?");
 
     /* Initialise the labels of the song sources */
-    for (index_type=0; index_type<ppt->qs_size[index_md]; ++index_type)
-      for (int i=0; i < _MAX_LENGTH_LABEL_; ++i)
-       ppt->qs_labels[index_type][i] = '\0';
+    class_calloc (ppt->qs_labels,
+      ppt->qs_size[index_md]*_MAX_LENGTH_LABEL_,
+      sizeof(char),
+      ppt->error_message);
 
     /* Allocate the second level of the ppt->quadsources array */
     class_alloc(ppt->quadsources[index_md],

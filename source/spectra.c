@@ -1937,10 +1937,11 @@ int spectra_indices(
   if (ppt->has_cls == _TRUE_) {
 
     /* Initialise labels */
-    for (int i=0; i < _MAX_NUM_SPECTRA_; ++i)
-      for (int j=0; j < _MAX_LENGTH_LABEL_; ++j)
-        psp->ct_labels[i][j] = '\0';
-
+    class_calloc (psp->ct_labels,
+      _MAX_NUM_SPECTRA_*_MAX_LENGTH_LABEL_,
+      sizeof(char),
+      psp->error_message);
+  
     /* By default, all C_l will be lensed in the lensing module */
     for (int i=0; i < _MAX_NUM_SPECTRA_; ++i)
       psp->lens_me[i] = _TRUE_;
@@ -2311,6 +2312,11 @@ int spectra_indices(
   /* indices associated to particular types of power spectra P(k) in Fourier space */
 
   index_pk = 0;
+
+  class_calloc (psp->pk_labels,
+    _MAX_NUM_SPECTRA_*_MAX_LENGTH_LABEL_,
+    sizeof(char),
+    psp->error_message);
 
   psp->has_pk_delta_delta = _FALSE_;
   psp->has_pk_theta_theta = _FALSE_;

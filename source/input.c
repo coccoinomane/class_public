@@ -664,6 +664,18 @@ int input_free(
 #ifdef WITH_BISPECTRA
   if (log_file != NULL)
     fclose(log_file);
+
+  if (ppr->l_out_size > 0) {
+    free (ppr->l1_out);
+    free (ppr->l2_out);
+    free (ppr->index_l1_out);
+    free (ppr->index_l2_out);
+    free (ppr->l_out_paths_1D);
+    free (ppr->l_out_paths_2D);
+    free (ppr->l_out_files_1D);
+    free (ppr->l_out_files_2D);
+  }
+
 #endif // WITH_BISPECTRA
  
   return _SUCCESS_;
@@ -3311,11 +3323,10 @@ int input_read_parameters(
 
   if (flag1 == _TRUE_) {
 
-    class_test(int1 > _MAX_NUMBER_OF_L_FILES_, errmsg,
-      "increase _MAX_NUMBER_OF_L_FILES_ in include/bispectra.h to at least %d",
-      int1);
-
     ppr->l_out_size = int1;
+
+    class_calloc (ppr->l1_out, ppr->l_out_size, sizeof(int), errmsg);
+    class_calloc (ppr->l2_out, ppr->l_out_size, sizeof(int), errmsg);
 
     for (i=0; i<int1; i++)
       ppr->l1_out[i] = int_pointer1[i];
@@ -3378,6 +3389,21 @@ int input_read_parameters(
     printf ("\n%s:%d: WARNING: Adjusted l_scalar_max from %d to %d to take into account l1_out and l2_out\n\n",
       __func__, __LINE__, old_l_scalar_max, ppt->l_scalar_max);
 
+
+  /* Allocate memory for output arrays */
+
+  if (ppr->l_out_size > 0) {
+
+    class_calloc (ppr->index_l1_out, ppr->l_out_size, sizeof(int), errmsg);
+    class_calloc (ppr->index_l2_out, ppr->l_out_size, sizeof(int), errmsg);
+    class_calloc (ppr->l_out_paths_1D, ppr->l_out_size*_MAX_NUM_BISPECTRUM_PROBES_*_FILENAMESIZE_, sizeof(char), errmsg);
+    class_calloc (ppr->l_out_paths_2D, ppr->l_out_size*_MAX_NUM_BISPECTRUM_PROBES_*_FILENAMESIZE_, sizeof(char), errmsg);
+    class_calloc (ppr->l_out_files_1D, ppr->l_out_size*_MAX_NUM_BISPECTRUM_PROBES_, sizeof(FILE *), errmsg);
+    class_calloc (ppr->l_out_files_2D, ppr->l_out_size*_MAX_NUM_BISPECTRUM_PROBES_, sizeof(FILE *), errmsg);
+
+  }
+
+
   /* Prepend output directory to bispectra output files */
 
   for (int index_l_out=0; index_l_out < ppr->l_out_size; ++index_l_out) {
@@ -3407,32 +3433,6 @@ int input_read_parameters(
       pop->root);
       
   }
-
-    
-  
- /* DISABLED: now we output bispectra for all l */
- //  /* Swap l1 and l2 if the user asked for configurations with l1<l2 */
- //
- //  for (int index_l_out=0; index_l_out < ppr->l_out_size; ++index_l_out) {
- //
- //    ppr->l_out_was_swapped[index_l_out] = _FALSE_;
- //
- //    sprintf (ppr->l_out_swap_message,
- //      "NOTE: You asked for a (l1,l2) pair with l1<l2, but SONG only computes configurations with\
- // l1>=l2. This file contains the perturbations with l1 and l2 swapped. For the TTT and EEE bispectra,\
- // there is no difference as they are symmetric with respect to l1<->l2. For the mixed bispectra (TTE,\
- // TET, ETT, EET, ETE, TEE), you need to swap the field as well. For example, b^TEE_l1_l2_l3 = b^ETE_l2_l1_l3.");
- //
- //    if (ppr->l1_out[index_l_out] < ppr->l2_out[index_l_out]) {
- //
- //      ppr->l_out_was_swapped[index_l_out] = _TRUE_;
- //
- //      double swap = ppr->l1_out[index_l_out];
- //      ppr->l1_out[index_l_out] = ppr->l2_out[index_l_out];
- //      ppr->l2_out[index_l_out] = swap;
- //
- //    }
- //  }
   
 
   /* Issue a warning if the user gave two indentical (l1_out,l2_out) pairs */

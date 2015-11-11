@@ -83,7 +83,7 @@ struct bispectra {
   int bt_size;                        /* Total number of bispectra types requested */
 
   /* Array of strings that contain the text labels of the various bispectra */
-  char bt_labels[_MAX_NUM_BISPECTRA_][_MAX_LENGTH_LABEL_];
+  char (*bt_labels)[_MAX_LENGTH_LABEL_];
 
   /* Array that identifies whether a bispectrum is separable, non-separable, analytic or intrinsic. */
   enum bispectra_types bispectrum_type[_MAX_NUM_BISPECTRA_];
@@ -204,8 +204,8 @@ struct bispectra {
   int index_lt_of_bf_bf[_MAX_NUM_FIELDS_][_MAX_NUM_FIELDS_];
 
   /* Array of strings that contain the text labels of the various fields */
-  char bf_labels[_MAX_NUM_FIELDS_][_MAX_LENGTH_LABEL_]; /* T,E... */
-  char bfff_labels[_MAX_NUM_FIELDS_][_MAX_NUM_FIELDS_][_MAX_NUM_FIELDS_][_MAX_LENGTH_LABEL_]; /* TTT,EEE,TTE... */
+  char (*bf_labels)[_MAX_LENGTH_LABEL_]; /* T,E... */
+  char (*bfff_labels)[_MAX_NUM_FIELDS_][_MAX_NUM_FIELDS_][_MAX_LENGTH_LABEL_]; /* TTT,EEE,TTE... */
 
 
   // ====================================================================================
