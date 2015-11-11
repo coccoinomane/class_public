@@ -3141,10 +3141,12 @@ int spectra_compute_cl(
 
   for (index_ct=0; index_ct<psp->ct_size; index_ct++) {
 
+#ifdef WITH_BISPECTRA
     /* This module deals only with first-order C_l; spectra2.c deals with the
     second-order ones */
     if (psp->cl_type[index_ct] != first_order)
       continue;
+#endif // WITH_BISPECTRA
 
     /* treat null spectra (C_l^BB of scalars, C_l^pp of tensors, etc. */
 
