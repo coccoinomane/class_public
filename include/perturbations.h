@@ -313,8 +313,8 @@ struct perturbs
   int index_tp_delta_dr; /**< index value for delta of decay radiation */
   int index_tp_delta_ur; /**< index value for delta of ultra-relativistic neutrinos/relics */
   int index_tp_delta_ncdm1; /**< index value for delta of first non-cold dark matter species (e.g. massive neutrinos) */
-  int index_tp_perturbed_recombination_delta_temp;		/* Gas temperature perturbation */
-  int index_tp_perturbed_recombination_delta_chi;			/* Inionization fraction perturbation */
+  int index_tp_perturbed_recombination_delta_temp;    /* Gas temperature perturbation */
+  int index_tp_perturbed_recombination_delta_chi;     /* Inionization fraction perturbation */
 
   int index_tp_theta_m;   /**< index value for theta tot */
   int index_tp_theta_g;   /**< index value for theta of gammas */
@@ -627,8 +627,8 @@ struct perturb_vector
   int index_pt_l3_ur;    /**< l=3 of ultra-relativistic neutrinos/relics */
   int l_max_ur;          /**< max momentum in Boltzmann hierarchy (at least 3) */
 /* perturbed recombination */
-  int index_pt_perturbed_recombination_delta_temp;		/* Gas temperature perturbation */
-  int index_pt_perturbed_recombination_delta_chi;			/* Inionization fraction perturbation */
+  int index_pt_perturbed_recombination_delta_temp;    /* Gas temperature perturbation */
+  int index_pt_perturbed_recombination_delta_chi;     /* Inionization fraction perturbation */
 
   /** The index to the first Legendre multipole of the DR expansion. Not
       that this is not exactly the usual delta, see Kaplinghat et al.,
@@ -1094,13 +1094,27 @@ extern "C" {
             int result_size,
             double * psource
             );
-            
+
+  int perturb_song_sources_at_tau_and_k (  
+             struct precision * ppr,
+             struct perturbs * ppt,
+             int index_mode,
+             int index_ic,
+             double tau,
+             int index_k,
+             double k,
+             int result_size,
+             short intermode,
+             int * last_index,
+             double * psource
+             );
+
   int perturb_song_indices_of_perturbs(
-				    struct precision * ppr,
-				    struct background * pba,
-				    struct thermo * pth,
-				    struct perturbs * ppt
-				    );
+            struct precision * ppr,
+            struct background * pba,
+            struct thermo * pth,
+            struct perturbs * ppt
+            );
 
   int perturb_song_sources(
             double tau,

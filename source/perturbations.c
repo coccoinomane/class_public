@@ -9571,23 +9571,24 @@ int perturb_compute_psi_prime(
 
 
 /**
-  * Interpolate the perturbations in ppt->quadsources at a given time tau.
-  * 
-  * This function is just a wrapper that chooses whether to use linear or spline
-  * interpolation according to the option ppr->quadsources_time_interpolation.
-  *
-  * In order to save time, perturb_song_sources_at_tau() can be called in three
-  * modes: short_info, normal_info, long_info (returning only essential
-  * quantities, or useful quantitites, or rarely useful
-  * quantities). Each line in the interpolation table is a vector which
-  * first few elements correspond to the short_info format; a larger
-  * fraction contribute to the normal format; and the full vector
-  * corresponds to the long format. The guideline is that short_info
-  * returns only geometric quantitites like a, H, H'; normal format
-  * returns quantities strictly needed at each step in the integration
-  * of perturbations; long_info returns quantitites needed only
-  * occasionally.
-  */
+ * Interpolate the perturbations in ppt->quadsources at a given time tau.
+ * 
+ * This function is just a wrapper that chooses whether to use linear or spline
+ * interpolation according to the option ppr->quadsources_time_interpolation.
+ *
+ * In order to save time, perturb_song_sources_at_tau() can be called in three
+ * modes: short_info, normal_info, long_info (returning only essential
+ * quantities, or useful quantitites, or rarely useful
+ * quantities). Each line in the interpolation table is a vector which
+ * first few elements correspond to the short_info format; a larger
+ * fraction contribute to the normal format; and the full vector
+ * corresponds to the long format. The guideline is that short_info
+ * returns only geometric quantitites like a, H, H'; normal format
+ * returns quantities strictly needed at each step in the integration
+ * of perturbations; long_info returns quantitites needed only
+ * occasionally.
+ */
+
 int perturb_song_sources_at_tau (
          struct precision * ppr,
          struct perturbs * ppt,
@@ -9595,12 +9596,18 @@ int perturb_song_sources_at_tau (
          int index_ic, /**< initial condition index (adiabatic, isocurvature, ...)*/
          int index_k, /**< requested wavemode for the interpolation; points to an element of ppt->k[index_mode] */
          double tau, /**< requested time for the interpolation; must be in the same range of ppt->tau_sampling_quadsources */ 
-         int result_size, /**< how many columns to interpolate? */
-         short intermode, /**< type of interpolation (either ppt->inter_closeby or ppt->inter_normal) */
-		     int * last_index, /**< last time index in interpolation table; only relevant if using ppt->inter_closeby */
+         int result_size, /**< how many columns to interpolate in the quadratic sources array? */
+         short intermode, /**< type of interpolation (either ppt->inter_closeby or ppt->inter_normal, use second if in doubt) */
+         int * last_index, /**< last time index in interpolation table; only relevant if using ppt->inter_closeby */
          double * psource /**< output array indexed by ppt->index_qs_XXX */
          )
 {
+
+
+  class_test (result_size > ppt->qs_size[index_mode],
+    ppt->error_message,
+    "asked too many columns to interpolate");
+
 
   /* Linear interpolation */
   if (ppr->quadsources_time_interpolation == linear_interpolation) {
@@ -9641,6 +9648,187 @@ int perturb_song_sources_at_tau (
 }
 
 
+
+/**
+ * Interpolate the perturbations in ppt->quadsources at a given time tau and
+ * wavemode k.
+ *
+ * The time interpolation is either linear or spline depending on the variable
+ * ppt->quadsources_time_interpolation, and is performed by the function
+ * perturb_song_sources_at_tau().
+ *
+ * The k interpolation is only linear and is done in the body of the function.
+ * If the argument index_k is non-negative, the k-interpolation will be skipped
+ * and the result will be evaluated in the node point ppt->k[index_k].
+ */
+
+int perturb_song_sources_at_tau_and_k (
+      struct precision * ppr,
+      struct perturbs * ppt,
+      int index_mode, /**< mode index (scalar, vector, tensor) */
+      int index_ic, /**< initial condition index (adiabatic, isocurvature, ...)*/
+      double tau, /**< requested time for the interpolation; must be in the same range of ppt->tau_sampling_quadsources */ 
+      int index_k, /**< index pointing to the requested k value in ppt->k[index_mode]; if negative, use interpolation in k instead. */
+      double k, /**< requested wavemode for the interpolation; must be in the same range of ppt->k[index_mode]. Used only if index_k is not negative. */
+      int result_size, /**< how many columns to interpolate in the quadratic sources array? */
+      short intermode_tau, /**< type of interpolation for tau (either ppt->inter_closeby or ppt->inter_normal, use second if in doubt) */
+      int * last_index_tau, /**< last time index in tau interpolation table; only relevant if using ppt->inter_closeby */
+      double * psource /**< output array indexed by ppt->index_qs_XXX */
+      )
+{
+
+  /* If the k index is valid, then the user wants the perturbations in one of the node
+  points, ppt->k[index_mode][index_k]. Therefore, we need to interpolate only along
+  the tau direction. TODO: should implement the same for index_tau. Result won't
+  change but speed will increase. */
+  
+  if (index_k >= 0) {
+    
+#ifdef DEBUG
+    class_test (k != ppt->k[index_mode][index_k],
+      ppt->error_message,
+      "inconsistent input!");
+#endif // DEBUG
+    
+    class_call (perturb_song_sources_at_tau (
+                ppr,
+                ppt,
+                index_mode,
+                index_ic,
+                index_k,
+                tau,
+                result_size,
+                intermode_tau,
+                last_index_tau,
+                psource),
+      ppt->error_message,
+      ppt->error_message);
+    
+  }
+  
+  /* If index_k is negative, we interpolate in k using linear interpolation */
+  
+  else {
+
+    class_test (ppt->k_size[index_mode] < 2,
+      ppt->error_message,
+      "cannot interpolate in k when k direction has only %d element(s)",
+      ppt->k_size[index_mode]);
+
+
+    // ====================================================================================
+    // =                                    Table look up                                 =
+    // ====================================================================================
+  
+    int index_k; /* Index left of k */
+  
+    int inf = 0;
+    int sup = ppt->k_size[index_mode] - 1;
+    int mid, i;
+    double * k_vec = ppt->k[index_mode];
+
+    if (k_vec[inf] < k_vec[sup]) {
+
+      while (sup-inf > 1) {
+
+        mid = (int)(0.5*(inf+sup));
+
+        if (k < k_vec[mid])
+          sup = mid;
+        else
+          inf = mid;
+      }
+    }
+
+    else {
+
+      while (sup-inf > 1) {
+
+        mid = (int)(0.5*(inf+sup));
+
+        if (k > k_vec[mid])
+          sup = mid;
+        else
+          inf = mid;
+      }
+    }
+
+    index_k = mid-1;
+  
+#ifdef DEBUG
+    class_test (index_k < 0 || index_k >= ppt->k_size[index_mode],
+      ppt->error_message,
+      "invalid k index from table look up");
+#endif // DEBUG
+
+  
+
+    // ====================================================================================
+    // =                                 Time interpolation                               =
+    // ====================================================================================  
+  
+    double * source_left;
+    double * source_right;
+  
+    class_alloc(source_left, result_size*sizeof(double), ppt->error_message);
+    class_alloc(source_right, result_size*sizeof(double), ppt->error_message);
+  
+    class_call (perturb_song_sources_at_tau (
+                ppr,
+                ppt,
+                index_mode,
+                index_ic,
+                index_k,
+                tau,
+                result_size,
+                intermode_tau,
+                last_index_tau,
+                source_left),
+      ppt->error_message,
+      ppt->error_message);
+
+    class_call (perturb_song_sources_at_tau (
+                ppr,
+                ppt,
+                index_mode,
+                index_ic,
+                index_k+1,
+                tau,
+                result_size,
+                intermode_tau,
+                last_index_tau,
+                source_right),
+      ppt->error_message,
+      ppt->error_message);
+
+
+
+    // ====================================================================================
+    // =                                  k interpolation                                 =
+    // ====================================================================================  
+
+    double k_right = k_vec[index_k+1];
+    double step = k_right - k_vec[index_k];
+    double a = (k_right - k)/step;  
+
+    for (int index_type=0; index_type < result_size; ++index_type) {
+
+      psource[index_type] = a*source_left[index_type] + (1-a)*source_right[index_type];
+ 
+    }
+  
+    free (source_left);
+    free (source_right);
+    
+  } // if (index_k<0)
+
+  return _SUCCESS_;
+
+}
+
+
+
+
 /**
   * Interpolate the perturbations in ppt->quadsources at a given time tau using
   * linear interpolation.
@@ -9651,7 +9839,7 @@ int perturb_song_sources_at_tau_linear (
         int index_ic, /**< initial condition index (adiabatic, isocurvature, ...)*/
         int index_k, /**< requested wavemode for the interpolation; points to an element of ppt->k[index_mode] */
         double tau, /**< requested time for the interpolation; must be in the same range of ppt->tau_sampling_quadsources */ 
-        int result_size, /**< how many columns to interpolate? */
+        int result_size, /**< how many columns to interpolate in the quadratic sources array? */
         double * psource /**< output array indexed by ppt->index_qs_XXX */
         )
 {
@@ -9783,8 +9971,8 @@ int perturb_song_sources_at_tau_spline (
          int index_ic, /**< initial condition index (adiabatic, isocurvature, ...)*/
          int index_k, /**< requested wavemode for the interpolation; points to an element of ppt->k[index_mode] */
          double tau, /**< requested time for the interpolation; must be in the same range of ppt->tau_sampling_quadsources */ 
-         int result_size, /**< how many columns to interpolate? */
-         short intermode, /**< type of interpolation (either ppt->inter_closeby or ppt->inter_normal) */
+         int result_size, /**< how many columns to interpolate in the quadratic sources array? */
+         short intermode, /**< type of interpolation (either ppt->inter_closeby or ppt->inter_normal, use second if in doubt) */
 		     int * last_index, /**< last time index in interpolation table; only relevant if using ppt->inter_closeby */
          double * psource /**< output array indexed by ppt->index_qs_XXX */
          )
