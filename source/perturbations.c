@@ -9595,7 +9595,8 @@ int perturb_song_sources_at_tau (
          int index_mode, /**< mode index (scalar, vector, tensor) */
          int index_ic, /**< initial condition index (adiabatic, isocurvature, ...)*/
          int index_k, /**< requested wavemode for the interpolation; points to an element of ppt->k[index_mode] */
-         double tau, /**< requested time for the interpolation; must be in the same range of ppt->tau_sampling_quadsources */ 
+         double tau, /**< requested time for the interpolation; must be in the same range of ppt->tau_sampling_quadsources. Used only if index_k is not negative. */ 
+         int index_tau, /**< index pointing to the requested tau value in ppt->tau_sampling_quadsources; if negative, use interpolation in tau instead. */
          int result_size, /**< how many columns to interpolate in the quadratic sources array? */
          short intermode, /**< type of interpolation (either ppt->inter_closeby or ppt->inter_normal, use second if in doubt) */
          int * last_index, /**< last time index in interpolation table; only relevant if using ppt->inter_closeby */
@@ -9603,46 +9604,73 @@ int perturb_song_sources_at_tau (
          )
 {
 
-
+  #ifdef DEBUG
+  /* Check that we asked for a valid number of sources */
   class_test (result_size > ppt->qs_size[index_mode],
     ppt->error_message,
     "asked too many columns to interpolate");
+  #endif // DEBUG
 
 
-  /* Linear interpolation */
-  if (ppr->quadsources_time_interpolation == linear_interpolation) {
-
-    class_call(perturb_song_sources_at_tau_linear(
-                 ppt,
-                 index_mode,
-                 index_ic,
-                 index_k,
-                 tau,
-                 result_size,
-                 psource
-                 ),
+  /* If the tau index is valid, then the user wants the perturbations in one of the
+  node points, ppt->tau_sampling_quadsources[index_tau] */
+  
+  if (index_tau >= 0) {
+    
+    #ifdef DEBUG
+    class_test (tau != ppt->tau_sampling_quadsources[index_tau],
       ppt->error_message,
-      ppt->error_message);
+      "inconsistent input!");
+    #endif // DEBUG
+
+    for (int index_type=0; index_type < result_size; ++index_type)
+
+      psource[index_type] = ppt->quadsources[index_mode][index_ic*result_size + index_type]
+                                            [index_tau*ppt->k_size[index_mode]+index_k];
+  }
+
+  /* If index_tau is negative, we interpolate in tau using the interpolation method
+  specified in ppr->quadsources_time_interpolation */
+
+  else {
+
+    /* Linear interpolation */
+    if (ppr->quadsources_time_interpolation == linear_interpolation) {
+
+      class_call(perturb_song_sources_at_tau_linear(
+                   ppt,
+                   index_mode,
+                   index_ic,
+                   index_k,
+                   tau,
+                   result_size,
+                   psource
+                   ),
+        ppt->error_message,
+        ppt->error_message);
+
+    }
+
+    /* Cubic spline interpolation */
+    else if (ppr->quadsources_time_interpolation == cubic_interpolation) {
+
+      class_call(perturb_song_sources_at_tau_spline(
+                   ppt,
+                   index_mode,
+                   index_ic,
+                   index_k,
+                   tau,
+                   result_size,
+                   intermode,
+                   last_index,
+                   psource
+                   ),
+        ppt->error_message,
+        ppt->error_message);
+
+    }
 
   }
-  /* Cubic spline interpolation */
-  else if (ppr->quadsources_time_interpolation == cubic_interpolation) {
-
-    class_call(perturb_song_sources_at_tau_spline(
-                 ppt,
-                 index_mode,
-                 index_ic,
-                 index_k,
-                 tau,
-                 result_size,
-                 intermode,
-                 last_index,
-                 psource
-                 ),
-      ppt->error_message,
-      ppt->error_message);
-
-  } // end of if(ppr->quadsources_time_interpolation)
 
   return _SUCCESS_;
 }
@@ -9667,9 +9695,10 @@ int perturb_song_sources_at_tau_and_k (
       struct perturbs * ppt,
       int index_mode, /**< mode index (scalar, vector, tensor) */
       int index_ic, /**< initial condition index (adiabatic, isocurvature, ...)*/
-      double tau, /**< requested time for the interpolation; must be in the same range of ppt->tau_sampling_quadsources */ 
-      int index_k, /**< index pointing to the requested k value in ppt->k[index_mode]; if negative, use interpolation in k instead. */
+      double tau, /**< requested time for the interpolation; must be in the same range of ppt->tau_sampling_quadsources. Used only if index_tau is not negative. */ 
+      int index_tau, /**< index pointing to the requested tau value in ppt->tau_sampling_quadsources; if negative, use interpolation in tau instead. */
       double k, /**< requested wavemode for the interpolation; must be in the same range of ppt->k[index_mode]. Used only if index_k is not negative. */
+      int index_k, /**< index pointing to the requested k value in ppt->k[index_mode]; if negative, use interpolation in k instead. */
       int result_size, /**< how many columns to interpolate in the quadratic sources array? */
       short intermode_tau, /**< type of interpolation for tau (either ppt->inter_closeby or ppt->inter_normal, use second if in doubt) */
       int * last_index_tau, /**< last time index in tau interpolation table; only relevant if using ppt->inter_closeby */
@@ -9684,11 +9713,11 @@ int perturb_song_sources_at_tau_and_k (
   
   if (index_k >= 0) {
     
-#ifdef DEBUG
+    #ifdef DEBUG
     class_test (k != ppt->k[index_mode][index_k],
       ppt->error_message,
       "inconsistent input!");
-#endif // DEBUG
+    #endif // DEBUG
     
     class_call (perturb_song_sources_at_tau (
                 ppr,
@@ -9697,6 +9726,7 @@ int perturb_song_sources_at_tau_and_k (
                 index_ic,
                 index_k,
                 tau,
+                index_tau,
                 result_size,
                 intermode_tau,
                 last_index_tau,
@@ -9780,6 +9810,7 @@ int perturb_song_sources_at_tau_and_k (
                 index_ic,
                 index_k,
                 tau,
+                index_tau,
                 result_size,
                 intermode_tau,
                 last_index_tau,
@@ -9794,6 +9825,7 @@ int perturb_song_sources_at_tau_and_k (
                 index_ic,
                 index_k+1,
                 tau,
+                index_tau,
                 result_size,
                 intermode_tau,
                 last_index_tau,
