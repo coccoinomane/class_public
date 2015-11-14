@@ -94,7 +94,7 @@ int bessel_init(
   /* index for l (since first value of l is always 2, l=index_l+2) */
   int index_l;
   int num_j;
-  int abort;
+  int abort = _FALSE_;
 
   /** - update the value of pbs->x_max of j_l(x) */
   

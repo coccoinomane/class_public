@@ -740,6 +740,7 @@ int parser_overwrite_entry (
 
 
 #ifdef WITH_SONG1
+
 /**
  * Find and replace text within an entry of a file_content structure.
  * 

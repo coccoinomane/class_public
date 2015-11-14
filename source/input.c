@@ -163,6 +163,7 @@ int input_init_from_arguments(
                errmsg);
 
 #ifndef WITH_SONG1
+
     /** - check whether a root name has been set */
 
     class_call(parser_read_string(&fc_input,"root",&stringoutput,&flag1,errmsg),
@@ -573,7 +574,6 @@ int input_init(
     free(fzw.target_value);
   }
   else{
-
     /* just read all parameters from input pfc: */
     class_call(input_read_parameters(pfc,
                                      ppr,
@@ -701,7 +701,8 @@ int input_read_parameters(
 #endif // WITH_SONG1
                           struct output *pop,
                           ErrorMsg errmsg
-                          ) {
+                          )
+{
 
   /** Summary: */
 
@@ -1201,7 +1202,7 @@ int input_read_parameters(
     class_read_double("scf_shooting_parameter",pba->scf_parameters[pba->scf_tuning_index]);
 
     scf_lambda = pba->scf_parameters[0];
-    if ((abs(scf_lambda) <3.)&&(pba->background_verbose>1))
+    if ((fabs(scf_lambda) <3.)&&(pba->background_verbose>1))
       printf("lambda = %e <3 won't be tracking (for exp quint) unless overwritten by tuning function\n",scf_lambda);
 
     class_call(parser_read_string(pfc,
@@ -1587,12 +1588,6 @@ int input_read_parameters(
         pbi->has_intrinsic_squeezed = _TRUE_;
       }
 
-      /* Compute the approximation of the intrinsic bispectrum in the squeezed limit, the unlensed version */
-      if ((strstr(string1,"unlensed_intrinsic_squeezed") != NULL) || (strstr(string1,"unlensed_intrinsic_sqz") != NULL)
-      || (strstr(string1,"i-u-squeezed") != NULL)) {
-        pbi->has_intrinsic_squeezed_unlensed = _TRUE_;
-      }
-
       /* Compute the approximation of the local bispectrum in the squeezed limit */
       if ((strstr(string1,"local_squeezed") != NULL) || (strstr(string1,"local_sqz") != NULL)
        || (strstr(string1,"l-squeezed") != NULL)) {
@@ -1616,6 +1611,11 @@ int input_read_parameters(
       if (strstr(string1,"c-squeezed") != NULL) {
         ppt->has_cl_cmb_lensing_potential = _TRUE_;
         pbi->has_cmb_lensing_squeezed = _TRUE_;
+      }
+
+      /* Compute a simple C_l x C_l test bispectrum */
+      if (strstr(string1,"test") != NULL) {
+        pbi->has_test_bispectrum = _TRUE_;
       }
 
       /* Compute the quadratic correction bispectrum (effectively the CMB four-point function) */
@@ -3249,42 +3249,32 @@ int input_read_parameters(
 
   /** i.2.4. Lensing effects on the bispectrum and on the Fisher matrix estimator */
   
-  if (ple->has_lensed_cls == _TRUE_) { /* if lensing=yes... */
-    
+  if ((pbi->has_bispectra == _TRUE_) && (ple->has_lensed_cls == _TRUE_)) { /* if lensing=yes... */
+
+    /* Should we compute the lensing correction to the bispectrum? If yes, the bispectra
+    in pbi->bispectra will be lensed. */
+    class_call(parser_read_string(pfc,"lensed_bispectra",&(string1),&(flag1),errmsg),
+      errmsg,
+      errmsg);
+
+    if ((flag1 == _TRUE_) && ((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL)))
+      pbi->has_lensed_bispectra = _TRUE_;
+
+    /* Extend the range of the lensed C_l if the user asked for a bispectrum type that
+    requires the lensed C_l */
+    if ((pbi->has_cmb_lensing == _TRUE_) || (pbi->has_cmb_lensing_squeezed == _TRUE_) ||
+        (pbi->has_cmb_lensing_kernel == _TRUE_) || (pbi->has_intrinsic_squeezed == _TRUE_))
+      ppr->extend_lensed_cls = _TRUE_;
+
+    /* If the user set lensing=yes, then assume s/he wants to compute how lensing
+    affects the Fisher matrix (ie. lensing noise and lensing variance) */
     if (pfi->has_fisher == _TRUE_) {
       pfi->include_lensing_effects = _TRUE_;
       pbi->has_cmb_lensing_kernel = _TRUE_;  /* needed to compute the effect of lensing variance */
       ppr->extend_lensed_cls = _TRUE_;       /* needed to include the lensing noise in the covariance matrix */
     }
-    
-    if (pbi->has_bispectra == _TRUE_) {
 
-      /* List of bispectra that can be lensed just by using the lensed C_l's */
-      short requires_lensed_cls = (
-        (pbi->has_cmb_lensing == _TRUE_) ||
-        (pbi->has_cmb_lensing_squeezed == _TRUE_) ||
-        (pbi->has_cmb_lensing_kernel == _TRUE_) ||
-        (pbi->has_intrinsic_squeezed == _TRUE_));
-    
-       if (requires_lensed_cls) {
-        pbi->include_lensing_effects = _TRUE_;
-        pbi->lensed_intrinsic = _TRUE_;
-        ppr->extend_lensed_cls = _TRUE_;
-      }
-    }
   } // end of if lensing
-
-  /* If requested explicitly, do not include the lensed C_l's in the squeezed approximation for the intrinsic
-  bispectrum */
-  if (pbi->include_lensing_effects == _TRUE_) {
-
-    class_call(parser_read_string(pfc,"lensed_intrinsic",&(string1),&(flag1),errmsg),
-      errmsg,
-      errmsg);
-   
-    if ((flag1 == _TRUE_) && ((strstr(string1,"n") != NULL) || (strstr(string1,"N") != NULL)))
-      pbi->lensed_intrinsic = _FALSE_;
-  }
 
   if (pfi->include_lensing_effects == _TRUE_) {
     
@@ -3429,7 +3419,7 @@ int input_read_parameters(
     pbi->output_binary_bispectra = _TRUE_;
 
     sprintf (ppr->l_out_path_3D,
-      "%s/bispectra.dat",
+      "%sbispectra.dat",
       pop->root);
       
   }
@@ -3442,6 +3432,64 @@ int input_read_parameters(
       if ((ppr->l1_out[i] == ppr->l1_out[j]) && (ppr->l2_out[i] == ppr->l2_out[j]) && (i != j))
         printf ("NOTE: output pairs #%d and #%d are equal; bispectra outputs for #%d will be empty\n", i, j, j);
 
+
+  /** i.2.6. interpolation of the bispectrum */
+  
+  class_call(parser_read_string(pfc,"bispectra_interpolation",&string1,&flag1,errmsg),
+         errmsg,
+         errmsg);  
+  
+  if (flag1 == _TRUE_) {
+
+    if (strstr(string1,"bilinear") != NULL) {
+      pbi->interpolation_method = bilinear_interpolation;
+    }
+
+    else if ((strcmp(string1,"mesh_2d") == 0) || (strcmp(string1,"mesh_2D") == 0) || (strcmp(string1,"mesh") == 0)) {
+      pbi->interpolation_method = mesh_interpolation_2D;
+    }
+
+    else if ((strcmp(string1,"mesh_3d") == 0) || (strcmp(string1,"mesh_3D") == 0)) {
+      pbi->interpolation_method = mesh_interpolation_3D;
+    }
+
+    else if ((strstr(string1,"trilinear") != NULL) || (strstr(string1,"tri") != NULL)) {
+      pbi->interpolation_method = trilinear_interpolation;
+      ppr->compute_only_even_ls = _TRUE_;
+    }
+  
+    else if ((strstr(string1,"smart") != NULL) || (strstr(string1,"SMART") != NULL)) {
+      pbi->interpolation_method = smart_interpolation;
+      ppr->compute_only_even_ls = _TRUE_;
+    }
+
+    else {
+      class_test(1==1, errmsg,
+        "interpolation_method=%s not supported. Choose between 'trilinear', 'mesh', 'mesh_2d', 'sum'",
+        string1);
+    }
+  
+  }
+
+  if (pbi->has_bispectra == _TRUE_) {
+
+    /* Check that l_max is even for trilinear interpolation */
+    if (pbi->interpolation_method == trilinear_interpolation) {
+      class_test ((ppt->has_scalars==_TRUE_)&&((ppt->l_scalar_max%2)!=0), errmsg,
+        "For trilinear bispectra interpolation, choose an even 'l_max_scalars'");
+      class_test ((ppt->has_vectors==_TRUE_)&&((ppt->l_vector_max%2)!=0), errmsg,
+        "For trilinear bispectra interpolation, choose an even 'l_max_vectors'");
+      class_test ((ppt->has_tensors==_TRUE_)&&((ppt->l_tensor_max%2)!=0), errmsg,
+        "For trilinear bispectra interpolation, choose an even 'l_max_tensors'");
+    }
+  }
+
+  class_call(parser_read_string(pfc,"always_interpolate_bispectra",&(string1),&(flag1),errmsg),
+      errmsg,
+      errmsg);
+   
+  if ((flag1 == _TRUE_) && ((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL)))
+    pbi->always_interpolate_bispectra = _TRUE_;
 
 
 
@@ -3661,71 +3709,6 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
   }
 
 
-  /** i.4.3. interpolation of the bispectrum */
-
-  class_call(parser_read_string(pfc,"bispectra_interpolation",&string1,&flag1,errmsg),
-         errmsg,
-         errmsg);  
-  
-  class_call(parser_read_string(pfc,"bispectra_interpolation",&string1,&flag1,errmsg),
-         errmsg,
-         errmsg);  
-  
-  if (flag1 == _TRUE_) {
-
-    /* For trilinear interpolation, we need an all-even grid */
-    if ((strstr(string1,"trilinear") != NULL) || (strstr(string1,"tri") != NULL)) {
-      pfi->bispectra_interpolation = trilinear_interpolation;
-      ppr->compute_only_even_ls = _TRUE_;
-    }
-  
-    /* For trilinear interpolation, we need an all-even grid */
-    else if ((strstr(string1,"smart") != NULL) || (strstr(string1,"SMART") != NULL)) {
-      pfi->bispectra_interpolation = smart_interpolation;
-      ppr->compute_only_even_ls = _TRUE_;
-    }
-
-    else if (strstr(string1,"sum") != NULL) {
-      pfi->bispectra_interpolation = sum_over_all_multipoles;
-    }
-    else if ((strcmp(string1,"mesh_2d") == 0) || (strcmp(string1,"mesh_2D") == 0)
-          || (strcmp(string1,"mesh") == 0)
-          || (strcmp(string1,"mesh_3d") == 0)  /* obsolete */ 
-          || (strcmp(string1,"mesh_3D") == 0)) /* obsolete */ {
-      pfi->bispectra_interpolation = mesh_interpolation_2D;
-    }
-    else {
-      class_test(1==1, errmsg,
-        "bispectra_interpolation=%s not supported. Choose between 'trilinear', 'mesh', 'mesh_2d', 'sum'",
-        string1);
-    }
-  
-  }
-
-  if (pbi->has_bispectra == _TRUE_) {
-
-    /* Take all multipoles if requested */
-    if (pfi->bispectra_interpolation == sum_over_all_multipoles)
-      ppr->l_linstep = 1;
-
-    /* Check that l_max is even for trilinear interpolation */
-    if (pfi->bispectra_interpolation == trilinear_interpolation) {
-      class_test ((ppt->has_scalars==_TRUE_)&&((ppt->l_scalar_max%2)!=0), errmsg,
-        "For trilinear bispectra interpolation, choose an even 'l_max_scalars'");
-      class_test ((ppt->has_vectors==_TRUE_)&&((ppt->l_vector_max%2)!=0), errmsg,
-        "For trilinear bispectra interpolation, choose an even 'l_max_vectors'");
-      class_test ((ppt->has_tensors==_TRUE_)&&((ppt->l_tensor_max%2)!=0), errmsg,
-        "For trilinear bispectra interpolation, choose an even 'l_max_tensors'");
-    }
-  }
-
-  class_call(parser_read_string(pfc,"always_interpolate_bispectra",&(string1),&(flag1),errmsg),
-      errmsg,
-      errmsg);
-   
-  if ((flag1 == _TRUE_) && ((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL)))
-    pfi->always_interpolate_bispectra = _TRUE_;
-
 
   /** (l) Technical parameters */
   
@@ -3759,8 +3742,8 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
          errmsg),
          errmsg,
          errmsg);  
-  
-    if ((flag1 == _TRUE_) && (string1 != NULL)) {
+
+    if (flag1 == _TRUE_) {
       
       /* Expand shell symbols (such as ~ and ..) and environment variables in the path */
       wordexp_t exp_result;
@@ -3862,7 +3845,7 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
       errmsg,
       errmsg);
 
-  if ((flag1 == _TRUE_) && (string1 != NULL)) {
+  if (flag1 == _TRUE_) {
 
     /* Expand shell symbols (such as ~ and ..) and environment variables in the path */
     wordexp_t exp_result;
@@ -3944,12 +3927,12 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
 
   /** l.2. Create log file */
   
-  class_call(parser_read_string(pfc,"log file",&string1,&flag1,errmsg),
+  class_call(parser_read_string(pfc,"log_file",&string1,&flag1,errmsg),
              errmsg,
              errmsg);
 
   if (flag1 == _TRUE_) {
-    sprintf (ppr->log_filename, "%s/%s", pop->root, string1);
+    sprintf (ppr->log_filename, "%s%s", pop->root, string1);
     class_open(log_file,ppr->log_filename,"w",errmsg);    
   }
   
@@ -4416,35 +4399,31 @@ int input_default_params(
   pbi->has_orthogonal_model = _FALSE_;
   pbi->has_galileon_model = _FALSE_;
   pbi->has_intrinsic_squeezed = _FALSE_;
-  pbi->has_intrinsic_squeezed_unlensed = _FALSE_;
   pbi->has_local_squeezed = _FALSE_;
   pbi->has_cosine_shape = _FALSE_;
   pbi->has_cmb_lensing = _FALSE_;
   pbi->has_cmb_lensing_squeezed = _FALSE_;
   pbi->has_cmb_lensing_kernel = _FALSE_;
   pbi->has_quadratic_correction = _FALSE_;
-  pbi->include_lensing_effects = _FALSE_;
-  pbi->lensed_intrinsic = _FALSE_;
+  pbi->has_lensed_bispectra = _FALSE_;
   pbi->output_binary_bispectra = _FALSE_;
 
   /** - fisher structure */
 
   pfi->fisher_verbose = 0;
-  pfi->always_interpolate_bispectra = _FALSE_;
+  pbi->always_interpolate_bispectra = _FALSE_;
   pfi->has_fisher = _FALSE_;
   pfi->l_min_estimator = 2;
   pfi->l_max_estimator = 10000000;
-  pfi->bispectra_interpolation = mesh_interpolation_2D;
+  pbi->interpolation_method = bilinear_interpolation;
   pfi->f_sky = 1;
   pfi->n_channels = 1;
   pfi->beam[0] = 0;
   pfi->noise_t[0] = 0;
   pfi->noise_e[0] = 0;
-  pfi->noise_r[0] = 0;
   pfi->ignore_t = _FALSE_;
   pfi->ignore_e = _FALSE_;
   pfi->ignore_b = _FALSE_;
-  pfi->ignore_r = _FALSE_;
   pfi->include_lensing_effects = _FALSE_;
   pfi->squeezed_ratio = 0;
   pfi->compute_lensing_variance_lmax = _FALSE_;

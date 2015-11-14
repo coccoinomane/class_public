@@ -18,6 +18,7 @@ vpath .base build
 
 # your C compiler:
 CC       = gcc
+#CC       = /usr/bin/gcc
 #CC       = icc
 #CC       = pgcc
 
@@ -42,9 +43,20 @@ CFLAGS = -g -fPIC -std=c99
 CFLAGS += -DDEBUG
 LDFLAGS = -g -fPIC
 
-# leave blank to compile without HyRec, or put path to HyRec directory
+# Leave blank to compile without HyRec, or put path to HyRec directory
 # (with no slash at the end: e.g. hyrec or ../hyrec)
 HYREC = hyrec
+
+# Flags for the default compiler in Mac Os X, clang. Note that clang
+# does not support openmp, so SONG will be much slower. If you want
+# to run SONG in a parallel way, download gcc from Macports, Homebrew
+# or http://hpc.sourceforge.net/.
+CLANG = $(shell $(CC) --version | grep clang)
+ifneq ($(strip $(CLANG)),)
+OPTFLAG := $(subst -O4, -O3, $(OPTFLAG))
+OMPFLAG := $(subst -fopenmp, -openmp, $(OMPFLAG))
+LDFLAG += -Wl,-stack_size,0x400000000
+endif
 
 
 ########################################################

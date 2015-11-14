@@ -8,6 +8,8 @@
 #include "spectra.h"
 #include "slatec_3j_C.h"
 #include "binary.h"
+#include "mesh_interpolation.h"
+
 
 /**
  * Kinds of bispectrum that SONG can compute.
@@ -23,26 +25,98 @@ enum bispectra_types {
 
 
 
+/**
+ * Possible interpolation methods for the bispectrum.
+ */
+enum bispectra_interpolation_method {
+  smart_interpolation,
+  bilinear_interpolation,
+  trilinear_interpolation,
+  mesh_interpolation_2D,
+  mesh_interpolation_3D
+};
+
+
+struct bispectra;
+
+
+/**
+ * Type for the bispectrum window functions
+ */
+typedef int window_function_type(
+  struct precision * ppr,
+  struct spectra * psp,
+  struct lensing * ple,
+  struct bispectra * pbi,
+  int l1, int l2, int l3,
+  int X, int Y, int Z,
+  double *result
+  );
+
+
+/**
+ * Type for the analytical bispectra functions
+ *
+ * The three threej variables are the following 3j-symbols, respectively:
+ *
+ *   ( l1, l2, l3 )   ( l1, l2, l3 )   ( l1, l2, l3 )
+ *   (  2,  0, -2 )   ( -2,  2,  0 )   (  0, -2,  2 )
+ *
+ * They are needed only for the quadratic and CMB-lensing bispectra.
+ */
+typedef int analytical_function_type(
+  struct precision * ppr,
+  struct spectra * psp,
+  struct lensing * ple,
+  struct bispectra * pbi,
+  int l1, int l2, int l3,
+  int X, int Y, int Z,
+  int lens_me,
+  double threej_ratio_20m2,
+  double threej_ratio_m220,
+  double threej_ratio_0m22,
+  double *result
+  );
+
+
+
 struct bispectra {
 
   // ====================================================================================
   // =                                     Flags                                        =
   // ====================================================================================
 
-  /* Should we compute any bispectra at all? */
-  short has_bispectra;
+  short has_bispectra; /**< Should we compute any bispectra at all? If this flag is set
+                       to _FALSE_, the bispectrum module will be skipped altogether. */
 
-  /* Should we include the lensing effects in the computation of the bispectra? This affects
-  only analytical bispectra such as the CMB-lensing and the squeezed approximation for the
-  intrinsic bispectrum */
-  short include_lensing_effects;
-  
-  /* Flag that overrides 'include_lensing_effects' for the intrinsic bispectrum. If _FALSE_,
-  never use the lensed version of the intrinsic bispectrum or of its approximation  */ 
-  short lensed_intrinsic;
+  /**
+   * Should we compute the lensing of the bispectrum?
+   *
+   * Gravitational lensing due to intervening matter bends the trajectory of
+   * photons from the last scattering surface to us. This effect alters the
+   * shape of the CMB bispectra and is called lensing of the bispectrum.
+   *
+   * We parameterise the lensing of the bispectrum as an additive factor to
+   * the unlensed bispectrum.
+   *
+   * If this flag is turned on, the lensing correction will be stored in
+   * pbi->bispectra_lensing_correction and added to the unlensed bispectrum
+   * in pbi->bispectra. Otherwise, pbi->bispectra will contain the unlensed
+   * bispectrum.
+   *
+   * For some analytical bispectra (squeezed approximations, CMB-lensing...)
+   * the lensing is computed by just substituting the unlensed C_l in their
+   * definition with the lensed C_l.
+   *
+   * For arbitrary bispectra, however, the lensing correction requires
+   * convolving the unlensed bispectrum with the lensing potential C_l^PP.
+   * We do so in bispectra_lensing().
+   */          
+  short has_lensed_bispectra;
 
-  /* Are the Wigner 3j-symbols needed to compute the requested bispectra? */
-  short need_3j_symbols;
+  short need_3j_symbols; /**< Are the Wigner 3j-symbols needed to compute the requested bispectra?  
+                         This is the case for the CMB-lensing bispectrum and for the quadratic 
+                         bispectrum. */
 
 
 
@@ -55,15 +129,15 @@ struct bispectra {
   short has_equilateral_model;        /* Equilateral model */  
   short has_orthogonal_model;         /* Orthogonal model */
   short has_galileon_model;           /* Galileon inflation (arXiv:1108.0305) */
-  short has_intrinsic;                /* Bispectrum induced by non-linear dynamics (see bispectra2.c) */
-  short has_intrinsic_squeezed;       /* Squeezed limit for the intrinsic bispectrum (Creminelli et al. 2012, Bartolo et al. 2012, Lewis 2012) */
-  short has_intrinsic_squeezed_unlensed; /* Same as above, but unlensed */
+  short has_intrinsic;                /* Bispectrum induced by non-linear dynamics */
+  short has_intrinsic_squeezed;       /* Squeezed limit for the 2nd-order bispectrum (Creminelli et al. 2012, Bartolo et al. 2012, Lewis 2012) */
   short has_local_squeezed;           /* Squeezed limit for local model (Guangui et al. 1994) */
   short has_cosine_shape;             /* The above, multiplied by an oscillating function in l */
   short has_cmb_lensing;              /* CMB-lensing bispectrum (Eq. 4.5 of arxiv:1101.2234) */
   short has_cmb_lensing_squeezed;     /* Squeezed limit of the CMB-lensing bispectrum (Eq. 5.20 of arxiv:1101.2234) */
   short has_cmb_lensing_kernel;       /* Squeezed limit of the CMB-lensing bispectrum (kernel only, Eq. 5.20 of arxiv:1101.2234) */
   short has_quadratic_correction;     /* Four-point contribution to the bispectrum */
+  short has_test_bispectrum;          /* Simple C_l x C_l bispectrum suitable to test lensing */
 
   /* Indices for the above bispectra types */
   int index_bt_local;                 /* Index for the bispectrum for a local model */
@@ -79,7 +153,8 @@ struct bispectra {
   int index_bt_cmb_lensing;           /* Index for the bispectrum of CMB-lensing */
   int index_bt_cmb_lensing_squeezed;  /* Index for the bispectrum of CMB-lensing in the squeezed limit */
   int index_bt_cmb_lensing_kernel;    /* Index for the bispectrum of CMB-lensing in the squeezed limit (kernel only) */
-  int index_bt_quadratic;             /* Index for the bispectrum induced by a quadratic correction to the distribution function */  
+  int index_bt_quadratic;             /* Index for the bispectrum induced by a quadratic correction to the distribution function */
+  int index_bt_test;                  /* Index for the test bispectrum */
   int bt_size;                        /* Total number of bispectra types requested */
 
   /* Array of strings that contain the text labels of the various bispectra */
@@ -112,46 +187,85 @@ struct bispectra {
   possible to obtain the value of b_l1l2l3 for odd l1+l2+3. We take note of these
   non-reducible bispectra using the following array. */
   int has_reduced_bispectrum[_MAX_NUM_BISPECTRA_];
+
+  /**
+   * Logical array to mark the bispectra that need to be lensed.
+   */
+  int lens_me[_MAX_NUM_BISPECTRA_];
+
+  /**
+   * Logical array to mark the bispectra that need to be interpolated.
+   */
+  int interpolate_me[_MAX_NUM_BISPECTRA_];
   
-  /* Add the bolometric and redshift corrections (in the form of C_l*C_l) to the intrinsic
-  bispectrum? Ignore if you are only interested in first-order CLASS, and see function
-  bispectra2_add_quadratic_correction() for a proper documentation. */
+  /**
+   * Logical array to mark the bispectra that are symmetric with respect to
+   * permutations of (l1,X1), (l2,X2) and (l3,X3).
+   *
+   * By construction, all bispectra must be symmetric with respect to any
+   * simultaneous permutation of a multipole index (l=2,3,4...) and the
+   * associated field index (X=T,E,B...). This follows from the very
+   * definition of a bispectrum: b = <a_l1m1^X1 a_l2m2^X2 a_l3m3^X3>.
+   *
+   * In SONG we rely on this symmetry to compute the bispectra: we store
+   * them only for the configurations where l1>=l2>=l3 and then obtain
+   * other combinations by permuting the field indices (X1, X2, X3).
+   *
+   * Some bispectra however are defined in such a way that the three
+   * multipoles are not on the same ground. For example, in the squeezed
+   * limit approximations (eg. for the CMB-lensing, local and intrinsic
+   * bispectra) one of the multipoles is assigned the large wavelength
+   * mode, ie. the mode with small l.
+   * 
+   * For these bispectra, the 1<->2<->3 symmetry is lost. SONG computes
+   * them only in those configurations that satisfy l1>=l2>=l3 and set
+   * their value to zero for the other ones.
+   */
+  int is_symmetric[_MAX_NUM_BISPECTRA_];
+  
+  /**
+   * Logical array to mark the bispectra that will be lensed with the convolution
+   * method in the bispectra_lensing() function.
+   *
+   * The other bispectra will be lensed analytically on a one-by-one case. For
+   * example the CMB-lensing bispectrum and the squeezed approximations will be
+   * lensed by sustituting the unlensed C_l in their definition with the lensed
+   * ones.
+   */
+  int lens_me_brute_force[_MAX_NUM_BISPECTRA_];
+  
+  /**
+   * Add the bolometric and redshift corrections to the second-order bispectra?
+   *
+   * Not used unless you requested the intrinsic bispectrum. Refer to
+   * bispectra2_add_quadratic_correction() for documentation.
+   */
   short add_quadratic_correction;
 
-  /* Array of functions that associates to a bispetrum index its analytical function. Defined only for
-  the analytical bispectra. The four 'threej' variables must be respectively the following 3j-symbols:
-  ( l1, l2, l3 )      ( l1, l2, l3 )      ( l1, l2, l3 )    ( l1, l2, l3 )
-  (  0,  0,  0 )      (  0, -2,  2 )      (  2,  0, -2 )    ( -2,  2,  0 )
-  They are needed only for the 'quadratic' and CMB-lensing bispectra. */
-  int (*bispectrum_function[_MAX_NUM_BISPECTRA_]) (
-    struct precision * ppr,
-    struct spectra * psp,
-    struct lensing * ple,
-    struct bispectra * pbi,
-    int l1, int l2, int l3,
-    int X, int Y, int Z,
-    double threej_ratio_20m2,
-    double threej_ratio_m220,
-    double threej_ratio_0m22,
-    double *result
-  );
+  /**
+   * Functions to use for the computation of the analytical bispectra.
+   *
+   * This array of functions associates to a bispectrum the function used to
+   * compute it.
+   *
+   * It is defined only for the analytical bispectra; non-analytical bispectra
+   * will have NULL entries.
+   */
+  analytical_function_type * bispectrum_function[_MAX_NUM_BISPECTRA_];
 
-  /* To obtain the Fisher matrix involving non-analytical bispectra, these will need to be interpolated
-  in (l1,l2,l3). For bispectra with power on squeezed configurations, like the local and intrinisc ones,
-  it is preferable to use a window function for the interpolation. This array contains the window
-  function associated to each bispectrum. A NULL function implies that no window function will be used. */
-  int (*window_function[_MAX_NUM_BISPECTRA_]) (
-    struct precision * ppr,
-    struct spectra * psp,
-    struct lensing * ple,
-    struct bispectra * pbi,
-    int l1, int l2, int l3,
-    int X, int Y, int Z,
-    double threej_ratio_20m2,
-    double threej_ratio_m220,
-    double threej_ratio_0m22,
-    double *result
-  );
+  /**
+   * Window functions to use to interpolate each bispectrum.
+   *
+   * The interpolation in (l1,l2,l3) of a given bispectrum might be easier if it is
+   * divided by a window function beforehand. For example, bispectra peaked on
+   * squeezed configurations might benefit from a window function that peaks itself
+   * on squeezed scales, in order to make the interpolated function smoother.
+   *
+   * This array contains the window functions associated to each bispectrum. A NULL
+   * entry implies that the corresponding bispectrum does not have a window function.
+   */
+  window_function_type * window_function[_MAX_NUM_BISPECTRA_];
+
 
 
   // ====================================================================================
@@ -163,12 +277,10 @@ struct bispectra {
   short has_bispectra_t;
   short has_bispectra_e;
   short has_bispectra_b;
-  short has_bispectra_r;
 
   int index_bf_t;
   int index_bf_e;
   int index_bf_b;
-  int index_bf_r;
   int bf_size;
 
   /* Actual number of bispectra to be computed (usually 'bf_size' to the power of 3, it is 8 for
@@ -212,10 +324,12 @@ struct bispectra {
   // =                                    Sampling in l                                 =
   // ====================================================================================
 
-  int * l;                                /* List of multipole values pbi->l[index_l] */
-  int l_size;                             /* Number of l's where we compute the bispectrum */
-  int l_max;                              /* Maximum value in pbi->l */
-  int full_l_size;                        /* Total number of l's, given by l_max - 2 + 1 */
+  int * l;                /**< 1D list of multipole values, used as a grid to determine
+                          the (l1,l2,l3) configurations where the bispectrum is computed */
+  int l_size;             /**< Size of l */
+  int l_min;              /**< Minimum value in pbi->l (=2 in most cases) */
+  int l_max;              /**< Maximum value in pbi->l */
+  int full_l_size;        /**< l_max - l_min + 1 */
   
   /* The bispectrum depends on 3 l-values (l1,l2,l3), which must satisfy the triangular inequality:
   |l1-l2| <= l3 <= l1+l2.  We determine the range of l3 within pbi->l using the following two arrays. */
@@ -248,11 +362,37 @@ struct bispectra {
   size of index_l1_l2_l3. */
   long int n_independent_configurations;
 
-  /* Multi-array where the bispectra will be stored.  It must be indexed as
-    bispectra [index_bt][X][Y][Z][index_l1_l2_l3]
-  where X,Y,Z=T,E,B are indexed by the 'pbi->index_bf' indices, and
-  'index_l1_l2_l3' is described above. */          
+  /**
+   * Array where the bispectra will be stored.
+   *
+   * The bispectra array is indexed in the following way:
+   * 
+   * bispectra [index_bt][X][Y][Z][index_l1_l2_l3]
+   *
+   * - index_bt is the bispectrum type index (local, equilateral, intrinsic...) and 
+   *   it can be any of the active pbi->index_bt_XXX indices. 
+   * - X, Y and Z are field indices (temperature, E-polarisation, B-polarisation...)
+   *   and can be any of the active pbi->index_bf_XXX indices.
+   * - index_l1_l2_l3 is the index pointing to the (l1,l2,l3) configurations; see
+   *   documentation for index_l1_l2_l3 for more information.
+   *
+   * If the flag has_lensed_bispectra is turned on, the bispectra stored in this array
+   * will be lensed.
+   */
   double ***** bispectra;
+
+  
+  /**
+   * Array where the correction to the bispectrum due to lensing will be stored.
+   *
+   * Gravitational lensing due to intervening matter bends the trajectory of
+   * photons from the last scattering surface to us. This effect alters the
+   * shape of the CMB bispectra and is called lensing of the bispectrum.
+   *
+   * We parameterise the lensing of the bispectrum as an additive factor to
+   * the unlensed bispectrum.
+   */
+  double ***** lensing_correction;
   
   /* In computing the CMB-lensing bispectrum, turn the lensing potential C_l to zero on small scales,
   where we cannot trust them. This won't change the result because these C_l's are very small for
@@ -327,6 +467,119 @@ struct bispectra {
 
 
   // ====================================================================================
+  // =                            Bispectrum interpolation                              =
+  // ====================================================================================
+  
+  /**
+   * What method should we use for interpolating the bispectra (bilinear,
+   * mesh_2D, mesh_3D...)
+   */
+  enum bispectra_interpolation_method interpolation_method;
+
+
+  /**
+   * Parameters for the mesh interpolation of the bispectra.
+   *
+   * The main difficulty in interpolating the bispectrum is that it is not defined on
+   * a cubic grid. In fact, the triangular condition |l2-l3| <= l1 <= l2+l3, results
+   * in a domain for (l1,l2,l3) that has the shape of a "tetrapyd", the union of two
+   * triangular pyramids through the base (see Fig. 2 of Fergusson et al. 2012).
+   *
+   * The problem can be circumvented by deforming the allowed region to a cube via a
+   * geometrical transformation and then using trilinear interpolation (Fergusson et al.
+   * 2009). While viable, this approach would force us to discard the points that do
+   * not fall in the transformed grid, thus requiring a finer l-sampling.
+   *
+   * Rather than relying on a cubic grid, we devise a general interpolation technique
+   * that is valid on any mesh. We first define a correlation length L and divide the
+   * tetrapyd domain in boxes of side L. To compute the interpolation in an arbitrary
+   * triplet (l1,l2,l3), we consider the values of all the nodes in the box where
+   * the triplet lives and in the adjacent ones. To each node, we assign a weight that
+   * is inversely proportional to its distance from (l1,l2,l3).
+   *
+   * The problem with this approach is that, the mesh being inhomogeneous, there might
+   * be a group of close nodes in one direction that influences the interpolated value
+   * in (l1,l2,l3) much more than a closer point in the opposite direction. In order
+   * to prevent this, we weight down the nodes that have a high local density within a
+   * certain distance from them.
+   *
+   * This mesh interpolation technique relies on two free parameters:
+   *
+   * - The linking length L which sets the size of the local region influencing
+   *   the interpolation. In a homogenous grid, it should correspond roughly to the
+   *   largest distance of two neighbouring points.
+   *
+   * - The grouping length, that is the distance below which many close nodes are
+   *   considered as a single one. It is used to avoid the interpolation being
+   *   determined by a bunch of close nodes in one direction. In a homogenous grid,
+   *   The grouping length should roughly correspond to the shortest distance between
+   *   two points.
+   *
+   * Since the bispectra sampling is denser for small l and sparser for high l, we use
+   * two meshes: a fine mesh with a small linking length, to interpolate the bispectrum
+   * in the region where all l are small, and a coarse mesh with a larger linking length,
+   * to interpolate it in the remaining region. The turnover point between the two
+   * regions is determined based on the l sampling in pbi->l, and is memorised in
+   * pbi->mesh_l_turnover.
+   */
+  //@{
+
+  /** 
+   * Data needed to interpolate the bispectra with the mesh technique.
+   *
+   * The meshes array contains two interpolation meshes per bispectrum:
+   *
+   * - A fine mesh to interpolate the bispectrum for l < l_turnover.
+   * - A coarse mesh to interpolate the bispectrum for l >= l_turnover.
+   *
+   * The fine and coarse mesh have a linking length roughly equal to the
+   * distance between the two closest and furthest neighbouring points,
+   * respectively.
+   * 
+   * Why two meshes? Using only a fine mesh all the way to l_max would
+   * imply more memory usage, because a small linking length means more
+   * interpolation boxes to keep track of. On the other hand, the coarse
+   * mesh is quick to compute but takes much more time to use for
+   * interpolation, because larger interpolation boxes mean more nodes
+   * to include and the interpolation algorithm goes as n_nodes^2 or
+   * n_nodes^3.
+   *
+   * The meshes array is indexed in the same way as pbi->bispectra, but
+   * with two extra levels:
+   *
+   *  pbi->meshes[index_l1][index_bt][X][Y][Z][index_mesh]
+   *
+   * For 3D interpolation, the index_l1 level is collapsed to a single
+   * element, because a single 3D mesh is enough to interpolate the bispectrum
+   * for all values of l1. For 2D interpolation, it has size pbi->l_size.
+   *
+   * The level indexed by index_mesh has only two elements, corresponding
+   * to the fine mesh (index_mesh=0) and to the coarse mesh (index_mesh=1).
+   */
+  struct interpolation_mesh ******* meshes;
+  
+  double mesh_link_lengths[2];  /**< Linking lengths of the fine & coarse interpolation meshes */
+  double mesh_group_lengths[2]; /**< Grouping lengths of the fine & coarse interpolation meshes */
+  double mesh_soft_coeffs[2];   /**< Softening of the linking length of the fine & coarse interpolation meshes, fixed to 0.5 */
+  int mesh_l_turnover;  /**< Turnover multipole between the fine and coarse interpolation meshes;
+                        determined based on the l-sampling in pbi->l */
+
+  /**
+   * Should we restrict the (l1,l2,l3) domain for the mesh interpolation?
+   *
+   * When building the interpolation mesh for the bispectrum, we can choose to
+   * restrict the domain to those configurations with l1<=l2<=l3, which results
+   * in less memory usage. This is fine to build the Fisher matrix, which is
+   * obtained via a sum over l1<=l2<=l3, but it is not ok to compute the lensing
+   * of the bispectrum, where the sum is unrestricted.
+   */
+  short mesh_restrict_l1l2l3;
+
+  //@}
+
+
+
+  // ====================================================================================
   // =                                  Disk storage                                    =
   // ====================================================================================
 
@@ -362,15 +615,9 @@ struct bispectra {
   long int count_allocated_for_bispectra;    /**< Number of elements allocated in pbi->bispectra */
   long int count_memorised_for_bispectra;    /**< Number of elements memorised in pbi->bispectra */
   short output_binary_bispectra;             /**< Should we write the all bispectra and accessory infromation to fiel? */
-
+  short always_interpolate_bispectra;        /**< Should we interpolate also the analytical bispectra? */
 
 };
-
-
-
-
-
-
 
 
 /**
@@ -509,7 +756,6 @@ struct bispectra_workspace_non_separable {
     yields a function of (l1,l2,l3) that is symmetric under permutations of (l1,l2,l3).  Hence, we compute and store it only for
     l1>=l2>=l3 configurations (that satisfy the triangular condition) */
   double ** integral_over_k1;
-  // double **** integral_over_k1;
 
 
 
@@ -526,8 +772,8 @@ struct bispectra_workspace_non_separable {
   
 
   /* Array that contains the interpolated values of the above integrals in ptr->k. Each thread has one.
-    Indexed as integral_splines[thread][index_k] and interpolated_integral[thread][index_k], where
-    index_k belongs to ptr->k. */
+  Indexed as integral_splines[thread][index_k] and interpolated_integral[thread][index_k], where
+  index_k belongs to ptr->k. */
   double ** integral_splines;
   double ** interpolated_integral;
   
@@ -580,6 +826,61 @@ extern "C" {
        struct lensing * ple,
        struct bispectra * pbi
        );
+
+  int bispectra_at_node (
+      struct bispectra * pbi,
+      int index_bt,
+      int index_l1, int index_l2, int index_l3,
+      int X, int Y, int Z,
+      double * bispectrum,
+      double * bispectrum_unlensed
+      );
+
+  int bispectra_at_l2l3 (
+      struct precision * ppr,
+      struct transfers * ptr,
+      struct spectra * psp,
+      struct lensing * ple,
+      struct bispectra * pbi,
+      int index_bt,
+      int index_l1,
+      int l1, int l2, int l3,
+      int X, int Y, int Z,
+      double * bispectrum,
+      double * bispectrum_unlensed
+      );
+
+  int bispectra_at_l2l3_bilinear (
+      struct transfers * ptr,
+      struct bispectra * pbi,
+      int index_bt,
+      int index_l1, int l2, int l3,
+      int X, int Y, int Z,
+      int extrapolate,
+      double * bispectrum,
+      double * bispectrum_unlensed
+      );
+  
+  int bispectra_at_l2l3_mesh (
+      struct bispectra * pbi,
+      int index_bt,
+      int index_l1,
+      int l1, int l2, int l3,
+      int X, int Y, int Z,
+      double * bispectrum
+      );
+  
+
+  int bispectra_at_l3_linear (
+      struct transfers * ptr,
+      struct bispectra * pbi,
+      int index_bt,
+      int index_l1, int index_l2, int l3,
+      int X, int Y, int Z,
+      int interpolate,
+      double * bispectrum,
+      double * bispectrum_unlensed
+      );
 
   int bispectra_free(
        struct precision * ppr,
@@ -860,6 +1161,69 @@ extern "C" {
       struct bispectra_workspace_non_separable * pwb
       );
 
+
+  int bispectra_lensing (
+       struct precision * ppr,
+       struct background * pba,
+       struct thermo * pth,
+       struct perturbs * ppt,
+       struct bessels * pbs,
+       struct transfers * ptr,
+       struct primordial * ppm,
+       struct spectra * psp,
+       struct lensing * ple,
+       struct bispectra * pbi,
+       int index_bt
+       );
+
+  int bispectra_lensing_convolution (
+       struct precision * ppr,
+       struct transfers * ptr,
+       struct spectra * psp,
+       struct lensing * ple,
+       struct bispectra * pbi,
+       int index_l1, int index_l2, int index_l3,
+       int X1, int X2, int X3,
+       int index_bt,
+       double * result
+       );
+
+  int bispectra_lensing_convolution_linear (
+       struct precision * ppr,
+       struct transfers * ptr,
+       struct spectra * psp,
+       struct lensing * ple,
+       struct bispectra * pbi,
+       int index_l1, int index_l2, int index_l3,
+       int X1, int X2, int X3,
+       int index_bt,
+       double * result
+       );
+
+  int bispectra_lensing_convolution_nodes (
+       struct precision * ppr,
+       struct transfers * ptr,
+       struct spectra * psp,
+       struct lensing * ple,
+       struct bispectra * pbi,
+       int index_l1, int index_l2, int index_l3,
+       int X1, int X2, int X3,
+       int index_bt,
+       double * result
+       );
+
+  int bispectra_lensing_convolution_nodes (
+       struct precision * ppr,
+       struct transfers * ptr,
+       struct spectra * psp,
+       struct lensing * ple,
+       struct bispectra * pbi,
+       int index_l1, int index_l2, int index_l3,
+       int X1, int X2, int X3,
+       int index_bt,
+       double * result
+       );
+
   int bispectra_store_to_disk(
       struct bispectra * pbi,
       int index_bt
@@ -868,16 +1232,6 @@ extern "C" {
   int bispectra_load_from_disk(
       struct bispectra * pbi,
       int index_bt
-      );
-
-
-  int bispectra_interpolate (
-      struct bispectra * pbi,
-      int index_bt,
-      double l1,
-      double l2,
-      double l3,
-      double * interpolated_value
       );
 
   int bispectra_galileon_gradient (
@@ -927,6 +1281,7 @@ extern "C" {
        struct bispectra * pbi,
        int l1, int l2, int l3,
        int X1, int X2, int X3,
+       int lens_me,
        double threej_ratio_20m2,
        double threej_ratio_m220,
        double threej_ratio_0m22,
@@ -940,6 +1295,7 @@ extern "C" {
        struct bispectra * pbi,
        int l1, int l2, int l3,
        int X1, int X2, int X3,
+       int lens_me,
        double threej_ratio_20m2,
        double threej_ratio_m220,
        double threej_ratio_0m22,
@@ -953,6 +1309,7 @@ extern "C" {
        struct bispectra * pbi,
        int l1, int l2, int l3,
        int X1, int X2, int X3,
+       int lens_me,
        double threej_ratio_20m2,
        double threej_ratio_m220,
        double threej_ratio_0m22,
@@ -967,6 +1324,7 @@ extern "C" {
        struct bispectra * pbi,
        int l1, int l2, int l3,
        int X1, int X2, int X3,
+       int lens_me,
        double threej_ratio_20m2,
        double threej_ratio_m220,
        double threej_ratio_0m22,
@@ -981,6 +1339,7 @@ extern "C" {
        struct bispectra * pbi,
        int l1, int l2, int l3,
        int X1, int X2, int X3,
+       int lens_me,
        double threej_ratio_20m2,
        double threej_ratio_m220,
        double threej_ratio_0m22,
@@ -988,27 +1347,28 @@ extern "C" {
        );
 
 
-  int bispectra_intrinsic_squeezed_unlensed_bispectrum (
+  int bispectra_quadratic_correction (
        struct precision * ppr,
        struct spectra * psp,
        struct lensing * ple,
        struct bispectra * pbi,
        int l1, int l2, int l3,
        int X1, int X2, int X3,
+       int lens_me,
        double threej_ratio_20m2,
        double threej_ratio_m220,
        double threej_ratio_0m22,
        double * result
-       );
+       ); 
 
-
-  int bispectra_quadratic_bispectrum (
+  int bispectra_test_bispectrum (
        struct precision * ppr,
        struct spectra * psp,
        struct lensing * ple,
        struct bispectra * pbi,
        int l1, int l2, int l3,
        int X1, int X2, int X3,
+       int lens_me,
        double threej_ratio_20m2,
        double threej_ratio_m220,
        double threej_ratio_0m22,
@@ -1022,9 +1382,6 @@ extern "C" {
        struct bispectra * pbi,
        int l1, int l2, int l3,
        int X, int Y, int Z,
-       double not_used_1,
-       double not_used_2,
-       double not_used_3,
        double * result
        );
 
@@ -1035,66 +1392,110 @@ extern "C" {
        struct bispectra * pbi,
        int l1, int l2, int l3,
        int X, int Y, int Z,
-       double not_used_1,
-       double not_used_2,
-       double not_used_3,
        double * result
        );
 
   int bispectra_cosine_bispectrum (
-       struct precision * ppr,
-       struct spectra * psp,
-       struct lensing * ple,
-       struct bispectra * pbi,
-       int l1, int l2, int l3,
-       int X1, int X2, int X3,
-       double threej_ratio_20m2,
-       double threej_ratio_m220,
-       double threej_ratio_0m22,
-       double * result
-       );
+        struct precision * ppr,
+        struct spectra * psp,
+        struct lensing * ple,
+        struct bispectra * pbi,
+        int l1, int l2, int l3,
+        int X1, int X2, int X3,
+        int lens_me,
+        double threej_ratio_20m2,
+        double threej_ratio_m220,
+        double threej_ratio_0m22,
+        double * result
+        );
 
 
   int bispectra_local_window_function (
-       struct precision * ppr,
-       struct spectra * psp,
-       struct lensing * ple,
-       struct bispectra * pbi,
-       int l1, int l2, int l3,
-       int X1, int X2, int X3,
-       double threej_ratio_20m2,
-       double threej_ratio_m220,
-       double threej_ratio_0m22,
-       double * result
-       );
+        struct precision * ppr,
+        struct spectra * psp,
+        struct lensing * ple,
+        struct bispectra * pbi,
+        int l1, int l2, int l3,
+        int X1, int X2, int X3,
+        double * result
+        );
 
 
   int bispectra_intrinsic_window_function (
-       struct precision * ppr,
-       struct spectra * psp,
-       struct lensing * ple,
-       struct bispectra * pbi,
-       int l1, int l2, int l3,
-       int X, int Y, int Z,
-       double threej_ratio_20m2,
-       double threej_ratio_m220,
-       double threej_ratio_0m22,
-       double * result
-       );
-       
+        struct precision * ppr,
+        struct spectra * psp,
+        struct lensing * ple,
+        struct bispectra * pbi,
+        int l1, int l2, int l3,
+        int X, int Y, int Z,
+        double * result
+        );
 
-  int bispectra_local_window_function_test (
-       struct precision * ppr,
-       struct spectra * psp,
-       struct lensing * ple,
-       struct bispectra * pbi,
-       int l1, int l2, int l3,
-       int X1, int X2, int X3,
-       double threej_ratio_20m2,
-       double threej_ratio_m220,
-       double threej_ratio_0m22,
-       double * result
-       );
+
+  int bispectra_mesh_interpolate (
+        struct precision * ppr,
+        struct spectra * psp,
+        struct lensing * ple,
+        struct bispectra * pbi,
+        int index_bt,
+        int index_L1,
+        double l3, double l2, double l1,
+        int X, int Y, int Z,
+        struct interpolation_mesh * fine_mesh,
+        struct interpolation_mesh * coarse_mesh,
+        double * result
+        );
+
+  int bispectra_mesh_allocate(
+        struct precision * ppr,
+        struct spectra * psp,
+        struct lensing * ple,
+        struct bispectra * pbi,
+        struct interpolation_mesh ******* meshes
+        );
+
+
+  int bispectra_mesh_empty(
+        struct bispectra * pbi,
+        struct interpolation_mesh ******* meshes
+        );
+
+
+  int bispectra_mesh_free(
+        struct bispectra * pbi,
+        struct interpolation_mesh ******* meshes
+        );
+
+
+  int bispectra_mesh_create (
+        struct precision * ppr,
+        struct spectra * psp,
+        struct lensing * ple,
+        struct bispectra * pbi,
+        int index_bt,
+        int X, int Y, int Z,
+        window_function_type * window_function,
+        int index_l1,
+        int l_max,
+        double link_length,
+        double group_length,
+        double soft_coeff,
+        int *** grid,
+        int **** id,
+        struct interpolation_mesh * mesh
+        );
+
+
+  int bispectra_mesh_create_for_all_probes (
+        struct precision * ppr,
+        struct spectra * psp,
+        struct lensing * ple,
+        struct bispectra * pbi,
+        int index_bt,
+        int index_l1,
+        struct interpolation_mesh ****** meshes
+        );
+
 
 #ifdef __cplusplus
 }

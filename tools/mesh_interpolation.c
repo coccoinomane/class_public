@@ -1,214 +1,321 @@
 #include "mesh_interpolation.h"
 
+/**
+ * Prepare a function f(x,y) or f(x,y,z) for interpolation with the mesh algorithm.
+ *
+ * The interpolation mesh thus initialised can be used to interpolate the function
+ * with the mesh_interpolate() function. The function can be either defined on
+ * a bidimensional (n_dim=2) or tridimensional (n_dim=3) domain.
+ *
+ * In detail, this function does:
+ *
+ * -# Determine the size of each bin in 3D space based on the input linking
+ *    length. Nodes farther than the linking length won't influence the
+ *    interpolation, so link_length is effectively a correlation scales.
+ *
+ * -# Create a grid, that is count the number of nodes in each bin of
+ *    side equal to the linking length. This is stored in mesh->grid[ix][iy][iz].
+ *
+ * -# Assign to each node in the grid a unique identifier, in order to establish
+ *    a correspondence between the binned nodes and their values (x,y,z,f).
+ * 
+ * -# Compute for each binned node its local density, ie. the density of nodes
+ *    around it in the same bin.
+ *
+ * For each other node in the bin, the density gets a contribution of
+ *  e^(-distance squared/grouping_length) so that a group of nodes clustered
+ * on a scale smaller than the grouping length counts as one particle. The density
+ * is needed only to downweight those points that are clustered so that they count
+ * as one (see mesh_interpolate()).
+ *
+ * Note that so far the mesh only supports x>0, y>0, z>0.
+ */
 
-
-// ==============================================================================================
-// =                                       3D interpolation                                     =
-// ==============================================================================================
-
-
-int mesh_3D_sort (
-    struct mesh_interpolation_workspace * pw,
-    double ** vals
-    )
+int mesh_init (
+      int n_dim, /**< Input: Dimensionality of the function domain; set n_dim=2 for bidimensional
+                (x,y) or n_dim=3 for tridimensional (x,y,z) */
+      int n_nodes, /**< Input: Number of points where the function is known */
+      double (*values)[4], /**< Input: Array containing the coordinates and the function value
+                           for each of the nodes. Build it in the following way:
+                             values[n][0] -> value of f in the node n
+                             values[n][1] -> x coordinate of the node n
+                             values[n][2] -> y coordinate of the node n
+                             values[n][3] -> z coordinate of the node n
+                           The ordering of the nodes (ie. which n goes first) is arbitrary. For
+                           2D interpolation, the z coordinate is ignored. */
+      double max, /**< Input: Nodes with a coordinate larger than this will be ignored */
+      double link_length, /**< Input: Linking length (see header file) */
+      double group_length, /**< Input: Grouping length (see haeder file) */
+      double soft_coeff, /**< Input: Softening coefficients (see header file) */
+      int *** grid, /**< Input: Use this grid instead of computing it from scratch; set to NULL to ignore */
+      int **** id, /**< Input: Use this id array instead of computing it from scratch; set to NULL to ignore */
+      struct interpolation_mesh * mesh /**< Output: The mesh to initialise */
+      )
 {
 
-  /*This routine presorts an unsorted mesh. 
-  In: ** vals: vals[n][0] is the value of the nth point, vals[n][1] is the x coordinate, [2] is the y, [3] is z.  
-  num_points: the number of points
-  link_length: the local region influencing the values, on an in homogenous grid this should correspond roughly to the largest distance of two neighbouring points
-  soft_coeff: softens the link_length. The default value on most meshs should be 0.5
-  group_length: down weights clusters of many close points. In an in homogenous grid this should correspond to the shortest distance of two points
-  max_l: the mesh assumes the arguments in each direction should be between 0 and max_l
-  Out: grid: this specifies how many points fall in each bin of the new sorted mesh. It will be allocated by this routine automatically
-  Return value: the new sorted mesh 
-  */
+  class_test (mesh->ready == _TRUE_,
+    mesh->error_message,
+    "you are trying to initialise a mesh that is already ready to use");
 
-  /* First we create a grid, that is we count the number of particles in each box of side
-  equal to the linking length. This is stored in grid[ix][iy][iz]. Then we create the mesh,
-  an array that contains the information about the particules contained in each box. It is
-  accessed as mesh[ix][iy][ik][n] where 'n' is the ID of the particle in the box, which
-  goes from 0 to grid[ix][iy][iz]-1.  The information stored in the mesh has 5 elements.
-  The first four are x,y,z and f(x,y,z). The last is the density of points in the box
-  around the node n; for each other node in the box, the density gets a contribution of
-  e^(-distance squared/grouping_length) so that a group of particles clustered
-  on a scale smaller than the grouping length count as one particle. The density is
-  needed only to downweight those points that are clustered so that they count as one
-  (see mesh_int).
-  */
-  
+  /* Update the mesh structure with the input parameters */
+  mesh->n_dim = n_dim;
+  mesh->n_nodes = n_nodes;
+  mesh->max = max;
+  mesh->link_length = link_length;
+  mesh->group_length = group_length;
+  mesh->soft_coeff = soft_coeff;
 
-  /* Read values from structure */
-  long int num_points = pw->n_points;
-  double max_l = pw->l_max;
-  double link_length = pw->link_length;
-  double group_length = pw->group_length;
-  double soft_coeff = pw->soft_coeff;
+  /* Uncomment to adjust the linking length automatically. The criterion
+  is to have at least n points in each interpolation box. An interpolation
+  box is a volume centred on a bin and including the adjacent bins. This
+  adjustment is likely to increase the linking length for n ~ 1. Large
+  linking lengths will create large bins and slow down the interpolation
+  considerably, because more nodes are used, but it will also reduced memory
+  consumption because less bins are needed. */
+  // double n_points_per_box = 1;
+  // double link_length_min = n_points_per_box * max / pow (n_nodes, 1.0/n_dim) / (1+soft_coeff) / n_dim;
+  // if (link_length < link_length_min)
+  //   mesh->link_length = link_length_min;
 
-  /* Initialize counters */
-  pw->n_allocated_in_grid = 0;
-  pw->n_allocated_in_mesh = 0;
+  /* Initialize counters and flags */
+  mesh->n_allocated_in_grid = 0;
+  mesh->n_allocated_in_mesh = 0;
+  mesh->ready = _FALSE_;
 
-  long int i,j,k,m,n,ix,iy,iz,status;
-  int *** counter;
-  double safe = 1.; /*this can be increased to improve the accuracy, but 1 is already very good if link_length is chosen properly*/
-  pw->n_boxes = ceil(max_l/(safe*link_length*(1.+soft_coeff)));
-  long int n_boxes = pw->n_boxes;
+  /* Do not compute the grid if the user provided one */
+  mesh->compute_grid = (grid==NULL);
 
-  /* Bin the support points in a grid based on the linking length */
-  if (pw->compute_grid==_TRUE_) {
+  /* Bin the domain of the function in bins according to the linking length
+  and on the global maximum */
+  mesh->bin_size = mesh->link_length * (1 + mesh->soft_coeff);
+  mesh->n_bins = ceil(mesh->max/mesh->bin_size);
 
-    pw->grid_3D = (int***) malloc(n_boxes*sizeof(int**));
-    for(i=0; i<n_boxes; i++) {
-      pw->grid_3D[i] = (int**) malloc(n_boxes*sizeof(int*));
-      for(j=0; j<n_boxes; j++) {
-        pw->grid_3D[i][j] = (int *) calloc(n_boxes,sizeof(int));
-        #pragma omp atomic
-        pw->n_allocated_in_grid += n_boxes;
-      }
-    }
-    
-    #pragma omp parallel for private (i,ix,iy,iz)
-    for (i=0; i<num_points; i++){
-
-      ix = floor(vals[i][1]/(safe*link_length*(1.+soft_coeff)));
-      iy = floor(vals[i][2]/(safe*link_length*(1.+soft_coeff)));
-      iz = floor(vals[i][3]/(safe*link_length*(1.+soft_coeff)));
-    
-      /* Skip the data that is larger than max_l */
-      if ((ix >= n_boxes) || (iy >= n_boxes) || (iz >= n_boxes))
-        continue;
-    
-      #pragma omp atomic
-      pw->grid_3D[ix][iy][iz]++;
-    }
-    
-  } // end of if compute grid
+  /* If the function has no nodes or somehow we could not bin the domain, we
+  flag the mesh as incomplete and move on */
+  if ((mesh->n_nodes <= 0) || (mesh->n_bins <= 0)) {
+    mesh->ready = _FALSE_;
+    return _SUCCESS_;
+  }
 
 
-  // *** ALLOCATE COUNTER
-  counter = (int***) malloc(n_boxes*sizeof(int**));
-  for(i=0;i<n_boxes;i++){
-    counter[i] = (int**) malloc(n_boxes*sizeof(int*));
-    for(j=0;j<n_boxes;j++){
-      counter[i][j] = (int *) calloc(n_boxes,sizeof(int));
-    }
+
+  // ====================================================================================
+  // =                                 Dimensionality                                   =
+  // ====================================================================================
+
+  class_test ((mesh->n_dim != 2) && (mesh->n_dim != 3),
+    mesh->error_message,
+    "only 2D (n_dim=2) and 3D (n_dim=3) interpolation supported");
+
+  /* In three dimensions, the z direction is not special and has the same number of
+  bins as the x and y directions */
+  if (mesh->n_dim == 3) {
+    mesh->n_bins_z = mesh->n_bins;
+    mesh->distance = distance_3D;
+  }
+
+  /* In two dimensions, we treat the z directions as containing a single bin with
+  all the nodes */
+  else if (mesh->n_dim == 2) {
+    mesh->n_bins_z = 1;
+    mesh->distance = distance_2D;
+  }
+
+
+  // ====================================================================================
+  // =                                   Copy values                                    =
+  // ====================================================================================
+
+  mesh->values = calloc (5 * mesh->n_nodes, sizeof(*mesh->values));
+
+  #pragma omp parallel for
+  for (int n = 0; n < mesh->n_nodes; ++n) {
+
+    mesh->values[n][0] = values[n][0]; /* function value at the node */
+    mesh->values[n][1] = values[n][1]; /* x coordinate of the node */
+    mesh->values[n][2] = values[n][2]; /* y coordinate of the node */
+    if (n_dim > 2)
+      mesh->values[n][3] = values[n][3]; /* z coordinate of the node */
+
   }
   
 
-  // *** ALLOCATE MESH
-  pw->mesh_3D = (double*****) malloc(n_boxes*sizeof(double****));
-  for(i=0;i<n_boxes;i++){
-    pw->mesh_3D[i] = (double****) malloc(n_boxes*sizeof(double***));
-    for(j=0;j<n_boxes;j++){
-      pw->mesh_3D[i][j] = (double ***) malloc(n_boxes*sizeof(double**));
-      for(k=0;k<n_boxes;k++){
-        pw->mesh_3D[i][j][k] = (double **) malloc((pw->grid_3D[i][j][k])*sizeof(double*));
-        for(m=0; m < pw->grid_3D[i][j][k]; m++){
-          pw->mesh_3D[i][j][k][m] = (double *) calloc(5, sizeof(double)); 
-          #pragma omp atomic
-          pw->n_allocated_in_mesh += 5;
+
+  if (mesh->compute_grid==_TRUE_) {
+
+    // ====================================================================================
+    // =                                   Create grid                                    =
+    // ====================================================================================
+
+    /* Bin the support points in a grid based on the linking length. The grid contains
+    for each (ix,iy,iz) bin the number of nodes that belong to that bin. */
+
+    /* Allocate grid */
+
+    mesh->grid = (int***) malloc(mesh->n_bins*sizeof(int**));
+    for (int i=0; i<mesh->n_bins; i++) {
+      mesh->grid[i] = (int**) malloc(mesh->n_bins*sizeof(int*));
+      for (int j=0; j<mesh->n_bins; j++) {
+        mesh->grid[i][j] = (int*) calloc(mesh->n_bins_z, sizeof(int));
+      }
+    }
+
+    mesh->n_allocated_in_grid =
+      mesh->n_bins +
+      pow (mesh->n_bins, 2) +
+      pow (mesh->n_bins, 2) * mesh->n_bins_z * sizeof(int)/(double)sizeof(int*);
+
+
+    /* Fill grid */
+
+    int abort = _FALSE_;
+    #pragma omp parallel for
+    for (int n=0; n<mesh->n_nodes; n++) {
+
+      double x = values[n][1];
+      double y = values[n][2];
+      double z = (mesh->n_dim<3)?0:values[n][3];
+      
+      class_test_parallel (x<0 || y<0 || z<0,
+        mesh->error_message,
+        "mesh interpolation so far only supports positive (x,y,z)");
+
+      int ix = floor(x/mesh->bin_size);
+      int iy = floor(y/mesh->bin_size);
+      int iz = floor(z/mesh->bin_size);
+
+      /* Skip the data that is larger than max */
+      if ((ix >= mesh->n_bins) || (iy >= mesh->n_bins) || (iz >= mesh->n_bins_z))
+        continue;
+
+      #pragma omp atomic
+      mesh->grid[ix][iy][iz]++;
+
+    }
+
+    if (abort == _TRUE_)
+      return _FAILURE_;
+
+
+
+    // ====================================================================================
+    // =                                  ID the nodes                                    =
+    // ====================================================================================
+
+    /* Assign an identifier to each binned node. The identifier is just the
+    index of the node in the mesh->values array. The id is needed to establish a
+    correspondence between the binned nodes and their coordinates & values.
+    Like the grid, the ID is completely determined by the domain (x,y,z) and is
+    thus independent from the function values f(x,y,z). */
+
+
+    /* Allocate id */
+  
+    int count = 0;
+  
+    mesh->id = (int****) malloc(mesh->n_bins*sizeof(int***));
+    for (int i=0; i<mesh->n_bins; i++) {
+      mesh->id[i] = (int***) malloc(mesh->n_bins*sizeof(int**));
+      for (int j=0; j<mesh->n_bins; j++) {
+        mesh->id[i][j] = (int **) malloc(mesh->n_bins_z*sizeof(int*));
+        for (int k=0; k<mesh->n_bins_z; k++) {
+          mesh->id[i][j][k] = (int *) malloc((mesh->grid[i][j][k])*sizeof(int));
         }
       }
     }
-  }
-  
-  
-  // *** STORE VALUES IN THE MESH
-  /* This loop cannot be parallelised naively with:
-    #pragma omp parallel for private (i,ix,iy,iz)
-  because it relies on incrementing a quantity that, in the same loop,
-  is used to index an array */
-  for(i=0; i<num_points; i++){
 
-    /* Don't we have an issue here? */
-    ix = floor(vals[i][1]/(safe*link_length*(1.+soft_coeff)));
-    iy = floor(vals[i][2]/(safe*link_length*(1.+soft_coeff)));
-    iz = floor(vals[i][3]/(safe*link_length*(1.+soft_coeff)));
+    mesh->n_allocated_in_mesh = 
+      mesh->n_bins +
+      pow (mesh->n_bins, 2) +
+      pow (mesh->n_bins, 2) * mesh->n_bins_z +
+      mesh->n_nodes * sizeof(int)/(double)sizeof(int*);
 
-    /* Skip the data that is larger than max_l */
-    if ((ix >= n_boxes) || (iy >= n_boxes) || (iz >= n_boxes))
-      continue;
+    class_test (mesh->n_allocated_in_mesh == 0,
+      mesh->error_message,
+      "empty mesh, something went wrong. No nodes?");
 
-    for (int Q=0; Q < 4; ++Q) {
-      pw->mesh_3D[ix][iy][iz][counter[ix][iy][iz]][Q] = vals[i][Q];
-      // if ((ix==1) && (iy==1) && (iz==1))
-      //   printf("pw->mesh_3D[ix=%d][iy=%d][iz=%d][counter=%d][Q=%d] = %g\n",
-      //     ix, iy, iz, counter[ix][iy][iz], Q, pw->mesh_3D[ix][iy][iz][counter[ix][iy][iz]][Q]);
+
+    /* Assign id. Note that this loop cannot be parallelised naively with:
+      #pragma omp parallel for private (i,ix,iy,iz)
+    because it relies on incrementing a quantity that, in the same loop, is 
+    used to index an array (counter). */
+
+    int (*counter)[mesh->n_bins][mesh->n_bins_z] =
+      calloc(mesh->n_bins*mesh->n_bins*mesh->n_bins_z, sizeof(int));
+
+    for (int n=0; n<mesh->n_nodes; n++) {
+
+      int ix = floor(values[n][1]/mesh->bin_size);
+      int iy = floor(values[n][2]/mesh->bin_size);
+      int iz = (mesh->n_dim<3)?0:floor(values[n][3]/mesh->bin_size);
+
+      /* Skip the data that is larger than mesh->max */
+      if ((ix >= mesh->n_bins) || (iy >= mesh->n_bins) || (iz >= mesh->n_bins_z))
+        continue;
+
+      /* Place the current node in the (ix,iy,iz) bin */
+      mesh->id[ix][iy][iz][counter[ix][iy][iz]] = n;
+      counter[ix][iy][iz]++;
+
     }
 
-    #pragma omp atomic
-    counter[ix][iy][iz]++;
+    /* Verify that grid = counter */
+    for (int i = 0; i<mesh->n_bins; i++)
+      for (int j = 0; j<mesh->n_bins; j++)
+        for (int k = 0; k<mesh->n_bins_z; k++)
+          class_test (counter[i][j][k] != mesh->grid[i][j][k],
+            mesh->error_message,
+            "%d!=%d\n", __func__, counter[i][j][k], mesh->grid[i][j][k]);
+
+    free (counter);
+
   }
-  
-  
-  /* Verify that grid = counter */
-  for(i = 0; i<n_boxes;i++) {
-    for(j = 0; j<n_boxes; j++) {
-      for(k = 0; k<n_boxes; k++) {
-        if (counter[i][j][k]!=pw->grid_3D[i][j][k])
-          printf ("ERROR, %s: %d!=%d\n", __func__, counter[i][j][k], pw->grid_3D[i][j][k]);
-      }
-    }
+
+  /* Use the user-provided grid */
+
+  else {
+    
+    mesh->id = id;
+    mesh->grid = grid;
+    
   }
+
   
-
-  /* Counter not needed anymore */
-  for(i = 0; i<n_boxes;i++) {
-    for(j = 0; j<n_boxes; j++)
-        free (counter[i][j]);
-    free (counter[i]);
-  }
-  free (counter);
-
-
-
-  // *** COMPUTE LOCAL DENSITY OF POINTS
+  // ====================================================================================
+  // =                                 Local density                                    =
+  // ====================================================================================
   
-  /* Compute the local density of points and store it in the [4]-entry of each point.
-  This is a loop over the support points, which means that it can be quick if there
-  are not too many. */
+  /* For each node, compute the local density of nodes, and store it in the values
+  array. This is a loop over the nodes, which means that it can be quick if there are
+  not too many. */
 
-  #pragma omp parallel for private (i,j,k,m,n)
-  for(i = 0; i<n_boxes;i++) {
-    for(j = 0; j<n_boxes; j++) {
-      for(k = 0; k<n_boxes; k++) {
-        for(m = 0; m<pw->grid_3D[i][j][k]; m++){
-          for(n = 0; n<pw->grid_3D[i][j][k];n++){ 
+  #pragma omp parallel for
+  for (int i = 0; i<mesh->n_bins; i++) {
+    for (int j = 0; j<mesh->n_bins; j++) {
+      for (int k = 0; k<mesh->n_bins_z; k++) {
+        for (int n = 0; n<mesh->grid[i][j][k]; n++) {
+          
+          int id_n = mesh->id[i][j][k][n];
+          
+          for (int m = 0; m<mesh->grid[i][j][k]; m++) { 
 
-            /* The 4th level of mesh is just the n-th particle in the ijk box */
-            double dist = distance(pw->mesh_3D[i][j][k][m],pw->mesh_3D[i][j][k][n]);
-            double density = exp(-dist*dist/pow(group_length,2));
-                  
-            /* The 5th level of mesh is the local density around the m-th particle of the ijk box */
+            int id_m = mesh->id[i][j][k][m];
+
+            double dist = (*mesh->distance) (mesh->values[id_n], mesh->values[id_m]);
+            double density = exp(-dist*dist/pow(mesh->group_length,2));
+
             #pragma omp atomic
-            pw->mesh_3D[i][j][k][m][4] += density;
-                        
+            mesh->values[id_n][4] += density;
+
           }
         }
       }
     }
   }
   
-  /* Some debug */
-  // for(i=0;i<n_boxes;i++){
-  //     for(j=0;j<n_boxes;j++){
-  //     for(k=0;k<n_boxes;k++){
-  //       for(m=0;m<(pw->grid_3D)[i][j][k];m++){
-  // 
-  //           int Q;
-  //           for (Q=0; Q < 5; ++Q) {
-  //             printf("%g ", pw->mesh_3D[i][j][k][m][Q]);
-  //           }
-  //           printf("\n");
-  //         }
-  //       }
-  //     }
-  //   }
-  
-  // printf("~*~*~*~*~ Executing line %d of function %s\n", __LINE__, __func__); fflush(stdout);
-  // printf("pw->mesh_3D[0][0][0][0][0] = %g\n", pw->mesh_3D[0][0][0][0][0]);
-  // printf("pw->mesh_3D[0][0][0][0][1] = %g\n", pw->mesh_3D[0][0][0][0][1]);
+  /* The mesh is finally ready and can be used to interpolate the function
+  using mesh_interpolate() */
+  mesh->ready = _TRUE_;
   
   return _SUCCESS_;
   
@@ -216,518 +323,166 @@ int mesh_3D_sort (
 
 
 
+/**
+ * Interpolate the function f in (x,y,z) using its pre-computed interpolation mesh.
+ *
+ * The interpolation mesh has to be initialised first with the mesh_init() function.
+ * The interpolation is first attempted using the nodes in a volume centred on the bin
+ * where the requested point belongs and including all the adjacent bins. If no nodes
+ * are found, the volume is enlarged to include another layer of adjacent bins.
+ */
 
-
-
-int mesh_3D_int (
-    struct mesh_interpolation_workspace * pw,
+int mesh_interpolate (
+    struct interpolation_mesh * mesh,
     double x,
     double y,
     double z,
     double * interpolated_value
     )
 {
-  
-  /*this routine interpolates a point on the sorted mesh
-  In: ***** vals: sorted mesh as returned by mesh sort
-  link_length: the local region influencing the values, on an in homogenous grid this should correspond roughly to the largest distance of two neighbouring points
-  soft_coeff: softens the link_length. The default value on most meshs should be 0.5
-  group_length: down weights clusters of many close points. In an in homogenous grid this should correspond to the shortest distance of two points
-  *** grid: number of points in each bin, as returned by mesh_sort
-  l1,l2,l3: the x,y,z coordinates of the point where the interpolation is needed
-  max_l: the mesh assumes the arguments in each direction should be between 0 and max_l
-  Out: grid: this specifies how many points fall in each bin of the new sorted mesh. It will be allocated by this routine automatically
-  Return value: value of the interpolation
-  
-  IMPORTANT: All parameters like max_l, link_length etc need to be identical to the values given to mesh_sort. Otherwise you will get either random values or the code will crash 
 
-  */
-  
-  /* Read values from structure */
-  double max_l = pw->l_max;
-  double link_length = pw->link_length;
-  double group_length = pw->group_length;
-  double soft_coeff = pw->soft_coeff;
-  double ***** mesh = pw->mesh_3D;
-  int *** grid = pw->grid_3D;
-  
-  
-  /* Check bounds */
-  // double min_l = mesh[0][0][0][0][1];
-  // if ((l1 > max_l) || (l2 > max_l) || (l3 > max_l) || (l1 < min_l) || (l2 < min_l) || (l3 < min_l))
-  //   printf ("###### WARNING: interpolation out of bounds: l1,l2,l3 should all be within [%g,%g] (you gave %g,%g,%g)\n", min_l, max_l, l1, l2, l3);
-  // class_test ((l1 > max_l) || (l2 > max_l) || (l3 > max_l) || (l1 < min_l) || (l2 < min_l) || (l3 < min_l),
-  //             pbi->error_message,
-  //             "interpolation out of bounds: l1,l2,l3 should all be within [%g,%g] (you gave %g,%g,%g)", min_l, max_l, l1, l2, l3);
-  
-  int ix,iy,iz,i;
-  double safe = 1.;
-  long int n_boxes = pw->n_boxes;
-  
-  /* Locate the box where (x,y,z) is */
-  ix = floor(x/(safe*link_length*(1.+soft_coeff)));
-  iy = floor(y/(safe*link_length*(1.+soft_coeff)));
-  iz = floor(z/(safe*link_length*(1.+soft_coeff)));
+  class_test (!mesh->ready,
+    mesh->error_message,
+    "cannot interpolate, mesh is not ready! No nodes? max too small?");
 
-  /* Start by considering only the boxes adjacent to the one which contains (x,y,z) */
-  int ixmin = (int) (MAX(0,ix-1));
-  int iymin = (int) (MAX(0,iy-1));
-  int izmin = (int) (MAX(0,iz-1));
-  int ixmax = (int) (MIN(n_boxes-1,ix+1));
-  int iymax = (int) (MIN(n_boxes-1,iy+1));
-  int izmax = (int) (MIN(n_boxes-1,iz+1));
-  
 
-  /* Some debug */
-  // printf("%d:%d:%d %d:%d:%d %d:%d:%d \n",ixmin,ix,ixmax,iymin,iy,iymax,izmin,iz,izmax);
-  
-  double norm = 0.;
-  double result = 0.;
-  double density = 0.;
-  double weight;
-  long int num_points = 0;
-  int status;
+  // ====================================================================================
+  // =                                   Bracket point                                  =
+  // ====================================================================================
 
+  #ifdef DEBUG
+  class_test (x>mesh->max || y>mesh->max || z>mesh->max || x<0 || y<0 || z<0,
+    mesh->error_message,
+    "(x,y,z)=(%g,%g,%g) out of bounds", x, y, z);
+  #endif
+
+  /* Locate the bin where (x,y,z) belongs */
+  int ix = floor(x/mesh->bin_size);
+  int iy = floor(y/mesh->bin_size);
+  int iz = (mesh->n_dim<3)?0:floor(z/mesh->bin_size);
+
+  /* Start by considering only the bins adjacent to the one with (x,y,z). Note that
+  for 2D interpolation, the third direction z only has one bin (izmin=izmax=0). */
+  int ixmin = MAX (0,ix-1);
+  int iymin = MAX (0,iy-1);
+  int izmin = MAX (0,iz-1);
+  int ixmax = MIN (mesh->n_bins-1,ix+1);
+  int iymax = MIN (mesh->n_bins-1,iy+1);
+  int izmax = MIN (mesh->n_bins_z-1,iz+1);
+  
+  /* Debug: print the brackets of (x,y,z) */
+  // printf("%d:%d:%d %d:%d:%d \n",ixmin,ix,ixmax,iymin,iy,iymax);
+  
   double r[4];
   r[1] = x;
   r[2] = y;
   r[3] = z;
 
 
-loop:
-  result = 0;
-  density = 0;
-  num_points = 0;
+  // ====================================================================================
+  // =                                    Interpolate                                   =
+  // ====================================================================================
 
-  /* Consider only the boxes close to  */
-  for (ix = ixmin; ix<=ixmax; ix++) {
-    for(iy = iymin; iy<=iymax; iy++) {
-      for(iz = izmin; iz<=izmax; iz++) {
-        for(i = 0; i < grid[ix][iy][iz]; i++) {
-
-          /* This part will compute the true density around the point. It will give better accuracy, but slow the code down a lot.*/
-          // double ix2, iy2, iz2, i2;
-          // for(ix2 = ixmin; ix2<=ixmax;ix2++){for(iy2 = iymin; iy2<=iymax;iy2++){for(iz2 = izmin; iz2<=izmax;iz2++){for(i2 = 0; i2< grid[ix2][iy2][iz2];i2++){ 
-          //   status = gsl_sf_exp_e(-pow(distance(vals[ix][iy][iz][i],vals[ix2][iy2][iz2][i2]),2)/pow(group_length,2),&jresult);
-          //   if (status == GSL_ERANGE || jresult.val != jresult.val)
-          //     density = 0.0; 
-          //   else
-          //     density = jresult.val;
-          //   
-          //   vals[ix][iy][iz][i][4] += density;
-          // }}}}
-
-          #pragma omp atomic
-          num_points++;
-          
-          double value = mesh[ix][iy][iz][i][0];
-          double dist = distance(mesh[ix][iy][iz][i], r);
-          double density = mesh[ix][iy][iz][i][4];
-       
-          /* We weight the contribution from each point with a 1/distance law, so that the closer the point
-          the stronger the influence on (x,y,z). We also include a 1/density factor so that the contribution
-          from a point in a high-density regions is penalised. The objective is to make these clusters of points
-          to count as one. */
-          weight =
-            (1./(dist+link_length/10000000.))/density
-            * (1.00000001 - erf((dist-link_length)/(link_length*soft_coeff)));
-    
-          #pragma omp atomic
-          result += weight * value;
-          #pragma omp atomic
-          norm += weight;
-
-          /* Some debug */
-          // printf("norm:%f, density:%f, val:%f, dist:%f, val@dist:%g\n",
-          //   weight, mesh[ix][iy][iz][i][4], result/norm, dist, value);
-  
-        }
-      }
-    }
-  }
-
-  /* If you have a irregular mesh, some points might be very isolated. In this case the region of
-  interpolation needs to be increased */
-  if (num_points < 1) {
-    // printf("Increasing Range!!! \n");
-    #pragma omp atomic
-    pw->count_range_extensions++;
-    ixmin = (int) MAX(0,ixmin-1);
-    iymin = (int) MAX(0,iymin-1);
-    izmin = (int) MAX(0,izmin-1);
-    ixmax = (int) MIN(n_boxes-1,ixmax+1);
-    iymax = (int) MIN(n_boxes-1,iymax+1);
-    izmax = (int) MIN(n_boxes-1,izmax+1);
-    goto loop; 
-  }
-
-  /* Update counter */
-  #pragma omp atomic
-  pw->count_interpolations++;
-
-  /* Return value */
-  *interpolated_value = result/norm;
-  
-  return _SUCCESS_;
-    
-}
-
-
-int mesh_3D_free (
-    struct mesh_interpolation_workspace * pw
-    )
-{
-  
-  int i, j, k, m;
-  
-  if ((pw->n_boxes > 0) && (pw->n_points > 0)) {
-
-    /* Free mesh */
-    for(i = 0; i<pw->n_boxes;i++) {
-      for(j = 0; j<pw->n_boxes; j++) {
-        for(k = 0; k<pw->n_boxes; k++) {
-          for(m = 0; m<pw->grid_3D[i][j][k]; m++)
-            free (pw->mesh_3D[i][j][k][m]);
-  
-          free (pw->mesh_3D[i][j][k]);
-        } free (pw->mesh_3D[i][j]);
-      } free (pw->mesh_3D[i]);
-    } free (pw->mesh_3D);
-
-  
-    /* Free grid */
-    if (pw->compute_grid==_TRUE_) {
-      for(i = 0; i<pw->n_boxes; i++) {
-        for(j = 0; j<pw->n_boxes; j++)
-          free (pw->grid_3D[i][j]);
-        free (pw->grid_3D[i]);
-      } free (pw->grid_3D);
-    }
-
-  }
-
-  free (pw);
-
-  return _SUCCESS_;
-  
-}
-
-
-
-
-
-double distance (double * vec1, double * vec2){
-  
-  return  sqrt ( (vec1[1]-vec2[1])*(vec1[1]-vec2[1])
-                +(vec1[2]-vec2[2])*(vec1[2]-vec2[2])
-                +(vec1[3]-vec2[3])*(vec1[3]-vec2[3]) );
-}
-
-
-
-
-
-
-
-// ==============================================================================================
-// =                                       2D interpolation                                     =
-// ==============================================================================================
-
-
-
-int mesh_2D_sort (
-    struct mesh_interpolation_workspace * pw,
-    double ** vals
-    )
-{
-
-  /* Read values from structure */
-  long int num_points = pw->n_points;
-  double max_l = pw->l_max;
-  double link_length = pw->link_length;
-  double group_length = pw->group_length;
-  double soft_coeff = pw->soft_coeff;
-
-  /* Initialize counters */
-  pw->n_allocated_in_grid = 0;
-  pw->n_allocated_in_mesh = 0;
-
-  int ** counter;
-  double safe = 1.; /*this can be increased to improve the accuracy, but 1 is already very good if link_length is chosen properly*/
-  pw->n_boxes = ceil(max_l/(safe*link_length*(1.+soft_coeff)));
-  long int n_boxes = pw->n_boxes;
-
-  /* Bin the support points in a grid based on the linking length */
-  if (pw->compute_grid==_TRUE_) {
-
-    pw->grid_2D = (int**) malloc(n_boxes*sizeof(int*));
-    for(int i=0; i<n_boxes; i++) {
-      pw->grid_2D[i] = (int*) calloc(n_boxes, sizeof(int));
-      #pragma omp atomic
-      pw->n_allocated_in_grid += n_boxes;
-    }
-    
-    #pragma omp parallel for
-    for (int i=0; i<num_points; i++){
-
-      int ix = floor(vals[i][1]/(safe*link_length*(1.+soft_coeff)));
-      int iy = floor(vals[i][2]/(safe*link_length*(1.+soft_coeff)));
-    
-      /* Skip the data that is larger than max_l */
-      if ((ix >= n_boxes) || (iy >= n_boxes))
-        continue;
-    
-      #pragma omp atomic
-      pw->grid_2D[ix][iy]++;
-    }
-    
-  } // end of if compute grid
-
-
-  /* First allocate counter */
-  counter = (int**) malloc(n_boxes*sizeof(int*));
-  for(int i=0;i<n_boxes;i++){
-    counter[i] = (int*) calloc(n_boxes, sizeof(int));
-  }
-
-
-  /* Allocate mesh */
-  pw->mesh_2D = (double****) malloc(n_boxes*sizeof(double***));
-  for(int i=0;i<n_boxes;i++){
-    pw->mesh_2D[i] = (double***) malloc(n_boxes*sizeof(double**));
-    for(int j=0;j<n_boxes;j++){
-      pw->mesh_2D[i][j] = (double **) malloc(pw->grid_2D[i][j]*sizeof(double*));
-      for(int m=0; m < pw->grid_2D[i][j]; m++){
-        pw->mesh_2D[i][j][m] = (double *) calloc(4, sizeof(double));
-        #pragma omp atomic
-        pw->n_allocated_in_mesh += 4;
-      }
-    }
-  }
-  
-  // --------------------------------------------------------------------------
-  // -                      STORE VALUES IN THE MESH                          -
-  // --------------------------------------------------------------------------
-
-  /* This loop cannot be parallelised naively with:
-    #pragma omp parallel for private (i,ix,iy,iz)
-  because it relies on incrementing a quantity that, in the same loop,
-  is used to index an array */
-  for(int i=0; i<num_points; i++){
-
-    /* Don't we have an issue here? */
-    int ix = floor(vals[i][1]/(safe*link_length*(1.+soft_coeff)));
-    int iy = floor(vals[i][2]/(safe*link_length*(1.+soft_coeff)));
-
-    /* Skip the data that is larger than max_l */
-    if ((ix >= n_boxes) || (iy >= n_boxes))
-      continue;
-
-    for (int Q=0; Q < 3; ++Q) {
-      pw->mesh_2D[ix][iy][counter[ix][iy]][Q] = vals[i][Q];
-      // if ((ix==1) && (iy==1))
-      //   printf("pw->mesh_2D[ix=%d][iy=%d][counter=%d][Q=%d] = %g\n",
-      //     ix, iy, counter[ix][iy], Q, pw->mesh_2D[ix][iy][counter[ix][iy]][Q]);
-    }
-
-    #pragma omp atomic
-    counter[ix][iy]++;
-  }
-  
-  
-  /* Verify that grid = counter */
-  for(int i = 0; i<n_boxes;i++) {
-    for(int j = 0; j<n_boxes; j++) {
-      if (counter[i][j]!=pw->grid_2D[i][j])
-        printf ("ERROR, %s: %d!=%d\n", __func__, counter[i][j], pw->grid_2D[i][j]);
-    }
-  }
-  
-
-  /* Counter not needed anymore */
-  for(int i = 0; i<n_boxes;i++)
-    free (counter[i]);
-  free (counter);
-
-
-
-  // --------------------------------------------------------------------------------------------
-  // -                             COMPUTE LOCAL DENSITY OF POINTS                              -
-  // --------------------------------------------------------------------------------------------
-  
-  /* Compute the local density of points and store it in the [4]-entry of each point.
-  This is a loop over the support points, which means that it can be quick if there
-  are not too many. */
-
-  #pragma omp parallel for
-  for(int i = 0; i<n_boxes;i++) {
-    for(int j = 0; j<n_boxes; j++) {
-      for(int m = 0; m<pw->grid_2D[i][j]; m++){
-        for(int n = 0; n<pw->grid_2D[i][j];n++){ 
-
-          /* The 3rd level of mesh is just the n-th particle in the ijk box */
-          double dist = distance_2D(pw->mesh_2D[i][j][m],pw->mesh_2D[i][j][n]);
-          double density = exp(-dist*dist/pow(group_length,2));
-                
-          /* The 4th level of mesh is the local density around the m-th particle of the ijk box */
-          #pragma omp atomic
-          pw->mesh_2D[i][j][m][3] += density;
-                      
-        }
-      }
-    }
-  }
-
-  
-  /* Some debug */
-  // for(i=0;i<n_boxes;i++){
-  //     for(j=0;j<n_boxes;j++){
-  //     for(k=0;k<n_boxes;k++){
-  //       for(m=0;m<(pw->grid_2D)[i][j][k];m++){
-  // 
-  //           int Q;
-  //           for (Q=0; Q < 5; ++Q) {
-  //             printf("%g ", pw->mesh_2D[i][j][k][m][Q]);
-  //           }
-  //           printf("\n");
-  //         }
-  //       }
-  //     }
-  //   }
-  
-  // printf("~*~*~*~*~ Executing line %d of function %s\n", __LINE__, __func__); fflush(stdout);
-  // printf("pw->mesh_2D[0][0][0][0][0] = %g\n", pw->mesh_2D[0][0][0][0][0]);
-  // printf("pw->mesh_2D[0][0][0][0][1] = %g\n", pw->mesh_2D[0][0][0][0][1]);
-  
-  return _SUCCESS_;
-  
-}
-
-
-
-
-int mesh_2D_int (
-    struct mesh_interpolation_workspace * pw,
-    double x,
-    double y,
-    double * interpolated_value
-    )
-{
-  
-  /* Read values from structure */
-  double max_l = pw->l_max;
-  double link_length = pw->link_length;
-  double group_length = pw->group_length;
-  double soft_coeff = pw->soft_coeff;
-  double **** mesh = pw->mesh_2D;
-  int ** grid = pw->grid_2D;
-  
-  
-  /* Check bounds */
-  // double min_l = mesh[0][0][0][0][1];
-  // if ((l1 > max_l) || (l2 > max_l) || (l3 > max_l) || (l1 < min_l) || (l2 < min_l) || (l3 < min_l))
-  //   printf ("###### WARNING: interpolation out of bounds: l1,l2,l3 should all be within [%g,%g] (you gave %g,%g,%g)\n", min_l, max_l, l1, l2, l3);
-  // class_test ((l1 > max_l) || (l2 > max_l) || (l3 > max_l) || (l1 < min_l) || (l2 < min_l) || (l3 < min_l),
-  //             pbi->error_message,
-  //             "interpolation out of bounds: l1,l2,l3 should all be within [%g,%g] (you gave %g,%g,%g)", min_l, max_l, l1, l2, l3);
-  
-  double safe = 1.;
-  long int n_boxes = pw->n_boxes;
-  
-  /* Locate the box where (x,y,z) is */
-  int ix = floor(x/(safe*link_length*(1.+soft_coeff)));
-  int iy = floor(y/(safe*link_length*(1.+soft_coeff)));
-
-  /* Start by considering only the boxes adjacent to the one which contains (x,y,z) */
-  int ixmin = (int) (MAX(0,ix-1));
-  int iymin = (int) (MAX(0,iy-1));
-  int ixmax = (int) (MIN(n_boxes-1,ix+1));
-  int iymax = (int) (MIN(n_boxes-1,iy+1));
-  
-  /* Some debug */
-  // printf("%d:%d:%d %d:%d:%d \n",ixmin,ix,ixmax,iymin,iy,iymax);
-  
-  double norm = 0.;
-  double result = 0.;
-  double density = 0.;
-  double weight;
-  long int num_points = 0;
-  int status;
-
-  double r[3];
-  r[1] = x;
-  r[2] = y;
-
+  double norm = 0;
+  double result = 0;
+  double density = 0;
+  int n_usable_nodes = 0;
 
 loop:
   result = 0;
   density = 0;
-  num_points = 0;
+  n_usable_nodes = 0;
 
   /* Consider only the boxes close to  */
   for (int ix = ixmin; ix<=ixmax; ix++) {
-    for(int iy = iymin; iy<=iymax; iy++) {
-      for(int i = 0; i < grid[ix][iy]; i++) {
+    for (int iy = iymin; iy<=iymax; iy++) {
+      for (int iz = izmin; iz<=izmax; iz++) {
+        for (int n = 0; n < mesh->grid[ix][iy][iz]; n++) {
 
-        /* This part will compute the true density around the point. It will give better accuracy, but slow the code down a lot.*/
-        // double ix2, iy2, iz2, i2;
-        // for(ix2 = ixmin; ix2<=ixmax;ix2++){for(iy2 = iymin; iy2<=iymax;iy2++){for(iz2 = izmin; iz2<=izmax;iz2++){for(i2 = 0; i2< grid[ix2][iy2][iz2];i2++){ 
-        //   status = gsl_sf_exp_e(-pow(distance(vals[ix][iy][iz][i],vals[ix2][iy2][iz2][i2]),2)/pow(group_length,2),&jresult);
-        //   if (status == GSL_ERANGE || jresult.val != jresult.val)
-        //     density = 0.0; 
-        //   else
-        //     density = jresult.val;
-        //   
-        //   vals[ix][iy][iz][i][4] += density;
-        // }}}}
+          /* Uncomment to compute the true density around the node. This will give better
+          accuracy, but also slow the code down a lot */
+          // int status;
+          // for (double ix2 = ixmin; ix2<=ixmax; ix2++) {
+          //   for (double iy2 = iymin; iy2<=iymax; iy2++) {
+          //     for (double iz2 = izmin; iz2<=izmax; iz2++) {
+          //       for (double n2 = 0; n2<grid[ix2][iy2][iz2]; n2++) {
+          //         status = gsl_sf_exp_e(-pow(mesh->distance(values[ix][iy][iz][n],values[ix2][iy2][iz2][n2]),2)/pow(mesh->group_length,2),&jresult);
+          //         if (status == GSL_ERANGE || jresult.val != jresult.val)
+          //           density = 0.0;
+          //         else
+          //           density = jresult.val;
+          //         values[ix][iy][iz][n][4] += density;
+          // }}}}
 
-        #pragma omp atomic
-        num_points++;
-        
-        double value = mesh[ix][iy][i][0];
-        double dist = distance(mesh[ix][iy][i], r);
-        double density = mesh[ix][iy][i][3];
+          #pragma omp atomic
+          n_usable_nodes++;
+
+          /* Identifier of the current node */
+          int id_n = mesh->id[ix][iy][iz][n];
+
+          /* We weight the contribution from each node with a 1/distance law, so that the
+          closer the node the stronger the influence on the point (x,y,z). We also include
+          a 1/density factor so that the contribution from nodes in high-density regions
+          is penalised. The objective is to make these clusters of points to count as one. */
+          double value = mesh->values[id_n][0];
+          double dist = mesh->distance (mesh->values[id_n], r);
+          double density = mesh->values[id_n][4];
+
+          /* Compute the error function with the fast approximation in Abramowitz & Stegun,
+          Sec. 7.1. The maximum error is 5e-4. */
+          double x = (dist-mesh->link_length)/(mesh->link_length*mesh->soft_coeff);
+          double x2 = x*x;
+          double erfx = 1 - 1/(1+erf_a1*x+erf_a2*x2+erf_a3*x*x2+erf_a4*x2*x2);
      
-        /* We weight the contribution from each point with a 1/distance law, so that the closer the point
-        the stronger the influence on (x,y,z). We also include a 1/density factor so that the contribution
-        from a point in a high-density regions is penalised. The objective is to make these clusters of points
-        to count as one. */
-        weight =
-          (1./(dist+link_length/10000000.))/density
-          * (1.00000001 - erf((dist-link_length)/(link_length*soft_coeff)));
+          /* Uncomment to use the more accurate erf function */
+          // double erfx = erf((dist-mesh->link_length)/(mesh->link_length*mesh->soft_coeff))
+        
+          double weight = 1/(density*(dist+10e-7*mesh->link_length)) * (1.00000001 - erfx);
   
-        #pragma omp atomic
-        result += weight * value;
-        #pragma omp atomic
-        norm += weight;
+          /* Each node contributes to the interpolation proportionally to its weight */
+          #pragma omp atomic
+          result += weight * value;
 
-        /* Some debug */
-        // printf("norm:%f, density:%f, val:%f, dist:%f, val@dist:%g\n",
-        //   weight, mesh[ix][iy][i][4], result/norm, dist, value);
+          /* The weights introduce a scale that we shall eliminate with a normalisation factor */
+          #pragma omp atomic
+          norm += weight;
 
+          /* Debug: print the contribution to the interpolation from this node */
+          // printf("norm:%f, density:%f, val:%f, dist:%f, val@dist:%g\n",
+          //   weight, mesh->values[id_n][4], result/norm, dist, value);
+
+        }
       }
     }
   }
 
-
-  /* If you have a irregular mesh, some points might be very isolated. In this case the region of
-  interpolation needs to be increased */
-  if (num_points < 1) {
+  /* Irregular meshes might have very isolated nodes. If this is the case, we
+  extend the region of interpolation to the adjacent bins. */
+  if (n_usable_nodes < 1) {
+    
+    class_test (ixmin==0 && ixmax==(mesh->n_bins-1) &&
+                iymin==0 && iymax==(mesh->n_bins-1) &&
+                izmin==0 && izmax==(mesh->n_bins_z-1),
+      mesh->error_message,
+      "reached edges of the box without finding a node; n_nodes=0?");
+    
     // printf("Increasing Range!!! \n");
     #pragma omp atomic
-    pw->count_range_extensions++;
-    ixmin = (int) MAX(0,ixmin-1);
-    iymin = (int) MAX(0,iymin-1);
-    ixmax = (int) MIN(n_boxes-1,ixmax+1);
-    iymax = (int) MIN(n_boxes-1,iymax+1);
+    mesh->count_range_extensions++;
+    ixmin = MAX (0,ixmin-1);
+    iymin = MAX (0,iymin-1);
+    izmin = MAX (0,izmin-1);
+    ixmax = MIN (mesh->n_bins-1,ixmax+1);
+    iymax = MIN (mesh->n_bins-1,iymax+1);
+    izmax = MIN (mesh->n_bins_z-1,izmax+1);
     goto loop; 
   }
 
   /* Update counter */
   #pragma omp atomic
-  pw->count_interpolations++;
+  mesh->count_interpolations++;
 
-  /* Return value */
+  /* Return normalised value */
   *interpolated_value = result/norm;
   
   return _SUCCESS_;
@@ -735,35 +490,48 @@ loop:
 }
 
 
-int mesh_2D_free (
-    struct mesh_interpolation_workspace * pw
+/**
+ * Free the memory associated to the mesh and set mesh->ready=false.
+ */
+
+int mesh_free (
+    struct interpolation_mesh * mesh
     )
 {
   
-  if ((pw->n_boxes > 0) && (pw->n_points > 0)) {
+  if (mesh->ready) {
 
-    /* Free mesh */
-    for(int i = 0; i<pw->n_boxes; i++) {
-      for(int j = 0; j<pw->n_boxes; j++) {
-        for(int m = 0; m<pw->grid_2D[i][j]; m++)
-          free (pw->mesh_2D[i][j][m]);
-        free (pw->mesh_2D[i][j]);
-      }
-      free (pw->mesh_2D[i]);
-    }
-    free (pw->mesh_2D);
-
-  
     /* Free grid */
-    if (pw->compute_grid==_TRUE_) {
-      for(int i = 0; i<pw->n_boxes; i++)
-        free (pw->grid_2D[i]);
-      free (pw->grid_2D);
+    if (mesh->compute_grid==_TRUE_) {
+
+      for (int i = 0; i<mesh->n_bins; i++) {
+        for (int j = 0; j<mesh->n_bins; j++) {
+
+          free (mesh->grid[i][j]);
+
+        } free (mesh->grid[i]);
+      } free (mesh->grid);
+
+
+      /* Free mesh */
+      for (int i = 0; i<mesh->n_bins; i++) {
+        for (int j = 0; j<mesh->n_bins; j++) {
+          for (int k = 0; k<mesh->n_bins_z; k++) {
+
+            free (mesh->id[i][j][k]);
+
+          } free (mesh->id[i][j]);
+        } free (mesh->id[i]);
+      } free (mesh->id);
+
     }
+
+    /* Free values */
+    free (mesh->values);
+
+    mesh->ready = _FALSE_;
 
   }
-
-  free (pw);
 
   return _SUCCESS_;
   
@@ -771,7 +539,11 @@ int mesh_2D_free (
 
 
 
-double distance_2D (double * vec1, double * vec2){
+/**
+ * Compute the Euclidean distance between two points in 2D space
+ */
+
+double distance_2D (double * vec1, double * vec2) {
   
   return  sqrt ( (vec1[1]-vec2[1])*(vec1[1]-vec2[1])
                 +(vec1[2]-vec2[2])*(vec1[2]-vec2[2]) );
@@ -779,9 +551,15 @@ double distance_2D (double * vec1, double * vec2){
 
 
 
+/**
+ * Compute the Euclidean distance between two points in 3D space
+ */
 
-
-
-
+double distance_3D (double * vec1, double * vec2) {
+  
+  return  sqrt ( (vec1[1]-vec2[1])*(vec1[1]-vec2[1])
+                +(vec1[2]-vec2[2])*(vec1[2]-vec2[2])
+                +(vec1[3]-vec2[3])*(vec1[3]-vec2[3]) );
+}
 
 

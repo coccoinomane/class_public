@@ -1,20 +1,9 @@
-/** @file spectra.h Documented includes for spectra module */
+/** @file fisher.h Documented includes for Fisher module */
 
 #ifndef __FISHER__
 #define __FISHER__
 
 #include "bispectra.h"
-#include "mesh_interpolation.h"
-
-
-/* Which kind of interpolation for the bispectra?  */
-enum bispectra_interpolation_method {
-  smart_interpolation,
-  trilinear_interpolation,
-  mesh_interpolation_2D,
-  mesh_interpolation_3D,
-  sum_over_all_multipoles
-};
 
 
 /* Maximum number of frequency bands of the experiment, for the purpose of Fisher matrix computation. */
@@ -36,20 +25,37 @@ struct fisher {
   // =                             Flags and indices                             =
   // =============================================================================
 
-  /* Should we compute the Fisher matrix at all? */
-  short has_fisher;
+  short has_fisher; /**< Should we compute the Fisher matrix at all? If _TRUE_,
+                    the Fisher module will be skipped altogether. */
 
-  /* Should we include the lensing effects in the Fisher matrix estimator? These
-  include the extra variance due to lensing (see Sec. 5 of http://uk.arxiv.org/abs/1101.2234)
-  and using the lensed C_l's in the covariance matrix */
+  /**
+   * Should we include the lensing effects in the Fisher matrix estimator?
+   *
+   * Gravitational lensing degrades the bispectrum signal via the lensing noise
+   * and the lensing variance. If this flag is turned on, we include these effects
+   * in the Fisher matrix. 
+   *
+   * By lensing noise we refer to using the lensed C_l rather than the unlensed
+   * ones in the inverse covariance matrix (ie. the C_l at the denominator of
+   * the Fisher matrix estimator).
+   *
+   * By lensing variance we refer to the effect described in Sec. 5 of
+   * http://uk.arxiv.org/abs/1101.2234.
+   */
   short include_lensing_effects;
 
-  /* Should we compute the Fisher matrix for all the l's up to l_max, rather than only for l_max?
-  When lensing variance is not requested the flag is not needed, as the computation of the Fisher
-  matrix naturally yields F(l) up to l=l_max. With lensing variance, however, computing F(l)
-  requires running the Fisher module separately for each l, because the lensing variance algorithm
-  used in SONG (Lewis et al 2011, Sec. 5) includes a sum over l1 (smallest multipole in the Fisher
-  summation) rather than over l3 (larger multipole in the Fisher summation). */
+  /**
+   * Should we compute the Fisher matrix for all the l up to l_max, rather than
+   * only for l_max?
+   *
+   * When the lensing variance is not requested the flag is not needed, as the
+   * computation of the Fisher matrix naturally yields F(l) up to l=l_max. With
+   * lensing variance, however, computing F(l) requires running the Fisher module
+   * separately for each l, because the lensing variance algorithm used in SONG
+   * (Lewis et al 2011, Sec. 5) includes a sum over l1 (smallest multipole in
+   * the Fisher summation) rather than over l3 (larger multipole in the Fisher
+   * summation).
+   */
   short compute_lensing_variance_lmax;
 
   // ===========================================================================================
@@ -72,11 +78,6 @@ struct fisher {
   int index_ft_cmb_lensing_kernel;    /* Index for the bispectrum of CMB-lensing in the squeezed limit (kernel only) */
   int ft_size;                    /* Total number of bispectra types requested */
   
-  /* Index of the first Fisher matrix line that does not refer to an analytical bispectrum. 
-  This is used for the allocation of the mesh interpolation grids */
-  int first_non_analytical_index_ft;
-  int has_only_analytical_bispectra;
-
   /* Correspondence between rows of the Fisher matrix and the bispectra stored in pbi->bispectra[index_bt] */
   int index_bt_of_ft[_MAX_NUM_BISPECTRA_];
 
@@ -93,7 +94,6 @@ struct fisher {
   short has_fisher_t;
   short has_fisher_e;
   short has_fisher_b;
-  short has_fisher_r;
 
   /* Should we include in the Fisher matrix analysis all fields (T,E,B...) that were 
   computed in the bispectrum module? This is the case by default, but sometimes
@@ -102,14 +102,12 @@ struct fisher {
   short ignore_t;
   short ignore_e;
   short ignore_b;
-  short ignore_r;
 
   /* The fields considered in this module and in the Fisher one are denoted by indices 'ff'.
   These can be temperature (T), E-polarisation (E), B-polarisation (B), Rayleigh (R)...  */
   int index_ff_t;
   int index_ff_e;
   int index_ff_b;
-  int index_ff_r;
   int ff_size;
 
   /* Actual number of bispectra to be included in the Fisher matrix (usually 'ff_size' to
@@ -133,14 +131,16 @@ struct fisher {
   // =                                 Arrays                                      =
   // ===============================================================================
   
-  int l_min;                 /* min value where the bispectrum is known (pbi->l[0]) */
-  int l_max;                 /* max value where the bispectrum is known (pbi->l[pbi->l_size-1]) */
-  int full_l_size;           /* equal to l_max - l_min + 1 */
-  
-  int l_min_estimator;       /* minimum l in the estimator sum, default is pbi->l[0] */
-  int l_max_estimator;       /* maximum l in the estimator sum, default is pbi->l[pbi->l_size-1] */
+  int l_min_estimator;   /**< Minimum l in the estimator sum, default is pbi->l_min */
+  int l_max_estimator;   /**< Maximum l in the estimator sum, default is pbi->l_max */
 
-  /* Debug variables which, by default, are set using l_min_estimator and l_max_estimator */
+  /**
+   * Limits of the Fisher matrix sum for the l1, l2 and l3 multipoles.
+   *
+   * These limits are never used unless the user changes them manually
+   * in fisher_indices(), ot the l_min_estimator and l_max_estimator
+   * variables are set.
+   */
   int l1_min_global;
   int l2_min_global;
   int l3_min_global;
@@ -148,14 +148,31 @@ struct fisher {
   int l2_max_global;
   int l3_max_global;
 
-  /* Arrays over which the Fisher sum will run */
-  int * l1;
-  int l1_size;
-  int * l2;
-  int l2_size;
-  int * l3;
-  int l3_size;
-  
+  /**
+   * Grid in l over which we shall compute the Fisher matrix sum.
+   *
+   * The Fisher matrix is obtained as a sum over (l1,l2,l3). Having computed the
+   * bispectrum on a grid in (l1,l2,l3), we need to resort to some interpolation or
+   * integration scheme in order to evaluate the sum. Depending on the adopted
+   * method, we consider different grids for the three l-directions, and store
+   * them in pfi->l1, pfi->l2 and pfi->l3.
+   */
+  //@{
+  int * l1;           /**< Integration grid for the Fisher matrix in the l1 direction */
+  int l1_is_full;     /**< If true, l1 runs from pbi->l_min to pbi->l_max; if false, it only contains the nodes in pbi->l */
+  int l1_size;        /**< Number of grid points in the l1 direction */
+
+  int * l2;           /**< Integration grid for the Fisher matrix in the l2 direction */
+  int l2_is_full;     /**< If true, l2 runs from pbi->l_min to pbi->l_max; if false, it only contains the nodes in pbi->l */
+  int l2_size;        /**< Number of grid points in the l2 direction */
+
+  int * l3;           /**< Integration grid for the Fisher matrix in the l3 direction */
+  int l3_is_full;     /**< If true, l3 runs from pbi->l_min to pbi->l_max; if false, it only contains the nodes in pbi->l */
+  int l3_size;        /**< Number of grid points in the l3 direction */
+  //@}
+
+
+    
   /* Contribution to the Fisher matrix coming from a given l1 and for a given XYZ bispectrum,
   where XYZ=TTT,TTE,TET, etc. This is the sum over l2, l3, A, B, C of
   b^XYZ(l1,l2,l3) * b^ABC(l1,l2,l3) * cov^XYZABC(l1,l2,l3), with l1>=l2>=l3.
@@ -270,7 +287,6 @@ struct fisher {
   /* Amplitude of the noise. With respect to Table I of astro-ph/0506396v2, 'noise' is 'sigma' */
   double noise_t[_N_FREQUENCY_CHANNELS_MAX_];
   double noise_e[_N_FREQUENCY_CHANNELS_MAX_];
-  double noise_r[_N_FREQUENCY_CHANNELS_MAX_];
 
   /* Total noise as a function of l, defined by C_l_experiment = C_l_theory + N_l. This includes co-added
   contributions from all frequency channels, as explained in eq. 29 of astro-ph/0506396v2.
@@ -279,28 +295,6 @@ struct fisher {
 
   /* Sky coverage of the experiment. Equal to 1 for a full-sky experiment. */
   double f_sky;
-
-
-  // ============================================================================================
-  // =                                   Bispectra interpolation                                =
-  // ============================================================================================
-  
-  /* Variable set to the type of desired interpolation (trilinear, mesh or sum) */
-  enum bispectra_interpolation_method bispectra_interpolation;
-    
-  /* Number of meshes in which to partition the 3D l-space */
-  int n_meshes;
-  double * link_lengths;
-  double * group_lengths;
-  double * soft_coeffs;
-
-  /* l-multipole at which we shall switch between one mesh and another. Indexed as pbi->l_turnover[index_mesh],
-    where index_mesh runs from 0 to n_mesh_grids-1 */
-  int * l_turnover;
-  
-  /* Array of pointers to interpolation workspaces, indexed as mesh_workspaces[index_bt][X][Y][Z][index_mesh],
-  where i,j,k are the field indices (eg. TET). */
-  struct mesh_interpolation_workspace ****** mesh_workspaces;
 
   /* When larger than one, forces SONG to only consider squeezed triangles when computing the
   Fisher matrix for all bispectra. The squeezed triangles are chosen so that
@@ -311,6 +305,7 @@ struct fisher {
   will be more and more equilateral as 'squeezed_ratio' approaches -1. */
   double squeezed_ratio;
 
+
   // ===========================================================================================
   // =                                    Technical parameter                                  =
   // ===========================================================================================
@@ -318,7 +313,6 @@ struct fisher {
   short fisher_verbose;            /* Flag regulating the amount of information sent to standard output (none if set to zero) */                                                    
   char info[8192];                 /* Store Fisher matrix information to be printed out to screen and saved to file */
   char info_lensvar[8192];         /* Same, also accounting for lensing-induced noise */
-  short always_interpolate_bispectra; /* Should we interpolate also the analytical bispectra? */
   ErrorMsg error_message;          /* Zone for writing error messages */
 
 };
@@ -332,12 +326,12 @@ struct fisher {
  */
 struct fisher_workspace {
   
-  /* Weights for the linear interpolation. Used for the l1 and l2 sums in the Fisher matrix
-  estimator. */
+  /* Weights for the linear interpolation. Used for the l1 and l2 sums in the
+  Fisher matrix estimator. */
   double * delta_l;
   
-  /* Weights for the linear interpolation along the triangular direction (l3). Indexed as
-  pfi->delta_l3[thread][index_l3] */
+  /* Weights for the linear interpolation along the triangular direction (l3).
+  Indexed as pfi->delta_l3[thread][index_l3] */
   double ** delta_l3;
 
   /* Temporary arrays needed to store the 3j-symbols */
@@ -437,8 +431,9 @@ extern "C" {
         struct fisher * pfi
         );
 
-  int fisher_cross_correlate_mesh (
+  int fisher_compute_matrix (
         struct precision * ppr,
+        struct transfers * ptr,
         struct spectra * psp,
         struct lensing * ple,
         struct bispectra * pbi,
@@ -446,7 +441,7 @@ extern "C" {
         struct fisher_workspace * pw
         );
 
-  int fisher_cross_correlate_nodes (
+  int fisher_compute_matrix_nodes (
         struct precision * ppr,
         struct spectra * psp,
         struct lensing * ple,
@@ -484,68 +479,6 @@ extern "C" {
           struct fisher * pfi,
           struct fisher_workspace * pw
           );
-
-  int fisher_allocate_interpolation_mesh(
-          struct precision * ppr,
-          struct spectra * psp,
-          struct lensing * ple,
-          struct bispectra * pbi,
-          struct fisher * pfi,
-          struct mesh_interpolation_workspace ******* mesh_workspaces
-          );
-
-  int fisher_free_interpolation_mesh(
-          struct bispectra * pbi,
-          struct fisher * pfi,
-          struct mesh_interpolation_workspace ******* mesh_workspaces
-          );
-
-  int fisher_create_3D_interpolation_mesh(
-        struct precision * ppr,
-        struct spectra * psp,
-        struct lensing * ple,
-        struct bispectra * pbi,
-        struct fisher * pfi
-        );
-
-  int fisher_create_2D_interpolation_mesh(
-        struct precision * ppr,
-        struct spectra * psp,
-        struct lensing * ple,
-        struct bispectra * pbi,
-        struct fisher * pfi,
-        int index_l1,
-        struct mesh_interpolation_workspace ****** mesh_workspaces
-        );
-
-  int fisher_interpolate_bispectrum_mesh_2D (
-        struct bispectra * pbi,
-        struct fisher * pfi,
-        int index_bt,
-        double l1,
-        double l2,
-        double l3,
-        int X,
-        int Y,
-        int Z,
-        struct mesh_interpolation_workspace ** mesh,
-        double * interpolated_value
-        );
-
-  int fisher_interpolate_bispectrum_mesh_3D (
-        struct bispectra * pbi,
-        struct fisher * pfi,
-        int index_bt,
-        double l1,
-        double l2,
-        double l3,
-        int X,
-        int Y,
-        int Z,
-        struct mesh_interpolation_workspace ** mesh,
-        double * interpolated_value
-        );
-
 
 #ifdef __cplusplus
 }

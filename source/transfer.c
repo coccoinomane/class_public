@@ -168,7 +168,7 @@ int transfer_init(
      For error management, instead of "return _FAILURE_", we will set the variable below
      to "abort = _TRUE_". This will lead to a "return _FAILURE_" jus after leaving the
      parallel region. */
-  int abort;
+  int abort = _FALSE_;
 
 #ifdef _OPENMP
 
@@ -468,6 +468,7 @@ int transfer_free(
     free(ptr->l);
 #ifdef WITH_SONG1
     free (ptr->index_l);
+    free (ptr->index_l_left);
 #endif // WITH_SONG1
     free(ptr->q);
     free(ptr->k);
@@ -486,7 +487,7 @@ int transfer_free(
       free(ptr->nz_evo_dd_dlog_nz);
     }
   }
-
+  
   return _SUCCESS_;
 
 }
@@ -1000,6 +1001,7 @@ int transfer_get_l_list(
 
     int * l_copy;
     class_alloc (l_copy, ptr->l_size_max*sizeof(int), ptr->error_message);
+
     for (int index_l=0; index_l < ptr->l_size_max; ++index_l)
       l_copy[index_l] = ptr->l[index_l];
 
@@ -1035,10 +1037,12 @@ int transfer_get_l_list(
 
     ptr->l_size_max = index_l;
 
-  } // end of if(compute even/odd l-grid)
+    free (l_copy);
+
+  } // if(compute even/odd l-grid)
 
 
-  /* Find out the index in ptr->l corresponding to a given l. */
+  /* Find out the index in ptr->l corresponding to a given l */
 
   class_alloc (ptr->index_l, (ptr->l[ptr->l_size_max-1]+1)*sizeof(int), ptr->error_message);
 
@@ -1047,9 +1051,27 @@ int transfer_get_l_list(
     ptr->index_l[l] = -1;
 
     for (index_l=0; index_l<ptr->l_size_max; ++index_l)
-      if (l==ptr->l[index_l]) ptr->index_l[l] = index_l;
+      if (l == ptr->l[index_l])
+        ptr->index_l[l] = index_l;    
 
   }
+
+
+  /* Find out the index in ptr->l at the left of a given l */
+
+  class_alloc (ptr->index_l_left, (ptr->l[ptr->l_size_max-1]+1)*sizeof(int), ptr->error_message);
+
+  for(int l=0; l<=ptr->l[ptr->l_size_max-1]; ++l) {
+      
+    ptr->index_l_left[l] = ptr->l_size_max-1;
+
+    while ((ptr->index_l_left[l] >= 0) && (ptr->l[ptr->index_l_left[l]] > l))
+      ptr->index_l_left[l]--;
+    
+  }
+
+
+  /* Find out the index in ptr->l corresponding to a given l. */
 
 
   /* Assign to each output l the corresponding index in ptr->l */

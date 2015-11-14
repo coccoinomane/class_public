@@ -3359,10 +3359,10 @@ void PrintMatrix(double **in,int n)
 
 int is_triangular_int (int l1, int l2, int l3) {
   
-  if ((l3>=abs(l1-l2)) && (l3<=(l1+l2)))
-    return _TRUE_;
+  if ((l3<abs(l1-l2)) || (l3>(l1+l2)))
+    return _FALSE_;
   else
-    return _FALSE_;  
+    return _TRUE_;  
   
 }
 
@@ -3374,10 +3374,10 @@ int is_triangular_int (int l1, int l2, int l3) {
 
 int is_triangular_double (double l1, double l2, double l3) {
 
-  if ((l3>=fabs(l1-l2)) && (l3<=(l1+l2)))
-    return _TRUE_;
+  if ((l3<fabs(l1-l2)) || (l3>(l1+l2)))
+    return _FALSE_;
   else
-    return _FALSE_;  
+    return _TRUE_;  
 
 }
 
@@ -3671,6 +3671,8 @@ int merge_arrays_int (
  *
  * Credits to the users freerider and Dave Sinkula of daniweb.com,
  * https://www.daniweb.com/programming/software-development/code/216517/strings-search-and-replace
+ * I have added a check to avoid infinite recursion when the replace string
+ * contains a substring which is equal to the search string.
  */
 
 int replace_string (
@@ -3697,9 +3699,11 @@ int replace_string (
     errmsg,
     "Insufficient memory available");
 
+  int done = 0;
+
   strcpy(ostr, source_str);
 
-  while (pdest) {
+  while (pdest && !done) {
 
     pdest = strstr( ostr, search_str );
     length = (int)(pdest - ostr);
@@ -3733,6 +3737,8 @@ int replace_string (
 
       strcpy(ostr, nstr);
 
+      done = 1;
+
     }
   }
 
@@ -3740,6 +3746,8 @@ int replace_string (
     free(nstr);
 
   *output_string = ostr;
+  
+  return _SUCCESS_;
   
 }
 
