@@ -812,9 +812,13 @@ int perturb_indices_of_perturbs(
 #endif // WITH_SONG1
       ppt->tp_size[index_md] = index_type;
 
+#ifndef WITH_SONG2
+      /* In SONG, we compute the first-order perturbations to obtain the quadratic sources,
+      not to generate output */
       class_test(index_type == 0,
                  ppt->error_message,
                  "inconsistent input: you asked for scalars, so you should have at least one non-zero scalar source type (temperature, polarisation, lensing/gravitational potential, ...). Please adjust your input.");
+#endif // WITH_SONG2
 
       /** -- count scalar initial conditions (for scalars: ad, cdi, nid, niv; for tensors: only one) and assign corresponding indices */
 

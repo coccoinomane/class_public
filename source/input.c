@@ -1521,7 +1521,6 @@ int input_read_parameters(
     if ((strstr(string1,"stop_at_perturbations2") != NULL) || (strstr(string1,"P2") != NULL)) {
       ppt->has_perturbations = _TRUE_;
       ppt->has_perturbations2 = _TRUE_;
-      ppt->has_cls = _TRUE_;
     }
 
     if ((strstr(string1,"stop_at_transfers2") != NULL) || (strstr(string1,"T2") != NULL)) {
