@@ -89,7 +89,7 @@ enum phi_equation {
 };
 
 
-/** Macro to quickly write in the array ppt->quadsoruces */
+/** Macro to quickly write in the array ppt->quadsources */
 #define _set_quadsource_(index,value,args...) {                                      \
     ppt->quadsources[index_md][index_ic * ppt->qs_size[index_md] + index]            \
                     [index_tau * ppt->k_size[index_md] + index_k] = value;           \

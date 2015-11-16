@@ -3346,6 +3346,63 @@ void PrintMatrix(double **in,int n)
 
 
 
+// ======================================================================================
+// =                              Variable transformations                              =
+// ======================================================================================
+
+
+#ifdef WITH_SONG2
+
+/**
+ * Transform the 3D vector k into its triangular-symmetric version kt.
+ *
+ * This function is used to morph the triangular (k1,k2,k3) domain into a
+ * cubic domain, which is better suited to perform the numerical convolution
+ * over k1 and k2.
+ *
+ * This transformation is the floating point equivalent of of the (l1,l2,l3)
+ * one adopted in Fergusson et al 2009 (http://arxiv.org/abs/0812.3413) for
+ * the cubic interpolation of the bispectrum, modulo a 2 factor.
+ *
+ * Note that the transformation will revert the order of the k-values. That
+ * is, if k1>k2>k3 then you will have k1t<k2t<k3t.
+ */
+
+int symmetric_sampling (
+      double k[4], /**< Input: the array to transform */
+      double *kt,  /**< Output: the transformed array */
+      ErrorMsg errmsg)
+{
+  
+  kt[1] = (k[2] + k[3])/2;
+  kt[2] = (k[3] + k[1])/2;
+  kt[3] = (k[1] + k[2])/2;
+
+  return _SUCCESS_;
+  
+}
+
+
+/** 
+ * Inverse of the transformation implemented in symmetric_sampling().
+ */
+
+int symmetric_sampling_inverse (
+      double kt[4], /**< Input: the array to inverse-transform */
+      double *k,    /**< Output: the inverse-transformed array */
+      ErrorMsg errmsg)
+{
+
+  k[1] = kt[2] + kt[3] - kt[1];
+  k[2] = kt[3] + kt[1] - kt[2];
+  k[3] = kt[1] + kt[2] - kt[3];
+
+  return _SUCCESS_;
+  
+}
+
+#endif // WITH_SONG2
+
 
 
 // ======================================================================================

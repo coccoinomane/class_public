@@ -9866,12 +9866,12 @@ int bispectra_mesh_create (
   }
 
   if (is_2D) {
-    printf_log_if (pbi->bispectra_verbose, 0,
+    printf_log_if (pbi->bispectra_verbose, 2,
       "     * the l1=%d slice has %ld node%s\n",
       pbi->l[index_L1], n_nodes, ((n_nodes==1)?"":"s"));
   }
   else {
-    printf_log_if (pbi->bispectra_verbose, 0,
+    printf_log_if (pbi->bispectra_verbose, 2,
       "     * mesh has %ld node%s\n",
       n_nodes, ((n_nodes==1)?"":"s"));
   }
@@ -10044,7 +10044,7 @@ int bispectra_mesh_create (
     mesh->error_message,
     pbi->error_message);    
 
-  printf_log_if (pbi->bispectra_verbose, 0,
+  printf_log_if (pbi->bispectra_verbose, 2,
     "      \\ allocated (grid,mesh)=(%d,%d)=(%g,%g) MBs\n",
     mesh->n_allocated_in_grid, mesh->n_allocated_in_mesh,
     mesh->n_allocated_in_grid*sizeof(double)/1e6,
