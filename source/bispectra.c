@@ -523,10 +523,29 @@ int bispectra_at_l3_linear (
   // =                                   Special cases                                  =
   // ====================================================================================
 
-  /* Special case A: if for this (l1,l2) there is only one l3 node, and it is not
-  l3, then return its value */
+  /* Special case A: if for this (l1,l2) there are no l3 nodes, then return zero
+  and tell the user the sampling was insufficient to interpolate. With the current
+  sampling scheme, this is never going to happen because there is at least one
+  point for each (l1,l2) pair; eg. the slice l1=100, l2=2 has the point (100,2,100). */
+
+  if (pbi->l_triangular_size[index_l1][index_l2] <= 0) {
+        
+    *bispectrum = 0;
+    
+    if ((bispectrum_unlensed != NULL) && (pbi->lens_me[index_bt] == _TRUE_))
+      *bispectrum_unlensed = 0;
+    
+    class_stop (pbi->error_message, "found l3_size=%d for index_l1=%d, index_l2=%d",
+      pbi->l_triangular_size[index_l1][index_l2], index_l1, index_l2);
+      
+    return _SUCCESS_;    
+ 
+  }
+
+  /* Special case B: if for this (l1,l2) there is only one l3 node then return
+  its value */
   
-  if (pbi->l_triangular_size[index_l1][index_l2] == 1) {
+  else if (pbi->l_triangular_size[index_l1][index_l2] == 1) {
     
     int index_l3 = pbi->index_l_triangular_min[index_l1][index_l2];
     
@@ -544,8 +563,9 @@ int bispectra_at_l3_linear (
     
   }
 
-  /* Special case B: if the requested l3 is smaller than the first node, extrapolate
-  backward linearly using the slope of the first two nodes */
+  /* Special case C: if the requested l3 is smaller than the first node, extrapolate
+  backward linearly using the slope of the first two nodes, unless extrapolate==_FALSE,
+  in which case return the value at the first node. */
 
   else if (l3 < l3_min) {
 
@@ -603,8 +623,9 @@ int bispectra_at_l3_linear (
     
   }
 
-  /* Special case C: if the requested l3 is larger than the last node, extrapolate
-  forward linearly using the slope of the last two nodes */
+  /* Special case D: if the requested k3 is larger than the last node, extrapolate
+  forward linearly using the slope of the first two nodes, unless extrapolate==_FALSE,
+  in which case return the value at the last node. */
   
   else if (l3 > l3_max) {
     
@@ -662,7 +683,7 @@ int bispectra_at_l3_linear (
         
   }
 
-  /* Special case D: if l3 is a node (ie. it belongs to pbi->l), then just return the
+  /* Special case E: if l3 is a node (ie. it belongs to pbi->l), then just return the
   bispectrum at the tabulated value */
 
   else if (ptr->index_l[l3] > 0) {
@@ -682,27 +703,6 @@ int bispectra_at_l3_linear (
   }
 
 
-  /* Special case E: if for this (l1,l2) there are no l3 nodes, then return zero
-  and tell the user the sampling was insufficient to interpolate. With the current
-  sampling scheme, this is never going to happen because there is at least one
-  point for each (l1,l2) pair; eg. the slice l1=100, l2=2 has the point (100,2,100). */
-
-  else if (pbi->l_triangular_size[index_l1][index_l2] < 0) {
-        
-    *bispectrum = 0;
-    
-    if ((bispectrum_unlensed != NULL) && (pbi->lens_me[index_bt] == _TRUE_))
-      *bispectrum_unlensed = 0;
-    
-    class_stop (pbi->error_message, "found l3_size=0 for index_l1=%d, index_l2=%d",
-      pbi->l_triangular_size[index_l1][index_l2], index_l1, index_l2);
-      
-    return _SUCCESS_;    
- 
-  }
-
-
-
   // ====================================================================================
   // =                                   Interpolation                                  =
   // ====================================================================================
@@ -711,7 +711,7 @@ int bispectra_at_l3_linear (
   int index_l3_left = ptr->index_l_left[l3];
   int l3_left = pbi->l[index_l3_left];
 
-  /* Index in pbi->l following l3; this index must be a node because of special case C */
+  /* Index in pbi->l following l3; this index must be a node because of special case D */
   int index_l3_right = index_l3_left + 1;
   class_test (index_l3_right > index_l3_max,
     pbi->error_message,
