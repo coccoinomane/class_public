@@ -1364,6 +1364,7 @@ int input_read_parameters(
 
   ppt->has_perturbations = _FALSE_;
   ppt->has_cls = _FALSE_;
+  ppt->has_pks = _FALSE_;
 
   class_call(parser_read_string(pfc,"output",&string1,&flag1,errmsg),
              errmsg,
@@ -1405,11 +1406,13 @@ int input_read_parameters(
     if ((strstr(string1,"mPk") != NULL) || (strstr(string1,"MPk") != NULL) || (strstr(string1,"MPK") != NULL)) {
       ppt->has_pk_delta=_TRUE_;
       ppt->has_perturbations = _TRUE_;
+      ppt->has_pks = _TRUE_;
     }
 
     if ((strstr(string1,"vPk") != NULL) || (strstr(string1,"VPk") != NULL) || (strstr(string1,"VPK") != NULL)) {
       ppt->has_pk_theta=_TRUE_;
       ppt->has_perturbations = _TRUE_;
+      ppt->has_pks = _TRUE_;
     }
 
     if ((strstr(string1,"mTk") != NULL) || (strstr(string1,"MTk") != NULL) || (strstr(string1,"MTK") != NULL) ||
@@ -1500,16 +1503,35 @@ int input_read_parameters(
       ppt->has_cls = _TRUE_;
     }
 
-    if (((strstr(string1,"delta_cdm_pk") != NULL) || (strstr(string1,"pk_delta_cdm") != NULL) || (strstr(string1,"mPk2") != NULL))) {
+    if (((strstr(string1,"delta_cdm_pk") != NULL) || /* obsolete */
+         (strstr(string1,"pk_delta_cdm") != NULL) || /* obsolete */
+         (strstr(string1,"delta2_cdm_pk") != NULL) ||
+         (strstr(string1,"pk_delta2_cdm") != NULL) ||
+         (strstr(string1,"mPk2") != NULL))) {
       ppt->has_perturbations = _TRUE_;
       ppt->has_perturbations2 = _TRUE_;
+      ppt->has_pks = _TRUE_;
       ppt->has_pk_delta = _TRUE_;
+      ppt->has_pk_delta2_cdm = _TRUE_;
     }
 
-    if (((strstr(string1,"delta_cdm_bk") != NULL) || (strstr(string1,"bk_delta_cdm") != NULL) ||
-         (strstr(string1,"mBisp") != NULL) || (strstr(string1,"mBisp2") != NULL))) {
+    if (((strstr(string1,"magnetic_pk") != NULL) ||
+         (strstr(string1,"pk_magnetic") != NULL) ||
+         (strstr(string1,"magPk") != NULL))) {
       ppt->has_perturbations = _TRUE_;
       ppt->has_perturbations2 = _TRUE_;
+      ppt->has_pk_magnetic = _TRUE_;
+    }
+
+    if (((strstr(string1,"delta_cdm_bk") != NULL) || /* obsolete */
+         (strstr(string1,"bk_delta_cdm") != NULL) || /* obsolete */
+         (strstr(string1,"delta2_cdm_bk") != NULL) ||
+         (strstr(string1,"bk_delta2_cdm") != NULL) ||
+         (strstr(string1,"mBisp") != NULL) ||
+         (strstr(string1,"mBisp2") != NULL))) {
+      ppt->has_perturbations = _TRUE_;
+      ppt->has_perturbations2 = _TRUE_;
+      ppt->has_pks = _TRUE_;
       ppt->has_pk_delta = _TRUE_;
     }
 
@@ -4436,6 +4458,8 @@ int input_default_params(
   ppt->has_cl_cmb_temperature2 = _FALSE_;
   ppt->has_cl_cmb_polarization_e2 = _FALSE_;
   ppt->has_cl_cmb_polarization_b2 = _FALSE_;
+  ppt->has_pk_delta2_cdm = _FALSE_;
+  ppt->has_pk_magnetic = _FALSE_;
 
   ppt->phi_eq = longitudinal;
 

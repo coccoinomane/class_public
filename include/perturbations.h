@@ -143,6 +143,7 @@ struct perturbs
   short has_perturbations; /**< do we need to compute perturbations at all ? */
 
   short has_cls; /**< do we need any harmonic space spectrum C_l (and hence Bessel functions, transfer functions, ...)? */
+  short has_pks; /**< do we need any Fourier space spectrum P(k)? */
 
   short has_scalars; /**< do we need scalars? */
   short has_vectors; /**< do we need vectors? */
@@ -445,6 +446,10 @@ struct perturbs
   short has_cl_cmb_polarization_e2;    /**< Do we need Cl for second-order CMB e-polarization? */
 
   short has_cl_cmb_polarization_b2;    /**< Do we need Cl for second-order CMB b-polarization? */
+
+  short has_pk_magnetic;    /**< Do we need P(k) for the magnetic field generated at recombination? */
+
+  short has_pk_delta2_cdm;  /**< Do we need P(k) for the second-order CDM density contrast? */
 
   short has_perturbed_recombination_stz; /**< Shall we compute perturbed ionization fraction as in Senatore,
                                          Tassev, Zaldarriaga, 2009 (http://arxiv.org/abs/0812.3652)? We

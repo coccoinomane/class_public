@@ -2170,43 +2170,43 @@ int spectra_indices(
     
 #ifdef WITH_SONG2
 
-    /* Intrinsic angular power spectra */
+    /* Second-order angular power spectra */
 
-    psp->has_tt2 = _FALSE_;
-    psp->has_ee2 = _FALSE_;
-    psp->has_te2 = _FALSE_;
-    psp->has_bb2 = _FALSE_;
+    psp->has_t2t2 = _FALSE_;
+    psp->has_e2e2 = _FALSE_;
+    psp->has_t2e2 = _FALSE_;
+    psp->has_b2b2 = _FALSE_;
 
     if (ppt->has_cl_cmb_temperature2) {
-      psp->has_tt2 = _TRUE_;
-      strcpy (psp->ct_labels[index_ct], "tt2");
+      psp->has_t2t2 = _TRUE_;
+      strcpy (psp->ct_labels[index_ct], "t2t2");
       psp->cl_type[index_ct] = second_order;
       psp->lens_me[index_ct] = _FALSE_;
-      psp->index_ct_tt2 = index_ct++;
+      psp->index_ct_t2t2 = index_ct++;
     }
 
     if (ppt->has_cl_cmb_polarization_e2) {
-      psp->has_ee2 = _TRUE_;
-      strcpy (psp->ct_labels[index_ct], "ee2");
+      psp->has_e2e2 = _TRUE_;
+      strcpy (psp->ct_labels[index_ct], "e2e2");
       psp->cl_type[index_ct] = second_order;
       psp->lens_me[index_ct] = _FALSE_;
-      psp->index_ct_ee2 = index_ct++;
+      psp->index_ct_e2e2 = index_ct++;
     }
 
     if (ppt->has_cl_cmb_temperature2 && ppt->has_cl_cmb_polarization_e2) {
-      psp->has_te2 = _TRUE_;
-      strcpy (psp->ct_labels[index_ct], "te2");
+      psp->has_t2e2 = _TRUE_;
+      strcpy (psp->ct_labels[index_ct], "t2e2");
       psp->cl_type[index_ct] = second_order;
       psp->lens_me[index_ct] = _FALSE_;
-      psp->index_ct_te2 = index_ct++;
+      psp->index_ct_t2e2 = index_ct++;
     }
 
     if (ppt->has_cl_cmb_polarization_b2) {
-      psp->has_bb2 = _TRUE_;
-      strcpy (psp->ct_labels[index_ct], "bb2");
+      psp->has_b2b2 = _TRUE_;
+      strcpy (psp->ct_labels[index_ct], "b2b2");
       psp->cl_type[index_ct] = second_order;
       psp->lens_me[index_ct] = _FALSE_;
-      psp->index_ct_bb2 = index_ct++;
+      psp->index_ct_b2b2 = index_ct++;
     }
 
 #endif // WITH_SONG2
@@ -2237,10 +2237,10 @@ int spectra_indices(
       if (psp->has_ep == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_ep] = ppt->l_scalar_max;
 #ifdef WITH_SONG1
 #ifdef WITH_SONG2
-      if (psp->has_tt2 == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_tt2] = ppt->l_scalar_max;
-      if (psp->has_ee2 == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_ee2] = ppt->l_scalar_max;
-      if (psp->has_te2 == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_te2] = ppt->l_scalar_max;
-      if (psp->has_bb2 == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_bb2] = ppt->l_scalar_max;
+      if (psp->has_t2t2 == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_t2t2] = ppt->l_scalar_max;
+      if (psp->has_e2e2 == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_e2e2] = ppt->l_scalar_max;
+      if (psp->has_t2e2 == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_t2e2] = ppt->l_scalar_max;
+      if (psp->has_b2b2 == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_b2b2] = ppt->l_scalar_max;
 #endif // WITH_SONG2
       if (psp->has_rr == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_rr] = ppt->l_scalar_max;
       if (psp->has_tr == _TRUE_) psp->l_max_ct[ppt->index_md_scalars][psp->index_ct_tr] = ppt->l_scalar_max;
@@ -2311,6 +2311,14 @@ int spectra_indices(
 
   /* indices associated to particular types of power spectra P(k) in Fourier space */
 
+#ifdef WITH_SONG2
+
+    /* By default, all P(k) are considered first order */
+    for (int i=0; i < _MAX_NUM_SPECTRA_; ++i)
+      psp->pk_type[i] = first_order;
+
+#endif // WITH_SONG2
+
   index_pk = 0;
 
   class_calloc (psp->pk_labels,
@@ -2347,6 +2355,33 @@ int spectra_indices(
       psp->is_cross_pk[index_pk] = _TRUE_;
       psp->index_pk_delta_theta = index_pk++;
     }    
+
+#ifdef WITH_SONG2
+
+    /* Second-order Fourier power spectra */
+
+    psp->has_pk_delta2_delta2_cdm = _FALSE_;
+    psp->has_pk_magnetic = _FALSE_;
+
+    if (ppt->has_pk_delta2_cdm) {
+      psp->has_pk_delta2_delta2_cdm = _TRUE_;
+      strcpy (psp->pk_labels[index_pk], "delta2_delta2_cdm");
+      psp->pk_type[index_pk] = second_order;
+      psp->is_source_pk[index_pk] = _FALSE_;
+      psp->is_cross_pk[index_pk] = _FALSE_;
+      psp->index_pk_delta2_delta2_cdm = index_pk++;
+    }
+
+    if (ppt->has_pk_magnetic) {
+      psp->has_pk_magnetic = _TRUE_;
+      strcpy (psp->pk_labels[index_pk], "magnetic");
+      psp->pk_type[index_pk] = second_order;
+      psp->is_source_pk[index_pk] = _FALSE_;
+      psp->is_cross_pk[index_pk] = _FALSE_;
+      psp->index_pk_magnetic = index_pk++;
+    }
+
+#endif // WITH_SONG2
 
   } // if has_scalars
   
@@ -3531,7 +3566,7 @@ int spectra_pk_from_source(
 
   for (int index_pk=0; index_pk < psp->pk_size; ++index_pk) {
 
-    if (psp->is_source_pk[index_pk] == _FALSE_)
+    if (!psp->is_source_pk[index_pk])
       continue;
     
     if (psp->spectra_verbose > 0)

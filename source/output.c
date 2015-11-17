@@ -2039,10 +2039,10 @@ int output_open_cl_file(
       class_fprintf_columntitle(*clfile,"BB",psp->has_bb,colnum);
 #ifdef WITH_SONG1
 #ifdef WITH_SONG2
-      class_fprintf_columntitle(*clfile,"TT_2",psp->has_tt2 && !lensed_output,colnum);
-      class_fprintf_columntitle(*clfile,"EE_2",psp->has_ee2 && !lensed_output,colnum);
-      class_fprintf_columntitle(*clfile,"TE_2",psp->has_te2 && !lensed_output,colnum);
-      class_fprintf_columntitle(*clfile,"BB_2",psp->has_bb2 && !lensed_output,colnum);
+      class_fprintf_columntitle(*clfile,"TT_2",psp->has_t2t2 && !lensed_output,colnum);
+      class_fprintf_columntitle(*clfile,"EE_2",psp->has_e2e2 && !lensed_output,colnum);
+      class_fprintf_columntitle(*clfile,"TE_2",psp->has_t2e2 && !lensed_output,colnum);
+      class_fprintf_columntitle(*clfile,"BB_2",psp->has_b2b2 && !lensed_output,colnum);
 #endif // WITH_SONG2
       class_fprintf_columntitle(*clfile,"RR",psp->has_rr,colnum);
       class_fprintf_columntitle(*clfile,"TR",psp->has_tr,colnum);
@@ -2061,10 +2061,10 @@ int output_open_cl_file(
       class_fprintf_columntitle(*clfile,"TE",psp->has_te,colnum);
 #ifdef WITH_SONG1
 #ifdef WITH_SONG2
-      class_fprintf_columntitle(*clfile,"TT_2",psp->has_tt2 && !lensed_output,colnum);
-      class_fprintf_columntitle(*clfile,"EE_2",psp->has_ee2 && !lensed_output,colnum);
-      class_fprintf_columntitle(*clfile,"BB_2",psp->has_bb2 && !lensed_output,colnum);
-      class_fprintf_columntitle(*clfile,"TE_2",psp->has_te2 && !lensed_output,colnum);
+      class_fprintf_columntitle(*clfile,"TT_2",psp->has_t2t2 && !lensed_output,colnum);
+      class_fprintf_columntitle(*clfile,"EE_2",psp->has_e2e2 && !lensed_output,colnum);
+      class_fprintf_columntitle(*clfile,"BB_2",psp->has_b2b2 && !lensed_output,colnum);
+      class_fprintf_columntitle(*clfile,"TE_2",psp->has_t2e2 && !lensed_output,colnum);
 #endif // WITH_SONG2
       class_fprintf_columntitle(*clfile,"RR",psp->has_rr,colnum);
       class_fprintf_columntitle(*clfile,"TR",psp->has_tr,colnum);
@@ -2184,10 +2184,10 @@ int output_one_line_of_cl(
     class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_te], psp->has_te);
 #ifdef WITH_SONG1
 #ifdef WITH_SONG2
-    class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_tt2], psp->has_tt2 && !lensed_output);
-    class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_ee2], psp->has_ee2 && !lensed_output);
-    class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_bb2], psp->has_bb2 && !lensed_output);
-    class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_te2], psp->has_te2 && !lensed_output);
+    class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_t2t2], psp->has_t2t2 && !lensed_output);
+    class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_e2e2], psp->has_e2e2 && !lensed_output);
+    class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_b2b2], psp->has_b2b2 && !lensed_output);
+    class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_t2e2], psp->has_t2e2 && !lensed_output);
 #endif // WITH_SONG2
     class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_rr], psp->has_rr);
     class_fprintf_double(clfile, factor*pow(pba->T_cmb*1.e6,2)*cl[psp->index_ct_tr], psp->has_tr);
@@ -2209,13 +2209,13 @@ int output_one_line_of_cl(
       index_ct_rest++;
 #ifdef WITH_SONG1
 #ifdef WITH_SONG2
-    if (psp->has_tt2 == _TRUE_)
+    if (psp->has_t2t2 == _TRUE_)
       index_ct_rest++;
-    if (psp->has_ee2 == _TRUE_)
+    if (psp->has_e2e2 == _TRUE_)
       index_ct_rest++;
-    if (psp->has_bb2 == _TRUE_)
+    if (psp->has_b2b2 == _TRUE_)
       index_ct_rest++;
-    if (psp->has_te2 == _TRUE_)
+    if (psp->has_t2e2 == _TRUE_)
       index_ct_rest++;
 #endif // WITH_SONG2
     if (psp->has_rr == _TRUE_)

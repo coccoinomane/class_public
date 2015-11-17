@@ -119,17 +119,18 @@ struct spectra {
 
 #ifdef WITH_SONG2
   
-  int has_tt2; /**< do we want second-order C_l^TT? */
-  int has_ee2; /**< do we want second-order C_l^EE? */
-  int has_te2; /**< do we want second-order C_l^TE? */
-  int has_bb2; /**< do we want second-order C_l^BB? */
+  int has_t2t2; /**< do we want C_l^TT where both T are second order? */
+  int has_e2e2; /**< do we want C_l^EE where both E are second order? */
+  int has_t2e2; /**< do we want C_l^TE where both T and E are second order? */
+  int has_b2b2; /**< do we want C_l^BB where both B are second order? */
 
-  int index_ct_tt2; /**< index for the intrinsic C_l^TT */
-  int index_ct_ee2; /**< index for the intrinsic C_l^EE */
-  int index_ct_te2; /**< index for the intrinsic C_l^TE */
-  int index_ct_bb2; /**< index for the intrinsic C_l^BB */
+  int index_ct_t2t2; /**< Index for C_l^TT with both T second order */
+  int index_ct_e2e2; /**< Index for C_l^EE with both E second order */
+  int index_ct_t2e2; /**< Index for C_l^TE with both T and B second order */
+  int index_ct_b2b2; /**< Index for C_l^BB with both B second order */
 
-  enum spectra_types cl_type[_MAX_NUM_SPECTRA_]; /**< is the considered spectrum first or second order? */
+  enum spectra_types cl_type[_MAX_NUM_SPECTRA_]; /**< Is the considered spectrum first or second order? */
+  enum spectra_types pk_type[_MAX_NUM_SPECTRA_]; /**< Is the considered spectrum first or second order? */
 
 #endif // WITH_SONG2
 #endif // WITH_SONG1
@@ -245,13 +246,13 @@ struct spectra {
                        or nearly constant, and with arbitrary sign.
                     */
 
-  short has_pk_delta_delta; /**< Total density-density power spectrum of matter */
-  short has_pk_theta_theta; /**< Total velocity-velocity power spectrum of matter */
-  short has_pk_delta_theta; /**< Total density-velocity power spectrum of matter */
+  short has_pk_delta_delta; /**< Compute the matter density-density power spectrum? */
+  short has_pk_theta_theta; /**< Compute the matter velocity-velocity power spectrum? */
+  short has_pk_delta_theta; /**< Compute the matter density-velocity power spectrum? */
 
-  int index_pk_delta_delta; /**< index corresponding to the density-density power spectrum of matter */
-  int index_pk_delta_theta; /**< index corresponding to the density-velocity power spectrum of matter */
-  int index_pk_theta_theta; /**< index corresponding to the velocity-velocity power spectrum of matter */
+  int index_pk_delta_delta; /**< Index in ln_pk corresponding to the matter density-density power spectrum */
+  int index_pk_delta_theta; /**< Index in ln_pk corresponding to the matter density-velocity power spectrum */
+  int index_pk_theta_theta; /**< Index in ln_pk corresponding to the matter velocity-velocity power spectrum */
 
   int pk_size; /**< Number of Fourier-space power spectra to compute */
 
@@ -318,14 +319,23 @@ struct spectra {
   //@}
   
 
+#ifdef WITH_SONG2
+
   // ====================================================================================
   // =                                  SONG parameters                                 =
   // ====================================================================================
 
   /**
-   * Variables needed to compute the intrinsic power spectra C_l and P(k)
+   * Variables needed to compute the second-order angular (C_l) and Fourier (P_k)
+   * power spectra
    */
   //@{
+
+  short has_pk_magnetic;    /**< Compute the power spectrum of the magnetic field generated at recombination? */
+  short has_pk_delta2_delta2_cdm; /**< Compute the matter density-density power spectrum, where both densities are second-order? */
+  
+  int index_pk_magnetic;      /**< Index in ln_pk corresponding to the magnetic field power spectrum */
+  int index_pk_delta2_delta2_cdm; /**< Index in ln_pk corresponding to the matter density-density power spectrum, with both densities second order */
 
   int * l_song; /**< Multipole sampling for the second-order C_l; it coincides with
                 the sampling of the second-order transfer functions (ptr2->l). In
@@ -340,21 +350,22 @@ struct spectra {
   /* For a given (k1,k2), index of the first value of k3 that satisfies the triangular condition. All
   entries must be equal zero when no extrapolation is used */
   int ** k_physical_start_k1k2;
-	int ** k_true_physical_start_k1k2;
+  int ** k_true_physical_start_k1k2;
 
-	// physical start is based on ppt2 k sampling, true physical start is based on the triangular condition and usually contains a bit more based on the k smapling. 
+  // physical start is based on ppt2 k sampling, true physical start is based on the triangular condition and usually contains a bit more based on the k smapling. 
 
   /* For a given (k1,k2), number of k3 values that satisfy the triangular condition */
   int ** k_physical_size_k1k2;
 
- 	int k_size;
- 	double * k; // k grid for fourier spectra (not numerical parameter)
+   int k_size;
+   double * k; // k grid for fourier spectra (not numerical parameter)
 
   char spectra_filename[_FILENAMESIZE_];  
   FILE * spectra_file;
 
   //@}
-  
+
+#endif // WITH_SONG2  
   
 };
 
