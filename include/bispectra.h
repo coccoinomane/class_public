@@ -444,13 +444,6 @@ struct bispectra {
   // =                                 Power spectra                                    =
   // ====================================================================================
 
-  /* First-order primordial power spectrum as a function of k. It is indexed as pbi->pk[index_k]
-  where 'index_k' indexes ptr->k. Its size is ptr->k_size[ppt->index_md_scalars]. */
-  double * pk;
-
-  /* Same as above, but now 'index_k' indexes ppt->k. Its size is ppt->k_size[ppt->index_md_scalars]. */
-  double * pk_pt;
-  
   /* Array that contains the first-order Cl's. It is indexed as cls[index_ct][l-2], where index_ct
   can be psp->index_ct_tt, psp->index_ct_te, etc. 
   IMPORTANT: these arrays are computed for all l's between 2 and pbi->l_max, hence they have to be
@@ -678,6 +671,7 @@ struct bispectra_workspace_non_separable {
   /* Pointer to the desired shape function */
   int (*shape_function) (
     struct primordial * ppm,
+    struct spectra * psp,
     struct bispectra * pbi,
     double k1, double k2, double k3, 
     double pk_1, double pk_2, double pk_3, 
@@ -908,14 +902,6 @@ extern "C" {
           struct bispectra * pbi
           );
 
-  int bispectra_primordial_power_spectrum (
-      struct background * pba,
-      struct perturbs * ppt,
-      struct transfers * ptr,
-      struct primordial * ppm,
-      struct bispectra * pbi
-      );
-
   int bispectra_cls (
       struct precision * ppr,
       struct perturbs * ppt,
@@ -977,6 +963,7 @@ extern "C" {
       struct bessels * pbs,
       struct transfers * ptr,
       struct primordial * ppm,
+      struct spectra * psp,
       struct bispectra * pbi,
       struct bispectra_workspace_separable * pwb
       );
@@ -990,6 +977,7 @@ extern "C" {
       struct bessels * pbs,
       struct transfers * ptr,
       struct primordial * ppm,
+      struct spectra * psp,
       struct bispectra * pbi,
       struct bispectra_workspace_separable * pwb
       );
@@ -1001,6 +989,7 @@ extern "C" {
       struct bessels * pbs,
       struct transfers * ptr,
       struct primordial * ppm,
+      struct spectra * psp,
       struct bispectra * pbi,
       int index_bf,
       struct bispectra_workspace_separable * pwb
@@ -1014,6 +1003,7 @@ extern "C" {
       struct bessels * pbs,
       struct transfers * ptr,
       struct primordial * ppm,
+      struct spectra * psp,
       struct bispectra * pbi,
       int index_bt,
       int index_bf_1,
@@ -1052,6 +1042,7 @@ extern "C" {
       struct bessels * pbs,
       struct transfers * ptr,
       struct primordial * ppm,
+      struct spectra * psp,
       struct bispectra * pbi,
       struct bispectra_workspace_non_separable * pwb
       );
@@ -1065,6 +1056,7 @@ extern "C" {
       struct bessels * pbs,
       struct transfers * ptr,
       struct primordial * ppm,
+      struct spectra * psp,
       struct bispectra * pbi,
       struct bispectra_workspace_non_separable * pwb
       );
@@ -1082,6 +1074,7 @@ extern "C" {
       struct bessels * pbs,
       struct transfers * ptr,
       struct primordial * ppm,
+      struct spectra * psp,
       struct bispectra * pbi,
       int index_bt,
       int index_tt_k3,
@@ -1096,6 +1089,7 @@ extern "C" {
       struct bessels * pbs,
       struct transfers * ptr,
       struct primordial * ppm,
+      struct spectra * psp,
       struct bispectra * pbi,
       int index_bt,
       int index_tt_k2,
@@ -1108,6 +1102,7 @@ extern "C" {
       struct bessels * pbs,
       struct transfers * ptr,
       struct primordial * ppm,
+      struct spectra * psp,
       struct bispectra * pbi,
       int index_r,
       int index_k1,
@@ -1125,6 +1120,7 @@ extern "C" {
       struct bessels * pbs,
       struct transfers * ptr,
       struct primordial * ppm,
+      struct spectra * psp,
       struct bispectra * pbi,
       int index_bt,
       int index_tt_k1,
@@ -1138,6 +1134,7 @@ extern "C" {
       struct bessels * pbs,
       struct transfers * ptr,
       struct primordial * ppm,
+      struct spectra * psp,
       struct bispectra * pbi,
       int index_r,
       int index_l2,
@@ -1156,6 +1153,7 @@ extern "C" {
       struct bessels * pbs,
       struct transfers * ptr,
       struct primordial * ppm,
+      struct spectra * psp,
       struct bispectra * pbi,
       double * bispectrum,  /* Output, bispectrum[index_l1l2l3] */
       struct bispectra_workspace_non_separable * pwb
@@ -1236,6 +1234,7 @@ extern "C" {
 
   int bispectra_galileon_gradient (
     struct primordial * ppm,
+    struct spectra * psp,
     struct bispectra * pbi,
     double k1, double k2, double k3,
     double pk_1, double pk_2, double pk_3,
@@ -1244,6 +1243,7 @@ extern "C" {
 
   int bispectra_galileon_time (
     struct primordial * ppm,
+    struct spectra * psp,
     struct bispectra * pbi,
     double k1, double k2, double k3,
     double pk_1, double pk_2, double pk_3,
@@ -1252,6 +1252,7 @@ extern "C" {
 
   int bispectra_local_model (
     struct primordial * ppm,
+    struct spectra * psp,
     struct bispectra * pbi,
     double k1, double k2, double k3, 
     double pk_1, double pk_2, double pk_3, 
@@ -1260,6 +1261,7 @@ extern "C" {
 
   int bispectra_equilateral_model (
     struct primordial * ppm,
+    struct spectra * psp,
     struct bispectra * pbi,
     double k1, double k2, double k3, 
     double pk_1, double pk_2, double pk_3, 
@@ -1268,6 +1270,7 @@ extern "C" {
 
   int bispectra_orthogonal_model (
     struct primordial * ppm,
+    struct spectra * psp,
     struct bispectra * pbi,
     double k1, double k2, double k3, 
     double pk_1, double pk_2, double pk_3, 

@@ -805,9 +805,8 @@ int bispectra_at_l2l3_bilinear (
     int index_bt,
     int index_l1, int l2, int l3,
     int X, int Y, int Z,
-    int extrapolate,               /**< Input: if true, extrapolate the bispectrum in the l3 direction in case l3
-                                   is outside the region computed by SONG for this (l1,l2) pair. If false, use the
-                                   closest neighbour. */
+    int extrapolate,               /**< Input: if true, extrapolate linearly the bispectrum in the l3 direction
+                                   when needed; if false, use the closest neighbour. */
     double * bispectrum,           /**< Output: the bispectrum in (l1,l2,l3) */
     double * bispectrum_unlensed  /**< Output: the unlensed bispectrum in (l1,l2,l3) */
     )
@@ -1519,8 +1518,8 @@ int bispectra_free(
     free(pbi->bfff_labels);
 
     free(pbi->l);
-    free(pbi->pk);
-    free(pbi->pk_pt);
+    free(psp->pk);
+    free(psp->pk_pt);
 
     for(int index_l1=0; index_l1 < pbi->l_size; ++index_l1) {
 
@@ -1717,7 +1716,7 @@ int bispectra_free_type_level(
  *
  *  -# Open the files where we will store the bispectra at the end of the computation.
  *
- *  -# Store P(k) (power spectrum of phi) in pbi->pk for all the k-values in the transfer
+ *  -# Store P(k) (power spectrum of phi) in psp->pk for all the k-values in the transfer
  *     module (ptr->q) using interpolation, to speed up the integration of the separable
  *     and non-separable bispectra.
  *
@@ -2346,16 +2345,15 @@ int bispectra_indices (
   // =                                 Interpolate P(k)                                 =
   // ====================================================================================
   
-  /* The primordial power spectrum for the comoving curvature perturbatio R was already
-  computed when we initialized the ppm structure, but we store it locally for the k-values
-  of ptr-k to access it faster */
-  class_call (bispectra_primordial_power_spectrum(
+  /* Store the primordial power spectrum for the curvature potential Phi inside the
+  spectra structure for faster access */
+  class_call (spectra_primordial_power_spectrum(
                 pba,
                 ppt,
                 ptr,
                 ppm,
-                pbi),
-    pbi->error_message,
+                psp),
+    psp->error_message,
     pbi->error_message);
 
 
@@ -2511,87 +2509,6 @@ int bispectra_indices (
 
 }
 
-
-
-/**
- * Compute and store in pbi->pk[index_k] the primordial power spectrum of the Newtonian
- * time potential psi. The power spectrum is computed in the points contained in ptr->q,
- * as these are the points where the transfer functions are computed.
- *
- * The purpose of this function is twofold. First, it stores the primordial power spectrum
- * into memory for faster access by the bispectra module, as calling primordial_spectrum_at_k()
- * is fairly expensive. Secondly, we convert the dimensionless spectrum of the curvature
- * perturbation R outputted by the primordial module of CLASS, Delta_R(k), into the power
- * spectrum for the Newtonian curvature potential, P_Phi(k). The two spectra are related by:
- *  
- * P_Phi(k) = 2*Pi^2/k^3 * Delta_R(k)
- *
- * where
- * 
- * Delta_R(k) = A_s * (k/k_pivot)^(n_s-1)
- *
- */  
-int bispectra_primordial_power_spectrum (
-    struct background * pba,
-    struct perturbs * ppt,
-    struct transfers * ptr,
-    struct primordial * ppm,
-    struct bispectra * pbi
-    )
-{
-
-  /* Allocate the pbi->pk vector so that it contains ptr->q_size values */
-  int k_size = ptr->q_size;
-  class_alloc (pbi->pk, k_size*sizeof(double), pbi->error_message);
-  
-  /* Fill pk with the values of the primordial power spectrum, as obtained in the ppm module */
-
-  for (int index_k=0; index_k<k_size; ++index_k) {
-    
-    double k = ptr->q[index_k];
-
-    class_call (primordial_spectrum_at_k (
-                  ppm,
-                  ppt->index_md_scalars,
-                  linear,
-                  k,
-                  &(pbi->pk[index_k])),
-      ppm->error_message,
-      pbi->error_message);
-
-    /* Convert CLASS dimensionless power spectrum for the curvature perturbation into the dimensional one. */
-    pbi->pk[index_k] = 2*_PI_*_PI_/(k*k*k) * pbi->pk[index_k];
-    
-  } // end of for(index_k)
-  
-
-  /* Do the same, but with ppt->k */
-  int k_pt_size = ppt->k_size[ppt->index_md_scalars];
-  class_alloc (pbi->pk_pt, k_pt_size*sizeof(double), pbi->error_message);
-  
-  /* Fill pk with the values of the primordial power spectrum, as obtained in the ppm module */
-
-  for (int index_k_pt=0; index_k_pt<k_pt_size; ++index_k_pt) {
-    
-    double k_pt = ppt->k[ppt->index_md_scalars][index_k_pt];
-
-    class_call (primordial_spectrum_at_k (
-                  ppm,
-                  ppt->index_md_scalars,
-                  linear,
-                  k_pt,
-                  &(pbi->pk_pt[index_k_pt])),
-      ppm->error_message,
-      pbi->error_message);
-
-    pbi->pk_pt[index_k_pt] = 2*_PI_*_PI_/(k_pt*k_pt*k_pt) * pbi->pk_pt[index_k_pt];
-    
-  } // end of for(index_k_pt)
-  
-  
-  return _SUCCESS_;
-  
-}
 
 
 /**
@@ -2912,6 +2829,7 @@ int bispectra_harmonic (
                   pbs,
                   ptr,
                   ppm,
+                  psp,
                   pbi,
                   pwb_sep),
       pbi->error_message,
@@ -2984,6 +2902,7 @@ int bispectra_harmonic (
                   pbs,
                   ptr,
                   ppm,
+                  psp,
                   pbi,
                   pwb_nonsep),
       pbi->error_message,
@@ -4150,16 +4069,17 @@ int bispectra_get_r_grid (
  */
 
 int bispectra_separable_workspace_init (
-    struct precision * ppr,
-    struct background * pba,
-    struct thermo * pth,
-    struct perturbs * ppt,
-    struct bessels * pbs,
-    struct transfers * ptr,
-    struct primordial * ppm,
-    struct bispectra * pbi,
-    struct bispectra_workspace_separable * pwb
-    )
+      struct precision * ppr,
+      struct background * pba,
+      struct thermo * pth,
+      struct perturbs * ppt,
+      struct bessels * pbs,
+      struct transfers * ptr,
+      struct primordial * ppm,
+      struct spectra * psp,
+      struct bispectra * pbi,
+      struct bispectra_workspace_separable * pwb
+      )
 {
 
   // ====================================================================================
@@ -4294,16 +4214,17 @@ int bispectra_separable_workspace_init (
 
 
 int bispectra_separable_filter_functions (
-    struct precision * ppr,
-    struct background * pba,
-    struct perturbs * ppt,
-    struct bessels * pbs,
-    struct transfers * ptr,
-    struct primordial * ppm,
-    struct bispectra * pbi,
-    int index_bf,
-    struct bispectra_workspace_separable * pwb
-    )
+      struct precision * ppr,
+      struct background * pba,
+      struct perturbs * ppt,
+      struct bessels * pbs,
+      struct transfers * ptr,
+      struct primordial * ppm,
+      struct spectra * psp,
+      struct bispectra * pbi,
+      int index_bf,
+      struct bispectra_workspace_separable * pwb
+      )
 {
   
   
@@ -4354,7 +4275,7 @@ int bispectra_separable_filter_functions (
 
         for (int index_k=0; index_k < k_size; ++index_k) {
         
-          double pk = pbi->pk[index_k];
+          double pk = psp->pk[index_k];
           double tr = transfer[index_k];
 
           pwb->alpha_integrand[thread][index_k] = tr;
@@ -4378,7 +4299,7 @@ int bispectra_separable_filter_functions (
         factored out a k^2 factor) */
         for (int index_k=0; index_k < k_size; ++index_k) {      
 
-          double pk_one_third = pow(pbi->pk[index_k], 1/3.);
+          double pk_one_third = pow(psp->pk[index_k], 1/3.);
           double pk_two_thirds = pk_one_third*pk_one_third;
           double tr = transfer[index_k];
 
@@ -4532,19 +4453,20 @@ int bispectra_separable_filter_functions (
 
 
 int bispectra_separable_integrate_over_r (
-    struct precision * ppr,
-    struct background * pba,
-    struct perturbs * ppt,
-    struct bessels * pbs,
-    struct transfers * ptr,
-    struct primordial * ppm,
-    struct bispectra * pbi,
-    int index_bt,
-    int X, // index for the first field (T,B,E)
-    int Y, // index for the second field (T,B,E)
-    int Z, // index for the third field (T,B,E)
-    struct bispectra_workspace_separable * pwb
-    )
+      struct precision * ppr,
+      struct background * pba,
+      struct perturbs * ppt,
+      struct bessels * pbs,
+      struct transfers * ptr,
+      struct primordial * ppm,
+      struct spectra * psp,
+      struct bispectra * pbi,
+      int index_bt,
+      int X, // index for the first field (T,B,E)
+      int Y, // index for the second field (T,B,E)
+      int Z, // index for the third field (T,B,E)
+      struct bispectra_workspace_separable * pwb
+      )
 
 {
 
@@ -4585,7 +4507,7 @@ int bispectra_separable_integrate_over_r (
 
   /* We parallelize the outer loop over 'l1'. */
   #pragma omp parallel                                     \
-    shared (ppt,pbs,ptr,ppm,pbi,pwb,abort)       \
+    shared (ppt,pbs,ptr,ppm,psp,pbi,pwb,abort)             \
     private (thread)
   {
   
@@ -4752,16 +4674,17 @@ int bispectra_separable_integrate_over_r (
  * (see Planck paper, http://arxiv.org/abs/1303.5084).
  */
 int bispectra_separable_init (
-    struct precision * ppr,
-    struct background * pba,
-    struct thermo * pth,
-    struct perturbs * ppt,
-    struct bessels * pbs,
-    struct transfers * ptr,
-    struct primordial * ppm,
-    struct bispectra * pbi,
-    struct bispectra_workspace_separable * pwb
-    )
+      struct precision * ppr,
+      struct background * pba,
+      struct thermo * pth,
+      struct perturbs * ppt,
+      struct bessels * pbs,
+      struct transfers * ptr,
+      struct primordial * ppm,
+      struct spectra * psp,
+      struct bispectra * pbi,
+      struct bispectra_workspace_separable * pwb
+      )
 {
 
 
@@ -4778,6 +4701,7 @@ int bispectra_separable_init (
                 pbs,
                 ptr,
                 ppm,
+                psp,
                 pbi,
                 pwb),
     pbi->error_message,
@@ -4812,6 +4736,7 @@ int bispectra_separable_init (
                   pbs,
                   ptr,
                   ppm,
+                  psp,
                   pbi,
                   index_bf,
                   pwb),
@@ -4849,6 +4774,7 @@ int bispectra_separable_init (
                         pbs,
                         ptr,
                         ppm,
+                        psp,
                         pbi,
                         index_bt,
                         X,
@@ -5008,7 +4934,7 @@ int bispectra_analytical_init (
   // ===================================================================================
     
   /* We parallelize the outer loop over 'l1'. */
-  #pragma omp parallel for shared (ppt,pbs,ptr,ppm,pbi,abort) private (thread)
+  #pragma omp parallel for shared (ppt,pbs,ptr,ppm,psp,pbi,abort) private (thread)
   for (int index_l1 = 0; index_l1 < pbi->l_size; ++index_l1) {
 
     #ifdef _OPENMP
@@ -5236,15 +5162,16 @@ int bispectra_analytical_init (
  * bessel.c module.
  */
 int bispectra_non_separable_init (
-    struct precision * ppr,
-    struct background * pba,
-    struct thermo * pth,
-    struct perturbs * ppt,
-    struct bessels * pbs,
-    struct transfers * ptr,
-    struct primordial * ppm,
-    struct bispectra * pbi,
-    struct bispectra_workspace_non_separable * pwb
+      struct precision * ppr,
+      struct background * pba,
+      struct thermo * pth,
+      struct perturbs * ppt,
+      struct bessels * pbs,
+      struct transfers * ptr,
+      struct primordial * ppm,
+      struct spectra * psp,
+      struct bispectra * pbi,
+      struct bispectra_workspace_non_separable * pwb
     )
 {
   
@@ -5258,6 +5185,7 @@ int bispectra_non_separable_init (
                 pbs,
                 ptr,
                 ppm,
+                psp,
                 pbi,
                 pwb),
     pbi->error_message,
@@ -5304,6 +5232,7 @@ int bispectra_non_separable_init (
                     pbs,
                     ptr,
                     ppm,
+                    psp,
                     pbi,
                     index_bt,
                     pbi->index_tt_of_bf[X],
@@ -5323,6 +5252,7 @@ int bispectra_non_separable_init (
                       pbs,
                       ptr,
                       ppm,
+                      psp,
                       pbi,
                       index_bt,
                       pbi->index_tt_of_bf[Y],
@@ -5346,6 +5276,7 @@ int bispectra_non_separable_init (
                         pbs,
                         ptr,
                         ppm,
+                        psp,
                         pbi,
                         index_bt,
                         pbi->index_tt_of_bf[Z],
@@ -5361,6 +5292,7 @@ int bispectra_non_separable_init (
                         pbs,
                         ptr,
                         ppm,
+                        psp,
                         pbi,
                         pbi->bispectra[index_bt][X][Y][Z],
                         pwb),
@@ -5404,6 +5336,7 @@ int bispectra_non_separable_workspace_init (
     struct bessels * pbs,
     struct transfers * ptr,
     struct primordial * ppm,
+    struct spectra * psp,
     struct bispectra * pbi,
     struct bispectra_workspace_non_separable * pwb
     )
@@ -5542,7 +5475,7 @@ int bispectra_non_separable_workspace_init (
   for (int index_k=0; index_k < pwb->k_smooth_size; ++index_k) {
     
     double k = pwb->k_smooth_grid[index_k];
-    double pk = pbi->pk_pt[index_k];
+    double pk = psp->pk_pt[index_k];
     
     pwb->k_window[index_k] = pow(k,2);
 
@@ -5553,7 +5486,7 @@ int bispectra_non_separable_workspace_init (
   for (int index_k=0; index_k < ptr->q_size; ++index_k) {
 
     double k = ptr->q[index_k];
-    double pk = pbi->pk[index_k];
+    double pk = psp->pk[index_k];
 
     pwb->k_window_inverse[index_k] = 1./pow(k,2);
 
@@ -5622,6 +5555,7 @@ int bispectra_non_separable_integrate_over_k3 (
     struct bessels * pbs,
     struct transfers * ptr,
     struct primordial * ppm,
+    struct spectra * psp,
     struct bispectra * pbi,
     int index_bt,
     int index_tt_k3,
@@ -5691,7 +5625,7 @@ int bispectra_non_separable_integrate_over_k3 (
 
   abort = _FALSE_;
   #pragma omp parallel              \
-    shared (ppt,pbs,ptr,ppm,pbi,pwb,abort) private(thread)
+    shared (ppt,pbs,ptr,ppm,psp,pbi,pwb,abort) private(thread)
   {
   
     #ifdef _OPENMP
@@ -5703,7 +5637,7 @@ int bispectra_non_separable_integrate_over_k3 (
     for (int index_k1 = 0; index_k1 < pwb->k_smooth_size; ++index_k1) {
 
       double k1 = pwb->k_smooth_grid[index_k1];
-      double pk_1 = pbi->pk_pt[index_k1];
+      double pk_1 = psp->pk_pt[index_k1];
       
       printf_log_if (pbi->bispectra_verbose, 2, 
         "     * computing the k3 integral for k1=%g, index_k1=%d\n",
@@ -5714,7 +5648,7 @@ int bispectra_non_separable_integrate_over_k3 (
       for (int index_k2 = 0; index_k2 <= index_k1; ++index_k2) {
     
         double k2 = pwb->k_smooth_grid[index_k2];
-        double pk_2 = pbi->pk_pt[index_k2];
+        double pk_2 = psp->pk_pt[index_k2];
     
         /* Get the size of the integration grid. Note that when extrapolation is turned on, the k3-grid will also
         include values that do not satisfty the triangular condition k1 + k2 = k3. */
@@ -5744,10 +5678,11 @@ int bispectra_non_separable_integrate_over_k3 (
         for (int index_k3=index_k3_lower; index_k3 <= index_k3_upper; ++index_k3) {
           
           double k3 = k_tr[index_k3];
-          double pk_3 = pbi->pk[index_k3];
+          double pk_3 = psp->pk[index_k3];
 
           class_call_parallel (pwb->shape_function (
                         ppm,
+                        psp,
                         pbi,
                         k1, k2, k3,
                         pk_1, pk_2, pk_3,
@@ -5828,17 +5763,18 @@ int bispectra_non_separable_integrate_over_k3 (
 
 
 int bispectra_non_separable_integrate_over_k2 (
-    struct precision * ppr,
-    struct background * pba,
-    struct perturbs * ppt,
-    struct bessels * pbs,
-    struct transfers * ptr,
-    struct primordial * ppm,
-    struct bispectra * pbi,
-    int index_bt,
-    int index_tt_k2,
-    struct bispectra_workspace_non_separable * pwb
-    )
+      struct precision * ppr,
+      struct background * pba,
+      struct perturbs * ppt,
+      struct bessels * pbs,
+      struct transfers * ptr,
+      struct primordial * ppm,
+      struct spectra * psp,
+      struct bispectra * pbi,
+      int index_bt,
+      int index_tt_k2,
+      struct bispectra_workspace_non_separable * pwb
+      )
 {
 
   /* Integration grid */
@@ -5904,7 +5840,7 @@ int bispectra_non_separable_integrate_over_k2 (
   pwb->count_memorised_for_integral_over_k2 = 0;
     
   abort = _FALSE_;
-  #pragma omp parallel shared (ppt,pbs,ptr,ppm,pbi,pwb,abort) private (thread)
+  #pragma omp parallel shared (ppt,pbs,ptr,ppm,psp,pbi,pwb,abort) private (thread)
   {
   
     #ifdef _OPENMP
@@ -5931,6 +5867,7 @@ int bispectra_non_separable_integrate_over_k2 (
                       pbs,
                       ptr,
                       ppm,
+                      psp,
                       pbi,
                       index_r,
                       index_k1,
@@ -6024,20 +5961,21 @@ int bispectra_non_separable_integrate_over_k2 (
 
 
 int bispectra_non_separable_interpolate_over_k2 (
-    struct precision * ppr,
-    struct perturbs * ppt,
-    struct bessels * pbs,
-    struct transfers * ptr,
-    struct primordial * ppm,
-    struct bispectra * pbi,
-    int index_r,
-    int index_k1,
-    int index_l3,
-    double * integral_splines,
-    double * interpolated_integral,
-    double * f,
-    struct bispectra_workspace_non_separable * pwb
-    )
+      struct precision * ppr,
+      struct perturbs * ppt,
+      struct bessels * pbs,
+      struct transfers * ptr,
+      struct primordial * ppm,
+      struct spectra * psp,
+      struct bispectra * pbi,
+      int index_r,
+      int index_k1,
+      int index_l3,
+      double * integral_splines,
+      double * interpolated_integral,
+      double * f,
+      struct bispectra_workspace_non_separable * pwb
+      )
 {
   
   int index_k, index_k_tr, index_k2;
@@ -6144,17 +6082,18 @@ int bispectra_non_separable_interpolate_over_k2 (
 
 
 int bispectra_non_separable_integrate_over_k1 (
-    struct precision * ppr,
-    struct background * pba,
-    struct perturbs * ppt,
-    struct bessels * pbs,
-    struct transfers * ptr,
-    struct primordial * ppm,
-    struct bispectra * pbi,
-    int index_bt,
-    int index_tt_k1,
-    struct bispectra_workspace_non_separable * pwb
-    )
+      struct precision * ppr,
+      struct background * pba,
+      struct perturbs * ppt,
+      struct bessels * pbs,
+      struct transfers * ptr,
+      struct primordial * ppm,
+      struct spectra * psp,
+      struct bispectra * pbi,
+      int index_bt,
+      int index_tt_k1,
+      struct bispectra_workspace_non_separable * pwb
+      )
 {
   
   /* Integration grid */
@@ -6201,7 +6140,7 @@ int bispectra_non_separable_integrate_over_k1 (
   
   /* As for the other integrals, we parallelize the loop over 'r'. */
   abort = _FALSE_;
-  #pragma omp parallel shared (ppt,pbs,ptr,ppm,pbi,pwb,abort) private (thread)
+  #pragma omp parallel shared (ppt,pbs,ptr,ppm,psp,pbi,pwb,abort) private (thread)
   {
   
     #ifdef _OPENMP
@@ -6230,6 +6169,7 @@ int bispectra_non_separable_integrate_over_k1 (
                         pbs,
                         ptr,
                         ppm,
+                        psp,
                         pbi,
                         index_r,
                         index_l3,
@@ -6324,20 +6264,21 @@ int bispectra_non_separable_integrate_over_k1 (
 
 
 int bispectra_non_separable_interpolate_over_k1 (
-    struct precision * ppr,
-    struct perturbs * ppt,
-    struct bessels * pbs,
-    struct transfers * ptr,
-    struct primordial * ppm,
-    struct bispectra * pbi,
-    int index_r,
-    int index_l3,
-    int index_l2,
-    double * integral_splines,
-    double * interpolated_integral,
-    double * f,
-    struct bispectra_workspace_non_separable * pwb
-    )
+      struct precision * ppr,
+      struct perturbs * ppt,
+      struct bessels * pbs,
+      struct transfers * ptr,
+      struct primordial * ppm,
+      struct spectra * psp,
+      struct bispectra * pbi,
+      int index_r,
+      int index_l3,
+      int index_l2,
+      double * integral_splines,
+      double * interpolated_integral,
+      double * f,
+      struct bispectra_workspace_non_separable * pwb
+      )
 {
   
   int index_k, index_k_tr, index_k1;
@@ -6445,6 +6386,7 @@ int bispectra_non_separable_integrate_over_r (
     struct bessels * pbs,
     struct transfers * ptr,
     struct primordial * ppm,
+    struct spectra * psp,
     struct bispectra * pbi,
     double * bispectrum,
     struct bispectra_workspace_non_separable * pwb
@@ -6457,7 +6399,7 @@ int bispectra_non_separable_integrate_over_r (
   
   /* We parallelize the outer loop over 'l1'. */
   int abort = _FALSE_;
-  #pragma omp parallel shared (ppt,pbs,ptr,ppm,pbi,pwb,abort)
+  #pragma omp parallel shared (ppt,pbs,ptr,ppm,psp,pbi,pwb,abort)
   {
   
     #pragma omp for schedule (dynamic)
@@ -7920,12 +7862,13 @@ int bispectra_load_from_disk(
  * taken from eq. 22 of http://arxiv.org/abs/0905.3746.
  */
 int bispectra_galileon_gradient (
-  struct primordial * ppm,
-  struct bispectra * pbi,
-  double k1, double k2, double k3,
-  double pk_1, double pk_2, double pk_3,
-  double * out
-  )
+      struct primordial * ppm,
+      struct spectra * psp,
+      struct bispectra * pbi,
+      double k1, double k2, double k3,
+      double pk_1, double pk_2, double pk_3,
+      double * out
+      )
 { 
   
   double K1 = k1 + k2 + k3;
@@ -7967,12 +7910,13 @@ int bispectra_galileon_gradient (
  * taken from eq. 22 of http://arxiv.org/abs/0905.3746.
  */
 int bispectra_galileon_time (
-  struct primordial * ppm,
-  struct bispectra * pbi,
-  double k1, double k2, double k3, 
-  double pk_1, double pk_2, double pk_3, 
-  double * out
-  )
+      struct primordial * ppm,
+      struct spectra * psp,
+      struct bispectra * pbi,
+      double k1, double k2, double k3, 
+      double pk_1, double pk_2, double pk_3, 
+      double * out
+      )
 { 
   
   double K1 = k1+k2+k3;
@@ -7997,12 +7941,13 @@ int bispectra_galileon_time (
  *
  */
 int bispectra_local_model (
-  struct primordial * ppm,
-  struct bispectra * pbi,
-  double k1, double k2, double k3, 
-  double pk_1, double pk_2, double pk_3, 
-  double * out
-  )
+      struct primordial * ppm,
+      struct spectra * psp,
+      struct bispectra * pbi,
+      double k1, double k2, double k3, 
+      double pk_1, double pk_2, double pk_3, 
+      double * out
+      )
 { 
   
   *out = 2 * (-3/5.) * ( pk_1*pk_2 + pk_1*pk_3 + pk_2*pk_3 );
@@ -8018,12 +7963,13 @@ int bispectra_local_model (
  *
  */
 int bispectra_equilateral_model (
-  struct primordial * ppm,
-  struct bispectra * pbi,
-  double k1, double k2, double k3, 
-  double pk_1, double pk_2, double pk_3, 
-  double * out
-  )
+      struct primordial * ppm,
+      struct spectra * psp,
+      struct bispectra * pbi,
+      double k1, double k2, double k3, 
+      double pk_1, double pk_2, double pk_3, 
+      double * out
+      )
 { 
   
   double pk_one_third_1 = pow(pk_1, one_third);
@@ -8066,11 +8012,12 @@ int bispectra_equilateral_model (
  *
  */
 int bispectra_orthogonal_model (
-  struct primordial * ppm,
-  struct bispectra * pbi,
-  double k1, double k2, double k3, 
-  double pk_1, double pk_2, double pk_3, 
-  double * out
+      struct primordial * ppm,
+      struct spectra * psp,
+      struct bispectra * pbi,
+      double k1, double k2, double k3, 
+      double pk_1, double pk_2, double pk_3, 
+      double * out
   )
 { 
   

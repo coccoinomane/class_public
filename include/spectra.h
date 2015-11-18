@@ -185,6 +185,21 @@ struct spectra {
   double ** dd_lsq_cl; /**< array with d^2(l*l*C_l)/d^2l, indexed like psp->cl  */
   double ** spline_d_lsq_cl; /**< array with the second derivative of d_lsq_cl, in view of spline interpolation, indexed like psp->cl  */         
 
+
+  /**
+   * Primordial power spectrum of the curvature potential phi as a
+   * function of ptr->q, with size ppt->q_size.
+   */
+  double * pk;
+
+
+  /**
+   * Primordial power spectrum of the curvature potential phi as a
+   * function of ppt->k[ppt->index_md_scalars], with size
+   * ppt->k_size[ppt->index_md_scalars].
+   */
+  double * pk_pt;
+
 #endif // WITH_SONG1
 
   double alpha_II_2_20;
@@ -636,6 +651,19 @@ extern "C" {
                                      int index_ic,
                                      char first_line[_LINE_LENGTH_MAX_],
                                      FileName ic_suffix);
+
+#ifdef WITH_SONG1
+
+  int spectra_primordial_power_spectrum (
+      struct background * pba,
+      struct perturbs * ppt,
+      struct transfers * ptr,
+      struct primordial * ppm,
+      struct spectra * psp
+      );
+
+#endif // WITH_SONG1
+
 
 #ifdef __cplusplus
 }

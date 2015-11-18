@@ -4670,3 +4670,99 @@ int spectra_output_tk_data(
   }
   return _SUCCESS_;
 }
+
+
+
+#ifdef WITH_SONG1
+
+/**
+ * Store the primordial P(k) of the Newtonian curvature potential phi in the
+ * structure for faster access.
+ *
+ * Two arrays will be filled:
+ *
+ * - The psp->pk array will be filled with the primordial power spectrum in ptr->q,
+ *   the k-grid of the transfer functions.
+ *
+ * - The psp->pk_pt array will be filled with the primordial power spectrum in
+ *   ppt->k[ppt->index_md_scalars], the k-grid of the transfer functions.
+ *
+ * The purpose of this function is twofold. First, it stores the primordial power
+ * spectrum into memory for faster access by the bispectra and spectra2 modules,
+ * as calling primordial_spectrum_at_k() is fairly expensive.
+ *
+ * Secondly, we convert the dimensionless spectrum of the curvature perturbation
+ * R outputted by the primordial module of CLASS, Delta_R(k), into the power
+ * spectrum for the Newtonian curvature potential, P_Phi(k). The two spectra
+ * are related by:
+ *  
+ *  P_Phi(k) = 2*Pi^2/k^3 * Delta_R(k)
+ *
+ * where
+ * 
+ *  Delta_R(k) = A_s * (k/k_pivot)^(n_s-1)
+ */
+
+int spectra_primordial_power_spectrum (
+    struct background * pba,
+    struct perturbs * ppt,
+    struct transfers * ptr,
+    struct primordial * ppm,
+    struct spectra * psp
+    )
+{
+
+  /* Allocate the psp->pk vector so that it contains ptr->q_size values */
+  int k_size = ptr->q_size;
+  class_alloc (psp->pk, k_size*sizeof(double), psp->error_message);
+  
+  /* Fill pk with the values of the primordial power spectrum, as obtained in the ppm module */
+
+  for (int index_k=0; index_k<k_size; ++index_k) {
+    
+    double k = ptr->q[index_k];
+
+    class_call (primordial_spectrum_at_k (
+                  ppm,
+                  ppt->index_md_scalars,
+                  linear,
+                  k,
+                  &(psp->pk[index_k])),
+      ppm->error_message,
+      psp->error_message);
+
+    /* Convert CLASS dimensionless power spectrum for the curvature perturbation into the dimensional one. */
+    psp->pk[index_k] = 2*_PI_*_PI_/(k*k*k) * psp->pk[index_k];
+    
+  } // end of for(index_k)
+  
+
+  /* Do the same, but with ppt->k */
+  int k_pt_size = ppt->k_size[ppt->index_md_scalars];
+  class_alloc (psp->pk_pt, k_pt_size*sizeof(double), psp->error_message);
+  
+  /* Fill pk with the values of the primordial power spectrum, as obtained in the ppm module */
+
+  for (int index_k_pt=0; index_k_pt<k_pt_size; ++index_k_pt) {
+    
+    double k_pt = ppt->k[ppt->index_md_scalars][index_k_pt];
+
+    class_call (primordial_spectrum_at_k (
+                  ppm,
+                  ppt->index_md_scalars,
+                  linear,
+                  k_pt,
+                  &(psp->pk_pt[index_k_pt])),
+      ppm->error_message,
+      psp->error_message);
+
+    psp->pk_pt[index_k_pt] = 2*_PI_*_PI_/(k_pt*k_pt*k_pt) * psp->pk_pt[index_k_pt];
+    
+  } // end of for(index_k_pt)
+  
+  
+  return _SUCCESS_;
+  
+}
+
+#endif // WITH_SONG1
