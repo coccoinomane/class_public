@@ -359,7 +359,7 @@ enum file_format {class_format,camb_format};
  * of the data. As long as you only increase these parameters, you are safe.
  */
 //@{
-#define _MAX_NUM_COLUMNS_ 1024 /**< Maximum number of columns in output ASCII files */
+#define _MAX_NUM_COLUMNS_ 8192 /**< Maximum number of columns in output ASCII files */
 #define _MAX_NUM_BISPECTRA_ 32 /**< Maximum number of bispectra types that can be computed */
 #define _MAX_NUM_FIELDS_ 5 /**< Maximum number of fields (T, E, B...) that can be computed */
 #define _MAX_NUM_BISPECTRUM_PROBES_ 64 /**< Maximum number of bispectrum probes (TTT,EEE,TEE,TTE...) that can be computed */

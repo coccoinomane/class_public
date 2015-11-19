@@ -3040,7 +3040,9 @@ int bispectra_output (
 
           /* Multipole value and index of this output file */
           int l1 = ppr->l1_out[index_l_out];
+          int l2 = ppr->l1_out[index_l_out];
           int index_l1 = ppr->index_l1_out[index_l_out];
+          int index_l2 = ppr->index_l2_out[index_l_out];
 
           /* Build filenames */ 
           int index_probe = X*pbi->bf_size*pbi->bf_size + Y*pbi->bf_size + Z;
@@ -3063,7 +3065,7 @@ int bispectra_output (
           char line[1024];
           
           /* Write the information header of the 1D and 2D files */
-          if (ppr->l2_out[index_l_out] > 0)
+          if (l2 > 0)
             sprintf (line, "CMB reduced bispectra b_l1_l2_l3 tabulated as a function of l3 and bispectrum type for a fixed (l1,l2) pair.");
           else
             sprintf (line, "CMB reduced bispectra b_l1_l_l tabulated as a function of l for a fixed l1 value.");
@@ -3092,10 +3094,10 @@ int bispectra_output (
           fprintf_2way (1, file_1D, 0, file_2D, 0, "%s\n", _COMMENT_);
           fprintf_2way (1, file_1D, 0, file_2D, 0, "%s", pba->info);
           fprintf_2way (1, file_1D, 0, file_2D, 0, "%s\n", _COMMENT_);
-          fprintf (file_1D, "%sInformation on the output (l1,l2):\n", _COMMENT_);
-          fprintf (file_1D, "%sl1 = %d, index_l1 = %d/%d\n", _COMMENT_, l1, index_l1, pbi->l_size-1);
-          fprintf (file_2D, "%sInformation on the output l1:\n", _COMMENT_);
-          fprintf (file_2D, "%sl1 = %d, index_l1 = %d/%d\n", _COMMENT_, l1, index_l1, pbi->l_size-1);
+          fprintf_2way (1, file_1D, 0, file_2D, 0, "%sInformation on the output l:\n", _COMMENT_);
+          fprintf_2way (1, file_1D, 0, file_2D, 0, "%sl1 = %d, index_l1 = %d/%d\n", _COMMENT_, l1, index_l1, pbi->l_size-1);
+          if (l2 > 0) fprintf (file_1D, "%sl2 = %d, index_l2 = %d/%d\n", _COMMENT_, l2, index_l2, pbi->l_size-1);
+
 
           /* For the 2D file, we shall print a row for each (l2,l3) configuration; for the
           1D file, a row for each l3 configuration */
@@ -3182,9 +3184,9 @@ int bispectra_output (
               // -------------------------------------------------------------------------------
 
               /* Arrays containing all the information on the columns to be printed, labels included */
-              char label[_MAX_NUM_COLUMNS_][_MAX_LENGTH_LABEL_];
-              double value[_MAX_NUM_COLUMNS_];
-              short condition[_MAX_NUM_COLUMNS_];
+              char (*label)[_MAX_LENGTH_LABEL_] = calloc (_MAX_NUM_COLUMNS_*_MAX_LENGTH_LABEL_, sizeof(char));
+              double * value = calloc (_MAX_NUM_COLUMNS_, sizeof(double));
+              short * condition = calloc (_MAX_NUM_COLUMNS_, sizeof(short));
   
               /* Initialise column arrays */
               for (int i=0; i < _MAX_NUM_COLUMNS_; ++i)
@@ -3198,13 +3200,13 @@ int bispectra_output (
               value[i] = l2;
               
               /* Multipole l3 */
-              if (ppr->l2_out[index_l_out] > 0)
+              if (l2 > 0)
                 strcpy (label[++i], "l3");
               else
                 strcpy (label[++i], "l");
               value[i] = l3;
               
-              /* Bispectra */
+              /* All bispectra types */
               for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt) {
 
                 sprintf (label[++i], "%s", pbi->bt_labels[index_bt]);
@@ -3290,7 +3292,7 @@ int bispectra_output (
               /* If the user gave -1 as a value for l2_out, then print the configuration with
               l1=l1_out and l2=l3 */
               
-              else if ((ppr->l2_out[index_l_out] < 0) && (l2 == l3)) {
+              else if ((l2 < 0) && (l2 == l3)) {
                 
                 /* Write row with labels and append information on l2 to the header */
                 int n_columns_1D = 1;
@@ -3309,6 +3311,10 @@ int bispectra_output (
                 fprintf (file_1D, "\n");                
                 
               }
+
+              free (label);
+              free (value);
+              free (condition);
 
             } // for l3
           } // for l2
@@ -3415,9 +3421,10 @@ int bispectra_output (
                 // -------------------------------------------------------------------------------
 
                 /* Arrays containing all the information on the columns to be printed, labels included */
-                char label[_MAX_NUM_COLUMNS_][_MAX_LENGTH_LABEL_];
-                double value[_MAX_NUM_COLUMNS_];
-
+                char (*label)[_MAX_LENGTH_LABEL_] = calloc (_MAX_NUM_COLUMNS_*_MAX_LENGTH_LABEL_, sizeof(char));
+                double * value = calloc (_MAX_NUM_COLUMNS_, sizeof(double));
+                short * condition = calloc (_MAX_NUM_COLUMNS_, sizeof(short));
+  
                 /* Initialise column counter  */
                 int i = -1;
 
@@ -3483,6 +3490,11 @@ int bispectra_output (
                 'set pm3d' option in gnuplot */
                 if (l3 == l3_max)
                   fprintf (file_2D_interpolated, "\n");
+              
+              
+                free (label);
+                free (value);
+                free (condition);
               
               } // for l3
             } // for l2
