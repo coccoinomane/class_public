@@ -383,6 +383,14 @@ extern "C" {
   // =                                      Misc                                        =
   // ====================================================================================
 
+  int find_by_bisection (
+        double * x_vec,
+        int n,
+        double x,
+        int * index,
+        ErrorMsg errmsg
+        );
+
   double identity_double (double x);
 
   int sign_int (int x);

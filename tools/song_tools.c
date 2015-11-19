@@ -3444,6 +3444,60 @@ int is_triangular_double (double l1, double l2, double l3) {
 // =                                       Misc                                         =
 // ======================================================================================
 
+
+/**
+ * Find position of x inside an ordered array by bisection.
+ *
+ * Credits to Julien Lesgourgues (file array.c of CLASS).
+ */
+
+int find_by_bisection (
+      double * x_vec, /**< Input: ordered vector to search for x */
+      int n, /**< Input: size of vector x_vec */
+      double x, /**< Input: value to search for in x_vec */
+      int * index, /**< Output: index to the left of x inside x */
+      ErrorMsg errmsg)
+{
+
+  int inf = 0;
+  int sup = n-1;
+
+  if (x_vec[inf] < x_vec[sup]) {
+
+    class_test (x < x_vec[inf], errmsg, "x=%e < x_min=%e", x, x_vec[inf]);
+    class_test (x > x_vec[sup], errmsg, "x=%e > x_max=%e", x, x_vec[sup]);
+
+    while (sup-inf > 1) {
+
+      int mid = (int)(0.5*(inf+sup));
+      if (x < x_vec[mid])
+        sup = mid;
+      else
+        inf = mid;
+    }
+  }
+
+  else {
+
+    class_test (x < x_vec[sup], errmsg, "x=%e < x_min=%e", x, x_vec[sup]);
+    class_test (x > x_vec[inf], errmsg, "x=%e > x_max=%e", x, x_vec[inf]);
+
+    while (sup-inf > 1) {
+
+      int mid=(int)(0.5*(inf+sup));
+      if (x > x_vec[mid]) {sup=mid;}
+      else {inf=mid;}
+    }
+  }
+
+  *index = inf;
+
+  return _SUCCESS_;
+
+}
+
+
+
 /** 
  * Identity function.
  */  
