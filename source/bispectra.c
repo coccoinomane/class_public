@@ -3046,16 +3046,16 @@ int bispectra_output (
 
           /* Build filenames */ 
           int index_probe = X*pbi->bf_size*pbi->bf_size + Y*pbi->bf_size + Z;
-          sprintf (ppr->l_out_paths_1D[index_l_out][index_probe], "%sbispectra_1D_L%03d_%s.txt",
-            ppr->l_out_paths_1D[index_l_out][index_probe], index_l_out, pbi->bfff_labels[X][Y][Z]);
-          sprintf (ppr->l_out_paths_2D[index_l_out][index_probe], "%sbispectra_2D_L%03d_%s.txt",
-            ppr->l_out_paths_2D[index_l_out][index_probe], index_l_out, pbi->bfff_labels[X][Y][Z]);
+          sprintf (ppr->paths_bispectra_l3[index_l_out][index_probe], "%sbispectra_l3_L%03d_%s.txt",
+            ppr->paths_bispectra_l3[index_l_out][index_probe], index_l_out, pbi->bfff_labels[X][Y][Z]);
+          sprintf (ppr->paths_bispectra_l2l3[index_l_out][index_probe], "%sbispectra_l2l3_L%03d_%s.txt",
+            ppr->paths_bispectra_l2l3[index_l_out][index_probe], index_l_out, pbi->bfff_labels[X][Y][Z]);
 
           /* Open files */
-          FILE * file_1D = ppr->l_out_files_1D[index_l_out][index_probe];
-          FILE * file_2D = ppr->l_out_files_2D[index_l_out][index_probe];
-          class_open(file_1D, ppr->l_out_paths_1D[index_l_out][index_probe], "w", pbi->error_message);
-          class_open(file_2D, ppr->l_out_paths_2D[index_l_out][index_probe], "w", pbi->error_message);
+          FILE * file_1D = ppr->files_bispectra_l3[index_l_out][index_probe];
+          FILE * file_2D = ppr->files_bispectra_l2l3[index_l_out][index_probe];
+          class_open(file_1D, ppr->paths_bispectra_l3[index_l_out][index_probe], "w", pbi->error_message);
+          class_open(file_2D, ppr->paths_bispectra_l2l3[index_l_out][index_probe], "w", pbi->error_message);
           
 
           // -------------------------------------------------------------------------------
@@ -3340,7 +3340,7 @@ int bispectra_output (
             char * file_path_2D_interpolated;
 
             class_call (replace_string (
-                          ppr->l_out_paths_2D[index_l_out][index_probe],
+                          ppr->paths_bispectra_l2l3[index_l_out][index_probe],
                           ".txt",
                           "_interpolated.txt",
                           &file_path_2D_interpolated,

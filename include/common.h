@@ -1077,19 +1077,19 @@ struct precision
     
   /** Path of the ASCII files that will contain the bispectra as a function
   of l3 for the desired (l1_out,l2_out) pairs; filled in the input2.c module */
-  char (*l_out_paths_1D)[_MAX_NUM_BISPECTRUM_PROBES_][_FILENAMESIZE_];
+  char (*paths_bispectra_l3)[_MAX_NUM_BISPECTRUM_PROBES_][_FILENAMESIZE_];
 
   /** ASCII files that will contain the bispectra as a function of l3 for
   the desired  (l1_out,l2_out) pairs; filled in the input2.c module */
-  FILE * (*l_out_files_1D)[_MAX_NUM_BISPECTRUM_PROBES_]; 
+  FILE * (*files_bispectra_l3)[_MAX_NUM_BISPECTRUM_PROBES_]; 
     
   /** Path of the ASCII files that will contain the bispectra as a function
   of l2 and l3 for the desired l1_out value; filled in the input2.c module */
-  char (*l_out_paths_2D)[_MAX_NUM_BISPECTRUM_PROBES_][_FILENAMESIZE_];
+  char (*paths_bispectra_l2l3)[_MAX_NUM_BISPECTRUM_PROBES_][_FILENAMESIZE_];
 
   /** ASCII file that will contain the bispectra as a function of l2
   and l3 at the desired l1_out value; filled in the input2.c module */
-  FILE * (*l_out_files_2D)[_MAX_NUM_BISPECTRUM_PROBES_]; 
+  FILE * (*files_bispectra_l2l3)[_MAX_NUM_BISPECTRUM_PROBES_]; 
     
   char l_out_path_3D[_FILENAMESIZE_]; /**< Path of the binary file that will contain the bispectra for all computed (l1,l2,l3)
                                        configurations; filled in the input2.c module */

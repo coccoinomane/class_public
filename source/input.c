@@ -670,10 +670,10 @@ int input_free(
     free (ppr->l2_out);
     free (ppr->index_l1_out);
     free (ppr->index_l2_out);
-    free (ppr->l_out_paths_1D);
-    free (ppr->l_out_paths_2D);
-    free (ppr->l_out_files_1D);
-    free (ppr->l_out_files_2D);
+    free (ppr->paths_bispectra_l3);
+    free (ppr->paths_bispectra_l2l3);
+    free (ppr->files_bispectra_l3);
+    free (ppr->files_bispectra_l2l3);
   }
 
 #endif // WITH_SONG1
@@ -3407,10 +3407,10 @@ int input_read_parameters(
 
     class_calloc (ppr->index_l1_out, ppr->l_out_size, sizeof(int), errmsg);
     class_calloc (ppr->index_l2_out, ppr->l_out_size, sizeof(int), errmsg);
-    class_calloc (ppr->l_out_paths_1D, ppr->l_out_size*_MAX_NUM_BISPECTRUM_PROBES_*_FILENAMESIZE_, sizeof(char), errmsg);
-    class_calloc (ppr->l_out_paths_2D, ppr->l_out_size*_MAX_NUM_BISPECTRUM_PROBES_*_FILENAMESIZE_, sizeof(char), errmsg);
-    class_calloc (ppr->l_out_files_1D, ppr->l_out_size*_MAX_NUM_BISPECTRUM_PROBES_, sizeof(FILE *), errmsg);
-    class_calloc (ppr->l_out_files_2D, ppr->l_out_size*_MAX_NUM_BISPECTRUM_PROBES_, sizeof(FILE *), errmsg);
+    class_calloc (ppr->paths_bispectra_l3, ppr->l_out_size*_MAX_NUM_BISPECTRUM_PROBES_*_FILENAMESIZE_, sizeof(char), errmsg);
+    class_calloc (ppr->paths_bispectra_l2l3, ppr->l_out_size*_MAX_NUM_BISPECTRUM_PROBES_*_FILENAMESIZE_, sizeof(char), errmsg);
+    class_calloc (ppr->files_bispectra_l3, ppr->l_out_size*_MAX_NUM_BISPECTRUM_PROBES_, sizeof(FILE *), errmsg);
+    class_calloc (ppr->files_bispectra_l2l3, ppr->l_out_size*_MAX_NUM_BISPECTRUM_PROBES_, sizeof(FILE *), errmsg);
 
   }
 
@@ -3420,11 +3420,11 @@ int input_read_parameters(
   for (int index_l_out=0; index_l_out < ppr->l_out_size; ++index_l_out) {
 
     for (int i=0; i < _MAX_NUM_BISPECTRUM_PROBES_; ++i)
-      sprintf (ppr->l_out_paths_1D[index_l_out][i],
+      sprintf (ppr->paths_bispectra_l3[index_l_out][i],
         "%s", pop->root);
 
     for (int i=0; i < _MAX_NUM_BISPECTRUM_PROBES_; ++i)
-      sprintf (ppr->l_out_paths_2D[index_l_out][i],
+      sprintf (ppr->paths_bispectra_l2l3[index_l_out][i],
         "%s", pop->root);
 
   }
