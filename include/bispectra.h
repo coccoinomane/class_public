@@ -939,6 +939,34 @@ extern "C" {
       );
       
       
+  int bispectra_output_l2l3(
+      struct precision * ppr,
+      struct background * pba,
+      struct thermo * pth,
+      struct perturbs * ppt,
+      struct bessels * pbs,
+      struct transfers * ptr,
+      struct primordial * ppm,
+      struct spectra * psp,
+      struct lensing * ple,
+      struct bispectra * pbi
+      );
+      
+      
+  int bispectra_output_l1l2l3(
+      struct precision * ppr,
+      struct background * pba,
+      struct thermo * pth,
+      struct perturbs * ppt,
+      struct bessels * pbs,
+      struct transfers * ptr,
+      struct primordial * ppm,
+      struct spectra * psp,
+      struct lensing * ple,
+      struct bispectra * pbi
+      );
+      
+      
   int bispectra_get_r_grid (
       struct precision * ppr,
       struct background * pba,

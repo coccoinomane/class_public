@@ -1091,11 +1091,11 @@ struct precision
   and l3 at the desired l1_out value; filled in the input2.c module */
   FILE * (*files_bispectra_l2l3)[_MAX_NUM_BISPECTRUM_PROBES_]; 
     
-  char l_out_path_3D[_FILENAMESIZE_]; /**< Path of the binary file that will contain the bispectra for all computed (l1,l2,l3)
-                                       configurations; filled in the input2.c module */
+  char path_bispectra_l1l2l3[_FILENAMESIZE_]; /**< Path of the binary file that will contain the bispectra for all
+                                              computed (l1,l2,l3) configurations; filled in the input2.c module */
 
-  FILE * l_out_file_3D; /**< Binary file that will contain the bispectra for all computed (l1,l2,l3)
-                         configurations; filled in the input2.c module */
+  FILE * file_bispectra_l1l2l3; /**< Binary file that will contain the bispectra for all computed (l1,l2,l3)
+                                configurations; filled in the input2.c module */
     
   
   /**

@@ -2973,20 +2973,30 @@ int bispectra_harmonic (
 
 
 /**
- * Produce output files for the bispectrum.
+ * Produce output files for the bispectrum b^XYZ(l1,l2,l3).
  *
+ * The output files will be generated only for the multipole values
+ * specified by the user with the (l1_out, l2_out, l3_out) parameters.
+ * 
  * Three types of files will be created:
  *
- * - A text file with the bispectra configurations for l1=l1_out and
- *   l2=l2_out, tabulated as a function of l3, named bispectra_1D_LXXX.txt.
- *   If l2_out<0, then the configurations with l1=l1_out and l2=l3 will
- *   be printed to file.
+ * - The l3 text files containing the bispectra for fixed (l1,l2) as a 
+ *   function of l3.
  *
- * - A larger text file with the bispectra configurations for l1=l1_out, tabulated
- *   as a function of l2 and l3, named bispectra_2D_LXXX.txt.
+ * - The l2l3 text files containing the bispectra for fixed l1 as a 
+ *   function of (l2,l3).
  *
- * - A binary file with all bispectra configurations for all bispectra types,
- *   named bispectra.dat.
+ * - The l1l2l3 binary file containing all bispectra configurations
+ *   for all bispectra probes; this file can be read and plotted
+ *   using the scripts by Thomas Tram in the python folder.
+ *
+ * For the l2 and l2l3 outputs, a separate file is generated for each
+ * XYZ probe (TTT,TTE,...). On the contrary, the l1l2l3 output will
+ * contain all probes.
+ * 
+ * The binary files include accessory data (such as the l-sampling and 
+ * the first-order C_l) and a human-readable ASCII header explaining how
+ * to access their content.
  *
  */
 
@@ -3023,12 +3033,62 @@ int bispectra_output (
 
 
   // ====================================================================================
-  // =                                1D and 2D outputs                                 =
+  // =                            Output in (l2,l3) and l3                              =
   // ====================================================================================
 
-  /* The 1D and 2D outputs consists in a text file with the bispectrum tabulated as a
-  function of l3 and (l2,l3), respectively. We generate one file for each probe (TTT,
-  EEE, TTE...) for each output. */
+  class_call (bispectra_output_l2l3 (ppr,pba,pth,ppt,pbs,ptr,ppm,psp,ple,pbi),
+    pbi->error_message,
+    pbi->error_message);
+
+  
+
+  // ====================================================================================
+  // =                             Output in (l1,l2,l3)                                 =
+  // ====================================================================================
+
+  if (pbi->output_binary_bispectra) {
+
+    class_call (bispectra_output_l1l2l3 (ppr,pba,pth,ppt,pbs,ptr,ppm,psp,ple,pbi),
+      pbi->error_message,
+      pbi->error_message);
+
+  }
+    
+
+  return _SUCCESS_;
+  
+}
+
+
+
+/**
+ * Create two kinds of output text files: one for the bispectra as a function
+ * of (l2,l3) for the output values in l1_out and tau_out, and one for the
+ * bispectra as a function of k3 for the output values in (l1_out,l2_out).
+ *
+ * A text file will be generated for each probe (TTT, EEE, TTE...) for each
+ * kind of output.
+ * 
+ * The l2l3 output files are suitable to be plotted with gnuplot using the
+ * splot function. To produce contour plots and, in general, nicer plots,
+ * use the option 'set pm3d'.
+ * 
+ * See documentation of bispectra_output() for further details.
+ */
+
+int bispectra_output_l2l3 (
+    struct precision * ppr,
+    struct background * pba,
+    struct thermo * pth,
+    struct perturbs * ppt,
+    struct bessels * pbs,
+    struct transfers * ptr,
+    struct primordial * ppm,
+    struct spectra * psp,
+    struct lensing * ple,
+    struct bispectra * pbi
+    )
+{
 
   for (int index_l_out=0; index_l_out < ppr->l_out_size; ++index_l_out) {
 
@@ -3511,308 +3571,327 @@ int bispectra_output (
 
   } // for l_out
   
-  
-
-  // ====================================================================================
-  // =                                     3D output                                    =
-  // ====================================================================================
-
-  if (pbi->output_binary_bispectra == _TRUE_) {
-
-    /* Binary files produced by this function will have a human-readable ASCII
-    header. It will include information on the cosmological parameters and on the
-    bispectrum, plus a binary map useful to understand how to access the data
-    in the binary file. */
-    int header_size = 
-      _MAX_INFO_SIZE_ + /* For background information */
-      _MAX_INFO_SIZE_ + /* For other information */
-      _MAX_INFO_SIZE_ + _MAX_HEADER_LINE_LENGTH_*pbi->n_probes; /* For binary map */
-
-    /* Define a new binary file structure */
-    struct binary_file * file;
-    class_alloc (file, sizeof(struct binary_file), pbi->error_message);
-  
-    /* Open the binary file */
-    class_call (binary_init (
-                  file,
-                  &(ppr->l_out_file_3D),
-                  ppr->l_out_path_3D,
-                  "w",
-                  header_size,
-                  ppr->output_single_precision),
-      file->error_message,
-      pbi->error_message);
-
-  
-    // ---------------------------------------------------------------------------
-    // -                            Print information                            -
-    // ---------------------------------------------------------------------------
-
-    /* Add information to the file header */
-    binary_sprintf (file, "CMB reduced bispectra b_l1_l2_l3 tabulated as a function of (l1,l2,l3) and bispectrum type.");
-    binary_sprintf (file, "This binary file was generated by SONG (%s) on %s.", _SONG_URL_, ppr->date);
-    binary_sprintf (file, "");
-    sprintf (file->header, "%s%s", file->header, pba->info);
-    file->header_size += strlen (pba->info) + 1;
-    if (ppt->gauge == newtonian) binary_sprintf(file, "gauge = newtonian");
-    if (ppt->gauge == synchronous) binary_sprintf(file, "gauge = synchronous");
-
-
-    // --------------------------------------------------------------------------
-    // -                                Build blocks                             -
-    // ---------------------------------------------------------------------------
-
-    char desc[1024];
-    char name[1024];
-
-    int label_size = _MAX_LENGTH_LABEL_;
-    sprintf (desc, "length of a label (=%d)", _MAX_LENGTH_LABEL_);
-    sprintf (name, "_MAX_LENGTH_LABEL_");
-    class_call (binary_append_int (file, &label_size, 1, desc, name),
-      file->error_message,
-      pbi->error_message);
-
-    /* l sampling */
-
-    sprintf (desc, "size of l array (=%d)", pbi->l_size);
-    sprintf (name, "pbi->l_size");
-    class_call (binary_append_int (file, &pbi->l_size, 1, desc,name),
-      file->error_message,
-      pbi->error_message);
-
-    sprintf (desc, "l array");
-    sprintf (name, "pbi->l");
-    class_call (binary_append_int (file, pbi->l, pbi->l_size, desc, name),
-      file->error_message,
-      pbi->error_message);
-
-    sprintf (desc, "size of l3 grid: l3_size[index_l1][index_l2] with index_l1 < pbi->l_size, index_l2 <= index_l1");
-    sprintf (name, "pbi->l3_size");
-    int index_l3_size_block = file->n_blocks;
-  
-    for (int index_l1=0; index_l1 < pbi->l_size; ++index_l1)
-      for (int index_l2=0; index_l2 <= index_l1; ++index_l2)
-        class_call (binary_add_block (
-                      file,
-                      &pbi->l3_size[index_l1][index_l2],
-                      1,
-                      sizeof (int),
-                      desc,
-                      "int",
-                      name,
-                      index_l3_size_block),
-          file->error_message,
-          pbi->error_message);
-
-    sprintf (desc, "l3 array: l3[index_l1][index_l2] with index_l1 < pbi->l_size, index_l2 <= index_l1");
-    sprintf (name, "pbi->l3");
-    int index_l3_block = file->n_blocks;
-  
-    for (int index_l1=0; index_l1 < pbi->l_size; ++index_l1)
-      for (int index_l2=0; index_l2 <= index_l1; ++index_l2)
-        class_call (binary_add_block (
-                      file,
-                      pbi->l3[index_l1][index_l2],
-                      pbi->l3_size[index_l1][index_l2],
-                      sizeof (int),
-                      desc,
-                      "int",
-                      name,
-                      index_l3_block),
-          file->error_message,
-          pbi->error_message);
-
-    sprintf (desc, "number of (l1,l2,l3) configurations in each bispectrum (=%ld)", pbi->n_independent_configurations);
-    sprintf (name, "pbi->n_independent_configurations");
-    class_call (binary_append_long_int (file, &pbi->n_independent_configurations, 1, desc, name),
-      file->error_message,
-      pbi->error_message);
-
-    /* First-order C_l */
-
-    sprintf (desc, "number of l-values for which the C_l are stored (=%d)", pbi->full_l_size);
-    sprintf (name, "pbi->full_l_size");
-    class_call (binary_append_int (file, &pbi->full_l_size, 1, desc, name),
-      file->error_message,
-      pbi->error_message);
-
-    sprintf (desc, "number of C_l types (=%d)", psp->ct_size);
-    sprintf (name, "psp->ct_size");
-    class_call (binary_append_int (file, &psp->ct_size, 1, desc, name),
-      file->error_message,
-      pbi->error_message);
-
-    sprintf (desc, "array of names of C_l types (each has %d char)", _MAX_LENGTH_LABEL_);
-    sprintf (name, "psp->ct_labels");
-    class_call (binary_append_string (file, psp->ct_labels, psp->ct_size*_MAX_LENGTH_LABEL_, desc, name),
-      file->error_message,
-      pbi->error_message);
-
-    sprintf (desc, "unlensed C_l: cls[index_ct][index_l] with index_ct < psp->ct_size, index_l < pbi->full_l_size");
-    sprintf (name, "pbi->cls");
-    int index_unlensed_cl = file->n_blocks;
-    for (int index_ct=0; index_ct < psp->ct_size; ++index_ct)
-      class_call (binary_add_block (
-                    file,
-                    pbi->cls[index_ct],
-                    pbi->full_l_size,
-                    sizeof (double),
-                    desc,
-                    "double",
-                    name,
-                    index_unlensed_cl),
-        file->error_message,
-        pbi->error_message);
-
-    sprintf (desc, "unlensed C_l logarithmic derivative: d_lsq_cls[index_ct][index_l] with index_ct < psp->ct_size, index_l < pbi->full_l_size");
-    sprintf (name, "pbi->d_lsq_cls");
-    index_unlensed_cl = file->n_blocks;
-    for (int index_ct=0; index_ct < psp->ct_size; ++index_ct)
-      class_call (binary_add_block (
-                    file,
-                    pbi->d_lsq_cls[index_ct],
-                    pbi->full_l_size,
-                    sizeof (double),
-                    desc,
-                    "double",
-                    name,
-                    index_unlensed_cl),
-        file->error_message,
-        pbi->error_message);
-
-    if (ppr->extend_lensed_cls == _TRUE_) {
-
-      sprintf (desc, "lensed C_l: cls[index_ct][index_l] with index_ct < psp->ct_size, index_l < pbi->full_l_size");
-      sprintf (name, "pbi->lensed_cls");
-      int index_lensed_cl = file->n_blocks;
-      for (int index_lt=0; index_lt < ple->lt_size; ++index_lt)
-        class_call (binary_add_block (
-                      file,
-                      pbi->lensed_cls[index_lt],
-                      pbi->full_l_size,
-                      sizeof (double),
-                      desc,
-                      "double",
-                      name,
-                      index_lensed_cl),
-          file->error_message,
-          pbi->error_message);
-
-      sprintf (desc, "lensed C_l logarithmic derivative: d_lsq_cls[index_ct][index_l] with index_ct < psp->ct_size, index_l < pbi->full_l_size");
-      sprintf (name, "pbi->lensed_d_lsq_cls");
-      index_lensed_cl = file->n_blocks;
-      for (int index_lt=0; index_lt < ple->lt_size; ++index_lt)
-        class_call (binary_add_block (
-                      file,
-                      pbi->lensed_d_lsq_cls[index_lt],
-                      pbi->full_l_size,
-                      sizeof (double),
-                      desc,
-                      "double",
-                      name,
-                      index_lensed_cl),
-          file->error_message,
-          pbi->error_message);
-    }
-
-
-    /* Bispectrum */
-
-    sprintf (desc, "number of bispectra types (local, equilateral, intrinsic...) (=%d)", pbi->bt_size);
-    sprintf (name, "pbi->bt_size");
-    class_call (binary_append_int (file, &pbi->bt_size, 1, desc, name),
-      file->error_message,
-      pbi->error_message);
-
-    sprintf (desc, "array of names of bispectra types (each has %d char)", _MAX_LENGTH_LABEL_);
-    sprintf (name, "pbi->bt_labels");
-    class_call (binary_append_string (file, pbi->bt_labels, pbi->bt_size*_MAX_LENGTH_LABEL_, desc, name),
-      file->error_message,
-      pbi->error_message);
-
-    sprintf (desc, "number of fields (T,E,B...) (=%d)", pbi->bf_size);
-    sprintf (name, "pbi->bf_size");
-    class_call (binary_append_int (file, &pbi->bf_size, 1, desc, name),
-      file->error_message,
-      pbi->error_message);
-
-    sprintf (desc, "array of names of fields (each has %d char)", _MAX_LENGTH_LABEL_);
-    sprintf (name, "pbi->bf_labels");
-    class_call (binary_append_string (file, pbi->bf_labels, pbi->bf_size*_MAX_LENGTH_LABEL_, desc, name),
-      file->error_message,
-      pbi->error_message);
-
-    for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt) {
-
-      sprintf (desc, "%s CMB bispectrum for all values of (l1,l2,l3) and for all fields (X,Y,Z);\
- indexed as [X][Y][Z][index_l1][index_l2][index_l3] with XYZ < pbi->bf_size, index_l1 < pbi->l_size,\
- index_l2 <= index_l1, index_l3 < pbi->l3_size[index_l1][index_l2]", pbi->bt_labels[index_bt]);
-      sprintf (name, "pbi->bispectra[index_bt=%d]", index_bt);
-      int index_bispectrum = file->n_blocks;      
-
-      for (int X = 0; X < pbi->bf_size; ++X) {
-        for (int Y = 0; Y < pbi->bf_size; ++Y) {
-          for (int Z = 0; Z < pbi->bf_size; ++Z) {
-
-            for (int index_l1=0; index_l1 < pbi->l_size; ++index_l1) {        
-              for (int index_l2=0; index_l2 <= index_l1; ++index_l2) {
-
-                /* Determine the limits for l3, which come from the triangular inequality |l1-l2| <= l3 <= l1+l2 */
-                int index_l3_min = pbi->index_l_triangular_min[index_l1][index_l2];
-                int index_l3_max = MIN (index_l2, pbi->index_l_triangular_max[index_l1][index_l2]);
-
-                /* Extract bispectrum for this (l1,l2) as a function of l3 */
-                double bispectrum_l1l2[pbi->l3_size[index_l1][index_l2]];
-                for (int index_l3=index_l3_min; index_l3<=index_l3_max; ++index_l3) {  
-                  long int index_l1_l2_l3 = pbi->index_l1_l2_l3[index_l1][index_l1-index_l2][index_l3_max-index_l3];
-                  bispectrum_l1l2[index_l3] = pbi->bispectra[index_bt][X][Y][Z][index_l1_l2_l3];
-                }
-
-                class_call (binary_add_block (
-                              file,
-                              bispectrum_l1l2,
-                              pbi->l3_size[index_l1][index_l2],
-                              sizeof (double),
-                              desc,
-                              "double",
-                              name,
-                              index_bispectrum),
-                  file->error_message,
-                  pbi->error_message);
-
-              } // for l2
-            } // for l1
-
-          } // Z
-        } // Y
-      } // X
-    } // bt
-    
-  
-    // ---------------------------------------------------------------------------
-    // -                              Write to file                              -
-    // ---------------------------------------------------------------------------
-
-    class_call (binary_write (
-                  file),
-      file->error_message,
-      pbi->error_message);
-
-
-    // ---------------------------------------------------------------------------
-    // -                                Clean up                                 -
-    // ---------------------------------------------------------------------------
-
-    class_call (binary_free (
-                  file),
-      file->error_message,
-      pbi->error_message);
-      
-  } // if output_binary_bispectra
-
-
   return _SUCCESS_;
+
+}
+
+
+
+/**
+ * Output to binary file the bispectra for all (l1,l2,l3) configurations.
+ *
+ * The binary file will also contain all probes (TTT, EEE, TTE...). The
+ * file can can be read and plotted using the scripts by Thomas Tram in
+ * the python folder.
+ * 
+ * See documentation of perturb2_output() for further details.
+ */
+
+int bispectra_output_l1l2l3 (
+    struct precision * ppr,
+    struct background * pba,
+    struct thermo * pth,
+    struct perturbs * ppt,
+    struct bessels * pbs,
+    struct transfers * ptr,
+    struct primordial * ppm,
+    struct spectra * psp,
+    struct lensing * ple,
+    struct bispectra * pbi
+    )
+{
   
+   /* Binary files produced by this function will have a human-readable ASCII
+   header. It will include information on the cosmological parameters and on the
+   bispectrum, plus a binary map useful to understand how to access the data
+   in the binary file. */
+   int header_size = 
+     _MAX_INFO_SIZE_ + /* For background information */
+     _MAX_INFO_SIZE_ + /* For other information */
+     _MAX_INFO_SIZE_ + _MAX_HEADER_LINE_LENGTH_*pbi->n_probes; /* For binary map */
+
+   /* Define a new binary file structure */
+   struct binary_file * file;
+   class_alloc (file, sizeof(struct binary_file), pbi->error_message);
+
+   /* Open the binary file */
+   class_call (binary_init (
+                 file,
+                 &(ppr->file_bispectra_l1l2l3),
+                 ppr->path_bispectra_l1l2l3,
+                 "w",
+                 header_size,
+                 ppr->output_single_precision),
+     file->error_message,
+     pbi->error_message);
+
+
+   // ---------------------------------------------------------------------------
+   // -                            Print information                            -
+   // ---------------------------------------------------------------------------
+
+   /* Add information to the file header */
+   binary_sprintf (file, "CMB reduced bispectra b_l1_l2_l3 tabulated as a function of (l1,l2,l3) and bispectrum type.");
+   binary_sprintf (file, "This binary file was generated by SONG (%s) on %s.", _SONG_URL_, ppr->date);
+   binary_sprintf (file, "");
+   sprintf (file->header, "%s%s", file->header, pba->info);
+   file->header_size += strlen (pba->info) + 1;
+   if (ppt->gauge == newtonian) binary_sprintf(file, "gauge = newtonian");
+   if (ppt->gauge == synchronous) binary_sprintf(file, "gauge = synchronous");
+
+
+   // --------------------------------------------------------------------------
+   // -                                Build blocks                             -
+   // ---------------------------------------------------------------------------
+
+   char desc[1024];
+   char name[1024];
+
+   int label_size = _MAX_LENGTH_LABEL_;
+   sprintf (desc, "length of a label (=%d)", _MAX_LENGTH_LABEL_);
+   sprintf (name, "_MAX_LENGTH_LABEL_");
+   class_call (binary_append_int (file, &label_size, 1, desc, name),
+     file->error_message,
+     pbi->error_message);
+
+   /* l sampling */
+
+   sprintf (desc, "size of l array (=%d)", pbi->l_size);
+   sprintf (name, "pbi->l_size");
+   class_call (binary_append_int (file, &pbi->l_size, 1, desc,name),
+     file->error_message,
+     pbi->error_message);
+
+   sprintf (desc, "l array");
+   sprintf (name, "pbi->l");
+   class_call (binary_append_int (file, pbi->l, pbi->l_size, desc, name),
+     file->error_message,
+     pbi->error_message);
+
+   sprintf (desc, "size of l3 grid: l3_size[index_l1][index_l2] with index_l1 < pbi->l_size, index_l2 <= index_l1");
+   sprintf (name, "pbi->l3_size");
+   int index_l3_size_block = file->n_blocks;
+
+   for (int index_l1=0; index_l1 < pbi->l_size; ++index_l1)
+     for (int index_l2=0; index_l2 <= index_l1; ++index_l2)
+       class_call (binary_add_block (
+                     file,
+                     &pbi->l3_size[index_l1][index_l2],
+                     1,
+                     sizeof (int),
+                     desc,
+                     "int",
+                     name,
+                     index_l3_size_block),
+         file->error_message,
+         pbi->error_message);
+
+   sprintf (desc, "l3 array: l3[index_l1][index_l2] with index_l1 < pbi->l_size, index_l2 <= index_l1");
+   sprintf (name, "pbi->l3");
+   int index_l3_block = file->n_blocks;
+
+   for (int index_l1=0; index_l1 < pbi->l_size; ++index_l1)
+     for (int index_l2=0; index_l2 <= index_l1; ++index_l2)
+       class_call (binary_add_block (
+                     file,
+                     pbi->l3[index_l1][index_l2],
+                     pbi->l3_size[index_l1][index_l2],
+                     sizeof (int),
+                     desc,
+                     "int",
+                     name,
+                     index_l3_block),
+         file->error_message,
+         pbi->error_message);
+
+   sprintf (desc, "number of (l1,l2,l3) configurations in each bispectrum (=%ld)", pbi->n_independent_configurations);
+   sprintf (name, "pbi->n_independent_configurations");
+   class_call (binary_append_long_int (file, &pbi->n_independent_configurations, 1, desc, name),
+     file->error_message,
+     pbi->error_message);
+
+   /* First-order C_l */
+
+   sprintf (desc, "number of l-values for which the C_l are stored (=%d)", pbi->full_l_size);
+   sprintf (name, "pbi->full_l_size");
+   class_call (binary_append_int (file, &pbi->full_l_size, 1, desc, name),
+     file->error_message,
+     pbi->error_message);
+
+   sprintf (desc, "number of C_l types (=%d)", psp->ct_size);
+   sprintf (name, "psp->ct_size");
+   class_call (binary_append_int (file, &psp->ct_size, 1, desc, name),
+     file->error_message,
+     pbi->error_message);
+
+   sprintf (desc, "array of names of C_l types (each has %d char)", _MAX_LENGTH_LABEL_);
+   sprintf (name, "psp->ct_labels");
+   class_call (binary_append_string (file, psp->ct_labels, psp->ct_size*_MAX_LENGTH_LABEL_, desc, name),
+     file->error_message,
+     pbi->error_message);
+
+   sprintf (desc, "unlensed C_l: cls[index_ct][index_l] with index_ct < psp->ct_size, index_l < pbi->full_l_size");
+   sprintf (name, "pbi->cls");
+   int index_unlensed_cl = file->n_blocks;
+   for (int index_ct=0; index_ct < psp->ct_size; ++index_ct)
+     class_call (binary_add_block (
+                   file,
+                   pbi->cls[index_ct],
+                   pbi->full_l_size,
+                   sizeof (double),
+                   desc,
+                   "double",
+                   name,
+                   index_unlensed_cl),
+       file->error_message,
+       pbi->error_message);
+
+   sprintf (desc, "unlensed C_l logarithmic derivative: d_lsq_cls[index_ct][index_l] with index_ct < psp->ct_size, index_l < pbi->full_l_size");
+   sprintf (name, "pbi->d_lsq_cls");
+   index_unlensed_cl = file->n_blocks;
+   for (int index_ct=0; index_ct < psp->ct_size; ++index_ct)
+     class_call (binary_add_block (
+                   file,
+                   pbi->d_lsq_cls[index_ct],
+                   pbi->full_l_size,
+                   sizeof (double),
+                   desc,
+                   "double",
+                   name,
+                   index_unlensed_cl),
+       file->error_message,
+       pbi->error_message);
+
+   if (ppr->extend_lensed_cls == _TRUE_) {
+
+     sprintf (desc, "lensed C_l: cls[index_ct][index_l] with index_ct < psp->ct_size, index_l < pbi->full_l_size");
+     sprintf (name, "pbi->lensed_cls");
+     int index_lensed_cl = file->n_blocks;
+     for (int index_lt=0; index_lt < ple->lt_size; ++index_lt)
+       class_call (binary_add_block (
+                     file,
+                     pbi->lensed_cls[index_lt],
+                     pbi->full_l_size,
+                     sizeof (double),
+                     desc,
+                     "double",
+                     name,
+                     index_lensed_cl),
+         file->error_message,
+         pbi->error_message);
+
+     sprintf (desc, "lensed C_l logarithmic derivative: d_lsq_cls[index_ct][index_l] with index_ct < psp->ct_size, index_l < pbi->full_l_size");
+     sprintf (name, "pbi->lensed_d_lsq_cls");
+     index_lensed_cl = file->n_blocks;
+     for (int index_lt=0; index_lt < ple->lt_size; ++index_lt)
+       class_call (binary_add_block (
+                     file,
+                     pbi->lensed_d_lsq_cls[index_lt],
+                     pbi->full_l_size,
+                     sizeof (double),
+                     desc,
+                     "double",
+                     name,
+                     index_lensed_cl),
+         file->error_message,
+         pbi->error_message);
+   }
+
+
+   /* Bispectrum */
+
+   sprintf (desc, "number of bispectra types (local, equilateral, intrinsic...) (=%d)", pbi->bt_size);
+   sprintf (name, "pbi->bt_size");
+   class_call (binary_append_int (file, &pbi->bt_size, 1, desc, name),
+     file->error_message,
+     pbi->error_message);
+
+   sprintf (desc, "array of names of bispectra types (each has %d char)", _MAX_LENGTH_LABEL_);
+   sprintf (name, "pbi->bt_labels");
+   class_call (binary_append_string (file, pbi->bt_labels, pbi->bt_size*_MAX_LENGTH_LABEL_, desc, name),
+     file->error_message,
+     pbi->error_message);
+
+   sprintf (desc, "number of fields (T,E,B...) (=%d)", pbi->bf_size);
+   sprintf (name, "pbi->bf_size");
+   class_call (binary_append_int (file, &pbi->bf_size, 1, desc, name),
+     file->error_message,
+     pbi->error_message);
+
+   sprintf (desc, "array of names of fields (each has %d char)", _MAX_LENGTH_LABEL_);
+   sprintf (name, "pbi->bf_labels");
+   class_call (binary_append_string (file, pbi->bf_labels, pbi->bf_size*_MAX_LENGTH_LABEL_, desc, name),
+     file->error_message,
+     pbi->error_message);
+
+   for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt) {
+
+     sprintf (desc, "%s CMB bispectrum for all values of (l1,l2,l3) and for all fields (X,Y,Z);\
+indexed as [X][Y][Z][index_l1][index_l2][index_l3] with XYZ < pbi->bf_size, index_l1 < pbi->l_size,\
+index_l2 <= index_l1, index_l3 < pbi->l3_size[index_l1][index_l2]", pbi->bt_labels[index_bt]);
+     sprintf (name, "pbi->bispectra[index_bt=%d]", index_bt);
+     int index_bispectrum = file->n_blocks;      
+
+     for (int X = 0; X < pbi->bf_size; ++X) {
+       for (int Y = 0; Y < pbi->bf_size; ++Y) {
+         for (int Z = 0; Z < pbi->bf_size; ++Z) {
+
+           for (int index_l1=0; index_l1 < pbi->l_size; ++index_l1) {        
+             for (int index_l2=0; index_l2 <= index_l1; ++index_l2) {
+
+               /* Determine the limits for l3, which come from the triangular inequality |l1-l2| <= l3 <= l1+l2 */
+               int index_l3_min = pbi->index_l_triangular_min[index_l1][index_l2];
+               int index_l3_max = MIN (index_l2, pbi->index_l_triangular_max[index_l1][index_l2]);
+
+               /* Extract bispectrum for this (l1,l2) as a function of l3 */
+               double bispectrum_l1l2[pbi->l3_size[index_l1][index_l2]];
+               for (int index_l3=index_l3_min; index_l3<=index_l3_max; ++index_l3) {  
+                 long int index_l1_l2_l3 = pbi->index_l1_l2_l3[index_l1][index_l1-index_l2][index_l3_max-index_l3];
+                 bispectrum_l1l2[index_l3] = pbi->bispectra[index_bt][X][Y][Z][index_l1_l2_l3];
+               }
+
+               class_call (binary_add_block (
+                             file,
+                             bispectrum_l1l2,
+                             pbi->l3_size[index_l1][index_l2],
+                             sizeof (double),
+                             desc,
+                             "double",
+                             name,
+                             index_bispectrum),
+                 file->error_message,
+                 pbi->error_message);
+
+             } // for l2
+           } // for l1
+
+         } // Z
+       } // Y
+     } // X
+   } // bt
+  
+
+   // ---------------------------------------------------------------------------
+   // -                              Write to file                              -
+   // ---------------------------------------------------------------------------
+
+   class_call (binary_write (
+                 file),
+     file->error_message,
+     pbi->error_message);
+
+
+   // ---------------------------------------------------------------------------
+   // -                                Clean up                                 -
+   // ---------------------------------------------------------------------------
+
+   class_call (binary_free (
+                 file),
+     file->error_message,
+     pbi->error_message);
+  
+  return _SUCCESS_;
+
 }
 
 

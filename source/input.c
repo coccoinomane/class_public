@@ -3439,8 +3439,8 @@ int input_read_parameters(
 
     pbi->output_binary_bispectra = _TRUE_;
 
-    sprintf (ppr->l_out_path_3D,
-      "%sbispectra.dat",
+    sprintf (ppr->path_bispectra_l1l2l3,
+      "%sbispectra_l1l2l3.dat",
       pop->root);
       
   }
