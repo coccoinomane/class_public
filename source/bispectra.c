@@ -768,14 +768,14 @@ int bispectra_at_l3_linear (
 
 
 /**
- * Interpolate the reduced bispectrum in (l2,l3) for a l1 multipole belonging to
- * SONG l-sampling, using bilinear interpolation.
+ * Interpolate the reduced bispectrum in (l2,l3) with l1 belonging to the
+ * SONG's l-sampling, using bilinear interpolation.
  *
  * Depending on the requested point, we adopt three different kinds of
  * interpolations:
  *
- * - For points that are well into the triangular borders (eg. l1=200, l2=200,
- *   l3=100), we use a bilinear interpolation along the l2 and l3 directions
+ * - For points that are well into the triangular borders (eg. l1=200,
+ *   l2=200, l3=100), we interpolate along the l2 and l3 directions
  *   (RECTANGULAR interpolation).
  *
  * - For points that are close to the triangular border or right onto it
@@ -948,18 +948,31 @@ int bispectra_at_l2l3_bilinear (
       l3_right = abs(l1-l2_right) + offset_from_bottom;
     }
 
-    class_test (!is_triangular_int (l1, l2_left, l3_left),
-      pbi->error_message,
-      "l1=%d, l2_left=%d, l3_left=%d not triangular", l1, l2_left, l3_left);
+    /* If the left node is very distant from l2, it is possible that
+    it does not have an l3 value that intersects the diagonal passing
+    through (l2,l3). In other words, the triangular condition cannot
+    be met because the node is too far. In these (rare) cases, we assume
+    for the function the value of the closest node to the right */
+    if (!is_triangular_int (l1, l2_left, l3_left)) {
 
+      interpolation = RIGHT_NODE;
+
+    }
+
+    /* It is now safe to use the triangular interpolation */
+    else {
+      
+      interpolation = TRIANGULAR;
+      
+    }
+
+    /* Check that the right node satisfies the triangular condition.
+    Will we ever enter here? The right node should always satisfy
+    the triangular condition, because as we increase l2 the triangle 
+    never shrinks... */
     class_test (!is_triangular_int (l1, l2_right, l3_right),
       pbi->error_message,
       "l1=%d, l2_right=%d, l3_right=%d not triangular", l1, l2_right, l3_right);
-
-
-    /* It is now safe to use triangular interpolation */
-
-    interpolation = TRIANGULAR;
 
 
     // -------------------------------------------------------------------------------
@@ -1200,7 +1213,7 @@ int bispectra_at_l2l3_bilinear (
     short backward_extrapolation = (
       (extrapolate) && /* user asked for extrapolation */
       ((index_l2_left-1) > 0) && /* left node is not the first one */
-      (pbi->l[index_l2_left-1] > l2_min)); /* node with the smallest l2 satisfies triangular condition */
+      (pbi->l[index_l2_left-1] >= l2_min)); /* node with the smallest l2 satisfies triangular condition */
 
     if (!backward_extrapolation) {
 
@@ -1274,7 +1287,7 @@ int bispectra_at_l2l3_bilinear (
     short forward_extrapolation =
       (extrapolate) && /* user asked for forward extrapolation */
       ((index_l2_right+1) < pbi->l_size) && /* right node is not the last one */
-      (pbi->l[index_l2_right+1] < l2_max); /* node with the largest l2 satisfies triangular condition */
+      (pbi->l[index_l2_right+1] <= l2_max); /* node with the largest l2 satisfies triangular condition */
 
     if (!forward_extrapolation) {
 

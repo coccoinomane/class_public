@@ -418,6 +418,14 @@ extern "C" {
         ErrorMsg errmsg
         );
 
+  int add_point_double (
+        double **v,
+        int *v_size,
+        double x,
+        int (*compar)(const void *, const void *),
+        ErrorMsg errmsg
+        );
+
   int merge_arrays_int (
         int *v1,
         int v1_size,

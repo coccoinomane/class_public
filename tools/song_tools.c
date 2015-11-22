@@ -3635,14 +3635,14 @@ int reorder_int (
  */
 
 int merge_arrays_double (
-      double *v1,      /**< input array to be merged */
-      int v1_size,     /**< input, size of v1 */
-      double *v2,      /**< input array to be merged */
-      int v2_size,     /**< input, size of v2 */
-      double **out,    /**< output array; it will be (re)allocated with out_size elements using realloc */
-      int * out_size,  /**< output, size of out */
-      int (*compar)(const void *, const void *), /**< input, comparison function for the sorting (see documentation for qsort) */
-      ErrorMsg errmsg  /**< output, string where to write error message */
+      double *v1,      /**< Input: array to be merged with v2 */
+      int v1_size,     /**< Input: size of v1 */
+      double *v2,      /**< Input: array to be merged with v1 */
+      int v2_size,     /**< Input: size of v2 */
+      double **out,    /**< Output: merged array; it will be (re)allocated with out_size elements using realloc */
+      int * out_size,  /**< Output: size of merged array */
+      int (*compar)(const void *, const void *), /**< Input: comparison function for qsort */
+      ErrorMsg errmsg  /**< Output: string where to write error message */
       )
 {
 
@@ -3694,6 +3694,43 @@ int merge_arrays_double (
   return _SUCCESS_;
   
 }
+
+
+/**
+ * Add a point to an array if the point is not already present, then sort
+ * the array.
+ *
+ * The array and its size will be modified in place using realloc. The
+ * output size is either v_size+1 or v_size depending on whether the
+ * point is a duplicate.
+ *
+ * This function is a wrapper to merge_arrays_double().
+ */
+
+int add_point_double (
+      double **v,        /**< Input/output: pointer to the array to increment */
+      int *v_size,       /**< Input/output: pointer to the size of v */
+      double x,          /**< Input: point to add to v */
+      int (*compar)(const void *, const void *), /**< Input: comparison function for qsort */
+      ErrorMsg errmsg    /**< output, string where to write error message */
+      )
+{
+
+  class_call (merge_arrays_double (
+                *v,
+                *v_size,
+                &x,
+                1,
+                v,
+                v_size,
+                compar,
+                errmsg),
+    errmsg,
+    errmsg);
+  
+  return _SUCCESS_;
+  
+}
   
 
 /**
@@ -3704,14 +3741,14 @@ int merge_arrays_double (
  */
 
 int merge_arrays_int (
-      int *v1,      /**< input array to be merged */
-      int v1_size,     /**< input, size of v1 */
-      int *v2,      /**< input array to be merged */
-      int v2_size,     /**< input, size of v2 */
-      int **out,    /**< output array; it will be (re)allocated with out_size elements using realloc */
-      int * out_size,  /**< output, size of out */
-      int (*compar)(const void *, const void *), /**< input, comparison function for the sorting (see documentation for qsort) */
-      ErrorMsg errmsg  /**< output, string where to write error message */
+      int *v1,         /**< Input: array to be merged with v2 */
+      int v1_size,     /**< Input: size of v1 */
+      int *v2,         /**< Input: array to be merged with v1 */
+      int v2_size,     /**< Input: size of v2 */
+      int **out,       /**< Output: merged array; it will be (re)allocated with out_size elements using realloc */
+      int * out_size,  /**< Output: size of merged array */
+      int (*compar)(const void *, const void *), /**< Input: comparison function for the qsort */
+      ErrorMsg errmsg  /**< Output: string where to write error message */
       )
 {
 
