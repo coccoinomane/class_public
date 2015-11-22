@@ -326,12 +326,12 @@ extern "C" {
         double k[4],
         double *kt,
         ErrorMsg errmsg);
-
+  
   int symmetric_sampling_inverse (
         double kt[4],
         double *k,
         ErrorMsg errmsg);
-  
+
 #endif // WITH_SONG2
 
 

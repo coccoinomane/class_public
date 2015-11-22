@@ -3373,10 +3373,10 @@ int symmetric_sampling (
       double *kt,  /**< Output: the transformed array */
       ErrorMsg errmsg)
 {
-  
-  kt[1] = (k[2] + k[3])/2;
-  kt[2] = (k[3] + k[1])/2;
-  kt[3] = (k[1] + k[2])/2;
+
+  kt[1] = k[2] + k[3] - k[1];
+  kt[2] = k[3] + k[1] - k[2];
+  kt[3] = k[1] + k[2] - k[3];
 
   return _SUCCESS_;
   
@@ -3389,17 +3389,18 @@ int symmetric_sampling (
 
 int symmetric_sampling_inverse (
       double kt[4], /**< Input: the array to inverse-transform */
-      double *k,    /**< Output: the inverse-transformed array */
+      double *k,   /**< Output: the inverse-transformed array */
       ErrorMsg errmsg)
 {
-
-  k[1] = kt[2] + kt[3] - kt[1];
-  k[2] = kt[3] + kt[1] - kt[2];
-  k[3] = kt[1] + kt[2] - kt[3];
+  
+  k[1] = (kt[2] + kt[3])/2;
+  k[2] = (kt[3] + kt[1])/2;
+  k[3] = (kt[1] + kt[2])/2;
 
   return _SUCCESS_;
   
 }
+
 
 #endif // WITH_SONG2
 
