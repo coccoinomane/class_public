@@ -3160,6 +3160,124 @@ int lin_space (double * x, double x_min, double x_max, int n_points) {
 }
 
 
+/**
+ * Find the trapezoidal weights for a given integration grid.
+ *
+ * The weights take into account the lower and upper integration
+ * limits given with the x_min and x_max parameters. In detail,
+ * the inner intervals get the usual trapezoidal weights, while the
+ * intervals closest to x_min and x_max get the trapezoidal measure
+ * plus the distance from x_min and x_max, respectively.
+ *
+ * If you just want the plain trapezoidal weights, set x_min=x_grid[0]
+ * and x_max=x_grid[x_size-1].
+ *
+ * If there is only one node in the integration grid, we adopt
+ * the rectangular integration rule between the lower limit (x_min)
+ * and the upper limit (x_max).
+ */
+
+int trapezoidal_weights (
+      double * x_grid, /**< Input: the integration grid */
+      int x_size, /**< Input: number of points in the integration grid */
+      double x_min, /**< Input: lower integration limit */
+      double x_max, /**< Input: upper integration limit */
+      double * x_step, /**< Output: the trapezoidal weights, same size as x_grid */
+      int * index_x_min, /**< Output: the first value in the grid with a nonzero weight; based on x_min */
+      int * index_x_max, /**< Output: the last value in the grid with a nonzero weight, based on x_max */
+      ErrorMsg errmsg
+      ) 
+{
+
+  class_test (x_size <= 0,
+    errmsg,
+    "wrong size=%d for input array", x_size);
+
+  class_test (x_grid[0] > x_max || x_grid[x_size-1] < x_min,
+    errmsg,
+    "wrong limits x_min=%g, x_max=%g", x_min, x_max);
+
+
+  /* Initialise the output array */
+  for (int index_x=0; index_x < x_size; ++index_x)
+    x_step[index_x] = 0;
+
+
+  /* Determine which nodes should to be considered based on the integration
+  limits x_min and x_max */
+
+  int index_min = 0;
+  while (x_grid[index_min] < x_min && index_min < x_size-1)
+    ++index_min;
+
+  int index_max = x_size-1;
+  while (x_grid[index_max] > x_max && index_max > 0)
+    --index_max;
+
+  int x_size_actual = index_max - index_min + 1;
+
+
+  /* If there is only one node in the integration grid, we adopt
+  the rectangular integration rule between the lower limit (x_min)
+  and the upper limit (x_max). */
+
+  if (x_size_actual == 1) {
+
+    x_step[index_min] = x_max - x_min;
+
+  }
+
+  else {
+
+    /* Find the width of each integration interval. The inner intervals get
+    the usual trapezoidal measure, while the first and last intervals get 
+    the trapezoidal measure plus the distance from the lower and upper
+    integration limits, respectively. */
+
+    for (int index_x=index_min; index_x <= index_max; ++index_x) {
+
+      double step = 0;
+
+      /* If we are adjacent to the lower limit, we take the regular trapezoidal
+      step, including the 1/2 factor, then we extend the step to the left all the
+      way to the lower integration limit, this time without the 1/2 factor because
+      this node is the only one covering this extra region. */
+      if (index_x == index_min)
+        step = (x_grid[index_min+1] - x_grid[index_min])/2 + (x_grid[index_min] - x_min);
+
+      /* If we are adjacent to the upper limit, we take the regular trapezoidal
+      step, including the 1/2 factor, then we extend the step to the right all the
+      way to the upper integration limit, this time without the 1/2 factor because
+      this node is the only one covering this extra region. */
+      else if (index_x == index_max)
+        step = (x_grid[index_max] - x_grid[index_max-1])/2 + (x_max - x_grid[index_max]);
+
+      /* If we are not adjacent to the triangular region, we take the regular
+      trapezoidal step */
+      else
+        step = (x_grid[index_x+1] - x_grid[index_x-1])/2;
+
+      class_test (step < 0,
+        errmsg,
+        "found negative step=%g", step);
+   
+      x_step[index_x] = step;
+      
+    }
+      
+  }
+
+  *index_x_min = index_min;
+  *index_x_max = index_max;
+
+  return _SUCCESS_;  
+  
+}
+
+
+
+
+
 
 
 // ===================================================================================

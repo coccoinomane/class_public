@@ -302,23 +302,15 @@ extern "C" {
   int log_space (double * xx, double x_min, double x_max, int n_points);
   int lin_space (double * xx, double x_min, double x_max, int n_points);
 
-
-
-  // ====================================================================================
-  // =                                Matrix operations                                 =
-  // ====================================================================================
-
-  double Determinant(double **a,int n);
-  void CoFactor(double **a,int n,double **b);
-  void Transpose(double **a,int n);
-  void InverseMatrix(double **in,int n,double **out);
-  void PrintMatrix(double **in,int n);
-  
-
-
-  // ======================================================================================
-  // =                              Variable transformations                              =
-  // ======================================================================================
+  int trapezoidal_weights (
+        double * x_grid,
+        int x_size,
+        double x_min,
+        double x_max,
+        double * x_step,
+        int * index_x_min,
+        int * index_x_max,
+        ErrorMsg errmsg);
 
 #ifdef WITH_SONG2
 
@@ -333,6 +325,17 @@ extern "C" {
         ErrorMsg errmsg);
 
 #endif // WITH_SONG2
+
+
+  // ====================================================================================
+  // =                                Matrix operations                                 =
+  // ====================================================================================
+
+  double Determinant(double **a,int n);
+  void CoFactor(double **a,int n,double **b);
+  void Transpose(double **a,int n);
+  void InverseMatrix(double **in,int n,double **out);
+  void PrintMatrix(double **in,int n);
 
 
   // ====================================================================================
