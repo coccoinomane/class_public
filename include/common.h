@@ -1036,9 +1036,11 @@ struct precision
                   by tau0+r_right*tau_rec. Used only if bispectra_r_sampling=centred. */
 
 
-  /** Which integration scheme should we follow for k3 in the bispectrum integral?
-  The k3 range can be extended beyond the hard boundary imposed by the triangular
-  condition. This extrapolation has the purpose of stabilizing an integration otherwise problematic */
+  /** Which integration scheme should we follow for k3 in the intrinsic bispectrum
+  integral? The k3 range can be extended beyond the hard boundary imposed by the
+  triangular condition. This extrapolation has the purpose of stabilizing an
+  integration otherwise problematic. Extrapolation is used only if the intrinsic
+  bispectrum is requested. */
   enum k3_extrapolation bispectra_k3_extrapolation;
 
   /** How much to exted the k3 range in view of the bispectrum integration? */

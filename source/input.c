@@ -3197,27 +3197,34 @@ int input_read_parameters(
 
   /** i.2.2. Extrapolation of transfer functions */
 
-  /* Which kind of technique should we use for the k3-integration of the bispectrum? */
-  class_call(parser_read_string(pfc,"bispectra_k3_extrapolation",&string1,&flag1,errmsg),
-       errmsg,
-       errmsg);
+  /* Should we use extrapolation of the transfer functions to improve the stability
+  of the intrinsic bispectrum integration? Ignored unless the intrinsic bispectrum is
+  requested. */
 
-  if (flag1 == _TRUE_) {
+  if (pbi->has_intrinsic) {
 
-    if ((strcmp(string1,"no_extrapolation") == 0) || (strcmp(string1,"no") == 0))
-      ppr->bispectra_k3_extrapolation = no_k3_extrapolation;
+    class_call(parser_read_string(pfc,"bispectra_k3_extrapolation",&string1,&flag1,errmsg),
+         errmsg,
+         errmsg);
 
-    else if ((strcmp(string1,"flat_extrapolation") == 0) || (strcmp(string1,"flat") == 0))
-      ppr->bispectra_k3_extrapolation = flat_k3_extrapolation;
+    if (flag1 == _TRUE_) {
 
-    else
-      class_test(1==1, errmsg,	       
-        "bispectra_k3_extrapolation=%s' not supported. Choose between 'no' and 'flat'");
+      if ((strcmp(string1,"no_extrapolation") == 0) || (strcmp(string1,"no") == 0))
+        ppr->bispectra_k3_extrapolation = no_k3_extrapolation;
+
+      else if ((strcmp(string1,"flat_extrapolation") == 0) || (strcmp(string1,"flat") == 0))
+        ppr->bispectra_k3_extrapolation = flat_k3_extrapolation;
+
+      else
+        class_test(1==1, errmsg,	       
+          "bispectra_k3_extrapolation=%s' not supported. Choose between 'no' and 'flat'");
+    }
+
+    /* How much to extend the k3 range in view of the bispectrum integration? */
+    class_read_double("extra_k3_oscillations_right", ppr->extra_k3_oscillations_right);
+    class_read_double("extra_k3_oscillations_left", ppr->extra_k3_oscillations_left);
+
   }
-
-  /* How much to extend the k3 range in view of the bispectrum integration? */
-  class_read_double("extra_k3_oscillations_right", ppr->extra_k3_oscillations_right);
-  class_read_double("extra_k3_oscillations_left", ppr->extra_k3_oscillations_left);
 
 
   /** i.2.3. Integration of the bispectrum */
@@ -4783,7 +4790,7 @@ int input_default_precision ( struct precision * ppr ) {
   ppr->bessels_interpolation = linear_interpolation;
   ppr->transfers_k1_interpolation = linear_interpolation;
   ppr->transfers_k2_interpolation = linear_interpolation;
-  ppr->bispectra_k3_extrapolation = flat_k3_extrapolation;
+  ppr->bispectra_k3_extrapolation = no_k3_extrapolation;
   ppr->extra_k3_oscillations_left = 50;
   ppr->extra_k3_oscillations_right = 50;
   ppr->bispectra_r_sampling = sources_r_sampling;
