@@ -1267,11 +1267,13 @@ extern "C" {
        );
 
   int bispectra_store(
+      struct precision * ppr,
       struct bispectra * pbi,
       int index_bt
       );
 
   int bispectra_load(
+      struct precision * ppr,
       struct bispectra * pbi,
       int index_bt
       );

@@ -284,6 +284,7 @@ int bispectra_init (
     for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt)
       if (pbi->bispectrum_type[index_bt] == non_separable_bispectrum)
         class_call (bispectra_store (
+                      ppr,
                       pbi,
                       index_bt),
           pbi->error_message,
@@ -1442,10 +1443,15 @@ int bispectra_at_l2l3 (
  */
 
 int bispectra_store (
-    struct bispectra * pbi,
-    int index_bt
-    )
+      struct precision * ppr,
+      struct bispectra * pbi,
+      int index_bt
+      )
 {
+
+  class_test (!ppr->store_bispectra,
+    pbi->error_message,
+    "shouldn't be here");
 
   /* Print some debug */
   printf_log_if (pbi->bispectra_verbose, 2, 
@@ -3104,13 +3110,12 @@ int bispectra_output (
   /* Load the bispectra from disk if needed */
 
   for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt)
-    if (pbi->bispectrum_type[index_bt] == non_separable_bispectrum || 
-        pbi->bispectrum_type[index_bt] == intrinsic_bispectrum)
-      class_call (bispectra_load (
-                    pbi,
-                    index_bt),
-        pbi->error_message,
-        pbi->error_message);
+    class_call (bispectra_load (
+                  ppr,
+                  pbi,
+                  index_bt),
+      pbi->error_message,
+      pbi->error_message);
 
 
   // ====================================================================================
@@ -8015,25 +8020,31 @@ int bispectra_lensing_convolution_linear (
  */
 
 int bispectra_load (
+      struct precision * ppr,
       struct bispectra * pbi,
       int index_bt
       )
 {
 
-  /* We store & load only the bispectra that require a lot of time to compute,
+  /* Load only if needed */
+  if (pbi->bispectra_available[index_bt])
+    return _SUCCESS_;
+
+  /* If needed, it must be on disk */
+  class_test (!(ppr->store_bispectra || ppr->load_bispectra),
+    pbi->error_message,
+    "shouldn't be here");
+
+  /* Load only the bispectra that require a lot of time to compute,
   that is, the non-separable and intrinsic bispectra */
   if (!(pbi->bispectrum_type[index_bt] == non_separable_bispectrum ||
         pbi->bispectrum_type[index_bt] == intrinsic_bispectrum))
     return _SUCCESS_;
 
-  /* Print some debug */
+  /* Print some info */
   printf_log_if (pbi->bispectra_verbose, 2, 
     "     * reading bispectra from disk for index_bt=%d on'%s'\n",
     index_bt, pbi->storage_paths[index_bt]);
-
-  /* Load only if needed */
-  if (pbi->bispectra_available[index_bt])
-    return _SUCCESS_;
 
   /* Complain if there is no file to load */
   struct stat st;
