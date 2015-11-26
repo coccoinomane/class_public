@@ -41,7 +41,7 @@
  *    perturbations, bessel, transfer, primordial, spectra and lensing modules.
  * -# bispectra_free() to free all the memory associated to the module.
  * 
- * If the user specified 'store_bispectra_to_disk=yes', the module will save all the 
+ * If the user specified 'store_bispectra=yes', the module will save all the 
  * bispectra but the intrinsic one in pbi->bispectra to disk after computation.
  *
  *
@@ -130,7 +130,7 @@
  *    via bispectra_harmonic().
  *
  * -# If requested, store to disk the content of pbi->bispectra via
- *    bispectra_store_to_disk().
+ *    bispectra_store().
  *
  */
 
@@ -156,7 +156,7 @@ int bispectra_init (
     printf_log_if (pbi->bispectra_verbose, 0,
       "No bispectra requested. Bispectra module skipped.\n");
 
-    pbi->bt_size=0;
+    pbi->bt_size = 0;
 
     return _SUCCESS_;
   }
@@ -176,7 +176,10 @@ int bispectra_init (
 
   /* Initialize indices & arrays in the bispectra structure */
 
-  class_call (bispectra_indices (ppr,pba,pth,ppt,pbs,ptr,ppm,psp,ple,pbi),
+  class_call (bispectra_indices (
+                ppr,pba,pth,ppt,
+                pbs,ptr,ppm,psp,
+                ple,pbi),
     pbi->error_message,
     pbi->error_message);
 
@@ -188,7 +191,10 @@ int bispectra_init (
   
   /* Compute the three types of CMB bispectra: analytic, separable and non-separable */
   
-  class_call (bispectra_harmonic (ppr,pba,pth,ppt,pbs,ptr,ppm,psp,ple,pbi),
+  class_call (bispectra_harmonic (
+                ppr,pba,pth,ppt,
+                pbs,ptr,ppm,psp,
+                ple,pbi),
     pbi->error_message,
     pbi->error_message);
 
@@ -237,133 +243,84 @@ int bispectra_init (
   
   for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt) {
 
-    if ((pbi->lens_me[index_bt] == _TRUE_) && (pbi->lens_me_brute_force[index_bt] == _TRUE_)) {
+    if (pbi->lens_me[index_bt] && pbi->lens_me_brute_force[index_bt]) {
 
-      class_call (bispectra_lensing (ppr,pba,pth,ppt,pbs,ptr,ppm,psp,ple,pbi,index_bt),
+      class_call (bispectra_lensing (
+                    ppr,pba,pth,ppt,
+                    pbs,ptr,ppm,psp,
+                    ple,pbi,
+                    index_bt),
         pbi->error_message,
         pbi->error_message);
-        
+
     }
   }
 
 
-  /* Apart from pbi->bispectra, at this point all the arrays in the module have been
-  filled.  If the user requested to load the bispectra from disk, we can stop the
-  execution of this module now without regrets. */
+  /* Apart from pbi->bispectra, at this point all the arrays in the module have
+  been completely filled. If the user requested to load the bispectra from disk,
+  we can stop the execution of this module now without regrets. */
     
-  if (ppr->load_bispectra_from_disk == _TRUE_) {
+  if (ppr->load_bispectra) {
 
     printf_log_if (pbi->bispectra_verbose, 0, 
       " -> the intrinsic and non-separable bispectra will be read from disk\n");
 
-    /* Uncomment to produce the bispectra output files again */
-    // class_call (bispectra_output (ppr,pba,pth,ppt,pbs,ptr,ppm,psp,ple,pbi),
-    //   pbi->error_message,
-    //   pbi->error_message);
-
-    return _SUCCESS_;
+    goto output_and_exit;
 
   }
   
   
-
-  // =====================================================================================
-  // =                                  Produce output                                   =
-  // =====================================================================================
-
-  /* Create output files containing the bispectra */
-
-  class_call (bispectra_output (ppr,pba,pth,ppt,pbs,ptr,ppm,psp,ple,pbi),
-    pbi->error_message,
-    pbi->error_message);
-
-
 
   // =====================================================================================
   // =                              Store bispectra to disk                              =
   // =====================================================================================
   
-  if (ppr->store_bispectra_to_disk==_TRUE_) {
+  /* Save the bispectra to disk if requested. By default, we save only the non-separable
+  bispectra because they take much more time to compute. */
 
-    for (int index_bt = 0; index_bt < pbi->bt_size; ++index_bt) {
+  if (ppr->store_bispectra) {
 
-      /* Save the non-separable bispectra to disk. We do not save the other ones because
-      they take no time to recompute. */
+    for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt)
       if (pbi->bispectrum_type[index_bt] == non_separable_bispectrum)
-        class_call (bispectra_store_to_disk (
+        class_call (bispectra_store (
                       pbi,
                       index_bt),
           pbi->error_message,
           pbi->error_message);
-    }  
+
   }
   
   /* Check that we correctly filled the bispectra array (but only if there are no
   intrinsic bispectra left to be computed)*/
   if (pbi->n[intrinsic_bispectrum] < 1)
-    class_test_permissive (pbi->count_allocated_for_bispectra != pbi->count_memorised_for_bispectra,
+    class_test_permissive (pbi->count_allocated_bispectra != pbi->count_memorised_bispectra,
       pbi->error_message,
       "there is a mismatch between allocated (%ld) and used (%ld) space!",
-      pbi->count_allocated_for_bispectra, pbi->count_memorised_for_bispectra);
+      pbi->count_allocated_bispectra, pbi->count_memorised_bispectra);
 
 
-	/* Debug - Print some bispectra configurations */
-  // for (int index_bt = 0; index_bt < pbi->bt_size; ++index_bt) {
-  //   for (int index_l1 = 0; index_l1 < pbi->l_size; ++index_l1) {
-  //     for (int index_l2 = 0; index_l2 <= index_l1; ++index_l2) {
-  //       int index_l3_min = pbi->index_l_triangular_min[index_l1][index_l2];
-  //       int index_l3_max = MIN (index_l2, pbi->index_l_triangular_max[index_l1][index_l2]);
-  //       for (int index_l3=index_l3_min; index_l3<=index_l3_max; ++index_l3) {
-  //         long int index_l1_l2_l3 = pbi->index_l1_l2_l3[index_l1][index_l1-index_l2][index_l3_max-index_l3];
-  //         int l1 = pbi->l[index_l1]; int l2 = pbi->l[index_l2]; int l3 = pbi->l[index_l3];
-  //         double cl_1 = pbi->cls[psp->index_ct_tt][l1-2];;
-  //         double cl_2 = pbi->cls[psp->index_ct_tt][l2-2];;
-  //         double cl_3 = pbi->cls[psp->index_ct_tt][l3-2];;
-  //         double squeezed_normalisation = 1/(12*cl_1*cl_3);
-  //         double equilateral_normalisation = 1e16 * l1*l1 * (l1+1)*(l1+1) / ((2*_PI_)*(2*_PI_));
-  //         if (strstr(pbi->bt_labels[index_bt], "cmb_lensing")!=NULL) {
-  //           /* Triangular configuration */
-  //           // if ((l1==2000) && (l2==1600)) {
-  //           //   fprintf (stderr, "%12d %12g %12g %12g %12g %12g %12g %12g %12g\n",
-  //           //     l3,
-  //           //     pbi->bispectra[index_bt][0][0][0][index_l1_l2_l3],
-  //           //     pbi->bispectra[index_bt][1][1][1][index_l1_l2_l3],
-  //           //     pbi->bispectra[index_bt][0][0][1][index_l1_l2_l3],
-  //           //     pbi->bispectra[index_bt][0][1][0][index_l1_l2_l3],
-  //           //     pbi->bispectra[index_bt][1][0][0][index_l1_l2_l3],
-  //           //     pbi->bispectra[index_bt][0][1][1][index_l1_l2_l3],
-  //           //     pbi->bispectra[index_bt][1][0][1][index_l1_l2_l3],
-  //           //     pbi->bispectra[index_bt][1][1][0][index_l1_l2_l3]
-  //           //   );
-  //           // }
-  //           /* Squeezed configuration */
-  //           // if ((l3==6) && (l1==l2)) {
-  //           //   fprintf (stderr, "%12d %12g %12g %12g %12g %12g %12g %12g %12g\n",
-  //           //     l1,
-  //           //     pbi->bispectra[index_bt][0][0][0][index_l1_l2_l3] * equilateral_normalisation,
-  //           //     pbi->bispectra[index_bt][1][1][1][index_l1_l2_l3] * equilateral_normalisation,
-  //           //     pbi->bispectra[index_bt][0][0][1][index_l1_l2_l3] * equilateral_normalisation,
-  //           //     pbi->bispectra[index_bt][0][1][0][index_l1_l2_l3] * equilateral_normalisation,
-  //           //     pbi->bispectra[index_bt][1][0][0][index_l1_l2_l3] * equilateral_normalisation,
-  //           //     pbi->bispectra[index_bt][0][1][1][index_l1_l2_l3] * equilateral_normalisation,
-  //           //     pbi->bispectra[index_bt][1][0][1][index_l1_l2_l3] * equilateral_normalisation,
-  //           //     pbi->bispectra[index_bt][1][1][0][index_l1_l2_l3] * equilateral_normalisation
-  //           //   );
-  //           // }
-  //           /* Equilateral configuration */
-  //           if ((l1==l2) && (l2==l3)) {
-  //             fprintf (stderr, "%12d %12g %12g %12g\n",
-  //               l1,
-  //               pbi->bispectra[index_bt][0][0][0][index_l1_l2_l3],
-  //               equilateral_normalisation,
-  //               pbi->bispectra[index_bt][0][0][0][index_l1_l2_l3]*equilateral_normalisation
-  //             );
-  //           }
-  //         }
-  //       } // end of for(index_l3)
-  //     } // end of for(index_l2)
-  //   } // end of for(index_l1)
-  // } // end of for(index_bt)
+
+  output_and_exit:
+
+  // =====================================================================================
+  // =                                  Produce output                                   =
+  // =====================================================================================
+
+  /* Create output files containing the bispectra. If the intrinsic bispectrum is
+  requested, we wait until the bispectra2.c module is executed. */
+  
+  if (!pbi->has_intrinsic) {
+
+    class_call (bispectra_output (
+                  ppr,pba,pth,ppt,
+                  pbs,ptr,ppm,psp,
+                  ple,pbi),
+      pbi->error_message,
+      pbi->error_message);
+      
+  }
+
 
   return _SUCCESS_;
 
@@ -496,6 +453,10 @@ int bispectra_at_l3_linear (
 
   int l1 = pbi->l[index_l1];
   int l2 = pbi->l[index_l2];
+
+  class_test (!pbi->bispectra_available[index_bt],
+    pbi->error_message,
+    "bispectrum not available! maybe you should load it from disk?");
 
   class_test ((l3<abs(l1-l2)) || (l3>(l1+l2)),
     pbi->error_message,
@@ -1476,23 +1437,35 @@ int bispectra_at_l2l3 (
 /**
  * Save the bispectra in pbi->bispectra to disk for a given type.
  * 
- * The bispectra will be saved to the file in pbi->bispectra_files[index_bt].
+ * See the documentation in perturbations2.h (\ref StorageFiles) for more
+ * details.
  */
-int bispectra_store_to_disk (
+
+int bispectra_store (
     struct bispectra * pbi,
     int index_bt
     )
 {
 
-  /* Open file for writing */
-  class_open (pbi->bispectra_files[index_bt], pbi->bispectra_paths[index_bt], "a+b", pbi->error_message);
-
   /* Print some debug */
   printf_log_if (pbi->bispectra_verbose, 2, 
     "     * writing bispectra to disk for index_bt=%d on '%s'\n",
-    index_bt, pbi->bispectra_paths[index_bt]);
+    index_bt, pbi->storage_paths[index_bt]);
 
-  /* Write all the independent (l1,l2,l3) triplets for this bispectrum */
+  class_test (!pbi->bispectra_allocated[index_bt],
+    pbi->error_message,
+    "cannot store bispectra if they are not even allocated");
+
+  class_test (!pbi->bispectra_available[index_bt],
+    pbi->error_message,
+    "cannot store bispectra if they are not available");
+
+  /* Open file for writing */
+  class_open (pbi->storage_files[index_bt],
+    pbi->storage_paths[index_bt],
+    "a+b", pbi->error_message);
+
+  /* Write to file */
   for (int X = 0; X < pbi->bf_size; ++X)
     for (int Y = 0; Y < pbi->bf_size; ++Y)
       for (int Z = 0; Z < pbi->bf_size; ++Z)
@@ -1500,11 +1473,11 @@ int bispectra_store_to_disk (
               pbi->bispectra[index_bt][X][Y][Z],
               sizeof(double),
               pbi->n_independent_configurations,
-              pbi->bispectra_files[index_bt]
+              pbi->storage_files[index_bt]
               );
 
   /* Close file */
-  fclose(pbi->bispectra_files[index_bt]);
+  fclose(pbi->storage_files[index_bt]);
   
   return _SUCCESS_;
   
@@ -1567,7 +1540,9 @@ int bispectra_free(
         pbi->error_message);
 
     free (pbi->bispectra);
-
+    free (pbi->bispectra_allocated);
+    free (pbi->bispectra_available);
+    
     /* Arrays specific to the primordial models */
     if ((pbi->has_local_model == _TRUE_) || (pbi->has_equilateral_model == _TRUE_) || (pbi->has_orthogonal_model == _TRUE_)) {
         
@@ -1618,15 +1593,13 @@ int bispectra_free(
     }
       
     /* Free file arrays */
-    if ((ppr->store_bispectra_to_disk == _TRUE_) || (ppr->load_bispectra_from_disk == _TRUE_)) {
-    
-      // fclose(pbi->bispectra_status_file);
+    if (ppr->store_bispectra || ppr->load_bispectra) {
     
       for(int index_bt=0; index_bt<pbi->bt_size; ++index_bt)
-        free (pbi->bispectra_paths[index_bt]);
+        free (pbi->storage_paths[index_bt]);
     
-      free (pbi->bispectra_files);
-      free (pbi->bispectra_paths);
+      free (pbi->storage_files);
+      free (pbi->storage_paths);
     
     }
 
@@ -1694,6 +1667,8 @@ int bispectra_free_type_level(
     
   }
 
+  pbi->bispectra_allocated[index_bt] = _FALSE_;
+  pbi->bispectra_available[index_bt] = _FALSE_;
 
   return _SUCCESS_;
  
@@ -1703,6 +1678,82 @@ int bispectra_free_type_level(
 
 
 
+/**
+ * Allocate the type level of the bispectrum array (pbi->bispectra).
+ */
+
+int bispectra_allocate_type_level (
+      struct bispectra * pbi,
+      int index_bt
+      )
+{
+
+  /* Allocate memory only if needed */
+  if (pbi->bispectra_allocated[index_bt])
+    return _SUCCESS_;
+
+  /* Allocate pbi->bispectra[index_bt] */
+  class_alloc (pbi->bispectra[index_bt], pbi->bf_size*sizeof(double ***), pbi->error_message);
+
+  for (int X = 0; X < pbi->bf_size; ++X) {
+    
+    class_alloc (pbi->bispectra[index_bt][X], pbi->bf_size*sizeof(double **), pbi->error_message);
+
+    for (int Y = 0; Y < pbi->bf_size; ++Y) {
+      
+      class_alloc (pbi->bispectra[index_bt][X][Y], pbi->bf_size*sizeof(double *), pbi->error_message);
+      
+      for (int Z = 0; Z < pbi->bf_size; ++Z) 
+        class_calloc (pbi->bispectra[index_bt][X][Y][Z],
+          pbi->n_independent_configurations,
+          sizeof(double),
+          pbi->error_message);
+
+    }
+  }
+
+  #pragma omp atomic
+  pbi->count_allocated_bispectra += pbi->n_probes*pbi->n_independent_configurations;
+
+
+  /* Do the same for the lensing correction */
+  
+  if (pbi->has_lensed_bispectra) {
+
+    class_alloc (pbi->lensing_correction, pbi->bt_size*sizeof(double ****), pbi->error_message);
+  
+    for (int index_bt=0; index_bt<pbi->bt_size; ++index_bt) {
+
+      if (pbi->lens_me[index_bt])
+        continue;
+
+      class_alloc (pbi->lensing_correction[index_bt], pbi->bf_size*sizeof(double ***), pbi->error_message);
+
+      for (int X = 0; X < pbi->bf_size; ++X) {
+      
+        class_alloc (pbi->lensing_correction[index_bt][X], pbi->bf_size*sizeof(double **), pbi->error_message);
+
+        for (int Y = 0; Y < pbi->bf_size; ++Y) {
+        
+          class_alloc (pbi->lensing_correction[index_bt][X][Y], pbi->bf_size*sizeof(double *), pbi->error_message);
+        
+          for (int Z = 0; Z < pbi->bf_size; ++Z)
+            class_calloc (pbi->lensing_correction[index_bt][X][Y][Z],
+              pbi->n_independent_configurations,
+              sizeof(double),
+              pbi->error_message);
+
+        }
+      }
+    }
+  }
+
+  /* We succesfully allocated the bt level of pbi->bispectra */
+  pbi->bispectra_allocated[index_bt] = _TRUE_;
+
+  return _SUCCESS_;
+
+}
 
 
 
@@ -1752,6 +1803,7 @@ int bispectra_indices (
         struct bispectra * pbi
         )
 { 
+  
 
   // ====================================================================================
   // =                              Count bispectra fields                              =
@@ -2266,64 +2318,29 @@ int bispectra_indices (
   // ====================================================================================
   // =                            Allocate memory for bispectra                         =
   // ====================================================================================
-  
+
+  /* Allocate and initialize the logical arrays keeping track of the state of
+  pbi->bispectra */
+  class_calloc (pbi->bispectra_allocated, pbi->bt_size, sizeof(short), pbi->error_message);
+  class_calloc (pbi->bispectra_available, pbi->bt_size, sizeof(short), pbi->error_message);
+
+  /* Keep track of memory usage (debug only) */
+  pbi->count_allocated_bispectra = 0;
+  pbi->count_memorised_bispectra = 0;  
+
   class_alloc (pbi->bispectra, pbi->bt_size*sizeof(double ****), pbi->error_message);
   
   for (int index_bt=0; index_bt<pbi->bt_size; ++index_bt) {
+    
+    class_call (bispectra_allocate_type_level(pbi, index_bt),
+      pbi->error_message,
+      pbi->error_message);
 
-    class_alloc (pbi->bispectra[index_bt], pbi->bf_size*sizeof(double ***), pbi->error_message);
-
-    for (int X = 0; X < pbi->bf_size; ++X) {
-      
-      class_alloc (pbi->bispectra[index_bt][X], pbi->bf_size*sizeof(double **), pbi->error_message);
-
-      for (int Y = 0; Y < pbi->bf_size; ++Y) {
-        
-        class_alloc (pbi->bispectra[index_bt][X][Y], pbi->bf_size*sizeof(double *), pbi->error_message);
-        
-        for (int Z = 0; Z < pbi->bf_size; ++Z) 
-          class_calloc (pbi->bispectra[index_bt][X][Y][Z], pbi->n_independent_configurations, sizeof(double), pbi->error_message);
-
-      }
-    }
   }
-  
-  pbi->count_allocated_for_bispectra = pbi->bt_size*pbi->n_probes*pbi->n_independent_configurations;
-
-
-  /* Do the same for the lensing correction */
-  
-  if (pbi->has_lensed_bispectra == _TRUE_) {
-
-    class_alloc (pbi->lensing_correction, pbi->bt_size*sizeof(double ****), pbi->error_message);
-  
-    for (int index_bt=0; index_bt<pbi->bt_size; ++index_bt) {
-
-      if (pbi->lens_me[index_bt] == _FALSE_)
-        continue;
-
-      class_alloc (pbi->lensing_correction[index_bt], pbi->bf_size*sizeof(double ***), pbi->error_message);
-
-      for (int X = 0; X < pbi->bf_size; ++X) {
-      
-        class_alloc (pbi->lensing_correction[index_bt][X], pbi->bf_size*sizeof(double **), pbi->error_message);
-
-        for (int Y = 0; Y < pbi->bf_size; ++Y) {
-        
-          class_alloc (pbi->lensing_correction[index_bt][X][Y], pbi->bf_size*sizeof(double *), pbi->error_message);
-        
-          for (int Z = 0; Z < pbi->bf_size; ++Z)
-            class_calloc (pbi->lensing_correction[index_bt][X][Y][Z], pbi->n_independent_configurations, sizeof(double), pbi->error_message);
-
-        }
-      }
-    }
-  }
-
   
   printf_log_if (pbi->bispectra_verbose, 2, 
     "     * allocated ~ %.3g MB (%ld doubles) for the bispectra array\n",
-    pbi->count_allocated_for_bispectra*sizeof(double)/1e6, pbi->count_allocated_for_bispectra);
+    pbi->count_allocated_bispectra*sizeof(double)/1e6, pbi->count_allocated_bispectra);
 
 
   
@@ -2332,21 +2349,21 @@ int bispectra_indices (
   // ====================================================================================
   
   /* Create the files to store the bispectra in */
-  if ((ppr->store_bispectra_to_disk == _TRUE_) || (ppr->load_bispectra_from_disk == _TRUE_)) {
+  if (ppr->store_bispectra || ppr->load_bispectra) {
 
     /* We are going to store the bispectra in n=bt_size files, one for each requested type of bispectrum */
-    class_alloc (pbi->bispectra_files, pbi->bt_size*sizeof(FILE *), pbi->error_message);
-    class_alloc (pbi->bispectra_paths, pbi->bt_size*sizeof(char *), pbi->error_message);
+    class_alloc (pbi->storage_files, pbi->bt_size*sizeof(FILE *), pbi->error_message);
+    class_alloc (pbi->storage_paths, pbi->bt_size*sizeof(char *), pbi->error_message);
   
     for(int index_bt=0; index_bt<pbi->bt_size; ++index_bt) {
       
       /* Include the name of the bispectrum in its file */
-      class_alloc (pbi->bispectra_paths[index_bt], _FILENAMESIZE_*sizeof(char), pbi->error_message);
-      sprintf (pbi->bispectra_paths[index_bt], "%s/bispectra_%s.dat", pbi->bispectra_dir, pbi->bt_labels[index_bt]);
+      class_alloc (pbi->storage_paths[index_bt], _FILENAMESIZE_*sizeof(char), pbi->error_message);
+      sprintf (pbi->storage_paths[index_bt], "%s/bispectra_%s.dat", pbi->storage_dir, pbi->bt_labels[index_bt]);
       
     }
 
-    if (ppr->store_bispectra_to_disk == _TRUE_)
+    if (ppr->store_bispectra == _TRUE_)
       printf_log_if (pbi->bispectra_verbose, 1, 
         "     * will create %d files for the bispectra\n", pbi->bt_size);
       
@@ -2818,12 +2835,12 @@ int bispectra_harmonic (
 {
 
   /* Initialize counter for the values that will be memorised in pbi->bispectra */
-  pbi->count_memorised_for_bispectra = 0;
+  pbi->count_memorised_bispectra = 0;
 
 
-  // =============================================================================================
-  // =                             Compute separable bispectra                                   =
-  // =============================================================================================
+  // ====================================================================================
+  // =                               Separable bispectra                                =
+  // ====================================================================================
 
   /* We first obtain the bispectra whose primordial shape function is separable in (k1,k2,k3) because they
   are quick to compute. */
@@ -2864,12 +2881,12 @@ int bispectra_harmonic (
 
 
 
-  // ======================================================================================================
-  // =                                    Compute analytic bispectra                                      =
-  // ======================================================================================================
+  // ====================================================================================
+  // =                               Analytic bispectra                                 =
+  // ====================================================================================  
   
-  
-  /* Compute the bispectra obtained from simple analytical formulas, such as the lensing one */
+  /* Compute the bispectra obtained from simple analytical formulas, such as the
+  lensing one */
   
   if (pbi->n[analytical_bispectrum] > 0) {
   
@@ -2888,18 +2905,78 @@ int bispectra_harmonic (
       
   }
   
+  
+	/* Debug: print some bispectra configurations */
+  // for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt) {
+  //   for (int index_l1 = 0; index_l1 < pbi->l_size; ++index_l1) {
+  //     for (int index_l2 = 0; index_l2 <= index_l1; ++index_l2) {
+  //       int index_l3_min = pbi->index_l_triangular_min[index_l1][index_l2];
+  //       int index_l3_max = MIN (index_l2, pbi->index_l_triangular_max[index_l1][index_l2]);
+  //       for (int index_l3=index_l3_min; index_l3<=index_l3_max; ++index_l3) {
+  //         long int index_l1_l2_l3 = pbi->index_l1_l2_l3[index_l1][index_l1-index_l2][index_l3_max-index_l3];
+  //         int l1 = pbi->l[index_l1]; int l2 = pbi->l[index_l2]; int l3 = pbi->l[index_l3];
+  //         double cl_1 = pbi->cls[psp->index_ct_tt][l1-2];;
+  //         double cl_2 = pbi->cls[psp->index_ct_tt][l2-2];;
+  //         double cl_3 = pbi->cls[psp->index_ct_tt][l3-2];;
+  //         double squeezed_normalisation = 1/(12*cl_1*cl_3);
+  //         double equilateral_normalisation = 1e16 * l1*l1 * (l1+1)*(l1+1) / ((2*_PI_)*(2*_PI_));
+  //         if (strstr(pbi->bt_labels[index_bt], "cmb_lensing")!=NULL) {
+  //           /* Triangular configuration */
+  //           // if ((l1==2000) && (l2==1600)) {
+  //           //   fprintf (stderr, "%12d %12g %12g %12g %12g %12g %12g %12g %12g\n",
+  //           //     l3,
+  //           //     pbi->bispectra[index_bt][0][0][0][index_l1_l2_l3],
+  //           //     pbi->bispectra[index_bt][1][1][1][index_l1_l2_l3],
+  //           //     pbi->bispectra[index_bt][0][0][1][index_l1_l2_l3],
+  //           //     pbi->bispectra[index_bt][0][1][0][index_l1_l2_l3],
+  //           //     pbi->bispectra[index_bt][1][0][0][index_l1_l2_l3],
+  //           //     pbi->bispectra[index_bt][0][1][1][index_l1_l2_l3],
+  //           //     pbi->bispectra[index_bt][1][0][1][index_l1_l2_l3],
+  //           //     pbi->bispectra[index_bt][1][1][0][index_l1_l2_l3]
+  //           //   );
+  //           // }
+  //           /* Squeezed configuration */
+  //           // if ((l3==6) && (l1==l2)) {
+  //           //   fprintf (stderr, "%12d %12g %12g %12g %12g %12g %12g %12g %12g\n",
+  //           //     l1,
+  //           //     pbi->bispectra[index_bt][0][0][0][index_l1_l2_l3] * equilateral_normalisation,
+  //           //     pbi->bispectra[index_bt][1][1][1][index_l1_l2_l3] * equilateral_normalisation,
+  //           //     pbi->bispectra[index_bt][0][0][1][index_l1_l2_l3] * equilateral_normalisation,
+  //           //     pbi->bispectra[index_bt][0][1][0][index_l1_l2_l3] * equilateral_normalisation,
+  //           //     pbi->bispectra[index_bt][1][0][0][index_l1_l2_l3] * equilateral_normalisation,
+  //           //     pbi->bispectra[index_bt][0][1][1][index_l1_l2_l3] * equilateral_normalisation,
+  //           //     pbi->bispectra[index_bt][1][0][1][index_l1_l2_l3] * equilateral_normalisation,
+  //           //     pbi->bispectra[index_bt][1][1][0][index_l1_l2_l3] * equilateral_normalisation
+  //           //   );
+  //           // }
+  //           /* Equilateral configuration */
+  //           if ((l1==l2) && (l2==l3)) {
+  //             fprintf (stderr, "%12d %12g %12g %12g\n",
+  //               l1,
+  //               pbi->bispectra[index_bt][0][0][0][index_l1_l2_l3],
+  //               equilateral_normalisation,
+  //               pbi->bispectra[index_bt][0][0][0][index_l1_l2_l3]*equilateral_normalisation
+  //             );
+  //           }
+  //         }
+  //       } // end of for(index_l3)
+  //     } // end of for(index_l2)
+  //   } // end of for(index_l1)
+  // } // end of for(index_bt)
+  
+
   /* If we are loading the bispectra from disk, nothing else needs to be done */
 
-  if (ppr->load_bispectra_from_disk == _TRUE_) {
+  if (ppr->load_bispectra) {
         
     return _SUCCESS_;
 
   }
   
   
-  // ===========================================================================================================
-  // =                                   Compute non-separable bispectra                                       =
-  // ===========================================================================================================
+  // ====================================================================================
+  // =                             Non-separable bispectra                              =
+  // ====================================================================================
   
   if (pbi->n[non_separable_bispectrum] > 0) {
   
@@ -2908,14 +2985,8 @@ int bispectra_harmonic (
   
     /* Compute the non-separable bispectra */
     class_call (bispectra_non_separable_init(
-                  ppr,
-                  pba,
-                  pth,
-                  ppt,
-                  pbs,
-                  ptr,
-                  ppm,
-                  psp,
+                  ppr, pba, pth, ppt,
+                  pbs, ptr, ppm, psp,
                   pbi,
                   pwb_nonsep),
       pbi->error_message,
@@ -2931,17 +3002,17 @@ int bispectra_harmonic (
   }
   
   /* Print information on memory usage */
-  if ((pbi->bispectra_verbose > 1) && (pbi->n[intrinsic_bispectrum]) < 1)
+  if (pbi->bispectra_verbose > 1 && pbi->n[intrinsic_bispectrum] < 1)
     printf(" -> memorised ~ %.3g MB (%ld doubles) in the bispectra array\n",
-      pbi->count_memorised_for_bispectra*sizeof(double)/1e6, pbi->count_memorised_for_bispectra);
+      pbi->count_memorised_bispectra*sizeof(double)/1e6, pbi->count_memorised_bispectra);
   
   
   
-  // ============================================================================
-  // =                      Check bispectra against nan's                       =
-  // ============================================================================
+  // ====================================================================================
+  // =                          Check bispectra against nan's                           =
+  // ====================================================================================
 
-  for (int index_bt = 0; index_bt < pbi->bt_size; ++index_bt) {
+  for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt) {
 
     /* We have not computed the intrinsic bispectra yet, so we skip them */
     if (pbi->bispectrum_type[index_bt] == intrinsic_bispectrum)
@@ -3027,29 +3098,29 @@ int bispectra_output (
     )
 {
   
-  /* Load the bispectra from disk if they were not already computed */
-
-  if (ppr->load_bispectra_from_disk == _TRUE_) {
+  if (pbi->bispectra_verbose > 0)
+    printf (" -> computing output files for the bispectrum\n");
   
-    for (int index_bt = 0; index_bt < pbi->bt_size; ++index_bt)
+  /* Load the bispectra from disk if needed */
 
-      if ((pbi->bispectrum_type[index_bt] == non_separable_bispectrum) ||
-          (pbi->bispectrum_type[index_bt] == intrinsic_bispectrum))
-
-        class_call (bispectra_load_from_disk (
-                      pbi,
-                      index_bt),
-          pbi->error_message,
-          pbi->error_message);    
-  
-  }
+  for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt)
+    if (pbi->bispectrum_type[index_bt] == non_separable_bispectrum || 
+        pbi->bispectrum_type[index_bt] == intrinsic_bispectrum)
+      class_call (bispectra_load (
+                    pbi,
+                    index_bt),
+        pbi->error_message,
+        pbi->error_message);
 
 
   // ====================================================================================
   // =                            Output in (l2,l3) and l3                              =
   // ====================================================================================
 
-  class_call (bispectra_output_l2l3 (ppr,pba,pth,ppt,pbs,ptr,ppm,psp,ple,pbi),
+  class_call (bispectra_output_l2l3 (
+                ppr,pba,pth,ppt,
+                pbs,ptr,ppm,psp,
+                ple,pbi),
     pbi->error_message,
     pbi->error_message);
 
@@ -3061,7 +3132,10 @@ int bispectra_output (
 
   if (pbi->output_binary_bispectra) {
 
-    class_call (bispectra_output_l1l2l3 (ppr,pba,pth,ppt,pbs,ptr,ppm,psp,ple,pbi),
+    class_call (bispectra_output_l1l2l3 (
+                  ppr,pba,pth,ppt,
+                  pbs,ptr,ppm,psp,
+                  ple,pbi),
       pbi->error_message,
       pbi->error_message);
 
@@ -3117,7 +3191,7 @@ int bispectra_output_l2l3 (
           int index_l1 = ppr->index_l1_out[index_l_out];
           int index_l2 = ppr->index_l2_out[index_l_out];
 
-          /* Build filenames */ 
+          /* Build filenames */
           int index_probe = X*pbi->bf_size*pbi->bf_size + Y*pbi->bf_size + Z;
           sprintf (ppr->paths_bispectra_l3[index_l_out][index_probe], "%sbispectra_l3_L%03d_%s.txt",
             ppr->paths_bispectra_l3[index_l_out][index_probe], index_l_out, pbi->bfff_labels[X][Y][Z]);
@@ -3614,294 +3688,301 @@ int bispectra_output_l1l2l3 (
     )
 {
   
-   /* Binary files produced by this function will have a human-readable ASCII
-   header. It will include information on the cosmological parameters and on the
-   bispectrum, plus a binary map useful to understand how to access the data
-   in the binary file. */
-   int header_size = 
-     _MAX_INFO_SIZE_ + /* For background information */
-     _MAX_INFO_SIZE_ + /* For other information */
-     _MAX_INFO_SIZE_ + _MAX_HEADER_LINE_LENGTH_*pbi->n_probes; /* For binary map */
+  /* Binary files produced by this function will have a human-readable ASCII
+  header. It will include information on the cosmological parameters and on the
+  bispectrum, plus a binary map useful to understand how to access the data
+  in the binary file. */
+  int header_size = 
+    _MAX_INFO_SIZE_ + /* For background information */
+    _MAX_INFO_SIZE_ + /* For other information */
+    _MAX_INFO_SIZE_ + _MAX_HEADER_LINE_LENGTH_*pbi->n_probes; /* For binary map */
 
-   /* Define a new binary file structure */
-   struct binary_file * file;
-   class_alloc (file, sizeof(struct binary_file), pbi->error_message);
+  /* Define a new binary file structure */
+  struct binary_file * file;
+  class_alloc (file, sizeof(struct binary_file), pbi->error_message);
 
-   /* Open the binary file */
-   class_call (binary_init (
-                 file,
-                 &(ppr->file_bispectra_l1l2l3),
-                 ppr->path_bispectra_l1l2l3,
-                 "w",
-                 header_size,
-                 ppr->output_single_precision),
-     file->error_message,
-     pbi->error_message);
-
-
-   // ---------------------------------------------------------------------------
-   // -                            Print information                            -
-   // ---------------------------------------------------------------------------
-
-   /* Add information to the file header */
-   binary_sprintf (file, "CMB reduced bispectra b_l1_l2_l3 tabulated as a function of (l1,l2,l3) and bispectrum type.");
-   binary_sprintf (file, "This binary file was generated by SONG (%s) on %s.", _SONG_URL_, ppr->date);
-   binary_sprintf (file, "");
-   sprintf (file->header, "%s%s", file->header, pba->info);
-   file->header_size += strlen (pba->info) + 1;
-   if (ppt->gauge == newtonian) binary_sprintf(file, "gauge = newtonian");
-   if (ppt->gauge == synchronous) binary_sprintf(file, "gauge = synchronous");
+  /* Open the binary file */
+  class_call (binary_init (
+                file,
+                &(ppr->file_bispectra_l1l2l3),
+                ppr->path_bispectra_l1l2l3,
+                "w",
+                header_size,
+                ppr->output_single_precision),
+    file->error_message,
+    pbi->error_message);
 
 
-   // --------------------------------------------------------------------------
-   // -                                Build blocks                             -
-   // ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // -                            Print information                            -
+  // ---------------------------------------------------------------------------
 
-   char desc[1024];
-   char name[1024];
-
-   int label_size = _MAX_LENGTH_LABEL_;
-   sprintf (desc, "length of a label (=%d)", _MAX_LENGTH_LABEL_);
-   sprintf (name, "_MAX_LENGTH_LABEL_");
-   class_call (binary_append_int (file, &label_size, 1, desc, name),
-     file->error_message,
-     pbi->error_message);
-
-   /* l sampling */
-
-   sprintf (desc, "size of l array (=%d)", pbi->l_size);
-   sprintf (name, "pbi->l_size");
-   class_call (binary_append_int (file, &pbi->l_size, 1, desc,name),
-     file->error_message,
-     pbi->error_message);
-
-   sprintf (desc, "l array");
-   sprintf (name, "pbi->l");
-   class_call (binary_append_int (file, pbi->l, pbi->l_size, desc, name),
-     file->error_message,
-     pbi->error_message);
-
-   sprintf (desc, "size of l3 grid: l3_size[index_l1][index_l2] with index_l1 < pbi->l_size, index_l2 <= index_l1");
-   sprintf (name, "pbi->l3_size");
-   int index_l3_size_block = file->n_blocks;
-
-   for (int index_l1=0; index_l1 < pbi->l_size; ++index_l1)
-     for (int index_l2=0; index_l2 <= index_l1; ++index_l2)
-       class_call (binary_add_block (
-                     file,
-                     &pbi->l3_size[index_l1][index_l2],
-                     1,
-                     sizeof (int),
-                     desc,
-                     "int",
-                     name,
-                     index_l3_size_block),
-         file->error_message,
-         pbi->error_message);
-
-   sprintf (desc, "l3 array: l3[index_l1][index_l2] with index_l1 < pbi->l_size, index_l2 <= index_l1");
-   sprintf (name, "pbi->l3");
-   int index_l3_block = file->n_blocks;
-
-   for (int index_l1=0; index_l1 < pbi->l_size; ++index_l1)
-     for (int index_l2=0; index_l2 <= index_l1; ++index_l2)
-       class_call (binary_add_block (
-                     file,
-                     pbi->l3[index_l1][index_l2],
-                     pbi->l3_size[index_l1][index_l2],
-                     sizeof (int),
-                     desc,
-                     "int",
-                     name,
-                     index_l3_block),
-         file->error_message,
-         pbi->error_message);
-
-   sprintf (desc, "number of (l1,l2,l3) configurations in each bispectrum (=%ld)", pbi->n_independent_configurations);
-   sprintf (name, "pbi->n_independent_configurations");
-   class_call (binary_append_long_int (file, &pbi->n_independent_configurations, 1, desc, name),
-     file->error_message,
-     pbi->error_message);
-
-   /* First-order C_l */
-
-   sprintf (desc, "number of l-values for which the C_l are stored (=%d)", pbi->full_l_size);
-   sprintf (name, "pbi->full_l_size");
-   class_call (binary_append_int (file, &pbi->full_l_size, 1, desc, name),
-     file->error_message,
-     pbi->error_message);
-
-   sprintf (desc, "number of C_l types (=%d)", psp->ct_size);
-   sprintf (name, "psp->ct_size");
-   class_call (binary_append_int (file, &psp->ct_size, 1, desc, name),
-     file->error_message,
-     pbi->error_message);
-
-   sprintf (desc, "array of names of C_l types (each has %d char)", _MAX_LENGTH_LABEL_);
-   sprintf (name, "psp->ct_labels");
-   class_call (binary_append_string (file, psp->ct_labels, psp->ct_size*_MAX_LENGTH_LABEL_, desc, name),
-     file->error_message,
-     pbi->error_message);
-
-   sprintf (desc, "unlensed C_l: cls[index_ct][index_l] with index_ct < psp->ct_size, index_l < pbi->full_l_size");
-   sprintf (name, "pbi->cls");
-   int index_unlensed_cl = file->n_blocks;
-   for (int index_ct=0; index_ct < psp->ct_size; ++index_ct)
-     class_call (binary_add_block (
-                   file,
-                   pbi->cls[index_ct],
-                   pbi->full_l_size,
-                   sizeof (double),
-                   desc,
-                   "double",
-                   name,
-                   index_unlensed_cl),
-       file->error_message,
-       pbi->error_message);
-
-   sprintf (desc, "unlensed C_l logarithmic derivative: d_lsq_cls[index_ct][index_l] with index_ct < psp->ct_size, index_l < pbi->full_l_size");
-   sprintf (name, "pbi->d_lsq_cls");
-   index_unlensed_cl = file->n_blocks;
-   for (int index_ct=0; index_ct < psp->ct_size; ++index_ct)
-     class_call (binary_add_block (
-                   file,
-                   pbi->d_lsq_cls[index_ct],
-                   pbi->full_l_size,
-                   sizeof (double),
-                   desc,
-                   "double",
-                   name,
-                   index_unlensed_cl),
-       file->error_message,
-       pbi->error_message);
-
-   if (ppr->extend_lensed_cls == _TRUE_) {
-
-     sprintf (desc, "lensed C_l: cls[index_ct][index_l] with index_ct < psp->ct_size, index_l < pbi->full_l_size");
-     sprintf (name, "pbi->lensed_cls");
-     int index_lensed_cl = file->n_blocks;
-     for (int index_lt=0; index_lt < ple->lt_size; ++index_lt)
-       class_call (binary_add_block (
-                     file,
-                     pbi->lensed_cls[index_lt],
-                     pbi->full_l_size,
-                     sizeof (double),
-                     desc,
-                     "double",
-                     name,
-                     index_lensed_cl),
-         file->error_message,
-         pbi->error_message);
-
-     sprintf (desc, "lensed C_l logarithmic derivative: d_lsq_cls[index_ct][index_l] with index_ct < psp->ct_size, index_l < pbi->full_l_size");
-     sprintf (name, "pbi->lensed_d_lsq_cls");
-     index_lensed_cl = file->n_blocks;
-     for (int index_lt=0; index_lt < ple->lt_size; ++index_lt)
-       class_call (binary_add_block (
-                     file,
-                     pbi->lensed_d_lsq_cls[index_lt],
-                     pbi->full_l_size,
-                     sizeof (double),
-                     desc,
-                     "double",
-                     name,
-                     index_lensed_cl),
-         file->error_message,
-         pbi->error_message);
-   }
+  /* Add information to the file header */
+  binary_sprintf (file, "CMB reduced bispectra b_l1_l2_l3 tabulated as a function of (l1,l2,l3) and bispectrum type.");
+  binary_sprintf (file, "This binary file was generated by SONG (%s) on %s.", _SONG_URL_, ppr->date);
+  binary_sprintf (file, "");
+  sprintf (file->header, "%s%s", file->header, pba->info);
+  file->header_size += strlen (pba->info) + 1;
+  if (ppt->gauge == newtonian) binary_sprintf(file, "gauge = newtonian");
+  if (ppt->gauge == synchronous) binary_sprintf(file, "gauge = synchronous");
 
 
-   /* Bispectrum */
+  // --------------------------------------------------------------------------
+  // -                                Build blocks                             -
+  // ---------------------------------------------------------------------------
 
-   sprintf (desc, "number of bispectra types (local, equilateral, intrinsic...) (=%d)", pbi->bt_size);
-   sprintf (name, "pbi->bt_size");
-   class_call (binary_append_int (file, &pbi->bt_size, 1, desc, name),
-     file->error_message,
-     pbi->error_message);
+  char desc[1024];
+  char name[1024];
 
-   sprintf (desc, "array of names of bispectra types (each has %d char)", _MAX_LENGTH_LABEL_);
-   sprintf (name, "pbi->bt_labels");
-   class_call (binary_append_string (file, pbi->bt_labels, pbi->bt_size*_MAX_LENGTH_LABEL_, desc, name),
-     file->error_message,
-     pbi->error_message);
+  int label_size = _MAX_LENGTH_LABEL_;
+  sprintf (desc, "length of a label (=%d)", _MAX_LENGTH_LABEL_);
+  sprintf (name, "_MAX_LENGTH_LABEL_");
+  class_call (binary_append_int (file, &label_size, 1, desc, name),
+    file->error_message,
+    pbi->error_message);
 
-   sprintf (desc, "number of fields (T,E,B...) (=%d)", pbi->bf_size);
-   sprintf (name, "pbi->bf_size");
-   class_call (binary_append_int (file, &pbi->bf_size, 1, desc, name),
-     file->error_message,
-     pbi->error_message);
+  /* l sampling */
 
-   sprintf (desc, "array of names of fields (each has %d char)", _MAX_LENGTH_LABEL_);
-   sprintf (name, "pbi->bf_labels");
-   class_call (binary_append_string (file, pbi->bf_labels, pbi->bf_size*_MAX_LENGTH_LABEL_, desc, name),
-     file->error_message,
-     pbi->error_message);
+  sprintf (desc, "size of l array (=%d)", pbi->l_size);
+  sprintf (name, "pbi->l_size");
+  class_call (binary_append_int (file, &pbi->l_size, 1, desc,name),
+    file->error_message,
+    pbi->error_message);
 
-   for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt) {
+  sprintf (desc, "l array");
+  sprintf (name, "pbi->l");
+  class_call (binary_append_int (file, pbi->l, pbi->l_size, desc, name),
+    file->error_message,
+    pbi->error_message);
 
-     sprintf (desc, "%s CMB bispectrum for all values of (l1,l2,l3) and for all fields (X,Y,Z);\
-indexed as [X][Y][Z][index_l1][index_l2][index_l3] with XYZ < pbi->bf_size, index_l1 < pbi->l_size,\
-index_l2 <= index_l1, index_l3 < pbi->l3_size[index_l1][index_l2]", pbi->bt_labels[index_bt]);
-     sprintf (name, "pbi->bispectra[index_bt=%d]", index_bt);
-     int index_bispectrum = file->n_blocks;      
+  sprintf (desc, "size of l3 grid: l3_size[index_l1][index_l2] with index_l1 < pbi->l_size, index_l2 <= index_l1");
+  sprintf (name, "pbi->l3_size");
+  int index_l3_size_block = file->n_blocks;
 
-     for (int X = 0; X < pbi->bf_size; ++X) {
-       for (int Y = 0; Y < pbi->bf_size; ++Y) {
-         for (int Z = 0; Z < pbi->bf_size; ++Z) {
+  for (int index_l1=0; index_l1 < pbi->l_size; ++index_l1)
+    for (int index_l2=0; index_l2 <= index_l1; ++index_l2)
+      class_call (binary_add_block (
+                    file,
+                    &pbi->l3_size[index_l1][index_l2],
+                    1,
+                    sizeof (int),
+                    desc,
+                    "int",
+                    name,
+                    index_l3_size_block),
+        file->error_message,
+        pbi->error_message);
 
-           for (int index_l1=0; index_l1 < pbi->l_size; ++index_l1) {        
-             for (int index_l2=0; index_l2 <= index_l1; ++index_l2) {
+  sprintf (desc, "l3 array: l3[index_l1][index_l2] with index_l1 < pbi->l_size, index_l2 <= index_l1");
+  sprintf (name, "pbi->l3");
+  int index_l3_block = file->n_blocks;
 
-               /* Determine the limits for l3, which come from the triangular inequality |l1-l2| <= l3 <= l1+l2 */
-               int index_l3_min = pbi->index_l_triangular_min[index_l1][index_l2];
-               int index_l3_max = MIN (index_l2, pbi->index_l_triangular_max[index_l1][index_l2]);
+  for (int index_l1=0; index_l1 < pbi->l_size; ++index_l1)
+    for (int index_l2=0; index_l2 <= index_l1; ++index_l2)
+      class_call (binary_add_block (
+                    file,
+                    pbi->l3[index_l1][index_l2],
+                    pbi->l3_size[index_l1][index_l2],
+                    sizeof (int),
+                    desc,
+                    "int",
+                    name,
+                    index_l3_block),
+        file->error_message,
+        pbi->error_message);
 
-               /* Extract bispectrum for this (l1,l2) as a function of l3 */
-               double bispectrum_l1l2[pbi->l3_size[index_l1][index_l2]];
-               for (int index_l3=index_l3_min; index_l3<=index_l3_max; ++index_l3) {  
-                 long int index_l1_l2_l3 = pbi->index_l1_l2_l3[index_l1][index_l1-index_l2][index_l3_max-index_l3];
-                 bispectrum_l1l2[index_l3] = pbi->bispectra[index_bt][X][Y][Z][index_l1_l2_l3];
+  sprintf (desc, "number of (l1,l2,l3) configurations in each bispectrum (=%ld)", pbi->n_independent_configurations);
+  sprintf (name, "pbi->n_independent_configurations");
+  class_call (binary_append_long_int (file, &pbi->n_independent_configurations, 1, desc, name),
+    file->error_message,
+    pbi->error_message);
+
+  /* First-order C_l */
+
+  sprintf (desc, "number of l-values for which the C_l are stored (=%d)", pbi->full_l_size);
+  sprintf (name, "pbi->full_l_size");
+  class_call (binary_append_int (file, &pbi->full_l_size, 1, desc, name),
+    file->error_message,
+    pbi->error_message);
+
+  sprintf (desc, "number of C_l types (=%d)", psp->ct_size);
+  sprintf (name, "psp->ct_size");
+  class_call (binary_append_int (file, &psp->ct_size, 1, desc, name),
+    file->error_message,
+    pbi->error_message);
+
+  sprintf (desc, "array of names of C_l types (each has %d char)", _MAX_LENGTH_LABEL_);
+  sprintf (name, "psp->ct_labels");
+  class_call (binary_append_string (file, psp->ct_labels, psp->ct_size*_MAX_LENGTH_LABEL_, desc, name),
+    file->error_message,
+    pbi->error_message);
+
+  sprintf (desc, "unlensed C_l: cls[index_ct][index_l] with index_ct < psp->ct_size, index_l < pbi->full_l_size");
+  sprintf (name, "pbi->cls");
+  int index_unlensed_cl = file->n_blocks;
+  for (int index_ct=0; index_ct < psp->ct_size; ++index_ct)
+    class_call (binary_add_block (
+                  file,
+                  pbi->cls[index_ct],
+                  pbi->full_l_size,
+                  sizeof (double),
+                  desc,
+                  "double",
+                  name,
+                  index_unlensed_cl),
+      file->error_message,
+      pbi->error_message);
+
+  sprintf (desc, "unlensed C_l logarithmic derivative: d_lsq_cls[index_ct][index_l] with index_ct < psp->ct_size, index_l < pbi->full_l_size");
+  sprintf (name, "pbi->d_lsq_cls");
+  index_unlensed_cl = file->n_blocks;
+  for (int index_ct=0; index_ct < psp->ct_size; ++index_ct)
+    class_call (binary_add_block (
+                  file,
+                  pbi->d_lsq_cls[index_ct],
+                  pbi->full_l_size,
+                  sizeof (double),
+                  desc,
+                  "double",
+                  name,
+                  index_unlensed_cl),
+      file->error_message,
+      pbi->error_message);
+
+  if (ppr->extend_lensed_cls == _TRUE_) {
+
+    sprintf (desc, "lensed C_l: cls[index_ct][index_l] with index_ct < psp->ct_size, index_l < pbi->full_l_size");
+    sprintf (name, "pbi->lensed_cls");
+    int index_lensed_cl = file->n_blocks;
+    for (int index_lt=0; index_lt < ple->lt_size; ++index_lt)
+      class_call (binary_add_block (
+                    file,
+                    pbi->lensed_cls[index_lt],
+                    pbi->full_l_size,
+                    sizeof (double),
+                    desc,
+                    "double",
+                    name,
+                    index_lensed_cl),
+        file->error_message,
+        pbi->error_message);
+
+    sprintf (desc, "lensed C_l logarithmic derivative: d_lsq_cls[index_ct][index_l] with index_ct < psp->ct_size, index_l < pbi->full_l_size");
+    sprintf (name, "pbi->lensed_d_lsq_cls");
+    index_lensed_cl = file->n_blocks;
+    for (int index_lt=0; index_lt < ple->lt_size; ++index_lt)
+      class_call (binary_add_block (
+                    file,
+                    pbi->lensed_d_lsq_cls[index_lt],
+                    pbi->full_l_size,
+                    sizeof (double),
+                    desc,
+                    "double",
+                    name,
+                    index_lensed_cl),
+        file->error_message,
+        pbi->error_message);
+  }
+
+
+  /* Bispectrum */
+
+  sprintf (desc, "number of bispectra types (local, equilateral, intrinsic...) (=%d)", pbi->bt_size);
+  sprintf (name, "pbi->bt_size");
+  class_call (binary_append_int (file, &pbi->bt_size, 1, desc, name),
+    file->error_message,
+    pbi->error_message);
+
+  sprintf (desc, "array of names of bispectra types (each has %d char)", _MAX_LENGTH_LABEL_);
+  sprintf (name, "pbi->bt_labels");
+  class_call (binary_append_string (file, pbi->bt_labels, pbi->bt_size*_MAX_LENGTH_LABEL_, desc, name),
+    file->error_message,
+    pbi->error_message);
+
+  sprintf (desc, "number of fields (T,E,B...) (=%d)", pbi->bf_size);
+  sprintf (name, "pbi->bf_size");
+  class_call (binary_append_int (file, &pbi->bf_size, 1, desc, name),
+    file->error_message,
+    pbi->error_message);
+
+  sprintf (desc, "array of names of fields (each has %d char)", _MAX_LENGTH_LABEL_);
+  sprintf (name, "pbi->bf_labels");
+  class_call (binary_append_string (file, pbi->bf_labels, pbi->bf_size*_MAX_LENGTH_LABEL_, desc, name),
+    file->error_message,
+    pbi->error_message);
+
+  for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt) {
+
+    class_test (!pbi->bispectra_available[index_bt],
+      pbi->error_message,
+      "cannot output bispectrum %d (%s): not available",
+      index_bt, pbi->bt_labels[index_bt]);
+
+    sprintf (desc, "%s CMB bispectrum for all values of (l1,l2,l3) and for all fields (X,Y,Z);\
+ idexed as [X][Y][Z][index_l1][index_l2][index_l3] with XYZ < pbi->bf_size, index_l1 < pbi->l_size,\
+ idex_l2 <= index_l1, index_l3 < pbi->l3_size[index_l1][index_l2]", pbi->bt_labels[index_bt]);
+    sprintf (name, "pbi->bispectra[index_bt=%d]", index_bt);
+    int index_bispectrum = file->n_blocks;
+
+    for (int X = 0; X < pbi->bf_size; ++X) {
+      for (int Y = 0; Y < pbi->bf_size; ++Y) {
+        for (int Z = 0; Z < pbi->bf_size; ++Z) {
+
+          for (int index_l1=0; index_l1 < pbi->l_size; ++index_l1) {        
+            for (int index_l2=0; index_l2 <= index_l1; ++index_l2) {
+
+              /* Determine the limits for l3, which come from the triangular inequality |l1-l2| <= l3 <= l1+l2 */
+              int index_l3_min = pbi->index_l_triangular_min[index_l1][index_l2];
+              int index_l3_max = MIN (index_l2, pbi->index_l_triangular_max[index_l1][index_l2]);
+              int l3_size = index_l3_max - index_l3_min + 1;
+
+              if (l3_size > 0) {
+
+                /* Index in the bispectrum array with the first l3 value for the current (l1,l2) pair.
+                We can do this because all l3 bispectrum values are arranged continuously in memory.  */
+                long int index_start = pbi->index_l1_l2_l3[index_l1][index_l1-index_l2][index_l3_max-index_l3_min];
+
+                class_call (binary_add_block (
+                              file,
+                              &(pbi->bispectra[index_bt][X][Y][Z][index_start]),
+                              l3_size,
+                              sizeof (double),
+                              desc,
+                              "double",
+                              name,
+                              index_bispectrum),
+                  file->error_message,
+                  pbi->error_message);
                }
+                  
+            } // for l2
+          } // for l1
 
-               class_call (binary_add_block (
-                             file,
-                             bispectrum_l1l2,
-                             pbi->l3_size[index_l1][index_l2],
-                             sizeof (double),
-                             desc,
-                             "double",
-                             name,
-                             index_bispectrum),
-                 file->error_message,
-                 pbi->error_message);
-
-             } // for l2
-           } // for l1
-
-         } // Z
-       } // Y
-     } // X
-   } // bt
+        } // Z
+      } // Y
+    } // X
+    
+  } // bt
   
 
-   // ---------------------------------------------------------------------------
-   // -                              Write to file                              -
-   // ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // -                              Write to file                              -
+  // ---------------------------------------------------------------------------
 
-   class_call (binary_write (
-                 file),
-     file->error_message,
-     pbi->error_message);
+  class_call (binary_write (
+                file),
+    file->error_message,
+    pbi->error_message);
 
 
-   // ---------------------------------------------------------------------------
-   // -                                Clean up                                 -
-   // ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // -                                Clean up                                 -
+  // ---------------------------------------------------------------------------
 
-   class_call (binary_free (
-                 file),
-     file->error_message,
-     pbi->error_message);
+  class_call (binary_free (
+                file),
+    file->error_message,
+    pbi->error_message);
   
   return _SUCCESS_;
 
@@ -4749,7 +4830,7 @@ int bispectra_separable_integrate_over_r (
     
           /* Update the counter */
           #pragma omp atomic
-          pbi->count_memorised_for_bispectra++;
+          pbi->count_memorised_bispectra++;
 
         } // end of for(index_l3)
       } // end of for(index_l2)
@@ -4858,7 +4939,7 @@ int bispectra_separable_init (
   functions are used. */
   
   /* Loop on the type of bispectrum (local, equilateral, orthogonal...) */
-  for (int index_bt = 0; index_bt < pbi->bt_size; ++index_bt) {
+  for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt) {
   
     if (pbi->bispectrum_type[index_bt] != separable_bispectrum)
       continue;
@@ -4892,6 +4973,9 @@ int bispectra_separable_init (
       } // end of for(Y)
     } // end of for(Z)
     
+    /* The separable bispectra are now ready */
+    pbi->bispectra_available[index_bt] = _TRUE_;
+
   } // end of for(index_bt)
   
   
@@ -5200,7 +5284,7 @@ int bispectra_analytical_init (
     
                 /* Update the counter */
                 #pragma omp atomic
-                pbi->count_memorised_for_bispectra++;
+                pbi->count_memorised_bispectra++;
 
               } // for(Z)
             } // for(Y)
@@ -5213,6 +5297,12 @@ int bispectra_analytical_init (
 
   if (abort == _TRUE_)
     return _FAILURE_;
+
+  /* The analytical bispectra are now ready */
+  for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt)
+    if (pbi->bispectrum_type[index_bt] == analytical_bispectrum)
+      pbi->bispectra_available[index_bt] = _TRUE_;
+  
 
   return _SUCCESS_;
 
@@ -5300,7 +5390,7 @@ int bispectra_non_separable_init (
     " -> computing non-separable bispectra; r sampled %d times in [%g,%g]\n",
     pwb->r_size, pwb->r_min, pwb->r_max);
   
-  for (int index_bt = 0; index_bt < pbi->bt_size; ++index_bt) {
+  for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt) {
 
     /* Skip the bispectrum if it not of the non-separable type */
     if (pbi->bispectrum_type[index_bt] != non_separable_bispectrum)
@@ -5406,6 +5496,10 @@ int bispectra_non_separable_init (
         } // end of for(Z)
       } // end of for(Y)
     } // end of for(X)
+
+    /* The bispectrum is ready */
+    pbi->bispectra_available[index_bt] = _TRUE_;
+
   } // end of for(index_bt)
   
   return _SUCCESS_;
@@ -6562,7 +6656,7 @@ int bispectra_non_separable_integrate_over_r (
 
           /* Update the counter */
           #pragma omp atomic
-          pbi->count_memorised_for_bispectra++;
+          pbi->count_memorised_bispectra++;
 
           /* Some debug - output the integral as a function of r on stderr for a custom (l1,l2,l3) */
           // if ( (l1==l2) && (l2==l3) ) {
@@ -7914,23 +8008,51 @@ int bispectra_lensing_convolution_linear (
 
 
 /**
- * Load a bispectrum from disk. It is important to keep the index_bt dependence in the argument list,
- * as we might want to selectively load only the secondary bispectra.
+ * Load a bispectrum from disk.
+ *
+ * See the documentation in perturbations2.h (\ref StorageFiles) for more
+ * details.
  */
-int bispectra_load_from_disk(
-    struct bispectra * pbi,
-    int index_bt
-    )
+
+int bispectra_load (
+      struct bispectra * pbi,
+      int index_bt
+      )
 {
 
-  /* Open file for reading */
-  class_open (pbi->bispectra_files[index_bt], pbi->bispectra_paths[index_bt], "rb", pbi->error_message);
+  /* We store & load only the bispectra that require a lot of time to compute,
+  that is, the non-separable and intrinsic bispectra */
+  if (!(pbi->bispectrum_type[index_bt] == non_separable_bispectrum ||
+        pbi->bispectrum_type[index_bt] == intrinsic_bispectrum))
+    return _SUCCESS_;
 
   /* Print some debug */
   printf_log_if (pbi->bispectra_verbose, 2, 
     "     * reading bispectra from disk for index_bt=%d on'%s'\n",
-    index_bt, pbi->bispectra_paths[index_bt]);
+    index_bt, pbi->storage_paths[index_bt]);
 
+  /* Load only if needed */
+  if (pbi->bispectra_available[index_bt])
+    return _SUCCESS_;
+
+  /* Complain if there is no file to load */
+  struct stat st;
+  class_test (stat (pbi->storage_paths[index_bt], &st) != 0,
+		pbi->error_message,
+		"cannot load bispectra for index_bt=%d, file '%s' does not exist",
+    index_bt, pbi->storage_paths[index_bt]);
+
+  /* Make space */
+  class_call (bispectra_allocate_type_level(pbi, index_bt),
+    pbi->error_message,
+    pbi->error_message);
+
+  /* Open file for reading */
+  class_open (pbi->storage_files[index_bt],
+    pbi->storage_paths[index_bt],
+    "rb", pbi->error_message);
+
+  /* Read from file */
   for (int X = 0; X < pbi->bf_size; ++X) {
     for (int Y = 0; Y < pbi->bf_size; ++Y) {
       for (int Z = 0; Z < pbi->bf_size; ++Z) {
@@ -7942,18 +8064,21 @@ int bispectra_load_from_disk(
                 pbi->bispectra[index_bt][X][Y][Z],
                 sizeof(double),
                 n_to_read,
-                pbi->bispectra_files[index_bt]);
+                pbi->storage_files[index_bt]);
 
         class_test(n_read != n_to_read,
           pbi->error_message,
           "Could not read in '%s' file, read %d entries but expected %d",
-            pbi->bispectra_paths[index_bt], n_read, n_to_read);        
+            pbi->storage_paths[index_bt], n_read, n_to_read);        
       }
     }
   }
   
   /* Close file */
-  fclose(pbi->bispectra_files[index_bt]); 
+  fclose(pbi->storage_files[index_bt]); 
+
+  /* Bispectrum is now ready to use */
+  pbi->bispectra_available[index_bt] = _TRUE_;
 
   return _SUCCESS_;
   
@@ -9726,32 +9851,32 @@ int bispectra_mesh_allocate(
       pbi->bf_size*sizeof(struct interpolation_mesh ****),
       pbi->error_message);
 
-      for (int X = 0; X < pbi->bf_size; ++X) {
+    for (int X = 0; X < pbi->bf_size; ++X) {
 
-        class_alloc ((*meshes)[index_bt][X],
-          pbi->bf_size*sizeof(struct interpolation_mesh ***),
+      class_alloc ((*meshes)[index_bt][X],
+        pbi->bf_size*sizeof(struct interpolation_mesh ***),
+        pbi->error_message);
+
+      for (int Y = 0; Y < pbi->bf_size; ++Y) {
+        
+        class_alloc ((*meshes)[index_bt][X][Y],
+          pbi->bf_size*sizeof(struct interpolation_mesh **),
           pbi->error_message);
 
-        for (int Y = 0; Y < pbi->bf_size; ++Y) {
-          
-          class_alloc ((*meshes)[index_bt][X][Y],
-            pbi->bf_size*sizeof(struct interpolation_mesh **),
+        for (int Z = 0; Z < pbi->bf_size; ++Z) {
+
+          class_alloc ((*meshes)[index_bt][X][Y][Z],
+            2*sizeof(struct interpolation_mesh *),
             pbi->error_message);
-
-          for (int Z = 0; Z < pbi->bf_size; ++Z) {
-
-            class_alloc ((*meshes)[index_bt][X][Y][Z],
-              2*sizeof(struct interpolation_mesh *),
-              pbi->error_message);
     
-            for (int index_mesh=0; index_mesh < 2; ++index_mesh) {
+          for (int index_mesh=0; index_mesh < 2; ++index_mesh) {
 
-              class_alloc ((*meshes)[index_bt][X][Y][Z][index_mesh],
-                sizeof(struct interpolation_mesh),
-                pbi->error_message);
-              
-              (*meshes)[index_bt][X][Y][Z][index_mesh]->ready = _FALSE_;
-              
+            class_alloc ((*meshes)[index_bt][X][Y][Z][index_mesh],
+              sizeof(struct interpolation_mesh),
+              pbi->error_message);
+            
+            (*meshes)[index_bt][X][Y][Z][index_mesh]->ready = _FALSE_;
+            
           } // for(index_mesh)
         } // for(Z)
       } // for(Y)
@@ -9785,8 +9910,12 @@ int bispectra_mesh_free(
   
     for (int X = (pbi->bf_size-1); X >= 0; --X) {
       for (int Y = (pbi->bf_size-1); Y >= 0; --Y) {
-        for (int Z = (pbi->bf_size-1); Z >= 0; --Z)
+        for (int Z = (pbi->bf_size-1); Z >= 0; --Z) {          
+          for (int index_mesh=0; index_mesh < 2; ++index_mesh) {
+            free ((*meshes)[index_bt][X][Y][Z][index_mesh]);
+          }
           free ((*meshes)[index_bt][X][Y][Z]);
+        }
         free ((*meshes)[index_bt][X][Y]);
       }
       free ((*meshes)[index_bt][X]);

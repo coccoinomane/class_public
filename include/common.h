@@ -217,7 +217,7 @@ int get_number_of_titles(char * titlestring);
 
 // IO
 /* macro for opening file and returning error if it failed */
-#define class_open(pointer, filename,	mode, error_output) {                                                      \
+#define class_open(pointer, filename,  mode, error_output) {                                                      \
   pointer=fopen(filename,mode);                                                                                  \
   if (pointer == NULL) {                                                                                         \
     class_build_error_string(error_output,"could not open %s with name %s and mode %s.\n\nError message: %s",    \
@@ -225,6 +225,20 @@ int get_number_of_titles(char * titlestring);
     return _FAILURE_;                                                                                            \
   }                                                                                                              \
 }
+
+/* macro for opening file and returning error if it failed */
+#define class_open_parallel(pointer, filename,  mode, error_output) {                                              \
+  pointer=NULL;                                                                                                    \
+  if (abort == _FALSE_) {                                                                                          \
+    pointer=fopen(filename,mode);                                                                                  \
+    if (pointer == NULL) {                                                                                         \
+      class_build_error_string(error_output,"could not open %s with name %s and mode %s.\n\nError message: %s",    \
+        #pointer,filename,#mode,strerror(errno));                                                                  \
+      abort=_TRUE_;                                                                                                \
+    }                                                                                                              \
+  }                                                                                                                \
+}
+
 
 /* macro for defining indices (usually one, sometimes a block) */
 #define class_define_index(index,                                       \
@@ -1136,8 +1150,8 @@ struct precision
   char ini_filename[_FILENAMESIZE_]; /**< paths of the parameter input file */
   char pre_filename[_FILENAMESIZE_]; /**< paths of the precision input file */
 
-  short store_bispectra_to_disk;  /**< Should we store the bispectra to disk? */
-  short load_bispectra_from_disk; /**< Should we load the bispectra from disk? */
+  short store_bispectra;  /**< Should we store the bispectra to disk? */
+  short load_bispectra; /**< Should we load the bispectra from disk? */
   //@}
 
   FileName log_filename; /**< Name of the log file where we shall store CLASS and SONG messages using

@@ -47,6 +47,18 @@ LDFLAGS = -g -fPIC
 # (with no slash at the end: e.g. hyrec or ../hyrec)
 HYREC = hyrec
 
+
+
+########################################################
+###### IN PRINCIPLE THE REST SHOULD BE LEFT UNCHANGED ##
+########################################################
+
+# Flags for the default compiler in Ubuntu/Linux
+OS := $(shell uname | grep Linux)
+ifneq ($(OS),)
+CFLAGS   += -D_XOPEN_SOURCE
+endif
+
 # Flags for the default compiler in Mac Os X, clang. Note that clang
 # does not support openmp, so SONG will be much slower. If you want
 # to run SONG in a parallel way, download gcc from Macports, Homebrew
@@ -57,11 +69,6 @@ OPTFLAG := $(subst -O4, -O3, $(OPTFLAG))
 OMPFLAG := $(subst -fopenmp, -openmp, $(OMPFLAG))
 LDFLAG += -Wl,-stack_size,0x400000000
 endif
-
-
-########################################################
-###### IN PRINCIPLE THE REST SHOULD BE LEFT UNCHANGED ##
-########################################################
 
 # pass current working directory to the code
 CFLAGS += -D__CLASSDIR__='"$(MDIR)"'

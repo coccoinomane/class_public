@@ -75,7 +75,7 @@ int input_init_from_arguments(
 #ifdef WITH_SONG1
 
   /** - Check wether the first argument is a directory, and if this is the case
-      load its content as if it was a previous run of SONG. */
+      load its content as if it were a previous run of SONG. */
 
   /* Check that the first argument exists as a file or as a directory */
   struct stat st;
@@ -97,8 +97,8 @@ int input_init_from_arguments(
     sprintf (input_file, "%s/run_params.ini", ppr->run_dir);
     sprintf (precision_file, "%s/run_params.pre", ppr->run_dir);
 
-    /* It is mandatory that the run directory contains a params.ini and a params.pre file.  We
-    now check that they exist */
+    /* It is mandatory that the run directory contains a run_params.ini and a run_params.pre file.
+    We now check that they exist */
     class_test (stat (input_file, &st) != 0,
       errmsg,
       "the run directory does not contain the parameter file '%s'", input_file);
@@ -3422,37 +3422,6 @@ int input_read_parameters(
   }
 
 
-  /* Prepend output directory to bispectra output files */
-
-  for (int index_l_out=0; index_l_out < ppr->l_out_size; ++index_l_out) {
-
-    for (int i=0; i < _MAX_NUM_BISPECTRUM_PROBES_; ++i)
-      sprintf (ppr->paths_bispectra_l3[index_l_out][i],
-        "%s", pop->root);
-
-    for (int i=0; i < _MAX_NUM_BISPECTRUM_PROBES_; ++i)
-      sprintf (ppr->paths_bispectra_l2l3[index_l_out][i],
-        "%s", pop->root);
-
-  }
-
-  /* Should we output a binary file with all bispectra? */
-  
-  class_call(parser_read_string(pfc,"output_binary_bispectra",&string1,&flag1,errmsg),
-             errmsg,
-             errmsg);
-
-  if ((flag1 == _TRUE_) && ((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL))) {
-
-    pbi->output_binary_bispectra = _TRUE_;
-
-    sprintf (ppr->path_bispectra_l1l2l3,
-      "%sbispectra_l1l2l3.dat",
-      pop->root);
-      
-  }
-  
-
   /* Issue a warning if the user gave two indentical (l1_out,l2_out) pairs */
 
   for (int i=0; i < ppr->l_out_size; ++i)
@@ -3746,7 +3715,7 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
   // =                               Create run directory                                  =
   // =======================================================================================
 
-  /* The run directory 'ppr->run_dir' is the directory where the parameter files
+  /* The run directory ppr->run_dir is the directory where the parameter files
   (run_params.ini and run_params.pre), data folders (sources, transfers, bispectra) and
   result files (cl.dat, fisher.dat, etc.) will be stored. */
 
@@ -3828,7 +3797,7 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
 
   /* In any case, store or load run, make the root coincide with the run directory, so
   that the output files (cl.dat, fisher.dat, etc.) will be dumped there */
-  if ((ppr->store_run == _TRUE_) || (ppr->load_run == _TRUE_))
+  if (ppr->store_run || ppr->load_run)
     sprintf (pop->root, "%s/", ppr->run_dir);
 
   /* Set an environment variable for the run directory, which can be used in the
@@ -3861,6 +3830,38 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
   setenv ("SONG_RUN_FOLDER", ppr->run_dir, 1);
   
   
+  /* Now that we know the output directory, build the names of the
+  bispectra output files */
+
+  for (int index_l_out=0; index_l_out < ppr->l_out_size; ++index_l_out) {
+
+    for (int i=0; i < _MAX_NUM_BISPECTRUM_PROBES_; ++i)
+      sprintf (ppr->paths_bispectra_l3[index_l_out][i],
+        "%s", pop->root);
+
+    for (int i=0; i < _MAX_NUM_BISPECTRUM_PROBES_; ++i)
+      sprintf (ppr->paths_bispectra_l2l3[index_l_out][i],
+        "%s", pop->root);
+
+  }
+
+  /* Should we output a binary file with all bispectra? */
+  
+  class_call(parser_read_string(pfc,"output_binary_bispectra",&string1,&flag1,errmsg),
+             errmsg,
+             errmsg);
+
+  if ((flag1 == _TRUE_) && ((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL))) {
+
+    pbi->output_binary_bispectra = _TRUE_;
+
+    sprintf (ppr->path_bispectra_l1l2l3,
+      "%sbispectra_l1l2l3.dat",
+      pop->root);
+      
+  }
+  
+
 
   // ============================================================================================
   // =                                   Read data directory                                    =
@@ -3903,52 +3904,45 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
       errmsg);
    
   if ((flag1 == _TRUE_) && ((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL)))
-    ppr->store_bispectra_to_disk = _TRUE_;
+    ppr->store_bispectra = _TRUE_;
 
-  sprintf(pbi->bispectra_dir, "%s/bispectra", ppr->data_dir);
+  sprintf(pbi->storage_dir, "%s/bispectra", ppr->data_dir);
 
   /* If we are not loading from disk, just create the bispectra directory */
-  if ((ppr->store_bispectra_to_disk == _TRUE_) && (ppr->load_run == _FALSE_)) {
+  if ((ppr->store_bispectra == _TRUE_) && (ppr->load_run == _FALSE_)) {
     
-    class_test (mkdir (pbi->bispectra_dir, 0777) != 0,
+    class_test (mkdir (pbi->storage_dir, 0777) != 0,
       errmsg,
-      "could not create directory '%s', maybe it already exists?", pbi->bispectra_dir);
+      "could not create directory '%s', maybe it already exists?", pbi->storage_dir);
   }
   /* If we are in a run directory, checks if it already contains the bispectra */
   else if (ppr->load_run == _TRUE_) {
 
     struct stat st;
-    short bispectra_dir_exists = (stat(pbi->bispectra_dir, &st)==0);
+    short bispectra_dir_exists = (stat(pbi->storage_dir, &st)==0);
 
     /* If the bispectra directory exists, then we shall load the 2nd-order bispectra from it */
     if (bispectra_dir_exists) {
-      ppr->store_bispectra_to_disk = _FALSE_;
-      ppr->load_bispectra_from_disk = _TRUE_;
+      ppr->store_bispectra = _FALSE_;
+      ppr->load_bispectra = _TRUE_;
       if (pbi->bispectra_verbose > 1)
         printf (" -> found bispectra folder in run directory.\n");
     }
     /* Otherwise, create it */
-    else if (ppr->store_bispectra_to_disk == _TRUE_) {
+    else if (ppr->store_bispectra == _TRUE_) {
               
       if (pbi->bispectra_verbose > 1)
         printf (" -> bispectra folder not found in run directory, will create it.\n");
 
-      class_test (mkdir (pbi->bispectra_dir, 0777)!=0,
+      class_test (mkdir (pbi->storage_dir, 0777)!=0,
         errmsg,
-        "could not create directory '%s', maybe it already exists?", pbi->bispectra_dir);
+        "could not create directory '%s', maybe it already exists?", pbi->storage_dir);
         
-      ppr->load_bispectra_from_disk = _FALSE_;
+      ppr->load_bispectra = _FALSE_;
     }
   }
 
-  /* Create/open the status file. The 'a+' mode means that if the file does not exist it will be created,
-  but if it exist it won't be erased (append mode) */
-  if (ppr->store_bispectra_to_disk == _TRUE_) {
-    // sprintf(pbi->bispectra_status_path, "%s/bispectra_status_file.txt", ppr->data_dir);
-    // class_open(pbi->bispectra_status_file, pbi->bispectra_status_path, "a+", errmsg);
-  }
-
-  class_test ((ppr->store_bispectra_to_disk == _TRUE_) && (ppr->load_bispectra_from_disk == _TRUE_),
+  class_test ((ppr->store_bispectra == _TRUE_) && (ppr->load_bispectra == _TRUE_),
     errmsg,
     "cannot load and save bispectra at the same time!");
 
@@ -4808,8 +4802,8 @@ int input_default_precision ( struct precision * ppr ) {
   /* Storage of intermediate results */
   ppr->store_run = _FALSE_;
   ppr->append_date_to_run = _FALSE_;
-  ppr->store_bispectra_to_disk = _FALSE_;
-  ppr->load_bispectra_from_disk = _FALSE_;
+  ppr->store_bispectra = _FALSE_;
+  ppr->load_bispectra = _FALSE_;
 
   /* By default, do not write a log file */
   log_file = NULL;

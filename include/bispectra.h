@@ -380,6 +380,15 @@ struct bispectra {
    * will be lensed.
    */
   double ***** bispectra;
+    
+  short * bispectra_available;  /**< If bispectra_available[index_bt] is true, then
+                                pbi->bispectra[index_bt] has been filled and is ready
+                                for use. */
+
+  short * bispectra_allocated;  /**< If bispectra_allocated[index_bt] is true, then
+                                pbi->bispectra[index_bt] is fully allocated and can
+                                be used to store the bispectrum index_bt. */
+
 
   
   /**
@@ -576,26 +585,28 @@ struct bispectra {
   // =                                  Disk storage                                    =
   // ====================================================================================
 
+  /** @ingroup StorageFiles
+   * Parameters related to the reading and writing of storage files.
+   *
+   * Refer to the documentation in perturbations2.h (\ref StorageFiles) for details.
+   */
+  //@{
 
-  char bispectra_dir[_FILENAMESIZE_];  /**< Directory containing the bispectra. If it already exists, and
-                                       ppr->load_bispectra_from_disk==_TRUE_, the bispectra will be read from this folder 
-                                       into the array pbi->bispectra. If it does not exist, and ppr->store_bispectra_to_disk==_TRUE_,
-                                       the bispectra will be first computed and then written to this folder from the array
-                                       pbi->bispectra. Either way, the directory contains one binary file for each bispectrum type,
-                                       for a total of pbi->bt_size files. The file corresponding to index_bt is located at
-                                       pbi->bispectra_paths[index_bt]; its stream is in pbi->bispectra_files[index_bt]. */
+  char storage_dir[_FILENAMESIZE_]; /**< Directory containing the bispectra storage files. If it already
+                                    exists, and load_bispectra is true, the bispectra will be read from this folder
+                                    to the array pbi->bispectra. If it does not exist, and store_bispectra is true,
+                                    the bispectra will be first computed and then written to this folder. Either way,
+                                    the directory contains one binary file for transfer type, for a total of
+                                    bt_size files. */
 
+  char ** storage_paths; /**< storage_paths[index_bt] is the path to the file with the bispectrum
+                         of type index_bt. Used only if either of the flags store_bispectra or
+                         load_bispectra are true. */
 
-  char ** bispectra_paths; /**< bispectra_paths[index_bt] is the path to the file containing the bispectrum type
-                           corresponding to index_bt. Used only if ppr->store_bispectra_to_disk==_TRUE_ or
-                           ppr->load_bispectra_from_disk==_TRUE_. */
-
-  FILE ** bispectra_files; /**< bispectra_paths[index_bt] is the pointer to the file containing the bispectrum type
-                           corresponding to index_bt. Used only if ppr->store_bispectra_to_disk==_TRUE_ or
-                           ppr->load_bispectra_from_disk==_TRUE_. */
-
-  FILE * bispectra_status_file;                      /**< NOT IMPLEMENTED YET */
-  char bispectra_status_path[_FILENAMESIZE_];        /**< NOT IMPLEMENTED YET */
+  FILE ** storage_files; /**< storage_files[index_bt] is the pointer to the file with the bispectrum
+                         of type index_bt. Used only if either of the flags store_bispectra or
+                         load_bispectra are true. */
+  //@}
 
 
   // ===========================================================================================
@@ -605,8 +616,8 @@ struct bispectra {
   short bispectra_verbose;                   /**< Flag regulating the amount of information sent to standard output (none if set to zero) */                                                  
   long int n_total_configurations;           /**< Number of (l1,l2,l3) configurations compatible with the triangular condition */
   ErrorMsg error_message;                    /**< Zone for writing error messages */
-  long int count_allocated_for_bispectra;    /**< Number of elements allocated in pbi->bispectra */
-  long int count_memorised_for_bispectra;    /**< Number of elements memorised in pbi->bispectra */
+  long int count_allocated_bispectra;        /**< Number of elements allocated in pbi->bispectra */
+  long int count_memorised_bispectra;        /**< Number of elements memorised in pbi->bispectra */
   short output_binary_bispectra;             /**< Should we write the all bispectra and accessory infromation to fiel? */
   short always_interpolate_bispectra;        /**< Should we interpolate also the analytical bispectra? */
 
@@ -888,6 +899,11 @@ extern "C" {
        struct bispectra * pbi,
        int index_bt
        );
+
+  int bispectra_allocate_type_level (
+        struct bispectra * pbi,
+        int index_bt
+        );
 
   int bispectra_indices(
           struct precision * ppr,
@@ -1250,12 +1266,12 @@ extern "C" {
        double * result
        );
 
-  int bispectra_store_to_disk(
+  int bispectra_store(
       struct bispectra * pbi,
       int index_bt
       );
 
-  int bispectra_load_from_disk(
+  int bispectra_load(
       struct bispectra * pbi,
       int index_bt
       );

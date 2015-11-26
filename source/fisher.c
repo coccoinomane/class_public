@@ -54,21 +54,18 @@ int fisher_init (
     pfi->error_message);
     
 
-  /* Load intrinsic bispectra from disk if they were not already computed. Note that
-  we are only loading the non-separable and intrinsic bispectra, since the primary ones
-  are very quick to recompute. */
+  /* Load the bispectra if needed. Note that we load only the non-separable
+  and intrinsic bispectra, and recompute thes other ones because they are much
+  quicker. */
 
-  if (ppr->load_bispectra_from_disk == _TRUE_) {
-    
-    for (int index_bt = 0; index_bt < pbi->bt_size; ++index_bt)   
-      if ((pbi->bispectrum_type[index_bt] == non_separable_bispectrum)
-       || (pbi->bispectrum_type[index_bt] == intrinsic_bispectrum))
-        class_call (bispectra_load_from_disk (
-                      pbi,
-                      index_bt),
-          pbi->error_message,
-          pfi->error_message);
-  }
+  for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt)
+    if (pbi->bispectrum_type[index_bt] == non_separable_bispectrum || 
+        pbi->bispectrum_type[index_bt] == intrinsic_bispectrum)
+      class_call (bispectra_load (
+                    pbi,
+                    index_bt),
+        pbi->error_message,
+        pfi->error_message);
 
 
   // ====================================================================================
