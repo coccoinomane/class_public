@@ -1005,7 +1005,7 @@ int output_pk(
                    pop->error_message);
       }
 
-    } // end of for (index_pk)
+    } // for(index_pk)
 
     /** - fourth, write in files */
 
@@ -1488,7 +1488,7 @@ int output_fisher(
 
     fprintf (fisher_file_lmax, "\n");
 
-  } // end of for (index_l3)
+  } // for(index_l3)
   
   /* Fisher as a function of the l_min of the experiment */
   for (int index_l1=0; index_l1 < pfi->l1_size; ++index_l1) {
@@ -1503,7 +1503,7 @@ int output_fisher(
 
     fprintf (fisher_file_lmin, "\n");
 
-  } // end of for (index_l1)    
+  } // for(index_l1)    
   
   // ---------------------------------------------------------------------------
   // -                            Close files                                  -
@@ -1578,7 +1578,7 @@ int output_fisher(
 
       fprintf (fisher_file_lmin, "\n");
 
-    } // end of for (index_l1)    
+    } // for(index_l1)    
 
     if (pfi->compute_lensing_variance_lmax == _TRUE_) {
       for (int index_l1=0; index_l1 < pfi->l1_size; ++index_l1) {
@@ -1590,8 +1590,8 @@ int output_fisher(
 
         fprintf (fisher_file_lmax, "\n");
 
-      } // end of for (index_l1)
-    } // end of if(compute_lensing_variance_lmax)
+      } // for(index_l1)
+    } // if(compute_lensing_variance_lmax)
   
     // ---------------------------------------------------------------------------
     // -                            Close files                                  -
@@ -1601,7 +1601,7 @@ int output_fisher(
     if (pfi->compute_lensing_variance_lmax == _TRUE_)
       fclose (fisher_file_lmax);
 
-  } // end of if(include_lensing_effects)
+  } // if(include_lensing_effects)
   
 
 
@@ -1699,7 +1699,7 @@ int output_fisher(
           
             fprintf (fisher_file_XYZ_lmax[X][Y][Z], "\n");
           
-          } // end of for (index_l3)
+          } // for(index_l3)
             
           for (int index_l1=0; index_l1 < pfi->l1_size; ++index_l1) {
           
@@ -1723,10 +1723,10 @@ int output_fisher(
           fclose (fisher_file_XYZ_lmax[X][Y][Z]);
           fclose (fisher_file_XYZ_lmin[X][Y][Z]);
   
-        } // end of for Z
-      } // end of for Y
-    } // end of for X
-  } // end of if(fisher_verbose>2)
+        } // for Z
+      } // for Y
+    } // for X
+  } // if(fisher_verbose>2)
 
   
   return _SUCCESS_;

@@ -251,7 +251,7 @@ int evolver_ndf15(
       error_message,
       "found NAN in initial conditions at tau=%f.", x_ini);
 
-  } // end of for(ii)
+  } // for(ii)
 
   /* Debug - print the y & y_inout vectors */
   // fprintf (stderr, "*** y_inout at the beginning of ndf15\n");
@@ -817,7 +817,7 @@ int evolver_ndf15(
        error_message,error_message);
 
     }
-// end of modification
+// modification
 
   }
 

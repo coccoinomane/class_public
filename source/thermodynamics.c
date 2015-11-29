@@ -3467,7 +3467,7 @@ int thermodynamics_compute_Q_derivatives(
     // fprintf (stderr, "%g %g %g %g %g %g \n", x, dQ_dX, dQ_dH, dQ_dn, dQ_dx, dF_dx);
 
     
-  } // end of for(index_tau)
+  } // for(index_tau)
 
   /* Free vectors */
   free (pvecback);

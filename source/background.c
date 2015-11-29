@@ -2124,7 +2124,7 @@ int background_epoch_of_equality (
     
     tau_mid = 0.5*(tau_lower + tau_upper);
     
-  } // end of bisection
+  }
     
   /* Store age of equality */
   pba->a_eq = pvecback[pba->index_bg_a];

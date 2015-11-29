@@ -1523,7 +1523,7 @@ int bispectra_free(
       free(pbi->l3_size[index_l1]);
       free(pbi->l3[index_l1]);
           
-    } // end of for(index_l1)
+    } // for(index_l1)
 
     free(pbi->l_triangular_size);
     free(pbi->index_l_triangular_min);
@@ -1561,7 +1561,7 @@ int bispectra_free(
       }
       free (pbi->alpha);
       free (pbi->beta);
-    } // end of local model
+    } // local model
 
     if ((pbi->has_equilateral_model) || (pbi->has_orthogonal_model)) {
   
@@ -1575,7 +1575,7 @@ int bispectra_free(
       }
       free (pbi->gamma);
       free (pbi->delta);
-    } // end of equilateral and orthogonal models  
+    } // equilateral and orthogonal models  
     
     free (pbi->delta_k);
     
@@ -1628,7 +1628,7 @@ int bispectra_free(
 
     free (pbi->meshes);
 
-  } // end of if(has_bispectra)
+  } // if(has_bispectra)
   
   return _SUCCESS_;
  
@@ -2271,8 +2271,8 @@ int bispectra_indices (
       //   }
       // }
 
-    } // end of for(index_l2)
-  } // end of for(index_l1)
+    } // for(index_l2)
+  } // for(index_l1)
 
   /* Each bispectrum will be computed for the following number of configurations */
   pbi->n_independent_configurations = index_l1_l2_l3;
@@ -2708,7 +2708,7 @@ int bispectra_cls (
     //   //   pbi->cls[psp->index_ct_tz][l-2],
     //   //   pbi->d_lsq_cls[psp->index_ct_tt][l-2]);
     
-  } // end of for loop on the l's
+  } // for loop on the l's
 
   /* Compute the derivative of l*l*C_l from the spline-interpolated C_l's. This corresponds
   to the second method mentioned in the long comment above. */
@@ -2750,7 +2750,7 @@ int bispectra_cls (
       pbi->error_message,
       pbi->error_message);
 
-  } // end of loop on index_ct
+  } // loop on index_ct
   
   /* Do the same for the lensed C_l's */
   if (ppr->extend_lensed_cls) {
@@ -2784,8 +2784,8 @@ int bispectra_cls (
         pbi->error_message,
         pbi->error_message);
 
-    } // end of loop on index_lt
-  } // end of if lensing
+    } // loop on index_lt
+  } // if lensing
   
   free (l_array);
   free(lsq_cl);
@@ -2964,10 +2964,10 @@ int bispectra_harmonic (
   //             );
   //           }
   //         }
-  //       } // end of for(index_l3)
-  //     } // end of for(index_l2)
-  //   } // end of for(index_l1)
-  // } // end of for(index_bt)
+  //       } // for(index_l3)
+  //     } // for(index_l2)
+  //   } // for(index_l1)
+  // } // for(index_bt)
   
 
   /* If we are loading the bispectra from disk, nothing else needs to be done */
@@ -3047,13 +3047,13 @@ int bispectra_harmonic (
                   pbi->l[index_l1], pbi->l[index_l2], pbi->l[index_l3], bispectrum,
                   pbi->bt_labels[index_bt], pbi->bfff_labels[X][Y][Z]);
 
-              } // end of for(index_l3)
-            } // end of for(index_l2)
-          } // end of for(index_l1)
-        } // end of for(X)
-      } // end of for(Y)
-    } // end of for(Z)
-  } // end of for(index_bt)
+              } // for(index_l3)
+            } // for(index_l2)
+          } // for(index_l1)
+        } // for(X)
+      } // for(Y)
+    } // for(Z)
+  } // for(index_bt)
   
   return _SUCCESS_;
 
@@ -4349,7 +4349,7 @@ int bispectra_separable_workspace_init (
     if (abort)
       return _FAILURE_;
     
-  } // end of if all models
+  } // if all models
 
 
 
@@ -4391,7 +4391,7 @@ int bispectra_separable_workspace_init (
     if (abort)
       return _FAILURE_;
     
-  } // end of if equilateral || orthogonal
+  } // if equilateral || orthogonal
 
   return _SUCCESS_;
   
@@ -4475,7 +4475,7 @@ int bispectra_separable_filter_functions (
           
         }
 
-      } // end of all models
+      } // all models
     
       // *** Equilateral and orthogonal models ***
       if ((pbi->has_equilateral_model) ||
@@ -4495,7 +4495,7 @@ int bispectra_separable_filter_functions (
 
         }
      
-      } // end of equilateral and orthogonal model
+      } // equilateral and orthogonal model
 
 
 
@@ -4552,7 +4552,7 @@ int bispectra_separable_filter_functions (
             pbi->error_message,
             pbi->error_message);
                 
-        } // end of local model
+        } // local model
         
         // /* Some debug */
         // if (index_r == 70)
@@ -4597,13 +4597,13 @@ int bispectra_separable_filter_functions (
             pbi->error_message,
             pbi->error_message);
       
-        } // end of equilateral and orthogonal models
+        } // equilateral and orthogonal models
         
         #pragma omp flush(abort)
       
-      } // end of for(index_r)
+      } // for(index_r)
   
-    } // end of for(index_l)
+    } // for(index_l)
     
   } if (abort) return _FAILURE_; /* end of parallel region */
 
@@ -4742,7 +4742,7 @@ int bispectra_separable_integrate_over_r (
                 + beta[X][index_l1][index_r]  * alpha[Y][index_l2][index_r] * beta[Z][index_l3][index_r]
                 );
             
-            } // end of local model
+            } // local model
 
             // -------------------------------------------------------------------------
             // -                           Equilateral model                           -
@@ -4770,7 +4770,7 @@ int bispectra_separable_integrate_over_r (
               
               );
 
-            } // end of equilateral model
+            } // equilateral model
 
             // -------------------------------------------------------------------------------
             // -                              Orthogonal model                               -
@@ -4801,7 +4801,7 @@ int bispectra_separable_integrate_over_r (
               
               );
 
-            } // end of orthogonal model
+            } // orthogonal model
 
             
             /* Increment the estimate of the integral */
@@ -4814,7 +4814,7 @@ int bispectra_separable_integrate_over_r (
             //       fprintf (stderr, "%15.7g %15.7g\n", r, integrand);
 
   
-          } // end of for(index_r)
+          } // for(index_r)
   
 
           /* Fill the bispectrum array with the result for this set of (l1,l2,l3), including the factor 1/2
@@ -4834,14 +4834,14 @@ int bispectra_separable_integrate_over_r (
           #pragma omp atomic
           pbi->count_memorised_bispectra++;
 
-        } // end of for(index_l3)
-      } // end of for(index_l2)
+        } // for(index_l3)
+      } // for(index_l2)
       
       #pragma omp flush(abort)
   
-    } // end of for(index_l1)
+    } // for(index_l1)
   
-  } if (abort) return _FAILURE_;  // end of parallel region
+  } if (abort) return _FAILURE_;  // parallel region
   
   return _SUCCESS_; 
   
@@ -4971,14 +4971,14 @@ int bispectra_separable_init (
             pbi->error_message,
             pbi->error_message);
   
-        } // end of for(X)
-      } // end of for(Y)
-    } // end of for(Z)
+        } // for(X)
+      } // for(Y)
+    } // for(Z)
     
     /* The separable bispectra are now ready */
     pbi->bispectra_available[index_bt] = _TRUE_;
 
-  } // end of for(index_bt)
+  } // for(index_bt)
   
   
   return _SUCCESS_; 
@@ -5221,7 +5221,7 @@ int bispectra_analytical_init (
           class_call_parallel (threej_ratio_M (l1, l2, l3, 2, &threej_ratio_0m22, pbi->error_message),
             pbi->error_message, pbi->error_message);
 
-        } // end of 3j computation
+        } // 3j computation
 
         for (int index_bt=0; index_bt < pbi->bt_size; ++index_bt) {
 
@@ -5494,14 +5494,14 @@ int bispectra_non_separable_init (
             pbi->error_message,
             pbi->error_message);
 
-        } // end of for(Z)
-      } // end of for(Y)
-    } // end of for(X)
+        } // for(Z)
+      } // for(Y)
+    } // for(X)
 
     /* The bispectrum is ready */
     pbi->bispectra_available[index_bt] = _TRUE_;
 
-  } // end of for(index_bt)
+  } // for(index_bt)
   
   return _SUCCESS_;
   
@@ -5655,8 +5655,8 @@ int bispectra_non_separable_workspace_init (
       //   fprintf (stderr, "\n\n");
       // }
     
-    } // end of for(k2)
-  } // end of for(k1)
+    } // for(k2)
+  } // for(k1)
 
 
 
@@ -5733,13 +5733,13 @@ int bispectra_non_separable_workspace_init (
     class_alloc_parallel (pwb->interpolated_integral[thread], ptr->q_size*sizeof(double), pbi->error_message);
     class_alloc_parallel (pwb->f[thread], pwb->k_smooth_size*sizeof(double), pbi->error_message);
   
-  } // end of parallel region
+  } // parallel region
   
   if (abort) return _FAILURE_;
 
   return _SUCCESS_;
   
-} // end of bispectra_non_separable_workspace_init
+} // bispectra_non_separable_workspace_init
 
 
 
@@ -5802,9 +5802,9 @@ int bispectra_non_separable_integrate_over_k3 (
         
         /* Increase memory counter */
         pwb->count_allocated_for_integral_over_k3 += k2_size;
-      } // end of for(index_k1)
-    } // end of for(index_r)
-  } // end of for(index_l3)
+      } // for(index_k1)
+    } // for(index_r)
+  } // for(index_l3)
     
   printf_log_if (pbi->bispectra_verbose, 2, 
     "     * allocated ~ %.3g MB (%ld doubles) for the k3-integral array (k_size=%d)\n",
@@ -5933,10 +5933,10 @@ int bispectra_non_separable_integrate_over_k3 (
   
             #pragma omp flush(abort)
   
-          } // end of for(index_r)          
-        } // end of for(index_l3)
-      } // end of for(index_k2)
-    } // end of for(index_k1)
+          } // for(index_r)          
+        } // for(index_l3)
+      } // for(index_k2)
+    } // for(index_k1)
   } if (abort) return _FAILURE_; /* end of parallel region */    
   
   printf_log_if (pbi->bispectra_verbose, 2, 
@@ -6019,16 +6019,16 @@ int bispectra_non_separable_integrate_over_k2 (
           /* Increase memory counter */
           pwb->count_allocated_for_integral_over_k2 += k1_size;
   
-        } // end of for(index_k1)
-      } // end of for(index_r)
-    } // end of for(index_l2)
+        } // for(index_k1)
+      } // for(index_r)
+    } // for(index_l2)
     
     printf_log_if (pbi->bispectra_verbose, 2, 
       "     * allocated ~ %.3g MB (%ld doubles) for the k2-integral array\n",
       pwb->count_allocated_for_integral_over_k2*sizeof(double)/1e6,
       pwb->count_allocated_for_integral_over_k2);
   
-  } // end of if (pwb->Y==0)
+  } // if(pwb->Y==0)
 
 
   // ==============================================================================================================
@@ -6116,11 +6116,11 @@ int bispectra_non_separable_integrate_over_k2 (
   
             #pragma omp flush(abort)
   
-          } // end of for(index_l2)
-        } // end of for(index_l3)
-      } // end of for(index_k1)
-    } // end of for(index_r)
-  } if (abort) return _FAILURE_;  // end of parallel region
+          } // for(index_l2)
+        } // for(index_l3)
+      } // for(index_k1)
+    } // for(index_r)
+  } if (abort) return _FAILURE_;  // parallel region
   
   
   printf_log_if (pbi->bispectra_verbose, 2, 
@@ -6141,11 +6141,11 @@ int bispectra_non_separable_integrate_over_k2 (
       for (int index_r=0; index_r < pwb->r_size; ++index_r) {
         for (int index_k1=0; index_k1 < pwb->k_smooth_size; ++index_k1) {
           free (pwb->integral_over_k3[index_l2][index_r][index_k1]);
-        } // end of for(index_k1)
+        } // for(index_k1)
         free (pwb->integral_over_k3[index_l2][index_r]);
-      } // end of for(index_r)
+      } // for(index_r)
       free (pwb->integral_over_k3[index_l2]);
-    } // end of for(index_l2)    
+    } // for(index_l2)    
     free (pwb->integral_over_k3);
   }
     
@@ -6243,7 +6243,7 @@ int bispectra_non_separable_interpolate_over_k2 (
     /* Revert the effect of the window function */
     interpolated_integral[index_k_tr] *= pwb->k_window_inverse[index_k_tr];
 
-  } // end of for (index_k_tr)
+  } // for(index_k_tr)
 
 
   /* Some debug - print the original array and the interpolation */
@@ -6419,11 +6419,11 @@ int bispectra_non_separable_integrate_over_k1 (
               
             #pragma omp flush(abort)
   
-          } // end of for(index_l1)
-        } // end of for(index_l2)
-      } // end of for(index_l3)
-    } // end of for(index_r)
-  } if (abort) return _FAILURE_;  // end of parallel region
+          } // for(index_l1)
+        } // for(index_l2)
+      } // for(index_l3)
+    } // for(index_r)
+  } if (abort) return _FAILURE_;  // parallel region
   
   printf_log_if (pbi->bispectra_verbose, 2, 
     " -> memorised ~ %.3g MB (%ld doubles) for the k1-integral array\n",
@@ -6443,11 +6443,11 @@ int bispectra_non_separable_integrate_over_k1 (
       for (int index_l1=0; index_l1<=index_l2; ++index_l1) {
         for (int index_r=0; index_r < pwb->r_size; ++index_r) {      
           free (pwb->integral_over_k2[index_l2][index_l1][index_r]);
-        } // end of for(index_r)
+        } // for(index_r)
         free (pwb->integral_over_k2[index_l2][index_l1]);
-      } // end of for(index_l1)
+      } // for(index_l1)
       free (pwb->integral_over_k2[index_l2]);
-    } // end of for(index_l2)
+    } // for(index_l2)
     free (pwb->integral_over_k2);
   }
   
@@ -6538,7 +6538,7 @@ int bispectra_non_separable_interpolate_over_k1 (
     /* Revert the effect of the window function */
     interpolated_integral[index_k_tr] *= pwb->k_window_inverse[index_k_tr];
 
-  } // end of for (index_k_tr)
+  } // for(index_k_tr)
 
 
   /* Some debug - print the original array and the interpolation */
@@ -6646,7 +6646,7 @@ int bispectra_non_separable_integrate_over_r (
             //   }
             // }
    
-          } // end of for(index_r)
+          } // for(index_r)
 
           /* Fill the bispectrum array with the result for this set of (l1,l2,l3) with 1/2 from trapezoidal rule */
           bispectrum[index_l1_l2_l3] = 0.5 * integral;
@@ -6664,13 +6664,13 @@ int bispectra_non_separable_integrate_over_r (
           //   fprintf(stderr, "%12d %17.7g\n", l1, pwb->integral_over_r[index_l1][index_l2][index_l3-index_l3_min]);
           // }
 
-        } // end of for(index_l3)
-      } // end of for(index_l2)
+        } // for(index_l3)
+      } // for(index_l2)
       
       #pragma omp flush(abort)
       
-    } // end of for(index_l1)
-  } if (abort) return _FAILURE_;  // end of parallel region
+    } // for(index_l1)
+  } if (abort) return _FAILURE_;  // parallel region
   
   /* Free the memory that was allocated for the integral over k1, but do that only when we are at
   the last iteration of the Z and Y . */
@@ -8367,7 +8367,7 @@ int bispectra_cmb_lensing_bispectrum (
       return _SUCCESS_;
     }
     
-  } // end of temperature only
+  } // temperature only
 
   
   // -------------------------------------------------------------------------------
@@ -8595,7 +8595,7 @@ int bispectra_cmb_lensing_squeezed_kernel (
       return _SUCCESS_;
     }
     
-  } // end of temperature only
+  } // temperature only
   
   
   // -------------------------------------------------------------------------------
@@ -8763,7 +8763,7 @@ int bispectra_cmb_lensing_squeezed_kernel (
 //       return _SUCCESS_;
 //     }
 //
-//   } // end of temperature only
+//   } // temperature only
 //
 //
 //   // -------------------------------------------------------------------------------

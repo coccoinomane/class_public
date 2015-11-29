@@ -191,7 +191,7 @@ int fisher_free(
       free (pfi->inverse_fisher_matrix_lmax[index_l3]);
       free (pfi->sigma_fnl_lmax[index_l3]);
     
-    } // end of for(index_l3)
+    } // for(index_l3)
     
     free (pfi->fisher_matrix_lmax);
     free (pfi->fisher_matrix_largest);
@@ -211,7 +211,7 @@ int fisher_free(
       free (pfi->inverse_fisher_matrix_lmin[index_l1]);
       free (pfi->sigma_fnl_lmin[index_l1]);
     
-    } // end of for(index_l1)
+    } // for(index_l1)
 
     free (pfi->fisher_matrix_lmin);
     free (pfi->fisher_matrix_smallest);
@@ -243,7 +243,7 @@ int fisher_free(
         free (pfi->inverse_fisher_matrix_lensvar_lmin[index_l1]);
         free (pfi->sigma_fnl_lensvar_lmin[index_l1]);
     
-      } // end of for(index_l1)
+      } // for(index_l1)
 
       free (pfi->fisher_matrix_lensvar_lmin);
       free (pfi->fisher_matrix_lensvar_smallest);
@@ -274,14 +274,14 @@ int fisher_free(
           free (pfi->inverse_fisher_matrix_lensvar_lmax[index_l1]);
           free (pfi->sigma_fnl_lensvar_lmax[index_l1]);
     
-        } // end of for(index_l1)
+        } // for(index_l1)
     
         free (pfi->fisher_matrix_lensvar_lmax);
         free (pfi->inverse_fisher_matrix_lensvar_lmax);
         free (pfi->sigma_fnl_lensvar_lmax);
-      } // end of(compute_lensing_variance_lmax)
+      } // if(compute_lensing_variance_lmax)
 
-    } // end of(include_lensing_effects)
+    } // if(include_lensing_effects)
 
     free (pfi->l1);
     free (pfi->l2);
@@ -311,7 +311,7 @@ int fisher_free(
       free(pfi->N_l[index_ff]);
     free(pfi->N_l);
     
-  } // end of if(has_fisher)
+  } // if(has_fisher)
   
   return _SUCCESS_;
  
@@ -1047,8 +1047,8 @@ int fisher_noise (
       // double factor = 1e12*pba->T_cmb*pba->T_cmb*l*(l+1)/(2*_PI_);
       // fprintf (stderr, "%d %g %g\n", l, pfi->N_l[pfi->index_ff_t][l-2], factor*pfi->N_l[pfi->index_ff_t][l-2]);
     
-    } // end of for(l=2)
-  } // end of for(T,E,...)
+    } // for(l=2)
+  } // for(T,E,...)
   
 
   return _SUCCESS_;
@@ -1136,7 +1136,7 @@ int fisher_compute (
     
       class_calloc_parallel (pwf->delta_l3[thread], pbi->l_size, sizeof(double), pfi->error_message);
 
-    } if (abort) return _FAILURE_; // end of parallel region
+    } if (abort) return _FAILURE_; // parallel region
   
   }
   
@@ -1319,11 +1319,11 @@ int fisher_compute (
         InverseMatrix (pfi->fisher_matrix_lensvar_lmax[index_lmax], pfi->ft_size,
           pfi->inverse_fisher_matrix_lensvar_lmax[index_lmax]);
                 
-      } // end of for(index_lmax)
+      } // for(index_lmax)
 
-    } // end of if(compute_lensing_variance_lmax)
+    } // if(compute_lensing_variance_lmax)
          
-  } // end of lensing variance
+  } // lensing variance
   
 
 
@@ -1423,7 +1423,7 @@ int fisher_compute (
         /* Print fnl(l_min) */
         // fprintf (stderr, "%12d %12g\n", pfi->l1[index_l1], pfi->sigma_fnl_lmin[index_l1][0]);
 
-      } // end of for(index_l1)
+      } // for(index_l1)
             
       /* Compute the inverse Fisher matrix */
       for (int index_l1=0; index_l1<pfi->l1_size; ++index_l1)
@@ -1464,10 +1464,10 @@ int fisher_compute (
         /* Print fnl(l_max) */
         // fprintf (stderr, "%12d %12g\n", pfi->l3[index_l3], pfi->sigma_fnl_lmax[index_l3][0]);
 
-      } // end of for(index_l3)
+      } // for(index_l3)
       
-    } // end of for(ft_2)
-  } // end of for (ft_1)
+    } // for(ft_2)
+  } // for(ft_1)
     
   for (int index_l3=0; index_l3<pfi->l3_size; ++index_l3)
     InverseMatrix (pfi->fisher_matrix_lmax[index_l3], pfi->ft_size, pfi->inverse_fisher_matrix_lmax[index_l3]);
@@ -2071,7 +2071,7 @@ int fisher_compute_matrix (
                     pfi->fisher_matrix_CZ_smallest_largest[index_l1][l3-2][index_ft_1*pfi->ff_size+C][index_ft_2*pfi->ff_size+Z]
                       += fisher;
  
-                } // end of if(include_lensing_effects)
+                } // if(include_lensing_effects)
                 
               } // ft_2
             } // ft_1
@@ -2093,7 +2093,7 @@ int fisher_compute_matrix (
 
     } // for(index_l1)
     
-  } if (abort) return _FAILURE_; // end of parallel region
+  } if (abort) return _FAILURE_; // parallel region
   
   free (interpolated_bispectra);
   
@@ -2315,10 +2315,10 @@ int fisher_compute_matrix_nodes (
           #pragma omp atomic
           counter++;          
 
-        } // end of for(index_l3)
-      } // end of for(index_l2)
-    } // end of for(index_l1)
-  } if (abort) return _FAILURE_; // end of parallel region
+        } // for(index_l3)
+      } // for(index_l2)
+    } // for(index_l1)
+  } if (abort) return _FAILURE_; // parallel region
       
   /* Include the effect of partial sky coverage and symmetrise the Fisher matrix */
   class_call (fisher_sky_coverage(pfi), pfi->error_message, pfi->error_message);
@@ -2539,7 +2539,7 @@ int fisher_sky_coverage (
                     = pfi->fisher_matrix_CZ_smallest_largest[index_l1][index_l3][index_ft_1*pfi->ff_size+Z][index_ft_2*pfi->ff_size+C];
     }}}}}}}
     
-  } // end of if(include_lensing_effects)
+  } // if(include_lensing_effects)
 
 
   return _SUCCESS_;
@@ -2659,7 +2659,7 @@ int fisher_cross_cls (
     //   pfi->inverse_C[l-2][0][0]/factor, pfi->inverse_C[l-2][1][1]/factor,
     //   pfi->inverse_C[l-2][0][1]/factor, pfi->inverse_C[l-2][1][0]/factor);
 
-  } // end of for(l)
+  } // for(l)
   
   
   return _SUCCESS_;
@@ -2976,7 +2976,7 @@ int fisher_lensing_variance (
     free (inverse_f[thread]);
     free (f[thread]);
     
-  } if (abort) return _FAILURE_; // end of parallel region
+  } if (abort) return _FAILURE_; // parallel region
 
   free (inverse_f);
   free (f);
@@ -3003,9 +3003,9 @@ int fisher_lensing_variance (
           pfi->sigma_fnl_lensvar_lmin[index_l1][index_ft_1]
             = 1/sqrt(pfi->fisher_matrix_lensvar_lmin[index_l1][index_ft_1][index_ft_1]);
 
-      } // end of for(index_l1)  
-    } // end of for(ft_2)
-  } // end of for (ft_1)
+      } // for(index_l1)  
+    } // for(ft_2)
+  } // for(ft_1)
 
  for (int index_l1=0; index_l1<pfi->l1_size; ++index_l1)
    InverseMatrix (pfi->fisher_matrix_lensvar_lmin[index_l1],

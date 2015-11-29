@@ -2770,7 +2770,7 @@ int spectra_cls_spline(
     //   }
     // }
 
-  } // end of(compute_cl_derivative)
+  } // if(compute_cl_derivative)
 
   return _SUCCESS_;
 
@@ -3729,7 +3729,7 @@ int spectra_pk_from_source(
       psp->error_message,
       psp->error_message);
 
-  } // end of for(index_pk)
+  } // for(index_pk)
 
   free (primordial_pk);
 
@@ -3897,7 +3897,7 @@ int spectra_pk_compute_derivatives(
                  psp->error_message);
 
     }
-  } // end of if(ln_tau_size>1)
+  } // if(ln_tau_size>1)
 
   return _SUCCESS_;
 
@@ -4734,7 +4734,7 @@ int spectra_primordial_power_spectrum (
     /* Convert CLASS dimensionless power spectrum for the curvature perturbation into the dimensional one. */
     psp->pk[index_k] = 2*_PI_*_PI_/(k*k*k) * psp->pk[index_k];
     
-  } // end of for(index_k)
+  } // for(index_k)
   
 
   /* Do the same, but with ppt->k */
@@ -4758,7 +4758,7 @@ int spectra_primordial_power_spectrum (
 
     psp->pk_pt[index_k_pt] = 2*_PI_*_PI_/(k_pt*k_pt*k_pt) * psp->pk_pt[index_k_pt];
     
-  } // end of for(index_k_pt)
+  } // for(index_k_pt)
   
   
   return _SUCCESS_;

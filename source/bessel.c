@@ -460,7 +460,7 @@ int bessel_convolution(
     /* Increment the estimate of the integral */
     *integral += integrand * delta_kk[index_k];
     
-  } // end of for(index_k)
+  } // for(index_k)
    
    
   /* Divide the integral by a factor 1/2 to account for the trapezoidal rule */
@@ -468,7 +468,7 @@ int bessel_convolution(
    
   return _SUCCESS_;
   
-} // end of bessel_convolution
+} // bessel_convolution
 
 
 

@@ -186,7 +186,7 @@ int threej_ratio_L (
     n[pos] = SIGN(n[pos])*(abs(n[pos])-1);
     l[pos] = l_next[pos];
     
-  }; // end of while
+  }; // while
   
   class_test (isnan (*result), 
     errmsg,
@@ -351,7 +351,7 @@ int threej_ratio_M_recursive (
       result[m] = - (result[m-2]*C_minus1 + result[m-1]*D_minus1) / C;
     }
     
-  } // end of if(M>0)
+  } // if(M>0)
 
   /* Debug - show results */
   // for (int m=0; m < M+1; ++m) {
@@ -833,8 +833,8 @@ int coupling_general (
       //   printf ("*** C(l1=%d,l2=%d,l3=%d,m1=%d,m2=%d,m3=%d)=%g\n",
       //     l1, l2, l3, m1, m2, m3, result[l1-*l1_min][m2-*m2_min]);
   
-    } // end of for(m)            
-  } // end of for(l)
+    } // for(m)            
+  } // for(l)
   
   return _SUCCESS_;
 }
@@ -1584,14 +1584,14 @@ int offset2multipole_l_indexm (int offset, int l_max, int * m_vec, int m_size,
         break;
       }
 
-    } // end of for(index_l)
+    } // for(index_l)
     
     if (current_offset == offset) {
       *L = l;
       break;
     }
     
-  } // end of for(index_m)
+  } // for(index_m)
 
   /* Test that the output makes sense */
   if ((*L > l_max) || (*L<0) || (*index_M >= m_size) || (index_M<0)) {
@@ -1831,14 +1831,14 @@ int offset2multipole_indexl_indexm(int offset, int * l_vec, int l_size, int * m_
         break;
       }
 
-    } // end of for(index_l)
+    } // for(index_l)
     
     if (current_offset == offset) {
       *index_L = index_l;
       break;
     }
     
-  } // end of for(index_m)
+  } // for(index_m)
 
   /* Test that the output makes sense */
   if ((*index_L >= l_size) || (*index_L<0) || (*index_M >= m_size) || (index_M<0)) {
@@ -2097,9 +2097,9 @@ int multipole2offset_n_l_indexm(int N, int L, int M, int l_max, int * m_vec, int
   			// *** Some debug
         // printf("n=%d, l=%d, m=%d, index_m=%d, offset=%d\n", n, l, m_vec[index_m], index_m, offset-1);
 
-  		} // end of for(m)
-  	} // end of for(l)
-  } // end of for(n)
+  		} // for(m)
+  	} // for(l)
+  } // for(n)
 	
   return offset - 1;
 

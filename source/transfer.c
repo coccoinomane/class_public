@@ -992,7 +992,7 @@ int transfer_get_l_list(
 
     free (l_out);
 
-  } // end of if l_out
+  } // if l_out
 
 
   /* If needed, convert odd values to even ones or viceversa. */

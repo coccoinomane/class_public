@@ -466,16 +466,16 @@ int perturb_free(
           if (ppt->quadsources_time_interpolation == cubic_interpolation)
             free(ppt->dd_quadsources[index_md][index_ic*ppt->qs_size[index_md]+index_qs]);
 
-        } // end of for (index_qs)
+        } // for(index_qs)
 
-      } // end of for (index_ic)
+      } // for(index_ic)
 
       free(ppt->quadsources[index_md]);
 
       if (ppt->quadsources_time_interpolation == cubic_interpolation)
         free(ppt->dd_quadsources[index_md]);
         
-    } // end of for (index_md)
+    } // for(index_md)
 
     free(ppt->quadsources);
     if (ppt->quadsources_time_interpolation == cubic_interpolation)
@@ -1326,9 +1326,9 @@ int perturb_timesampling_for_sources(
                  ppt->k_size[index_mode] * ppt->tau_size_quadsources * sizeof(double),
                  ppt->error_message);
 
-        } // end of for(index_type)
-      } // end of for(index_ic)
-    } // end of for(index_mode)
+        } // for(index_type)
+      } // for(index_ic)
+    } // for(index_mode)
 
     /* Print some information on memory usage */
     if (ppt->perturbations_verbose > 1) {
@@ -1344,7 +1344,7 @@ int perturb_timesampling_for_sources(
       printf ("    * memory in use: ~ %g MB\n", 8*total_size/1e6);
     }
 
-  } // end of if(has_perturbations2)
+  } // if(has_perturbations2)
 
 #endif // WITH_SONG2
 
@@ -2710,8 +2710,8 @@ int perturb_solve(
         ppt->error_message,
         ppt->error_message);
 
-    } // end of for(index_interval)
-  } // end of if(has_perturbations2) 
+    } // for(index_interval)
+  } // if(has_perturbations2) 
 
 #endif // WITH_SONG2
 
@@ -3380,7 +3380,7 @@ int perturb_vector_init(
     	ppv->index_pt_monopole_E = index_pt++;
     	index_pt += ppv->l_max_E;
             
-    } // end of if(has_polarization2)
+    } // if(has_polarization2)
     
 #endif // WITH_SONG2
 
@@ -3969,7 +3969,7 @@ int perturb_vector_init(
           ppv->y[ppv->index_pt_perturbed_recombination_delta_chi] =0.;
         }
 
-      }  // end of block tca ON -> tca OFF
+      }  // block tca ON -> tca OFF
 
       /* perturbed recombination */
       /* For any other transition in the approximation scheme, we should just copy the value of the perturbations, provided tca is already off (otherwise the indices are not yet allocated). For instance, we do not want to copy the values in the (k,tau) region where both UFA and TCA are engaged.*/
@@ -7376,7 +7376,7 @@ int perturb_derivs(double tau,
       // delta alpha, dimensionless
       delta_alpha_rec= (-0.6166 + 0.6703 * pow((Tb_in_K * 1e-4),0.53)*(-0.6166-0.53))/(1+0.6703*pow((Tb_in_K * 1e-4),0.53)) * delta_temp;
 
-    } // end of perturbed recombination related quantities
+    } // perturbed recombination related quantities
 
     /** (c) compute metric-related quantities (depending on gauge; additional gauges can be coded below)
 
@@ -7616,7 +7616,7 @@ int perturb_derivs(double tau,
       // if (ppw->index_k == 0)
       //   fprintf (stderr, "%12.5g %12.5g %12.5g\n", tau, dy[ppw->pv->index_pt_delta_Xe], dQ);
       
-    } // end of if(has_perturbed_recombination_stz)
+    } // if(has_perturbed_recombination_stz)
 
 #endif // WITH_SONG2
 
@@ -8008,7 +8008,7 @@ int perturb_derivs(double tau,
       /* This would be the simplest truncation scheme */
       // dy[ppw->pv->index_pt_monopole_E] = k*coupling_d_plus(l,0,0)*E_minus - kappa_dot*E;
     
-    }  // end of if(has_polarization2)
+    }  // if(has_polarization2)
     
     /* Compute the second derivative of the curvature potential, phi''. In SONG you can
     choose to compute phi by either solving a first-order differential equation
@@ -8920,7 +8920,7 @@ int perturb_song_indices_of_perturbs(
         index_type += ppr->l_max_ur;
       }
 
-    } // end of if(has_scalars)
+    } // if(has_scalars)
 
     class_test (_vectors_ || _tensors_,
       ppt->error_message,
@@ -8951,7 +8951,7 @@ int perturb_song_indices_of_perturbs(
         ppt->ic_size[index_md] * ppt->qs_size[index_md] * sizeof(double *),
         ppt->error_message);
 
-  } // end of for(index_md)
+  } // for(index_md)
 
   /* Flags for calling the interpolation routine */
   ppt->inter_normal=0;
@@ -9205,7 +9205,7 @@ int perturb_song_sources(
     quadrupole_ur    =     10*shear_ur;
     octupole_ur      =     7*l3_ur;
     
-  }  // end of if(ur)
+  }  // if(ur)
 
 
   // ===========================================================================================
@@ -9451,7 +9451,7 @@ int perturb_song_sources(
       }
     }
 
-  } // end of if(has_scalars)
+  } // if(has_scalars)
   
   
   /* Some debug */

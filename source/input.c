@@ -1656,7 +1656,7 @@ int input_read_parameters(
 
   #endif // WITH_SONG2
     
-    } // end of bispectrum_types parsing
+    } // bispectrum_types parsing
   
   } // if has_bispectra
 
@@ -3272,7 +3272,7 @@ int input_read_parameters(
         ppr->r_size = -1; /* Determine automatically r_size between r_left and r_right */
     }
 
-  } // end of if(has_bispectra)
+  } // if(has_bispectra)
 
 
   /** i.2.4. Lensing effects on the bispectrum and on the Fisher matrix estimator */
@@ -3302,7 +3302,7 @@ int input_read_parameters(
       ppr->extend_lensed_cls = _TRUE_;       /* needed to include the lensing noise in the covariance matrix */
     }
 
-  } // end of if lensing
+  } // if lensing
 
   if (pfi->include_lensing_effects == _TRUE_) {
     
@@ -3642,7 +3642,7 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
     
       free(pointer1);
     }
-  } // end of T noise
+  } // T noise
 
   /* Read the POLARIZATION noise for the experiment in uK, and convert it to Kelvins^2 */
   if ((pfi->has_fisher == _TRUE_) && (ppt->has_cl_cmb_polarization == _TRUE_)) {
@@ -3673,7 +3673,7 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
     
       free(pointer1);
     }
-  } // end of E noise
+  } // E noise
 
   class_read_double("fisher_squeezed_ratio",pfi->squeezed_ratio);
   
@@ -3793,7 +3793,7 @@ less than %d values for 'experiment_beam_fwhm'", _N_FREQUENCY_CHANNELS_MAX_);
     sprintf(command, "cp %s %s", ppr->pre_filename, new_pre_filepath);
     if (strcmp(ppr->pre_filename, new_pre_filepath) != 0) system(command);
     
-  } // end of if not load_run
+  } // if not load_run
 
   /* In any case, store or load run, make the root coincide with the run directory, so
   that the output files (cl.dat, fisher.dat, etc.) will be dumped there */
