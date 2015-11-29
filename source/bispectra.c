@@ -295,8 +295,7 @@ int bispectra_init (
   /* Check that we correctly filled the bispectra array (but only if there are no
   intrinsic bispectra left to be computed)*/
   if (pbi->n[intrinsic_bispectrum] < 1)
-    class_test_permissive (pbi->count_allocated_bispectra != pbi->count_memorised_bispectra,
-      pbi->error_message,
+    class_warning (pbi->count_allocated_bispectra != pbi->count_memorised_bispectra,
       "there is a mismatch between allocated (%ld) and used (%ld) space!",
       pbi->count_allocated_bispectra, pbi->count_memorised_bispectra);
 
@@ -3043,8 +3042,8 @@ int bispectra_harmonic (
           
                 double bispectrum = pbi->bispectra[index_bt][X][Y][Z][index_l1_l2_l3];
    
-                if (isnan(bispectrum))
-                  printf ("@@@ WARNING: b(%d,%d,%d) = %g for bispectrum '%s_%s'.\n",
+                class_warning (isnan(bispectrum),
+                  "b(%d,%d,%d) = %g for bispectrum %s_%s",
                   pbi->l[index_l1], pbi->l[index_l2], pbi->l[index_l3], bispectrum,
                   pbi->bt_labels[index_bt], pbi->bfff_labels[X][Y][Z]);
 
@@ -3314,8 +3313,8 @@ int bispectra_output_l2l3 (
                 pbi->error_message,
                 pbi->error_message);
 
-              if (fabs(normalisation) < _MINUSCULE_)
-                printf ("WARNING: normalisation=%g is small; beware of inf\n", normalisation);
+              class_warning (fabs(normalisation) < _MINUSCULE_,
+                "normalisation=%g is small; beware of inf", normalisation);
 
               double normalisation_positive = 0;
 
@@ -3327,8 +3326,8 @@ int bispectra_output_l2l3 (
                 pbi->error_message,
                 pbi->error_message);
 
-              if (fabs(normalisation_positive) < _MINUSCULE_)
-                printf ("WARNING: normalisation_positive=%g is small; beware of inf\n", normalisation_positive);
+              class_warning (fabs(normalisation_positive) < _MINUSCULE_,
+                "normalisation_positive=%g is small; beware of inf", normalisation_positive);
 
 
               // -------------------------------------------------------------------------------
@@ -3551,8 +3550,8 @@ int bispectra_output_l2l3 (
                   pbi->error_message,
                   pbi->error_message);
 
-                if (fabs(normalisation) < _MINUSCULE_)
-                  printf ("WARNING: normalisation=%g is small; beware of inf\n", normalisation);
+                class_warning (fabs(normalisation) < _MINUSCULE_,
+                  "normalisation=%g is small; beware of inf", normalisation);
 
                 double normalisation_positive = 0;
 
@@ -3564,8 +3563,8 @@ int bispectra_output_l2l3 (
                   pbi->error_message,
                   pbi->error_message);
 
-                if (fabs(normalisation_positive) < _MINUSCULE_)
-                  printf ("WARNING: normalisation_positive=%g is small; beware of inf\n", normalisation_positive);
+                class_warning (fabs(normalisation_positive) < _MINUSCULE_,
+                  "normalisation_positive=%g is small; beware of inf", normalisation_positive);
 
 
                 // -------------------------------------------------------------------------------
@@ -4226,18 +4225,16 @@ int bispectra_get_r_grid (
     pba->error_message,
     pbi->error_message);
 
-  if ((pth->reio_parametrization != reio_none)
-  && ((pbi->has_bispectra_e == _TRUE_) || (pbi->has_bispectra_b == _TRUE_)))
-    class_test_permissive (*r_min > (pba->conformal_age-pth->tau_reio),
-      pbi->error_message,
+  if (pth->reio_parametrization != reio_none &&
+     (pbi->has_bispectra_e || pbi->has_bispectra_b))
+    class_warning (*r_min > pba->conformal_age-pth->tau_reio,
       "the r-sampling might be inadequate to compute reionisation");
 
   /* Check that the r-grid is strictly ascending */
-  for(int index_r=0; index_r<(*r_size-1); ++index_r) {
+  for (int index_r=0; index_r<(*r_size-1); ++index_r)
     class_test ((*r_grid)[index_r] >= (*r_grid)[index_r+1],
       pbi->error_message,
       "the r grid should be stricty ascending");
-  }
 
 
   /* Allocate & fill delta_r, the measure for the trapezoidal integration over r */
@@ -9814,8 +9811,8 @@ int bispectra_mesh_interpolate (
 #ifdef DEBUG
   /* Check for nan's and crazy values. A value is crazy when it is much larger than
   the characteristic scale for a bispectrum, A_s*A_s~1e-20 */
-  if (isnan(*result) || (fabs(*result)>1) )
-    printf ("@@@ WARNING: Interpolated b(%g,%g,%g) = %g for bispectrum %s_%s!!!\n",
+  class_warning (isnan(*result) || fabs(*result)>1,
+    "Interpolated b(%g,%g,%g) = %g for bispectrum %s_%s!!!",
     l1, l2, l3, *result,
     pbi->bt_labels[index_bt],
     pbi->bfff_labels[X][Y][Z]);

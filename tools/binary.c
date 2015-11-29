@@ -954,9 +954,10 @@ int binary_add_header_line (
 
     /* If adding the line will make the header grow over the allocated
     boundaries, do not add anything */
-    if ((file->header_size+n_to_add) > file->header_size_max) {
+    if (file->header_size+n_to_add > file->header_size_max) {
 
-      printf ("WARNING %s:%d: header reached maximum size (%d), will ignore further input\n",
+      class_warning (_TRUE_,
+        "header reached maximum size (%d), will ignore further input",
         __FILE__, __LINE__, file->header_size_max);
       
       return _SUCCESS_;

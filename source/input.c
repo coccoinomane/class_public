@@ -2666,9 +2666,9 @@ int input_read_parameters(
   Therefore, when nonlinear corrections are requested, the non-linear velocity power
   spectrum is derived from the non-linear density power spectrum using the linear
   relation v=delta*a'*f/k. */
-  if ((pnl->method != nl_none) && (ppt->has_pk_theta == _TRUE_)) {
-    printf ("WARNING: nonlinear velocity power spectra not implemented - will use linear\n");
-  }
+  class_warning (pnl->method != nl_none && ppt->has_pk_theta,
+    "nonlinear velocity power spectra not implemented - will use linear");
+
 
 
   /** (g) amount of information sent to standard output (none if all set to zero) */
@@ -3403,8 +3403,8 @@ int input_read_parameters(
 
   }
 
-  if (ppt->l_scalar_max != old_l_scalar_max)
-    printf ("\n%s:%d: WARNING: Adjusted l_scalar_max from %d to %d to take into account l1_out and l2_out\n\n",
+  class_warning (ppt->l_scalar_max != old_l_scalar_max,
+    "\nAdjusted l_scalar_max from %d to %d to take into account l1_out and l2_out\n",
       __func__, __LINE__, old_l_scalar_max, ppt->l_scalar_max);
 
 

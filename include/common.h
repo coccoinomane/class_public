@@ -490,6 +490,15 @@ void fprintf_threeway(
   }                                                                                                              \
 }
 
+#define class_warning(condition, args...) {                                                                     \
+  if (condition) {                                                                                              \
+    ErrorMsg buffer;                                                                                            \
+    class_protect_sprintf (buffer, args);                                                                       \
+    printf ("WARNING: %s\n", buffer);                                                                           \
+    /*printf ("%s:%d: WARNING! %s\n", __func__, __LINE__, buffer);*/                                            \
+  }                                                                                                             \
+}
+
 /** Modification of the class_test() macro that just prints the error message, without
 stopping the execution of the current function  */
 #define class_test_permissive(condition, error_message_output, args...) {                                        \

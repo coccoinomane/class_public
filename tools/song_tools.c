@@ -577,8 +577,8 @@ int threej_A_factor (
 
 double coupling_c_minus (int l, int m1, int m) {
 
-  if ((abs(m1-m)>1) && (abs(m)>l))
-    printf("WARNING: 'c_minus' called with wrong arguments: l=%d, m1=%d, m=%d.\n", l, m1, m);
+  class_warning (abs(m1-m)>1 || abs(m)>l,
+    "c_minus called with wrong arguments: l=%d, m1=%d, m=%d.\n", l, m1, m);
 
   double result;
 
@@ -621,8 +621,8 @@ double coupling_c_minus (int l, int m1, int m) {
 
 double coupling_c_plus (int l, int m1, int m) {
   
-  if ((abs(m1-m)>1) && (abs(m)>l))
-    printf("WARNING: 'c_plus' called with wrong arguments: l=%d, m1=%d, m=%d.\n", l, m1, m);
+  class_warning (abs(m1-m)>1 || abs(m)>l,
+    "c_plus called with wrong arguments: l=%d, m1=%d, m=%d.\n", l, m1, m);
 
   double result;
 
@@ -655,8 +655,8 @@ double coupling_c_plus (int l, int m1, int m) {
 
 double coupling_d_zero (int l, int m1, int m) {
 
-  if ((abs(m1-m)>1) && (abs(m)>l))
-    printf("WARNING: 'd_zero' called with wrong arguments: l=%d, m1=%d, m=%d.\n", l, m1, m);
+  class_warning (abs(m1-m)>1 || abs(m)>l,
+    "d_zero called with wrong arguments: l=%d, m1=%d, m=%d.\n", l, m1, m);
 
   double result;
 
@@ -1619,7 +1619,7 @@ int size_l_indexm(int l_max, int * m_vec, int m_size) {
     
   /* Return 0 and a warning if the smallest m is larger than l_max */
   if (m_vec[0] > l_max) {
-    // printf ("WARNING in lm_number_of_elements_mlist: the smallest m=%d is larger than l_max=%d. Returning 0\n",
+    // class_warning (_TRUE_, "the smallest m=%d is larger than l_max=%d. Returning 0",
     //   m_vec[0], l_max);
     return 0;
   }
