@@ -2302,21 +2302,25 @@ int bispectra_indices (
   int k_tr_size = ptr->q_size;
   double * k_tr = ptr->q;
 
-  /* Allocate & fill delta_k, which is needed for the trapezoidal integration of both
-  separable and non-separable bispectra. This array is has k_size elements, and is
-  defined as k(i+1)-k(i-1) except for the first k(1)-k(0) and last k(N)-k(N-1) elements. 
-  Note that when dealing with non-separable shapes, we shall use this array only for the
-  integrations over k1 and k2, as in that case the grid in k3 is not fixed but it depends
-  on k1 and k2. */
+  /* Compute the trapezoidal integration measure in k, needed for the integration
+  of both the separable and non-separable bispectra. In the latter case, we shall
+  define a separate measure for k3, because the grid in k3 is not fixed but it
+  depends on k1 and k2 via the triangular condition. */
   class_alloc (pbi->delta_k, k_tr_size * sizeof(double), pbi->error_message);
   
   /* Fill pbi->delta_k */
-  pbi->delta_k[0] = k_tr[1] - k_tr[0];
-      
-  for (int index_k=1; index_k < k_tr_size-1; ++index_k)
-    pbi->delta_k[index_k] = k_tr[index_k+1] - k_tr[index_k-1];
-      
-  pbi->delta_k[k_tr_size-1] = k_tr[k_tr_size-1] - k_tr[k_tr_size-2];
+  class_call (trapezoidal_weights (
+                k_tr,
+                k_tr_size,
+                k_tr[0],
+                k_tr[k_tr_size-1],
+                _FALSE_,
+                pbi->delta_k,
+                NULL,
+                NULL,
+                pbi->error_message),
+    pbi->error_message,
+    pbi->error_message);
   
   
   
@@ -4237,12 +4241,22 @@ int bispectra_get_r_grid (
       "the r grid should be stricty ascending");
 
 
-  /* Allocate & fill delta_r, the measure for the trapezoidal integration over r */
-  class_alloc ((*delta_r), *r_size * sizeof(double), pbi->error_message);
-  (*delta_r)[0] = (*r_grid)[1] - (*r_grid)[0];
-  for (int index_r=1; index_r < *r_size-1; ++index_r)
-    (*delta_r)[index_r] = (*r_grid)[index_r+1] - (*r_grid)[index_r-1];
-  (*delta_r)[*r_size-1] = (*r_grid)[*r_size-1] - (*r_grid)[*r_size-2];
+  /* Compute the measure for the trapezoidal integration over r */
+  class_alloc (*delta_r, *r_size * sizeof(double), pbi->error_message);
+
+  class_call (trapezoidal_weights (
+                *r_grid,
+                *r_size,
+                (*r_grid)[0],
+                (*r_grid)[*r_size-1],
+                _FALSE_,
+                *delta_r,
+                NULL,
+                NULL,
+                pbi->error_message),
+    pbi->error_message,
+    pbi->error_message);
+
   
   
   return _SUCCESS_;
@@ -4817,9 +4831,8 @@ int bispectra_separable_integrate_over_r (
           } // for(index_r)
   
 
-          /* Fill the bispectrum array with the result for this set of (l1,l2,l3), including the factor 1/2
-          from trapezoidal rule */
-          pbi->bispectra[index_bt][X][Y][Z][index_l1_l2_l3] = 0.5 * integral;
+          /* Fill the bispectrum array with the result for this set of (l1,l2,l3) */
+          pbi->bispectra[index_bt][X][Y][Z][index_l1_l2_l3] = integral;
 
           /* Account for the overall (2/pi)^3 factor coming from the bispectrum formula. In KSW2005, this factor
           was split between the alpha and beta integrals, but from the numerical point of view it is preferable
@@ -5601,63 +5614,6 @@ int bispectra_non_separable_workspace_init (
   double * k_tr = ptr->q;
   pwb->k3_size_max = k_tr_size;
   
-  class_alloc (pwb->index_k3_lower, pwb->k_smooth_size*sizeof(int *), pbi->error_message);
-  class_alloc (pwb->index_k3_upper, pwb->k_smooth_size*sizeof(int *), pbi->error_message);
-  class_alloc (pwb->k3_grid_size, pwb->k_smooth_size*sizeof(int *), pbi->error_message);
-  
-  for (int index_k1=0; index_k1 < pwb->k_smooth_size; ++index_k1) {
-  
-    double k1 = pwb->k_smooth_grid[index_k1];
-    class_alloc (pwb->index_k3_lower[index_k1], (index_k1+1)*sizeof(int), pbi->error_message);
-    class_alloc (pwb->index_k3_upper[index_k1], (index_k1+1)*sizeof(int), pbi->error_message);
-    class_alloc (pwb->k3_grid_size[index_k1], (index_k1+1)*sizeof(int), pbi->error_message);
-        
-    for (int index_k2=0; index_k2 <= index_k1; ++index_k2) {
-
-      double k2 = pwb->k_smooth_grid[index_k2];
-      
-      /* Uncomment to take the whole k3 range for the integration (safe approach) */
-      double k_tr_min = k_tr[0];
-      double k_tr_max = k_tr[k_tr_size-1];
-      
-      /* Uncomment to restrict the integration to the k3 values that satisfy the triangular
-      condition |k1-k2| <= k3 <= k1+k2. This will give faster but imprecise result. The reason
-      is that the Dirac delta function that enforces the triangular condition, \delta(k1+k2-k3),
-      is not explicit in the integral. In fact, we expanded \delta in Bessel functions using the 
-      Rayleigh expansion of a plane wave (see eq. 6.30 of my thesis http://arxiv.org/abs/1405.2280
-      or eqs. 9 and 10 of Fergusson and Shellard 2007). Analytically, this does not make any
-      difference, but numerically it renders the integral unstable unless we take extra oscillations
-      in the k3 direction. This means that to make the integral stable, we should extend the range
-      a bit, similarly to what we do for the second-order bispectrum in bispectra2.c. */
-      // double k_tr_min = fabs(k1-k2);
-      // double k_tr_max = k1+k2;
-      
-      /* Find the index corresponding to k3_lower inside k_tr */
-      int index_k3_lower = 0;
-      while (k_tr[index_k3_lower] < k_tr_min) ++index_k3_lower;
-      pwb->index_k3_lower[index_k1][index_k2] = index_k3_lower;
-
-      /* Find the index corresponding to k3_upper inside ptr->q */
-      int index_k3_upper = k_tr_size - 1;
-      while (k_tr[index_k3_upper] > k_tr_max) --index_k3_upper;
-      pwb->index_k3_upper[index_k1][index_k2] = index_k3_upper;
-      
-      /* Number of points in the k_tr grid between 'k3_lower' and 'k3_upper' */
-      pwb->k3_grid_size[index_k1][index_k2] = index_k3_upper - index_k3_lower + 1;
-
-      /* Some debug - print out the k3_grid list for a special configuration */      
-      // if ((index_k1==100) && (index_k2>-1)) {
-      //   fprintf (stderr, "k1[%d]=%.5e, k2[%d]=%.5e, k3_grid_size=%d, k3_min=%.5e, k3_max=%.5e\n",
-      //     index_k1, k_tr[index_k1], index_k2, k_tr[index_k2], pwb->k3_grid_size[index_k1][index_k2], k_tr_min, k_tr_max);
-      //   for (int index_k3=0; index_k3 < pwb->k3_grid_size[index_k1][index_k2]; ++index_k3)
-      //     fprintf(stderr, "%d %.17f /\\ ", index_k3, k_tr[index_k3]);
-      // 
-      //   fprintf (stderr, "\n\n");
-      // }
-    
-    } // for(k2)
-  } // for(k1)
-
 
 
   // ========================================================================================
@@ -5802,6 +5758,7 @@ int bispectra_non_separable_integrate_over_k3 (
         
         /* Increase memory counter */
         pwb->count_allocated_for_integral_over_k3 += k2_size;
+
       } // for(index_k1)
     } // for(index_r)
   } // for(index_l3)
@@ -5849,48 +5806,65 @@ int bispectra_non_separable_integrate_over_k3 (
         double k2 = pwb->k_smooth_grid[index_k2];
         double pk_2 = psp->pk_pt[index_k2];
     
-        /* Get the size of the integration grid. Note that when extrapolation is turned on, the k3-grid will also
-        include values that do not satisfty the triangular condition k1 + k2 = k3. */
-        int k3_size = pwb->k3_grid_size[index_k1][index_k2];
-        int index_k3_lower = pwb->index_k3_lower[index_k1][index_k2];
-        int index_k3_upper = pwb->index_k3_upper[index_k1][index_k2];
-  
-        /* Determine the integration grid. This is given by the portion of the transfer function grid
-        starting at 'index_k3_lower' and ending at 'index_k3_upper' */
-        for (int index_k3=index_k3_lower; index_k3<=index_k3_upper; ++index_k3)
-          pwb->k3_grid[thread][index_k3-index_k3_lower] = k_tr[index_k3];
+        /* Set lower and upper limits for the integration over k3 */
+        double k_tr_min = k_tr[0];
+        double k_tr_max = k_tr[k_tr_size-1];
+      
+        /* Uncomment to restrict the integration to the k3 values that satisfy the
+        triangular condition |k1-k2| <= k3 <= k1+k2. This will give faster but
+        imprecise result. The reason is that the Dirac delta function that enforces
+        the triangular condition, \delta(k1+k2-k3), is not explicit in the integral.
+        In fact, we expanded \delta in Bessel functions using the Rayleigh expansion
+        of a plane wave (see eq. 6.30 of my thesis http://arxiv.org/abs/1405.2280 or
+        eqs. 9 and 10 of Fergusson and Shellard 2007). Analytically, this does not
+        make any difference, but numerically it renders the integral unstable unless
+        we take extra oscillations in the k3 direction. This means that to make the
+        integral stable, we should extend the range of k3 into the forbidden region,
+        similarly to what we do for the second-order bispectrum in bispectra2.c. */
+        // k_tr_min = MAX (k_tr_min, fabs(k1-k2));
+        // k_tr_max = MIN (k_tr_max, k1+k2);
+    
+        /* Discard invalid ranges, eg. when CLASS has a different k_max in ppt->k
+        and ptr->q (very rare) */
+        if (k_tr_max <= k_tr_min) {
+          #pragma omp atomic
+          pwb->count_memorised_for_integral_over_k3 += pbi->l_size * pwb->r_size;
+          continue;
+        }
 
-        /* If there are no points in k_tr that satisfy the triangular condition for the current
-        (k1,k2), then there is no contribution to the integral */
-        class_test_parallel (k3_size<=0, pbi->error_message,
-          "include when triangular condition does not fit with ptr->q");
-          
-        /* Determine the measure for the trapezoidal rule for k3 */  
-        pwb->delta_k3[thread][0] = pwb->k3_grid[thread][1] - pwb->k3_grid[thread][0];
-  
-        for (int index_k3=1; index_k3<(k3_size-1); ++index_k3)
-          pwb->delta_k3[thread][index_k3] = pwb->k3_grid[thread][index_k3 + 1] - pwb->k3_grid[thread][index_k3 - 1];
-  
-        pwb->delta_k3[thread][k3_size-1] = pwb->k3_grid[thread][k3_size - 1] - pwb->k3_grid[thread][k3_size - 2];
-        
-        /* Shape function for this (k1,k2) slice */
-        for (int index_k3=index_k3_lower; index_k3 <= index_k3_upper; ++index_k3) {
-          
-          double k3 = k_tr[index_k3];
-          double pk_3 = psp->pk[index_k3];
+        /* Determine the trapezoidal measure for the integration over k3 */
+        int index_k3_lower;
+        int index_k3_upper;
 
+        class_call_parallel (trapezoidal_weights (
+                               k_tr,
+                               k_tr_size,
+                               k_tr_min,
+                               k_tr_max,
+                               _FALSE_,
+                               pwb->delta_k3[thread],
+                               &index_k3_lower,
+                               &index_k3_upper,
+                               pbi->error_message),
+          pbi->error_message,
+          pbi->error_message);
+
+        /* Size of the integration grid. If you chose to enforce the triangular
+        condition in k_tr_min and k_tr_max, this might be zero, in which case
+        this (k1,k2) does not contribute to the integral */
+        int k3_size = index_k3_upper - index_k3_lower + 1;
+
+        /* Compute the shape function for the current (k1,k2) slice */
+        for (int index_k3=index_k3_lower; index_k3 <= index_k3_upper; ++index_k3)
           class_call_parallel (pwb->shape_function (
                         ppm,
                         psp,
                         pbi,
-                        k1, k2, k3,
-                        pk_1, pk_2, pk_3,
+                        k1, k2, k_tr[index_k3],
+                        pk_1, pk_2, psp->pk[index_k3],
                         &pwb->interpolated_integral[thread][index_k3]),
             pbi->error_message,
             pbi->error_message);
-          
-        }
-        
   
         /* We compute the integral over k3 for all possible l-values */
         for (int index_l3 = 0; index_l3 < pbi->l_size; ++index_l3) {
@@ -5903,7 +5877,7 @@ int bispectra_non_separable_integrate_over_k3 (
             [ppt->index_md_scalars]
             [((ppt->index_ic_ad * tt_size + index_tt_k3) * l_size + index_l3) * k_tr_size]);
 
-          /* Some debug - print transfer function */
+          /* Debug: print transfer function */
           // for (index_k3=0; index_k3 < k3_size; ++index_k3)
           //   if ((index_k1==3) && (index_k2==2) && (index_l3==0))
           //     fprintf(stderr, "%g %g\n", pwb->k3_grid[thread][index_k3], transfer[index_k3]);
@@ -5925,7 +5899,6 @@ int bispectra_non_separable_integrate_over_k3 (
                           ),
               pbi->error_message,
               pbi->error_message);
-                
 
             /* Update the counter */
             #pragma omp atomic
@@ -6648,8 +6621,8 @@ int bispectra_non_separable_integrate_over_r (
    
           } // for(index_r)
 
-          /* Fill the bispectrum array with the result for this set of (l1,l2,l3) with 1/2 from trapezoidal rule */
-          bispectrum[index_l1_l2_l3] = 0.5 * integral;
+          /* Fill the bispectrum array with the result for this set of (l1,l2,l3) */
+          bispectrum[index_l1_l2_l3] = integral;
 
           /* Account for the overall (2/pi)^3 factor coming from the bispectrum formula. This factor is seen
           (see, for instance, eq. 17 of Fergusson & Shellard 2007). */
@@ -6699,15 +6672,6 @@ int bispectra_non_separable_workspace_free (
   free (pwb->r);
   free (pwb->delta_r);  
   free (pwb->k_smooth_grid);
-
-  for (int index_k1=0; index_k1 < pwb->k_smooth_size; ++index_k1) {
-    free (pwb->index_k3_lower[index_k1]);
-    free (pwb->index_k3_upper[index_k1]);
-    free (pwb->k3_grid_size[index_k1]);    
-  }
-  free (pwb->index_k3_lower);
-  free (pwb->index_k3_upper);
-  free (pwb->k3_grid_size);
 
   /* Parallelization variables */
   int thread = 0;
@@ -7007,12 +6971,21 @@ int bispectra_lensing_convolution (
   double (*bispectrum_pq)[pbi->full_l_size] = calloc (pbi->full_l_size*pbi->full_l_size, sizeof(double));
   short (*is_filled_pq)[pbi->full_l_size] = calloc (pbi->full_l_size*pbi->full_l_size, sizeof(short));
 
-  /* Weights for the trapezoidal sum along the l direction */
-  double delta_l[pbi->l_size];
-  delta_l[0] = (pbi->l[1] - pbi->l[0] + 1)/2.0;
-  for (int index_l=1; index_l < (pbi->l_size-1); ++index_l)
-    delta_l[index_l] = (pbi->l[index_l+1] - pbi->l[index_l-1])/2.0;
-  delta_l[pbi->l_size-1] = (pbi->l[pbi->l_size-1] - pbi->l[pbi->l_size-2] + 1)/2.0;
+  /* Trapezoidal weights for the sum over the l1 direction */
+  double * delta_l;
+  class_alloc (delta_l, pbi->l_size*sizeof(double), pbi->error_message);
+
+  class_call (trapezoidal_weights_int (
+                pbi->l,
+                pbi->l_size,
+                pbi->l[0],
+                pbi->l[pbi->l_size-1],
+                delta_l,
+                NULL,
+                NULL,
+                pbi->error_message),
+    pbi->error_message,
+    pbi->error_message);
 
   /* Initialise output */
   *result = 0;
@@ -7249,6 +7222,7 @@ int bispectra_lensing_convolution (
 
   free (bispectrum_pq);
   free (is_filled_pq);
+  free (delta_l);
 
   /* Debug: free the debug arrays */
   // free (integrand_lp);
@@ -7462,7 +7436,7 @@ int bispectra_lensing_convolution_nodes (
           delta_q[0] = q_max - q_min + 1;
         }
 
-        /* Otherwise, compute traqezoidal weights */
+        /* Otherwise, compute trapezoidal weights */
 
         if (q_size > 1) {
 
@@ -7479,7 +7453,7 @@ int bispectra_lensing_convolution_nodes (
 
           q[q_size-1] = q_max;
 
-          /* Build traqezoidal integration measure */
+          /* Build trapezoidal integration measure */
 
           delta_q[0] = (q[1] - q[0] + 1)/2.0;
 

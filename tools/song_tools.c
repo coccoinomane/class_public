@@ -3163,14 +3163,15 @@ int lin_space (double * x, double x_min, double x_max, int n_points) {
 /**
  * Find the trapezoidal weights for a given integration grid.
  *
- * The weights take into account the lower and upper integration
- * limits given with the x_min and x_max parameters. In detail,
- * the inner intervals get the usual trapezoidal weights, while the
- * intervals closest to x_min and x_max get the trapezoidal measure
- * plus the distance from x_min and x_max, respectively.
+ * The inner points are given the weight (x[i+1]-x[i-1])/2.
  *
- * If you just want the plain trapezoidal weights, set x_min=x_grid[0]
- * and x_max=x_grid[x_size-1].
+ * The outer points x[0] and x[x_size-1] are given weights that take
+ * into account the lower (x_min) and upper (x_max) integration limits,
+ * respectively.
+ *
+ * If x_min coincides with x[0] and x_max coincides with x[x_size-1],
+ * the outer points get the usual trapezoidal weight, that is, 
+ * (x[1]-x[0])/2 and (x[x_size-1]-x[x_size-2])/2, respectively.
  *
  * If there is only one node in the integration grid, we adopt
  * the rectangular integration rule between the lower limit (x_min)
@@ -3182,9 +3183,10 @@ int trapezoidal_weights (
       int x_size, /**< Input: number of points in the integration grid */
       double x_min, /**< Input: lower integration limit */
       double x_max, /**< Input: upper integration limit */
-      double * x_step, /**< Output: the trapezoidal weights, same size as x_grid */
-      int * index_x_min, /**< Output: the first value in the grid with a nonzero weight; based on x_min */
-      int * index_x_max, /**< Output: the last value in the grid with a nonzero weight, based on x_max */
+      short integer_grid, /**< Input: set to true for a sum over integers rather than an integration over reals */
+      double * x_step, /**< Output: the trapezoidal weights, same size as x_grid; must be preallocated with x_size elements */
+      int * index_x_min, /**< Output: the first value in the grid with a nonzero weight, based on x_min; set to NULL if not needed */
+      int * index_x_max, /**< Output: the last value in the grid with a nonzero weight, based on x_max; set to NULL if not needed */
       ErrorMsg errmsg
       ) 
 {
@@ -3217,13 +3219,19 @@ int trapezoidal_weights (
   int x_size_actual = index_max - index_min + 1;
 
 
+  /* When summing over an integer range, one should add +1/2 to the
+  weights for the outer points, because there is no such thing as 
+  an empty measure in a sum */
+  double integer_addend = integer_grid ? 1:0;
+
+
   /* If there is only one node in the integration grid, we adopt
   the rectangular integration rule between the lower limit (x_min)
   and the upper limit (x_max). */
 
   if (x_size_actual == 1) {
 
-    x_step[index_min] = x_max - x_min;
+    x_step[index_min] = x_max - x_min + integer_addend;
 
   }
 
@@ -3243,19 +3251,19 @@ int trapezoidal_weights (
       way to the lower integration limit, this time without the 1/2 factor because
       this node is the only one covering this extra region. */
       if (index_x == index_min)
-        step = (x_grid[index_min+1] - x_grid[index_min])/2 + (x_grid[index_min] - x_min);
+        step = 0.5*(x_grid[index_min+1] - x_grid[index_min] + integer_addend) + (x_grid[index_min] - x_min);
 
       /* If we are adjacent to the upper limit, we take the regular trapezoidal
       step, including the 1/2 factor, then we extend the step to the right all the
       way to the upper integration limit, this time without the 1/2 factor because
       this node is the only one covering this extra region. */
       else if (index_x == index_max)
-        step = (x_grid[index_max] - x_grid[index_max-1])/2 + (x_max - x_grid[index_max]);
+        step = 0.5*(x_grid[index_max] - x_grid[index_max-1] + integer_addend) + (x_max - x_grid[index_max]);
 
       /* If we are not adjacent to the triangular region, we take the regular
       trapezoidal step */
       else
-        step = (x_grid[index_x+1] - x_grid[index_x-1])/2;
+        step = 0.5*(x_grid[index_x+1] - x_grid[index_x-1]);
 
       class_test (step < 0,
         errmsg,
@@ -3267,17 +3275,70 @@ int trapezoidal_weights (
       
   }
 
-  *index_x_min = index_min;
-  *index_x_max = index_max;
+#ifdef DEBUG
+  /* Check for negative weights */
+  for (int index_x=0; index_x<x_size; ++index_x)
+    class_test (x_step[index_x] < 0,
+      errmsg, "found negative step: step_x[%d]=%g", index_x, x_step[index_x]);
+#endif // DEBUG
+
+
+  /* Return the minimum and maximum indices if the user requested them */
+  if (index_x_min != NULL)
+    *index_x_min = index_min;
+  
+  if (index_x_max != NULL)
+    *index_x_max = index_max;
 
   return _SUCCESS_;  
   
 }
 
 
+/**
+ * Find the trapezoidal weights for a sum over integers.
+ *
+ * This is a wrapper to trapezoidal_weights().
+ */
 
+int trapezoidal_weights_int (
+      int * x_grid, /**< Input: the integration grid */
+      int x_size, /**< Input: number of points in the integration grid */
+      int x_min, /**< Input: lower integration limit */
+      int x_max, /**< Input: upper integration limit */
+      double * x_step, /**< Output: the trapezoidal weights, same size as x_grid; must be preallocated with x_size elements */
+      int * index_x_min, /**< Output: the first value in the grid with a nonzero weight, based on x_min; set to NULL if not needed */
+      int * index_x_max, /**< Output: the last value in the grid with a nonzero weight, based on x_max; set to NULL if not needed */
+      ErrorMsg errmsg
+      ) 
+{
 
+  /* Convert the integer range to a real range */
+  double * x_grid_double;
+  class_alloc (x_grid_double, x_size*sizeof(double), errmsg);
+  for (int i=0; i < x_size; ++i)
+    x_grid_double[i] = (double)x_grid[i];
 
+  /* Compute the trapezoidal weights for the sum, taking care of
+  including the +1/2 addend to the outer weights */
+  class_call (trapezoidal_weights (
+                x_grid_double,
+                x_size,
+                (double)x_min,
+                (double)x_max,
+                _TRUE_, /* important */
+                x_step,
+                index_x_min,
+                index_x_max,
+                errmsg),
+    errmsg,
+    errmsg);
+
+  free (x_grid_double);
+
+  return _SUCCESS_;
+
+}
 
 
 // ===================================================================================

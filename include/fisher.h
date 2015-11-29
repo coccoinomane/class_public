@@ -450,18 +450,6 @@ extern "C" {
         struct fisher_workspace * pw
         );
         
-  int fisher_interpolation_weights (
-        struct precision * ppr,
-        struct spectra * psp,
-        struct lensing * ple,
-        struct bispectra * pbi,
-        struct fisher * pfi,
-        int index_l1,
-        int index_l2,
-        double * delta_l3,
-        struct fisher_workspace * pw
-        );
-
   int fisher_sky_coverage (
          struct fisher * pfi
          );

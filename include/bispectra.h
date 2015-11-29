@@ -29,7 +29,6 @@ enum bispectra_types {
  * Possible interpolation methods for the bispectrum.
  */
 enum bispectra_interpolation_method {
-  smart_interpolation,
   bilinear_interpolation,
   trilinear_interpolation,
   mesh_interpolation_2D,

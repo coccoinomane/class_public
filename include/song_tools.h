@@ -307,6 +307,17 @@ extern "C" {
         int x_size,
         double x_min,
         double x_max,
+        short integer_grid,
+        double * x_step,
+        int * index_x_min,
+        int * index_x_max,
+        ErrorMsg errmsg);
+
+  int trapezoidal_weights_int (
+        int * x_grid,
+        int x_size,
+        int x_min,
+        int x_max,
         double * x_step,
         int * index_x_min,
         int * index_x_max,

@@ -3455,11 +3455,6 @@ int input_read_parameters(
       ppr->compute_only_even_ls = _TRUE_;
     }
   
-    else if ((strstr(string1,"smart") != NULL) || (strstr(string1,"SMART") != NULL)) {
-      pbi->interpolation_method = smart_interpolation;
-      ppr->compute_only_even_ls = _TRUE_;
-    }
-
     else {
       class_test(1==1, errmsg,
         "interpolation_method=%s not supported. Choose between 'trilinear', 'mesh', 'mesh_2d', 'sum'",

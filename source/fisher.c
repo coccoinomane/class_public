@@ -528,8 +528,7 @@ int fisher_indices (
   the bispectrum. In this case, we take the three l samplings to coincide with
   the nodes sampling, pbi->l. */
 
-  if ((pbi->interpolation_method == trilinear_interpolation) ||
-      (pbi->interpolation_method == smart_interpolation)) {
+  if (pbi->interpolation_method == trilinear_interpolation) {
     
     pfi->l1_is_full = _FALSE_;
     pfi->l2_is_full = _FALSE_;
@@ -1106,41 +1105,22 @@ int fisher_compute (
   number_of_threads = omp_get_num_threads();
   #endif
     
-  /* Interpolation weights for the estimator in the rectangular directions
-  (l1 and l2). These are the usual trapezoidal integration weights for
-  in discrete space */
+  /* Trapezoidal weights for the sum over l1 and l2 in the Fisher estimator */
   class_alloc (pwf->delta_l, pbi->l_size*sizeof(double), pfi->error_message);
 
-  pwf->delta_l[0] = (pbi->l[1] - pbi->l[0] + 1.)/2.;
-  
-  for (int index_l=1; index_l < pbi->l_size-1; ++index_l)
-    pwf->delta_l[index_l] = (pbi->l[index_l+1] - pbi->l[index_l-1])/2.;
-      
-  pwf->delta_l[pbi->l_size-1] = (pbi->l[pbi->l_size-1] - pbi->l[pbi->l_size-2] + 1.)/2.;
+  class_call_parallel (trapezoidal_weights_int (
+                         pbi->l,
+                         pbi->l_size,
+                         pbi->l[0],
+                         pbi->l[pbi->l_size-1],
+                         pwf->delta_l,
+                         NULL,
+                         NULL,
+                         pfi->error_message),
+    pfi->error_message,
+    pfi->error_message);
 
 
-  /* Allocate memory for the interpolation weights in the triangular direction
-  (l3). Being dependent on (l1,l2), they will be computed later inside a loop
-  on (l1,l2). */
-
-  if (pbi->interpolation_method == smart_interpolation) {
-
-    class_alloc (pwf->delta_l3, number_of_threads*sizeof(double*), pfi->error_message);
-
-    #pragma omp parallel private (thread)
-    {
-
-      #ifdef _OPENMP
-      thread = omp_get_thread_num();
-      #endif
-    
-      class_calloc_parallel (pwf->delta_l3[thread], pbi->l_size, sizeof(double), pfi->error_message);
-
-    } if (abort) return _FAILURE_; // parallel region
-  
-  }
-  
-  
   if (pfi->fisher_verbose > 0)  {
 
     char buffer[128];
@@ -1153,8 +1133,6 @@ int fisher_compute (
       strcpy (buffer, "bilinear");
     else if (pbi->interpolation_method == trilinear_interpolation)
       strcpy (buffer, "trilinear");
-    else if (pbi->interpolation_method == smart_interpolation)
-      strcpy (buffer, "smart");
 
     printf_log (" -> computing Fisher matrix for l_max = %d with %s interpolation\n",
       MIN (pfi->l_max_estimator, pbi->l_max), buffer);
@@ -1189,8 +1167,7 @@ int fisher_compute (
   
   /* Fill the "pfi->fisher_matrix_XYZ_largest" and "fisher_matrix_XYZ_smallest" Fisher matrices
   using linear interpolation */
-  else if ((pbi->interpolation_method == smart_interpolation) ||
-           (pbi->interpolation_method == trilinear_interpolation)) {
+  else if (pbi->interpolation_method == trilinear_interpolation) {
             
     class_call (fisher_compute_matrix_nodes(
                   ppr,
@@ -2188,21 +2165,6 @@ int fisher_compute_matrix_nodes (
         int index_l3_min = pbi->index_l_triangular_min[index_l1][index_l2];
         int index_l3_max = MIN (index_l2, pbi->index_l_triangular_max[index_l1][index_l2]);
         
-        if (pbi->interpolation_method == smart_interpolation) {
-
-          class_call_parallel (fisher_interpolation_weights(
-                                 ppr,
-                                 psp,
-                                 ple,
-                                 pbi,
-                                 pfi,
-                                 index_l1,
-                                 index_l2,
-                                 pwf->delta_l3[thread],
-                                 pwf),
-            pfi->error_message,
-            pfi->error_message);
-        }
 
         // ------------------------------------------------
         // -                  Sum over l3                 -
@@ -2249,10 +2211,7 @@ int fisher_compute_matrix_nodes (
           needed. */
           double interpolation_weight = 1;
           
-          if (pbi->interpolation_method == smart_interpolation) {
-            interpolation_weight = pwf->delta_l[index_l1] * pwf->delta_l[index_l2] * pwf->delta_l3[thread][index_l3];
-          }
-          else if (pbi->interpolation_method == trilinear_interpolation) {
+          if (pbi->interpolation_method == trilinear_interpolation) {
             /* Weight for trilinear interpolation. When the trilinear interpolation is turned on, we always consider
             configurations where all l's are even. The factor 1/2 comes from the fact that when interpolating over even
             configurations only, we are implicitly assuming non-zero values for the odd points, which instead are
@@ -2330,157 +2289,11 @@ int fisher_compute_matrix_nodes (
 
 
 
-int fisher_interpolation_weights (
-       struct precision * ppr,
-       struct spectra * psp,
-       struct lensing * ple,
-       struct bispectra * pbi,
-       struct fisher * pfi,
-       int index_l1,
-       int index_l2,
-       double * delta_l3,
-       struct fisher_workspace * pwf
-       )
-{  
-  
-  int l1 = pbi->l[index_l1];
-  int l2 = pbi->l[index_l2];
-
-  /* Limits of our l3 sampling */
-  int index_l3_min = pbi->index_l_triangular_min[index_l1][index_l2];
-  int index_l3_max = MIN (index_l2, pbi->index_l_triangular_max[index_l1][index_l2]);
-      
-  // -----------------------------------------------------------------------------------------
-  // -                            Exclude points with l1+l2+l3 odd                           -
-  // -----------------------------------------------------------------------------------------
-      
-  // if ((l1==40) && (l2==40)) {
-  //   printf("(l1=%d,l2=%d) BEFORE:", l1, l2);
-  //   for (int index_l3=index_l3_min; index_l3<=index_l3_max; ++index_l3)
-  //     printf("%d,",pbi->l[index_l3]);
-  //   printf("\n");
-  // }
-      
-  /* Restrict the l3 range so that the first and last points are both even (if l1+l2 is even) or odd
-  (if l1+l2 is odd). If this cannot be achieved, it means that our l-sampling fails to capture a valid
-  point for the considered (l1,l2) pair. Then, the Fisher matrix computation will neglect this pair. */
-  if ((l1+l2)%2==0) {
-    while ((pbi->l[index_l3_min]%2!=0) && (index_l3_min<=index_l3_max))
-      index_l3_min++;
-    while ((pbi->l[index_l3_max]%2!=0) && (index_l3_max>=index_l3_min))
-      index_l3_max--;
-  }
-  else {
-    while ((pbi->l[index_l3_min]%2==0) && (index_l3_min<=index_l3_max))
-      index_l3_min++;
-    while ((pbi->l[index_l3_max]%2==0) && (index_l3_max>=index_l3_min))
-      index_l3_max--;
-  }
-
-  // if ((l1==40) && (l2==40)) {
-  //   printf("(l1=%d,l2=%d) AFTER:", l1, l2);
-  //   for (int index_l3=index_l3_min; index_l3<=index_l3_max; ++index_l3)
-  //     printf("%d,",pbi->l[index_l3]);
-  //   printf("\n");
-  // }
-
-  // ------------------------------------------------------------------------------------------
-  // -                                Generate linear weights                                 -
-  // ------------------------------------------------------------------------------------------
-  
-  /* First, we generate "normal" interpolation weights, as if the l3-range was rectangular.
-  We also include an extra 1/2 factor to account for the fact that the Fisher estimator
-  only includes those configuration where l1+l2+l3 is even. */
-  /* TODO: This formula is valid only if l1+l2 is even. When l1+l2 is odd, then l3 must be
-  odd to and the formula has to be adjusted */
-  if (index_l3_min < index_l3_max) {
-
-    delta_l3[index_l3_min] = (pbi->l[index_l3_min+1] - pbi->l[index_l3_min] + 2.)/4.;
-      
-    for (int index_l=index_l3_min+1; index_l<=(index_l3_max-1); ++index_l)
-      delta_l3[index_l] = (pbi->l[index_l+1] - pbi->l[index_l-1])/4.;
-      
-    delta_l3[index_l3_max] = (pbi->l[index_l3_max] - pbi->l[index_l3_max-1] + 2.)/4.;
-
-   if (index_l3_min == index_l3_max)
-    delta_l3[index_l3_min] = 1;
-  }
-  /* If only one point is valid, its weight must be unity */
-  else if (index_l3_min == index_l3_max) {
-    delta_l3[index_l3_min] = 1;
-  }
-  /* If there are no usable points at all, it really does not matter what we do here, because the (l1,l2)
-  configuration will be skipped anyway during the Fisher matrix l-sum. */
-  else {
-    return _SUCCESS_;
-  }
-
-  /* Some debug */
-  // for (int index_l=index_l3_min; index_l <= (index_l3_max); ++index_l)
-  //   printf ("delta_l3[index_l] = %g\n", delta_l3[index_l]);
-
-  
-  // ----------------------------------------------------------------------------------
-  // -                          Account for out-of-bonds points                       -
-  // ----------------------------------------------------------------------------------
-  
-  /* We assign to those points outside our l3-sampling (but inside the triangular condition) the
-  bispectrum-value in l3. To do so, however, we need to properly count which of these
-  out-of-bounds points are even and odd */
-  for (int l3 = MAX(pbi->l_min, abs(l1-l2)); l3 < pbi->l[index_l3_min]; ++l3)
-    if((l1+l2+l3)%2==0)
-      delta_l3[index_l3_min] += 1.;
-  
-  for (int l3 = pbi->l[index_l3_max]+1; l3 <= MIN(l2,l1+l2); ++l3)
-    if((l1+l2+l3)%2==0)
-      delta_l3[index_l3_max] += 1;
-  
-  /* Check that, for a function that always evaluates to one, the weights sum up to the number
-  of even/odd points in the integration range. For a given pair of (l1,l2), the range goes
-  from MAX(2,|l1-l2|) to MIN(l2,l1+l2). 
-  Remember that now 'index_l3_min' and 'index_l3_max' have been modified with respect to those in
-  pbi->index_l_triangular_min and pbi->index_l_triangular_max to be even/odd. */
-  double sum = 0;
-  for (int index_l3=index_l3_min; index_l3<=index_l3_max; ++index_l3)
-    sum += delta_l3[index_l3];
-  
-  int n_even=0, n_odd=0;
-  for (int l3 = MAX(pbi->l_min,abs(l1-l2)); l3 <= MIN(l2,l1+l2); ++l3) {
-    if(l3%2==0) n_even++;
-    else n_odd++;
-  }
-  
-  if ((l1+l2)%2==0) {
-    class_test (sum != n_even,
-      pfi->error_message,
-      "EVEN: l1=%d, l2=%d, sum=%g, expected=%d\n", l1, l2, sum, n_even);
-  }
-  else {
-    class_test (sum != n_odd,
-      pfi->error_message,
-      "ODD:  l1=%d, l2=%d, sum=%g, expected=%d\n", l1, l2, sum, n_odd);
-  }
-
-  return _SUCCESS_;
-
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
 /**
  * Account for partial sky coverage by multiplying the Fisher matrix by the sky fraction.
  * Also, symmetrise the Fisher matrix.
  */
+
 int fisher_sky_coverage (
        struct fisher * pfi
        )

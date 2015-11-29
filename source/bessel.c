@@ -332,18 +332,19 @@ int bessel_at_x_linear(
 
 
 /**
- * Given the integration domain kk and the array f[index_k], compute the following integral
- * using the trapezoidal rule:
+ * Given the integration domain kk and the array f[index_k], compute the
+ * following integral using the trapezoidal rule:
  * 
  *     /
  *    |  dk k^2 f[k] * g[k] * j_l[k*r]
  *    /
  *
- * The Bessel functions are interpolated from the table in the Bessel structure pbs. The
- * delta_k array should contain the trapezoidal measure around a given k[i], that is
- * delta_k[i]=k[i+1]-k[i-1], with delta_k[0]=k[1]-k[0] and delta_k[k_size-1]=k[k_size-1]-k[k_size-2].
+ * The Bessel functions are interpolated from the table in the Bessel
+ * structure pbs. The delta_k array should contain the trapezoidal measure
+ * around a given k[i], as computed by the trapezoidal_weights() function.
  *
- * If you give a NULL pointer for the g function, then it is assumed to be unity.
+ * If you give a NULL pointer for the g function, then it is assumed to
+ * be unity.
  */
 
 int bessel_convolution(
@@ -351,8 +352,8 @@ int bessel_convolution(
     struct bessels * pbs, /**< pointer to Bessel structure, should be already initiated
                           with bessel_init() */
     double * kk, /**< array with the integration grid in k */
-    double * delta_kk, /**< trapezoidal measure, compute as delta_k[i]=k[i+1]-k[i-1],
-                       and delta_k[0]=k[1]-k[0], delta_k[k_size-1]=k[k_size-1]-k[k_size-2] */
+    double * delta_kk, /**< trapezoidal measure as computed by the trapezoidal_weights()
+                       function */
     int k_size, /**< size of the integration grid in k */
     double * f, /**< array with the integrand function f, of size k_size */
     double * g, /**< array with the integrand function g, of size k_size; pass NULL
@@ -461,10 +462,6 @@ int bessel_convolution(
     *integral += integrand * delta_kk[index_k];
     
   } // for(index_k)
-   
-   
-  /* Divide the integral by a factor 1/2 to account for the trapezoidal rule */
-  (*integral) *= 0.5;
    
   return _SUCCESS_;
   
