@@ -382,33 +382,9 @@ extern "C" {
 
 
 
-  // ====================================================================================
-  // =                                      Misc                                        =
-  // ====================================================================================
-
-  int find_by_bisection (
-        double * x_vec,
-        int n,
-        double x,
-        int * index,
-        ErrorMsg errmsg
-        );
-
-  double identity_double (double x);
-
-  int sign_int (int x);
-
-  int ordering_int (
-        int * n,         
-        int * ordering,  
-        ErrorMsg errmsg
-        );
-
-  int reorder_int (
-        int * n,        
-        int * ordering, 
-        ErrorMsg errmsg
-        );
+  // ======================================================================================
+  // =                                 Play with arrays                                   =
+  // ======================================================================================
 
   int merge_arrays_double (
         double *v1,
@@ -437,6 +413,64 @@ extern "C" {
         int **out,
         int * out_size,
         int (*compar)(const void *, const void *),
+        ErrorMsg errmsg
+        );
+
+  int add_point_int (
+        int **v,
+        int *v_size,
+        int x,
+        int (*compar)(const void *, const void *),
+        ErrorMsg errmsg
+        );
+
+  int remove_points_double (
+        double *v,
+        int v_size,
+        int *indices,
+        int n_indices,
+        double **out,
+        int * out_size,
+        ErrorMsg errmsg
+        );
+
+  int remove_close_points (
+        double **v,
+        int *v_size,
+        double min_distance,
+        int * n,
+        int ** indices,
+        double ** values,
+        ErrorMsg errmsg
+        );
+
+
+
+  // ====================================================================================
+  // =                                      Misc                                        =
+  // ====================================================================================
+
+  int find_by_bisection (
+        double * x_vec,
+        int n,
+        double x,
+        int * index,
+        ErrorMsg errmsg
+        );
+
+  double identity_double (double x);
+
+  int sign_int (int x);
+
+  int ordering_int (
+        int * n,         
+        int * ordering,  
+        ErrorMsg errmsg
+        );
+
+  int reorder_int (
+        int * n,        
+        int * ordering, 
         ErrorMsg errmsg
         );
 

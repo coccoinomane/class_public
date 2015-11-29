@@ -3560,8 +3560,420 @@ int is_triangular_double (double l1, double l2, double l3) {
 
 
 // ======================================================================================
-// =                                       Misc                                         =
+// =                                 Play with arrays                                   =
 // ======================================================================================
+
+
+/**
+ * Merge two arrays of doubles into a third one, then sort it and remove
+ * duplicates.
+ *
+ * The function will allocate the output array using realloc.
+ * 
+ * If one of the two input vectors has zero size, then the output array
+ * will just be the other input vector sorted and without duplicates.
+ *
+ * The output array can be one of the two input arrays, in which case
+ * it will be modified in place and its size will be extended using
+ * realloc.
+ */
+
+int merge_arrays_double (
+      double *v1,      /**< Input: array to be merged with v2 */
+      int v1_size,     /**< Input: size of v1 */
+      double *v2,      /**< Input: array to be merged with v1 */
+      int v2_size,     /**< Input: size of v2 */
+      double **out,    /**< Output: merged array; it will be (re)allocated with out_size elements using realloc */
+      int * out_size,  /**< Output: size of merged array */
+      int (*compar)(const void *, const void *), /**< Input: comparison function for qsort */
+      ErrorMsg errmsg  /**< Output: string where to write error message */
+      )
+{
+
+  class_test (v1_size < 0, errmsg, "v1_size=%d is negative", v1_size);
+  class_test (v2_size < 0, errmsg, "v2_size=%d is negative", v2_size);
+  
+  /* Merge v1 and v2 in a temporary array */
+  double * v_big;
+  int v_big_size = v1_size + v2_size;
+  class_alloc (v_big, v_big_size*sizeof(double), errmsg);
+
+  /* Copy v1 at the beginning of v_big  */
+  for (int i=0; i < v1_size; ++i)
+    v_big[i] = v1[i];
+
+  /* Copy v2 at the end of v_big */
+  for (int i=0; i < v2_size; ++i)
+    v_big[v1_size + i] = v2[i];
+
+  /* Sort v_big in ascending order */
+  qsort (v_big, v_big_size, sizeof(double), compar);
+
+  /* Count duplicates in v_big */
+  int n_duplicates = 0;
+  for (int i=0; i < (v_big_size-1); ++i)
+    if (v_big[i+1] == v_big[i])
+      n_duplicates++;
+
+  /* Allocate output array */
+  *out_size = v_big_size - n_duplicates;
+  class_realloc(*out, *out, *out_size*sizeof(double), errmsg);
+  
+  /* Fill out with the non-duplicate values of v1 and v2 */
+  int index_out = 0;
+  for (int i=0; i < (v_big_size-1); ++i)
+    if (v_big[i+1] != v_big[i])
+      (*out)[index_out++] = v_big[i];
+  if (*out_size>0)
+    (*out)[*out_size-1] = v_big[v_big_size-1];
+
+#ifdef DEBUG
+  /* Double check that there are no duplicates */
+  for (int i=0; i < (*out_size-1); ++i)
+    class_test ((*out)[i+1] <= (*out)[i], errmsg, "sorting failed");
+#endif // DEBUG
+
+  free (v_big);
+  
+  return _SUCCESS_;
+  
+}
+
+
+/**
+ * Add a point to an array if the point is not already present, then sort
+ * the array.
+ *
+ * The array and its size will be modified in place using realloc. The
+ * output size is either v_size+1 or v_size depending on whether the
+ * point is a duplicate.
+ *
+ * This function is a wrapper to merge_arrays_double().
+ */
+
+int add_point_double (
+      double **v,        /**< Input/output: pointer to the array to increment */
+      int *v_size,       /**< Input/output: pointer to the size of v */
+      double x,          /**< Input: point to add to v */
+      int (*compar)(const void *, const void *), /**< Input: comparison function for qsort */
+      ErrorMsg errmsg    /**< output, string where to write error message */
+      )
+{
+
+  class_call (merge_arrays_double (
+                *v,
+                *v_size,
+                &x,
+                1,
+                v,
+                v_size,
+                compar,
+                errmsg),
+    errmsg,
+    errmsg);
+  
+  return _SUCCESS_;
+  
+}
+  
+
+
+/**
+ * Merge two arrays of integers into a third one, then sort it and remove
+ * duplicates.
+ *
+ * Please refer to merge_arrays_double() for the documentation.
+ */
+
+int merge_arrays_int (
+      int *v1,         /**< Input: array to be merged with v2 */
+      int v1_size,     /**< Input: size of v1 */
+      int *v2,         /**< Input: array to be merged with v1 */
+      int v2_size,     /**< Input: size of v2 */
+      int **out,       /**< Output: merged array; it will be (re)allocated with out_size elements using realloc */
+      int * out_size,  /**< Output: size of merged array */
+      int (*compar)(const void *, const void *), /**< Input: comparison function for the qsort */
+      ErrorMsg errmsg  /**< Output: string where to write error message */
+      )
+{
+
+  class_test (v1_size < 0, errmsg, "v1_size=%d is negative", v1_size);
+  class_test (v2_size < 0, errmsg, "v2_size=%d is negative", v2_size);
+  
+  /* Merge v1 and v2 in a temporary array */
+  int * v_big;
+  int v_big_size = v1_size + v2_size;
+  class_alloc (v_big, v_big_size*sizeof(int), errmsg);
+
+  /* Copy v1 at the beginning of v_big  */
+  for (int i=0; i < v1_size; ++i)
+    v_big[i] = v1[i];
+
+  /* Copy v2 at the end of v_big */
+  for (int i=0; i < v2_size; ++i)
+    v_big[v1_size + i] = v2[i];
+
+  /* Sort v_big in ascending order */
+  qsort (v_big, v_big_size, sizeof(int), compar);
+
+  /* Count duplicates in v_big */
+  int n_duplicates = 0;
+  for (int i=0; i < (v_big_size-1); ++i)
+    if (v_big[i+1] == v_big[i])
+      n_duplicates++;
+
+  /* Allocate output array */
+  *out_size = v_big_size - n_duplicates;
+  class_realloc(*out, *out, *out_size*sizeof(int), errmsg);
+  
+  /* Fill out with the non-duplicate values of v1 and v2 */
+  int index_out = 0;
+  for (int i=0; i < (v_big_size-1); ++i)
+    if (v_big[i+1] != v_big[i])
+      (*out)[index_out++] = v_big[i];
+  if (*out_size>0)
+    (*out)[*out_size-1] = v_big[v_big_size-1];
+
+#ifdef DEBUG
+  /* Double check that there are no duplicates */
+  for (int i=0; i < (*out_size-1); ++i)
+    class_test ((*out)[i+1] <= (*out)[i], errmsg, "sorting failed");
+#endif // DEBUG
+
+  free (v_big);
+  
+  return _SUCCESS_;
+  
+}
+
+
+
+/**
+ * Add a point to an array if the point is not already present, then sort
+ * the array.
+ *
+ * Please refer to add_point_double() for the documentation.
+ */
+
+int add_point_int (
+      int **v,          /**< Input/output: pointer to the array to increment */
+      int *v_size,      /**< Input/output: pointer to the size of v */
+      int x,            /**< Input: point to add to v */
+      int (*compar)(const void *, const void *), /**< Input: comparison function for qsort */
+      ErrorMsg errmsg   /**< output, string where to write error message */
+      )
+{
+
+  class_call (merge_arrays_int (
+                *v,
+                *v_size,
+                &x,
+                1,
+                v,
+                v_size,
+                compar,
+                errmsg),
+    errmsg,
+    errmsg);
+  
+  return _SUCCESS_;
+  
+}
+  
+
+
+/**
+ * Remove a set of elements from an array.
+ *
+ * The elements to remove should be grouped in the indices array.
+ * If one index is larger or equal to the size of the input array,
+ * it is ignored.
+ *
+ * The function will allocate the output array using realloc. The
+ * indices array will be sorted in descending order.
+ * 
+ * The output array can coincide with the input one, in which case
+ * it will be modified in place and its size will be extended using
+ * realloc.
+ */
+
+int remove_points_double (
+      double *v, /**< Input: the original array */
+      int v_size, /**< Input: size of the original array */
+      int *indices, /**< Inuput: array with the positions of the elements to remove; will be sorted */
+      int n_indices, /**< Input: number of elements to remove */
+      double **out, /**< Output: array with elements removed; can coincide with input array, in which case will be reallocated */
+      int * out_size, /**< Output: size of output array; equal to or smaller than v_size-n_indices */
+      ErrorMsg errmsg
+      )
+{
+  
+  class_test (v_size < 0,
+    errmsg,
+    "wrong size for input vector")
+
+  /* Sort the indices array in descending order */
+  qsort (indices,
+    n_indices,
+    sizeof(int),
+    compare_integers_descending);
+
+  /* Check for invalid elements */
+  for (int n=0; n < n_indices; ++n)  
+    class_test (indices[n] < 0, 
+      errmsg,
+      "found negative element in indices array");
+
+  /* Make the output array a copy of the input array */
+  if (*out != v) {
+    *out_size = v_size;
+    class_realloc(*out, *out, *out_size*sizeof(double), errmsg);
+    memcpy (*out, v, *out_size*sizeof(double));
+  }
+  
+  /* Loop over each element to remove, starting from the one with the
+  largest index */
+  for (int n=0; n < n_indices; ++n) {
+    
+    /* Ignore indices that are too large */
+    if (indices[n] >= *out_size)
+      continue;
+    
+    /* Ignore duplicate indices */
+    if (n>0 && indices[n] == indices[n-1])
+      continue;
+
+    /* Index to remove in the output array. Since we ordered the indices
+    in descending order, it coincides with the index in the input array */
+    int i_out = indices[n];
+
+    /* Overwrite the element to be removed and the subsequent elements */
+    memmove (*out+i_out, *out+i_out+1, (*out_size-i_out-1)*sizeof(double));
+    
+    /* We have removed one point from the array */
+    *out_size -= 1;
+
+  }
+  
+  /* Update the size of the output array */
+  class_realloc (*out, *out, *out_size*sizeof(double), errmsg);
+  
+  return _SUCCESS_;
+  
+}
+
+
+/**
+ * Remove from an ordered array any point that is too close to the
+ * following point.
+ *
+ * Two points are too close if their fractional difference is smaller
+ * than the argument min_distance. Choosing min_distance=0 will just
+ * remove duplicates from the input array.
+ *
+ * The removal is in place, ie. the input array will be modified if
+ * close points are found.
+ * 
+ * The output array indices_to_remove is allocated in this function
+ * and needs to be freed by the user if n>0.
+ */
+
+int remove_close_points (
+      double **v, /**< Input/Output: input array; must be in ascending order */
+      int *v_size, /**< Input/Output: size of sampling array */
+      double min_distance, /**< Input: any point closer than this value to the following point will be removed from the sampling */
+      int *n, /**< Output: number of points that have been removed. Set to NULL if you are not interested. */
+      int **indices, /**< Output: list of indices in v that have been removed; will be NULL if nothing is removed.
+                      Will be allocated in the function. Set to NULL if you do not need the indices. */
+      double **values, /**< Output: list of values that have been removed; will be NULL if nothing is removed.
+                        Will be allocated in the function. Set to NULL if you do not need the values. */
+      ErrorMsg errmsg
+      )
+{
+ 
+ class_test (*v_size < 0,
+   errmsg,
+   "wrong size for input vector")
+  
+  /* Check that the input array is ascending */
+  for (int i=0; i < *v_size-1; ++i)
+    class_test ((*v)[i+1] < (*v)[i],
+      errmsg,
+      "input array must be in ascending order");
+  
+  /* Take note of original size of v */
+  int v_size_original = *v_size;
+  
+  /* Take note of the indices of the points to be removed, if any */
+  int * indices_to_remove = NULL;
+  int n_to_remove = 0;
+  
+  for (int i=0; i < *v_size-1; ++i) {
+    
+    double diff = fabs (1 - (*v)[i+1] / (*v)[i]);
+    
+    if (diff <= fabs(min_distance)) {
+
+      class_call (add_point_int (
+                    &indices_to_remove,
+                    &n_to_remove,
+                    i,
+                    compare_integers,
+                    errmsg),
+        errmsg,
+        errmsg);
+    }
+  }
+  
+  /* Values that will be removed */
+  double * values_to_remove = NULL;
+  class_alloc (values_to_remove, n_to_remove*sizeof(double), errmsg);
+  for (int i=0; i < n_to_remove; ++i)
+    values_to_remove[i] = (*v)[indices_to_remove[i]];
+  
+  /* Remove the dangerous points */
+  class_call (remove_points_double (
+                *v,
+                *v_size,
+                indices_to_remove,
+                n_to_remove,
+                v,
+                v_size,
+                errmsg),
+    errmsg,
+    errmsg);
+
+  /* Check that the new size is equal to the old one minus the removed points */
+  class_test (*v_size+n_to_remove != v_size_original,
+    errmsg, "%d!=%d, something went wrong",
+    *v_size+n_to_remove, v_size_original);
+    
+  /* Check that the output array is strictly ascending */
+  for (int i=0; i < *v_size-1; ++i)
+    class_test ((*v)[i+1] < (*v)[i],
+      errmsg,
+      "input array must be in ascending order");
+
+  /* Return the indices array if the user didn't give NULL */
+  if (indices != NULL)
+    *indices = indices_to_remove;
+  else
+    free (indices_to_remove);
+
+  /* Return the values array if the user didn't give NULL */
+  if (values != NULL)
+    *values = values_to_remove;
+  else
+    free (values_to_remove);
+
+  /* Return the number of removed points if the user didn't give NULL */
+  if (n != NULL)
+    *n = n_to_remove;
+
+  return _SUCCESS_;
+  
+}
+
 
 
 /**
@@ -3615,6 +4027,12 @@ int find_by_bisection (
 
 }
 
+
+
+
+// ======================================================================================
+// =                                       Misc                                         =
+// ======================================================================================
 
 
 /** 
@@ -3739,189 +4157,7 @@ int reorder_int (
   return _SUCCESS_;
   
 }
-  
-  
-/**
- * Merge two arrays of doubles into a third one, then sort it and remove
- * duplicates.
- *
- * If one of the two input vectors has zero size, then the output array
- * will just be the other input vector sorted and without duplicates.
- *
- * The output array can be one of the two input arrays, in which case
- * it will be modified in place and its size will be extended using
- * realloc.
- */
 
-int merge_arrays_double (
-      double *v1,      /**< Input: array to be merged with v2 */
-      int v1_size,     /**< Input: size of v1 */
-      double *v2,      /**< Input: array to be merged with v1 */
-      int v2_size,     /**< Input: size of v2 */
-      double **out,    /**< Output: merged array; it will be (re)allocated with out_size elements using realloc */
-      int * out_size,  /**< Output: size of merged array */
-      int (*compar)(const void *, const void *), /**< Input: comparison function for qsort */
-      ErrorMsg errmsg  /**< Output: string where to write error message */
-      )
-{
-
-  class_test (v1_size < 0, errmsg, "v1_size=%d is negative", v1_size);
-  class_test (v2_size < 0, errmsg, "v2_size=%d is negative", v2_size);
-  
-  /* Merge v1 and v2 in a temporary array */
-  double * v_big;
-  int v_big_size = v1_size + v2_size;
-  class_alloc (v_big, v_big_size*sizeof(double), errmsg);
-
-  /* Copy v1 at the beginning of v_big  */
-  for (int i=0; i < v1_size; ++i)
-    v_big[i] = v1[i];
-
-  /* Copy v2 at the end of v_big */
-  for (int i=0; i < v2_size; ++i)
-    v_big[v1_size + i] = v2[i];
-
-  /* Sort v_big in ascending order */
-  qsort (v_big, v_big_size, sizeof(double), compar);
-
-  /* Count duplicates in v_big */
-  int n_duplicates = 0;
-  for (int i=0; i < (v_big_size-1); ++i)
-    if (v_big[i+1] == v_big[i])
-      n_duplicates++;
-
-  /* Allocate output array */
-  *out_size = v_big_size - n_duplicates;
-  class_realloc(*out, *out, *out_size*sizeof(double), errmsg);
-  
-  /* Fill out with the non-duplicate values of v1 and v2 */
-  int index_out = 0;
-  for (int i=0; i < (v_big_size-1); ++i)
-    if (v_big[i+1] != v_big[i])
-      (*out)[index_out++] = v_big[i];
-  if (*out_size>0)
-    (*out)[*out_size-1] = v_big[v_big_size-1];
-
-#ifdef DEBUG
-  /* Double check that there are no duplicates */
-  for (int i=0; i < (*out_size-1); ++i)
-    class_test ((*out)[i+1] <= (*out)[i], errmsg, "sorting failed");
-#endif // DEBUG
-
-  free (v_big);
-  
-  return _SUCCESS_;
-  
-}
-
-
-/**
- * Add a point to an array if the point is not already present, then sort
- * the array.
- *
- * The array and its size will be modified in place using realloc. The
- * output size is either v_size+1 or v_size depending on whether the
- * point is a duplicate.
- *
- * This function is a wrapper to merge_arrays_double().
- */
-
-int add_point_double (
-      double **v,        /**< Input/output: pointer to the array to increment */
-      int *v_size,       /**< Input/output: pointer to the size of v */
-      double x,          /**< Input: point to add to v */
-      int (*compar)(const void *, const void *), /**< Input: comparison function for qsort */
-      ErrorMsg errmsg    /**< output, string where to write error message */
-      )
-{
-
-  class_call (merge_arrays_double (
-                *v,
-                *v_size,
-                &x,
-                1,
-                v,
-                v_size,
-                compar,
-                errmsg),
-    errmsg,
-    errmsg);
-  
-  return _SUCCESS_;
-  
-}
-  
-
-/**
- * Merge two arrays of integers into a third one, then sort it and remove
- * duplicates.
- *
- * Please refer to merge_arrays_double() for the documentation.
- */
-
-int merge_arrays_int (
-      int *v1,         /**< Input: array to be merged with v2 */
-      int v1_size,     /**< Input: size of v1 */
-      int *v2,         /**< Input: array to be merged with v1 */
-      int v2_size,     /**< Input: size of v2 */
-      int **out,       /**< Output: merged array; it will be (re)allocated with out_size elements using realloc */
-      int * out_size,  /**< Output: size of merged array */
-      int (*compar)(const void *, const void *), /**< Input: comparison function for the qsort */
-      ErrorMsg errmsg  /**< Output: string where to write error message */
-      )
-{
-
-  class_test (v1_size < 0, errmsg, "v1_size=%d is negative", v1_size);
-  class_test (v2_size < 0, errmsg, "v2_size=%d is negative", v2_size);
-  
-  /* Merge v1 and v2 in a temporary array */
-  int * v_big;
-  int v_big_size = v1_size + v2_size;
-  class_alloc (v_big, v_big_size*sizeof(int), errmsg);
-
-  /* Copy v1 at the beginning of v_big  */
-  for (int i=0; i < v1_size; ++i)
-    v_big[i] = v1[i];
-
-  /* Copy v2 at the end of v_big */
-  for (int i=0; i < v2_size; ++i)
-    v_big[v1_size + i] = v2[i];
-
-  /* Sort v_big in ascending order */
-  qsort (v_big, v_big_size, sizeof(int), compar);
-
-  /* Count duplicates in v_big */
-  int n_duplicates = 0;
-  for (int i=0; i < (v_big_size-1); ++i)
-    if (v_big[i+1] == v_big[i])
-      n_duplicates++;
-
-  /* Allocate output array */
-  *out_size = v_big_size - n_duplicates;
-  class_realloc(*out, *out, *out_size*sizeof(int), errmsg);
-  
-  /* Fill out with the non-duplicate values of v1 and v2 */
-  int index_out = 0;
-  for (int i=0; i < (v_big_size-1); ++i)
-    if (v_big[i+1] != v_big[i])
-      (*out)[index_out++] = v_big[i];
-  if (*out_size>0)
-    (*out)[*out_size-1] = v_big[v_big_size-1];
-
-#ifdef DEBUG
-  /* Double check that there are no duplicates */
-  for (int i=0; i < (*out_size-1); ++i)
-    class_test ((*out)[i+1] <= (*out)[i], errmsg, "sorting failed");
-#endif // DEBUG
-
-  free (v_big);
-  
-  return _SUCCESS_;
-  
-}
- 
-
-  
 /**
  * Description:
  *   Find and replace text within a string.

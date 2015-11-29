@@ -5372,21 +5372,3 @@ int input_auxillary_target_conditions(struct file_content * pfc,
   }
   return _SUCCESS_;
 }
-
-int compare_integers (const void * elem1, const void * elem2) {
-    int f = *((int*)elem1);
-    int s = *((int*)elem2);
-    if (f > s) return  1;
-    if (f < s) return -1;
-    return 0;
-}
-
-int compare_doubles(const void *a,const void *b) {
-  double *x = (double *) a;
-  double *y = (double *) b;
-  if (*x < *y)
-    return -1;
-  else if
-    (*x > *y) return 1;
-  return 0;
-}

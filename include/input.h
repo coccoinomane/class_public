@@ -299,10 +299,6 @@ extern "C" {
                                         int * aux_flag,
                                         ErrorMsg error_message);
 
-  int compare_integers (const void * elem1, const void * elem2);
-
-  int compare_doubles(const void *a,const void *b);
-
 
 #ifdef __cplusplus
 }

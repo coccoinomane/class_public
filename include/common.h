@@ -80,6 +80,12 @@ void class_protect_sprintf(char* dest, char* tpl,...);
 void class_protect_fprintf(FILE* dest, char* tpl,...);
 void* class_protect_memcpy(void* dest, void* from, size_t sz);
 
+int compare_integers (const void * elem1, const void * elem2);
+
+int compare_integers_descending (const void * elem1, const void * elem2);
+
+int compare_doubles (const void *a, const void *b);
+
 int get_number_of_titles(char * titlestring);
 
 #define class_build_error_string(dest,tmpl,...) {                                                                \
