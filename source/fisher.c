@@ -26,7 +26,7 @@ int fisher_init (
 
 
   /* Check whether we need to compute spectra at all */  
-  if ((pbi->has_bispectra == _FALSE_) || (pfi->has_fisher == _FALSE_)) {
+  if (!pbi->has_bispectra || !pfi->has_fisher) {
   
     pfi->has_fisher = _FALSE_;
   
@@ -134,7 +134,7 @@ int fisher_free(
      )
 {
 
-  if (pfi->has_fisher == _TRUE_) {
+  if (pfi->has_fisher) {
 
     for (int X = 0; X < pfi->ff_size; ++X) {
       for (int Y = 0; Y < pfi->ff_size; ++Y) {
@@ -218,7 +218,7 @@ int fisher_free(
     free (pfi->inverse_fisher_matrix_lmin);
     free (pfi->sigma_fnl_lmin);    
     
-    if (pfi->include_lensing_effects == _TRUE_) {
+    if (pfi->include_lensing_effects) {
 
       int N = pfi->ff_size*pfi->ft_size;
     
@@ -250,7 +250,7 @@ int fisher_free(
       free (pfi->inverse_fisher_matrix_lensvar_lmin);
       free (pfi->sigma_fnl_lensvar_lmin);
       
-      if (pfi->compute_lensing_variance_lmax == _TRUE_) {
+      if (pfi->compute_lensing_variance_lmax) {
 
         for (int index_l1=0; index_l1 < pfi->l1_size; ++index_l1) {
           for (int index_l3=0; index_l3 < pfi->l3_size; ++index_l3) {
@@ -353,19 +353,19 @@ int fisher_indices (
   pfi->has_fisher_e = _FALSE_;
   pfi->has_fisher_b = _FALSE_;
     
-  if ((pbi->has_bispectra_t == _TRUE_) && (pfi->ignore_t == _FALSE_)) {
+  if (pbi->has_bispectra_t && !pfi->ignore_t) {
     pfi->has_fisher_t = _TRUE_;
     pfi->index_bf_of_ff[index_ff] = pbi->index_bf_t;
     pfi->index_ff_t = index_ff++;
   }
   
-  if ((pbi->has_bispectra_e == _TRUE_) && (pfi->ignore_e == _FALSE_)) {
+  if (pbi->has_bispectra_e && !pfi->ignore_e) {
     pfi->has_fisher_e = _TRUE_;
     pfi->index_bf_of_ff[index_ff] = pbi->index_bf_e;
     pfi->index_ff_e = index_ff++;
   }
   
-  if ((pbi->has_bispectra_b == _TRUE_) && (pfi->ignore_b == _FALSE_)) {
+  if (pbi->has_bispectra_b && !pfi->ignore_b) {
     pfi->has_fisher_b = _TRUE_;
     pfi->index_bf_of_ff[index_ff] = pbi->index_bf_b;
     pfi->index_ff_b = index_ff++;
@@ -392,7 +392,7 @@ int fisher_indices (
       int index_bf_Y = pfi->index_bf_of_ff[Y];
       pfi->index_ct_of_ff_ff[X][Y] = pbi->index_ct_of_bf_bf[index_bf_X][index_bf_Y];
 
-      if (pfi->include_lensing_effects == _TRUE_)
+      if (pfi->include_lensing_effects)
         pfi->index_lt_of_ff_ff[X][Y] = pbi->index_lt_of_bf_bf[index_bf_X][index_bf_Y];
       
       for (int Z = 0; Z < pfi->ff_size; ++Z) {
@@ -459,15 +459,15 @@ int fisher_indices (
     pfi->index_bt_of_ft[index_ft] = pbi->index_bt_galileon_time;
     pfi->index_ft_galileon_time = index_ft++;
   }
-  if (pbi->has_local_squeezed == _TRUE_) {
+  if (pbi->has_local_squeezed) {
     pfi->index_bt_of_ft[index_ft] = pbi->index_bt_local_squeezed;
     pfi->index_ft_local_squeezed = index_ft++;
   }
-  if (pbi->has_intrinsic_squeezed == _TRUE_) {
+  if (pbi->has_intrinsic_squeezed) {
     pfi->index_bt_of_ft[index_ft] = pbi->index_bt_intrinsic_squeezed;
     pfi->index_ft_intrinsic_squeezed = index_ft++;
   }
-  if (pbi->has_cosine_shape == _TRUE_) {
+  if (pbi->has_cosine_shape) {
     pfi->index_bt_of_ft[index_ft] = pbi->index_bt_cosine;
     pfi->index_ft_cosine = index_ft++;
   }
@@ -475,21 +475,21 @@ int fisher_indices (
   in the Fisher matrix. It is important to avoid duplicates as otherwise the Fisher
   matrix would be singular, and therefore impossible to be inverted to compute the effect
   of lensing variance. */
-  if (pfi->include_lensing_effects == _FALSE_) {
-    if (pbi->has_cmb_lensing == _TRUE_) {
+  if (!pfi->include_lensing_effects) {
+    if (pbi->has_cmb_lensing) {
       pfi->index_bt_of_ft[index_ft] = pbi->index_bt_cmb_lensing;
       pfi->index_ft_cmb_lensing = index_ft++;
     }
-    if (pbi->has_cmb_lensing_squeezed == _TRUE_) {
+    if (pbi->has_cmb_lensing_squeezed) {
       pfi->index_bt_of_ft[index_ft] = pbi->index_bt_cmb_lensing_squeezed;
       pfi->index_ft_cmb_lensing_squeezed = index_ft++;
     }
   }
-  if (pbi->has_cmb_lensing_kernel == _TRUE_) {
+  if (pbi->has_cmb_lensing_kernel) {
     pfi->index_bt_of_ft[index_ft] = pbi->index_bt_cmb_lensing_kernel;
     pfi->index_ft_cmb_lensing_kernel = index_ft++;
   }
-  if (pbi->has_intrinsic == _TRUE_) {
+  if (pbi->has_intrinsic) {
     pfi->index_bt_of_ft[index_ft] = pbi->index_bt_intrinsic;
     pfi->index_ft_intrinsic = index_ft++;
   }
@@ -709,7 +709,7 @@ int fisher_indices (
     }    
   }
 
-  if (pfi->include_lensing_effects == _TRUE_) {
+  if (pfi->include_lensing_effects) {
     
     int N = pfi->ff_size*pfi->ft_size;
 
@@ -748,7 +748,7 @@ int fisher_indices (
     grid (e.g. pfi->l3_size=1999 for for l_max=2000), while l1 is always sampled (e.g.
     pfi->l1_size=O(100) for l_max=2000). Therefore, using l1 intead of l3 allows us to
     compute the lensing variance correction a much smaller number of times */
-    if (pfi->compute_lensing_variance_lmax == _TRUE_) {
+    if (pfi->compute_lensing_variance_lmax) {
 
       class_alloc (pfi->fisher_matrix_lensvar_lmax, pfi->l1_size*sizeof(double **), pfi->error_message);
       class_alloc (pfi->inverse_fisher_matrix_lensvar_lmax, pfi->l1_size*sizeof(double **), pfi->error_message);
@@ -938,7 +938,7 @@ int fisher_indices (
 
   /* Initialise info strings */
   sprintf (pfi->info, "");
-  if (pfi->include_lensing_effects == _TRUE_)
+  if (pfi->include_lensing_effects)
     sprintf (pfi->info_lensvar, "");
   
 
@@ -979,10 +979,10 @@ int fisher_noise (
   for (int index_ff=0; index_ff < pfi->ff_size; ++index_ff) {
     for (int index_channel=0; index_channel < pfi->n_channels; ++index_channel) {
 
-      if ((pfi->has_fisher_t == _TRUE_) && (index_ff == pfi->index_ff_t))
+      if ((pfi->has_fisher_t) && (index_ff == pfi->index_ff_t))
         noise[index_ff][index_channel] = pfi->noise_t[index_channel];
 
-      if ((pfi->has_fisher_e == _TRUE_) && (index_ff == pfi->index_ff_e))
+      if ((pfi->has_fisher_e) && (index_ff == pfi->index_ff_e))
         noise[index_ff][index_channel] = pfi->noise_e[index_channel];
 
     }
@@ -1136,7 +1136,7 @@ int fisher_compute (
     
       class_calloc_parallel (pwf->delta_l3[thread], pbi->l_size, sizeof(double), pfi->error_message);
 
-    } if (abort == _TRUE_) return _FAILURE_; // end of parallel region
+    } if (abort) return _FAILURE_; // end of parallel region
   
   }
   
@@ -1221,7 +1221,7 @@ int fisher_compute (
   (2011, http://uk.arxiv.org/abs/1101.2234). See the documentation of
   fisher_lensing_variance() for further details */ 
 
-  if (pfi->include_lensing_effects == _TRUE_) {
+  if (pfi->include_lensing_effects) {
 
     printf_log_if (pfi->fisher_verbose, 0, 
       " -> adding lensing-induced noise according to arxiv:1101.2234\n");
@@ -1231,7 +1231,7 @@ int fisher_compute (
     // -                          As a function of l_min                             -
     // -------------------------------------------------------------------------------
 
-    if (pfi->compute_lensing_variance_lmax == _FALSE_) {
+    if (!pfi->compute_lensing_variance_lmax) {
       
       class_call (fisher_lensing_variance (
                     ppr, pba, ppt, pbs, ptr, ppm,
@@ -1369,7 +1369,7 @@ int fisher_compute (
         the Fisher matrix. This prevents us to fill the array fisher_matrix_XYZ_lmin
         and we thus leave it zero-valued. */
 
-        if (pfi->include_lensing_effects == _TRUE_) {
+        if (pfi->include_lensing_effects) {
 
           for (int C=0; C < pfi->ff_size; ++C) {
             for (int Z=0; Z < pfi->ff_size; ++Z) {
@@ -1478,7 +1478,7 @@ int fisher_compute (
   for (int index_ft_1=0; index_ft_1 < pfi->ft_size; ++index_ft_1) {
     for (int index_ft_2=0; index_ft_2 < pfi->ft_size; ++index_ft_2) {
   
-      if ((pfi->include_lensing_effects==_TRUE_)
+      if ((pfi->include_lensing_effects)
       && ((index_ft_1==pfi->index_ft_cmb_lensing_kernel)
       || (index_ft_2==pfi->index_ft_cmb_lensing_kernel)))
         continue;
@@ -1529,7 +1529,7 @@ int fisher_compute (
       sprintf (pfi->info, "%s)\n", pfi->info);
     }
 
-    if (pfi->include_lensing_effects == _TRUE_) {
+    if (pfi->include_lensing_effects) {
       
       sprintf (pfi->info_lensvar, "%sFisher matrix for l_max = %d:\n",
         pfi->info_lensvar, MIN (pfi->l_max_estimator, pbi->l_max));
@@ -1569,7 +1569,7 @@ int fisher_compute (
       sprintf (pfi->info, "%s)\n", pfi->info);
     }
 
-    if (pfi->include_lensing_effects == _TRUE_) {
+    if (pfi->include_lensing_effects) {
       
       sprintf (pfi->info_lensvar, "%sCorrelation matrix for l_max = %d:\n",
         pfi->info_lensvar, MIN (pfi->l_max_estimator, pbi->l_max));
@@ -1608,7 +1608,7 @@ int fisher_compute (
       sprintf (pfi->info, "%s)\n", pfi->info);
     }
     
-    if (pfi->include_lensing_effects == _TRUE_) {
+    if (pfi->include_lensing_effects) {
     
       sprintf (pfi->info_lensvar, "%sReciprocal of the inverse Fisher matrix:\n", pfi->info_lensvar);
     
@@ -1651,7 +1651,7 @@ int fisher_compute (
       sprintf (pfi->info, "%s)\n", pfi->info);
     }
     
-    if (pfi->include_lensing_effects == _TRUE_) {
+    if (pfi->include_lensing_effects) {
     
       sprintf (pfi->info_lensvar, "%sfnl matrix:\n", pfi->info_lensvar);
     
@@ -1708,7 +1708,7 @@ int fisher_compute (
   printf_log ("%s", pfi->info);
   printf_log ("\n");
   
-  if (pfi->include_lensing_effects == _TRUE_) {
+  if (pfi->include_lensing_effects) {
     printf_log (" -> optimal estimator including lensing variance:\n");
     printf_log ("\n");
     printf_log ("%s", pfi->info_lensvar);
@@ -1867,7 +1867,7 @@ int fisher_compute_matrix (
           is l1 and not l3. */
           double threej_ratio_20m2, threej_ratio_m220, threej_ratio_0m22;
 
-          if (pbi->need_3j_symbols == _TRUE_) {          
+          if (pbi->need_3j_symbols) {          
 
             class_call_parallel (threej_ratio_M (l1, l2, l3, 2, &threej_ratio_0m22, pbi->error_message),
               pbi->error_message, pbi->error_message);
@@ -2061,13 +2061,13 @@ int fisher_compute_matrix (
                 /* Increment the array needed to compute the lensing variance. This is equivalent to
                 \bar{F} in Eq. 5.25 of http://uk.arxiv.org/abs/1101.2234. We do not include the
                 interpolation weight because we have to process the array before summing over it.  */
-                if (pfi->include_lensing_effects == _TRUE_) {
+                if (pfi->include_lensing_effects) {
                   
                   pfi->fisher_matrix_CZ_smallest[index_l1][index_ft_1*pfi->ff_size+C][index_ft_2*pfi->ff_size+Z]
                     += fisher;
                   
                   /* Store information on l3 in order to compute the lensing variance as a function of l_max */
-                  if (pfi->compute_lensing_variance_lmax == _TRUE_)
+                  if (pfi->compute_lensing_variance_lmax)
                     pfi->fisher_matrix_CZ_smallest_largest[index_l1][l3-2][index_ft_1*pfi->ff_size+C][index_ft_2*pfi->ff_size+Z]
                       += fisher;
  
@@ -2093,7 +2093,7 @@ int fisher_compute_matrix (
 
     } // for(index_l1)
     
-  } if (abort == _TRUE_) return _FAILURE_; // end of parallel region
+  } if (abort) return _FAILURE_; // end of parallel region
   
   free (interpolated_bispectra);
   
@@ -2318,7 +2318,7 @@ int fisher_compute_matrix_nodes (
         } // end of for(index_l3)
       } // end of for(index_l2)
     } // end of for(index_l1)
-  } if (abort == _TRUE_) return _FAILURE_; // end of parallel region
+  } if (abort) return _FAILURE_; // end of parallel region
       
   /* Include the effect of partial sky coverage and symmetrise the Fisher matrix */
   class_call (fisher_sky_coverage(pfi), pfi->error_message, pfi->error_message);
@@ -2507,7 +2507,7 @@ int fisher_sky_coverage (
   }}}}}}
 
   /* Do the same for F_bar(l3,C,Z), which is needed to compute the lensing variance correction */
-  if (pfi->include_lensing_effects == _TRUE_) {
+  if (pfi->include_lensing_effects) {
   
     for (int index_l1=0; index_l1<pfi->l1_size; ++index_l1) {
       for (int Z = 0; Z < pfi->ff_size; ++Z) {
@@ -2527,7 +2527,7 @@ int fisher_sky_coverage (
     //         pfi->fisher_matrix_CZ_smallest[index_l1][j][i] = pfi->fisher_matrix_CZ_smallest[index_l1][i][j];
     // }}}
 
-    if (pfi->compute_lensing_variance_lmax == _TRUE_) {
+    if (pfi->compute_lensing_variance_lmax) {
       for (int index_l1=0; index_l1<pfi->l1_size; ++index_l1) {
         for (int index_l3=0; index_l3<pfi->l3_size; ++index_l3) {
           for (int Z = 0; Z < pfi->ff_size; ++Z) {
@@ -2608,7 +2608,7 @@ int fisher_cross_cls (
     for (int Y=0; Y < pfi->ff_size; ++Y)
       index_cls[X][Y] = pfi->index_ct_of_ff_ff[X][Y];
 
-  if (pfi->include_lensing_effects == _TRUE_) {
+  if (pfi->include_lensing_effects) {
   
     cls = pbi->lensed_cls;
     for (int X=0; X < pfi->ff_size; ++X)
@@ -2770,9 +2770,9 @@ int fisher_lensing_variance (
       matrix elements of the local and intrinsic bispectra. */
       int l1_max = 0;
     
-      if (pfi->has_fisher_t == _TRUE_)
+      if (pfi->has_fisher_t)
         l1_max = MAX (l1_max, pbi->lmax_lensing_corrT);
-      if (pfi->has_fisher_e == _TRUE_)
+      if (pfi->has_fisher_e)
         l1_max = MAX (l1_max, pbi->lmax_lensing_corrE);
     
       if (l1>l1_max)
@@ -2785,7 +2785,7 @@ int fisher_lensing_variance (
         if (fabs(f_bar[i][i]) > _MINUSCULE_)
           skip = _FALSE_;
 
-      if (skip == _TRUE_) {
+      if (skip) {
         printf_log_if (pfi->fisher_verbose, 2, 
           "     * skipping the contribution from l1=%d to the lensing variance (Fisher matrix too small)\n", l1);        
         goto lensing_variance_final_step;
@@ -2871,13 +2871,13 @@ int fisher_lensing_variance (
           //     C_ZP*C_CP/(2*l1+1),
           //     C_tot_CZ*C_PP/(2*l1+1),
           //     inverse_f_bar[index_C][index_Z],
-          //     (pbi->has_intrinsic==_TRUE_)?
+          //     (pbi->has_intrinsic)?
           //     C_ZP*C_CP*inverse_f_bar[pfi->index_ft_intrinsic*pfi->ff_size+C]
           //     [pfi->index_ft_intrinsic*pfi->ff_size+Z]:0,
-          //     (pbi->has_intrinsic_squeezed==_TRUE_)?
+          //     (pbi->has_intrinsic_squeezed)?
           //     C_ZP*C_CP*inverse_f_bar[pfi->index_ft_intrinsic_squeezed*pfi->ff_size+C]
           //     [pfi->index_ft_intrinsic_squeezed*pfi->ff_size+Z]:0,
-          //     (pbi->has_local_model==_TRUE_)?
+          //     (pbi->has_local_model)?
           //     C_ZP*C_CP*inverse_f_bar[pfi->index_ft_local*pfi->ff_size+C]
           //     [pfi->index_ft_local*pfi->ff_size+Z]:0
           //   );
@@ -2976,7 +2976,7 @@ int fisher_lensing_variance (
     free (inverse_f[thread]);
     free (f[thread]);
     
-  } if (abort == _TRUE_) return _FAILURE_; // end of parallel region
+  } if (abort) return _FAILURE_; // end of parallel region
 
   free (inverse_f);
   free (f);

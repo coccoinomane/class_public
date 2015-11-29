@@ -76,7 +76,7 @@ int bessel_init(
 		)
 {
 
-  if ((pbs->l_max==0) || (ptr->has_cls==_FALSE_)) {
+  if ((pbs->l_max==0) || !ptr->has_cls) {
 
     if (pbs->bessels_verbose > 0)
       printf_log("Bessel module skipped.\n");
@@ -101,7 +101,7 @@ int bessel_init(
   /* In the bispectrum integral the upper limit in the time variable is r_max rather
   than tau0. Here we scale the Bessels domain so that it includes the integration domain
   of the bispectrum. */
-  if (pbs->has_cmb_bispectra == _TRUE_) {
+  if (pbs->has_cmb_bispectra) {
 
     double r_max;
 
@@ -143,7 +143,7 @@ int bessel_init(
   class_alloc(pbs->x_min,pbs->l_size*sizeof(double*),pbs->error_message);
   class_alloc(pbs->j,pbs->l_size*sizeof(double*),pbs->error_message);
   class_alloc(pbs->ddj,pbs->l_size*sizeof(double*),pbs->error_message);
-  if (pbs->has_dj == _TRUE_) {
+  if (pbs->has_dj) {
     class_alloc(pbs->dj,pbs->l_size*sizeof(double*),pbs->error_message);
     class_alloc(pbs->dddj,pbs->l_size*sizeof(double*),pbs->error_message);
   }
@@ -174,7 +174,7 @@ int bessel_init(
 
   } /* end of parallel region */
 
-  if (abort == _TRUE_) return _FAILURE_;
+  if (abort) return _FAILURE_;
 
   pbs->x_size_max=0;
   for (index_l=0; index_l < pbs->l_size; index_l++)
@@ -495,7 +495,7 @@ int bessel_free(
     free(pbs->x_min);
     free(pbs->j);
     free(pbs->ddj);
-    if (pbs->has_dj == _TRUE_) {
+    if (pbs->has_dj) {
       free(pbs->dj);
       free(pbs->dddj);
     }
@@ -637,7 +637,7 @@ int bessel_j_for_l(
 
   /** - allocate memory for x_min[index_l], j[index_l], ddj[index_l] in such way that they stand in a contiguous memory location */
 
-  if (pbs->has_dj == _TRUE_) {
+  if (pbs->has_dj) {
     num_j = 4;
   }
   else {
@@ -651,7 +651,7 @@ int bessel_j_for_l(
   pbs->x_min[index_l] = pbs->buffer[index_l];
   pbs->j[index_l] = pbs->buffer[index_l]+1;
   pbs->ddj[index_l] = pbs->j[index_l] + pbs->x_size[index_l];
-  if (pbs->has_dj == _TRUE_) {
+  if (pbs->has_dj) {
     pbs->dj[index_l] = pbs->ddj[index_l] + pbs->x_size[index_l];
     pbs->dddj[index_l] = pbs->dj[index_l] + pbs->x_size[index_l];
   }
@@ -663,7 +663,7 @@ int bessel_j_for_l(
     *(pbs->x_min[index_l]) = pbs->x_max;
     pbs->j[index_l][0]=0.;
     pbs->ddj[index_l][0]=0.;
-    if (pbs->has_dj == _TRUE_) {
+    if (pbs->has_dj) {
       pbs->dj[index_l][0]=0.;
       pbs->dddj[index_l][0]=0.;
     }
@@ -688,7 +688,7 @@ int bessel_j_for_l(
     pbs->ddj[index_l][0] = - 2./x_min*jprime 
       + (pbs->l[index_l]*(pbs->l[index_l]+1)/x_min/x_min-1.)*j; /* j_l'' = -2/x j_l' + (l(l+1)/x/x-1)*j */
 
-    if (pbs->has_dj == _TRUE_) {
+    if (pbs->has_dj) {
 
       pbs->dj[index_l][0] = jprime; 
 
@@ -723,7 +723,7 @@ int bessel_j_for_l(
       pbs->ddj[index_l][index_x] = - 2./x*jprime 
         + (pbs->l[index_l]*(pbs->l[index_l]+1)/x/x-1.)*j; /* j_l'' = -2/x j_l' + (l(l+1)/x/x-1)*j */
 
-      if (pbs->has_dj == _TRUE_) {
+      if (pbs->has_dj) {
 
         pbs->dj[index_l][index_x] = jprime; 
 

@@ -149,7 +149,7 @@ int bispectra_init (
 {
 
   /* Check whether we need to compute bispectra at all */  
-  if (ppt->has_cmb_bispectra == _FALSE_) {
+  if (!ppt->has_cmb_bispectra) {
 
     pbi->has_bispectra = _FALSE_;
 
@@ -404,7 +404,7 @@ int bispectra_at_node (
                               [XYZ[order[1]]]
                               [index_l1_l2_l3];
   
-  if ((bispectrum_unlensed != NULL) && (pbi->lens_me[index_bt] == _TRUE_)) {
+  if ((bispectrum_unlensed != NULL) && (pbi->lens_me[index_bt])) {
 
     double correction = pbi->lensing_correction[index_bt]
                                                [XYZ[order[3]]]
@@ -423,7 +423,7 @@ int bispectra_at_node (
 
       *bispectrum = 0;
 
-      if ((bispectrum_unlensed != NULL) && (pbi->lens_me[index_bt] == _TRUE_))
+      if ((bispectrum_unlensed != NULL) && (pbi->lens_me[index_bt]))
         *bispectrum_unlensed = 0;
   }
   
@@ -493,7 +493,7 @@ int bispectra_at_l3_linear (
         
     *bispectrum = 0;
     
-    if ((bispectrum_unlensed != NULL) && (pbi->lens_me[index_bt] == _TRUE_))
+    if ((bispectrum_unlensed != NULL) && (pbi->lens_me[index_bt]))
       *bispectrum_unlensed = 0;
     
     class_stop (pbi->error_message, "found l3_size=%d for index_l1=%d, index_l2=%d",
@@ -530,7 +530,7 @@ int bispectra_at_l3_linear (
 
   else if (l3 < l3_min) {
 
-    if (extrapolate == _FALSE_) {
+    if (!extrapolate) {
 
       class_call (bispectra_at_node (
                     pbi,
@@ -574,7 +574,7 @@ int bispectra_at_l3_linear (
       double slope = (b_second-b_first)/(double)(l3_second-l3_first);
       *bispectrum = b_first - (l3_first-l3) * slope;
    
-      if ((bispectrum_unlensed != NULL) && (pbi->lens_me[index_bt] == _TRUE_)) {
+      if ((bispectrum_unlensed != NULL) && (pbi->lens_me[index_bt])) {
         double slope = (b_second_unlensed-b_first_unlensed)/(double)(l3_second-l3_first);
         *bispectrum_unlensed = b_first_unlensed - (l3_first-l3) * slope;
       }
@@ -590,7 +590,7 @@ int bispectra_at_l3_linear (
   
   else if (l3 > l3_max) {
     
-    if (extrapolate == _FALSE_) {
+    if (!extrapolate) {
     
       class_call (bispectra_at_node (
                     pbi,
@@ -634,7 +634,7 @@ int bispectra_at_l3_linear (
       double slope = (b_last-b_penultimate)/(double)(l3_last-l3_penultimate);
       *bispectrum = b_last + (l3-l3_last) * slope;
     
-      if ((bispectrum_unlensed != NULL) && (pbi->lens_me[index_bt] == _TRUE_)) {
+      if ((bispectrum_unlensed != NULL) && (pbi->lens_me[index_bt])) {
         double slope = (b_last_unlensed-b_penultimate_unlensed)/(double)(l3_last-l3_penultimate);
         *bispectrum_unlensed = b_last_unlensed + (l3-l3_last) * slope;
       }
@@ -710,7 +710,7 @@ int bispectra_at_l3_linear (
   
   *bispectrum = a*b_left + (1-a)*b_right;
 
-  if ((bispectrum_unlensed != NULL) && (pbi->lens_me[index_bt] == _TRUE_))
+  if ((bispectrum_unlensed != NULL) && (pbi->lens_me[index_bt]))
     *bispectrum_unlensed = a*b_left_unlensed + (1-a)*b_right_unlensed;
 
   /* Debug: print interpolation quantities for a specific (l1,l2,l3) */
@@ -1056,7 +1056,7 @@ int bispectra_at_l2l3_bilinear (
     double a = (l2_right - l2)/(double)(l2_right - l2_left);
     *bispectrum = a*b_left + (1-a)*b_right;
 
-    if ((bispectrum_unlensed != NULL) && (pbi->lens_me[index_bt] == _TRUE_))
+    if ((bispectrum_unlensed != NULL) && (pbi->lens_me[index_bt]))
       *bispectrum_unlensed = a*b_left_unlensed + (1-a)*b_right_unlensed;
 
   } // if (RECTANGULAR)
@@ -1137,7 +1137,7 @@ int bispectra_at_l2l3_bilinear (
     /* Linear interpolation */
     *bispectrum = a*b_left + (1-a)*b_right; 
 
-    if ((bispectrum_unlensed != NULL) && (pbi->lens_me[index_bt] == _TRUE_))
+    if ((bispectrum_unlensed != NULL) && (pbi->lens_me[index_bt]))
       *bispectrum_unlensed = a*b_left_unlensed + (1-a)*b_right_unlensed;
 
     /* Debug: print l2 values and limits */
@@ -1229,7 +1229,7 @@ int bispectra_at_l2l3_bilinear (
       double slope = (b_last-b_penultimate)/(double)(l2_last-l2_penultimate);
       *bispectrum = b_last + (l2-l2_last) * slope;
 
-      if ((bispectrum_unlensed != NULL) && (pbi->lens_me[index_bt] == _TRUE_)) {
+      if ((bispectrum_unlensed != NULL) && (pbi->lens_me[index_bt])) {
         double slope = (b_last_unlensed-b_penultimate_unlensed)/(double)(l2_last-l2_penultimate);
         *bispectrum_unlensed = b_last_unlensed + (l2-l2_last) * slope;
       }
@@ -1303,7 +1303,7 @@ int bispectra_at_l2l3_bilinear (
       double slope = (b_second-b_first)/(double)(l2_second-l2_first);
       *bispectrum = b_first - (l2_first-l2) * slope;
 
-      if ((bispectrum_unlensed != NULL) && (pbi->lens_me[index_bt] == _TRUE_)) {
+      if ((bispectrum_unlensed != NULL) && (pbi->lens_me[index_bt])) {
         double slope = (b_second_unlensed-b_first_unlensed)/(double)(l2_second-l2_first);
         *bispectrum_unlensed = b_first_unlensed - (l2_first-l2) * slope;
       }
@@ -1357,7 +1357,7 @@ int bispectra_at_l2l3 (
     "inconsistent input: (l1=%d) != (pbi->l[%d]=%d)", l1, index_l1, pbi->l[index_l1]);
     
   class_test (bispectrum_unlensed != NULL &&
-              pbi->lens_me[index_bt] == _TRUE_ &&
+              pbi->lens_me[index_bt] &&
               pbi->interpolation_method != bilinear_interpolation,
     pbi->error_message,
     "to interpolate the unlensed bispectrum use bilinear interpolation (TODO: extend to mesh)");
@@ -1502,7 +1502,7 @@ int bispectra_free(
      )
 {
 
-  if (pbi->has_bispectra == _TRUE_) {
+  if (pbi->has_bispectra) {
 
     free(pbi->bt_labels);
     free(pbi->bf_labels);
@@ -1549,7 +1549,7 @@ int bispectra_free(
     free (pbi->bispectra_available);
     
     /* Arrays specific to the primordial models */
-    if ((pbi->has_local_model == _TRUE_) || (pbi->has_equilateral_model == _TRUE_) || (pbi->has_orthogonal_model == _TRUE_)) {
+    if ((pbi->has_local_model) || (pbi->has_equilateral_model) || (pbi->has_orthogonal_model)) {
         
       for (int index_bf=0; index_bf < pbi->bf_size; ++index_bf) {
         for (int index_l=0; index_l<pbi->l_size; ++index_l) {    
@@ -1563,7 +1563,7 @@ int bispectra_free(
       free (pbi->beta);
     } // end of local model
 
-    if ((pbi->has_equilateral_model == _TRUE_) || (pbi->has_orthogonal_model == _TRUE_)) {
+    if ((pbi->has_equilateral_model) || (pbi->has_orthogonal_model)) {
   
       for (int index_bf=0; index_bf < pbi->bf_size; ++index_bf) {
         for (int index_l=0; index_l<pbi->l_size; ++index_l) {    
@@ -1585,13 +1585,13 @@ int bispectra_free(
     for (int index_ct=0; index_ct < psp->ct_size; ++index_ct)
       free (pbi->d_lsq_cls[index_ct]);
     free (pbi->d_lsq_cls);
-    if (ppr->extend_lensed_cls == _TRUE_) {
+    if (ppr->extend_lensed_cls) {
       for (int index_lt=0; index_lt < ple->lt_size; ++index_lt)
         free (pbi->lensed_d_lsq_cls[index_lt]);
       free (pbi->lensed_d_lsq_cls);
     }
     
-    if (ppr->extend_lensed_cls == _TRUE_) {
+    if (ppr->extend_lensed_cls) {
       for (int index_lt=0; index_lt < ple->lt_size; ++index_lt)
         free (pbi->lensed_cls[index_lt]);
       free (pbi->lensed_cls);
@@ -1658,7 +1658,7 @@ int bispectra_free_type_level(
   free (pbi->bispectra[index_bt]);
 
 
-  if (pbi->lens_me[index_bt] == _TRUE_) {
+  if (pbi->lens_me[index_bt]) {
     
     for (int X = 0; X < pbi->bf_size; ++X) {
       for (int Y = 0; Y < pbi->bf_size; ++Y) {
@@ -1835,7 +1835,7 @@ int bispectra_indices (
     sizeof(char),
     pbi->error_message);
     
-  if (ppt->has_bi_cmb_temperature == _TRUE_) {
+  if (ppt->has_bi_cmb_temperature) {
     pbi->has_bispectra_t = _TRUE_;
     strcpy (pbi->bf_labels[index_bf], "t");
     pbi->field_parity[index_bf] = _EVEN_;
@@ -1843,7 +1843,7 @@ int bispectra_indices (
     pbi->index_bf_t = index_bf++;
   }
   
-  if (ppt->has_bi_cmb_polarization == _TRUE_) {
+  if (ppt->has_bi_cmb_polarization) {
     pbi->has_bispectra_e = _TRUE_;
     strcpy (pbi->bf_labels[index_bf], "e");
     pbi->field_parity[index_bf] = _EVEN_;
@@ -1883,34 +1883,34 @@ int bispectra_indices (
   spectra.c module. */
   for (int X = 0; X < pbi->bf_size; ++X) {
     
-    if ((pbi->has_bispectra_t == _TRUE_) && (X == pbi->index_bf_t)) {
+    if ((pbi->has_bispectra_t) && (X == pbi->index_bf_t)) {
       pbi->index_tt_of_bf[X] = ptr->index_tt_t;
       pbi->index_ct_of_phi_bf[X] = psp->index_ct_tp;
       pbi->index_ct_of_t_bf[X] = psp->index_ct_tt;
       pbi->index_ct_of_bf_bf[X][X] = psp->index_ct_tt;
-      if (ppt->has_cl_cmb_zeta == _TRUE_)
+      if (ppt->has_cl_cmb_zeta)
         pbi->index_ct_of_zeta_bf[X] = psp->index_ct_tz;
-      if (ppr->extend_lensed_cls == _TRUE_)
+      if (ppr->extend_lensed_cls)
         pbi->index_lt_of_bf_bf[X][X] = ple->index_lt_tt;
     }
 
-    if ((pbi->has_bispectra_e == _TRUE_) && (X == pbi->index_bf_e)) {
+    if ((pbi->has_bispectra_e) && (X == pbi->index_bf_e)) {
       pbi->index_tt_of_bf[X] = ptr->index_tt_e;
       pbi->index_ct_of_phi_bf[X] = psp->index_ct_ep;
       pbi->index_ct_of_t_bf[X] = psp->index_ct_te;
       pbi->index_ct_of_bf_bf[X][X] = psp->index_ct_ee;
-      if (ppt->has_cl_cmb_zeta == _TRUE_)
+      if (ppt->has_cl_cmb_zeta)
         pbi->index_ct_of_zeta_bf[X] = psp->index_ct_ez;
-      if (ppr->extend_lensed_cls == _TRUE_)
+      if (ppr->extend_lensed_cls)
         pbi->index_lt_of_bf_bf[X][X] = ple->index_lt_ee;
     }
 
     for (int Y = 0; Y < pbi->bf_size; ++Y) {
-      if (((pbi->has_bispectra_t == _TRUE_) && (X == pbi->index_bf_t))
-       && ((pbi->has_bispectra_e == _TRUE_) && (Y == pbi->index_bf_e))) {
+      if (((pbi->has_bispectra_t) && (X == pbi->index_bf_t))
+       && ((pbi->has_bispectra_e) && (Y == pbi->index_bf_e))) {
 
         pbi->index_ct_of_bf_bf[X][Y] = pbi->index_ct_of_bf_bf[Y][X] = psp->index_ct_te;
-        if (ppr->extend_lensed_cls == _TRUE_)
+        if (ppr->extend_lensed_cls)
           pbi->index_lt_of_bf_bf[X][Y] = pbi->index_lt_of_bf_bf[Y][X] = ple->index_lt_te;
       }
     }
@@ -2007,7 +2007,7 @@ int bispectra_indices (
   // -                               Analytic bispectra                            -
   // -------------------------------------------------------------------------------
 
-  if (pbi->has_cmb_lensing == _TRUE_) {
+  if (pbi->has_cmb_lensing) {
     pbi->index_bt_cmb_lensing = index_bt;
     strcpy (pbi->bt_labels[index_bt], "cmb_lensing");
     pbi->bispectrum_type[index_bt] = analytical_bispectrum;
@@ -2022,7 +2022,7 @@ int bispectra_indices (
     index_bt++;
   }
   
-  if (pbi->has_quadratic_correction == _TRUE_) {
+  if (pbi->has_quadratic_correction) {
     pbi->index_bt_quadratic = index_bt;
     strcpy (pbi->bt_labels[index_bt], "quadratic");
     pbi->bispectrum_type[index_bt] = analytical_bispectrum;
@@ -2033,7 +2033,7 @@ int bispectra_indices (
     index_bt++;
   }
   
-  if (pbi->has_local_squeezed == _TRUE_) {
+  if (pbi->has_local_squeezed) {
     pbi->index_bt_local_squeezed = index_bt;
     strcpy (pbi->bt_labels[index_bt], "local_sqz");
     pbi->bispectrum_type[index_bt] = analytical_bispectrum;
@@ -2044,7 +2044,7 @@ int bispectra_indices (
     index_bt++;
   }
 
-  if (pbi->has_intrinsic_squeezed == _TRUE_) {
+  if (pbi->has_intrinsic_squeezed) {
     pbi->index_bt_intrinsic_squeezed = index_bt;
     strcpy (pbi->bt_labels[index_bt], "intrinsic_sqz");
     pbi->bispectrum_type[index_bt] = analytical_bispectrum;
@@ -2055,7 +2055,7 @@ int bispectra_indices (
     index_bt++;
   }
 
-  if (pbi->has_cmb_lensing_squeezed == _TRUE_) {
+  if (pbi->has_cmb_lensing_squeezed) {
     pbi->index_bt_cmb_lensing_squeezed = index_bt;
     strcpy (pbi->bt_labels[index_bt], "cmb_lensing_sqz");
     pbi->bispectrum_type[index_bt] = analytical_bispectrum;
@@ -2071,7 +2071,7 @@ int bispectra_indices (
   will be multiplied by C_l^{X\phi} to give the actual squeezed bispectrum (see
   eq. 5.20 of http://uk.arxiv.org/abs/1101.2234); it will therefore show up as
   CMB-lensing_sqz rather than kernel_sqz. */
-  if (pbi->has_cmb_lensing_kernel == _TRUE_) {
+  if (pbi->has_cmb_lensing_kernel) {
     pbi->index_bt_cmb_lensing_kernel = index_bt;
     strcpy (pbi->bt_labels[index_bt], "cmb_lensing_sqz");
     pbi->bispectrum_type[index_bt] = analytical_bispectrum;
@@ -2082,7 +2082,7 @@ int bispectra_indices (
     index_bt++;
   }
   
-  if (pbi->has_cosine_shape == _TRUE_) {
+  if (pbi->has_cosine_shape) {
     pbi->index_bt_cosine = index_bt;
     strcpy (pbi->bt_labels[index_bt], "cosine");
     pbi->bispectrum_type[index_bt] = analytical_bispectrum;
@@ -2093,7 +2093,7 @@ int bispectra_indices (
     index_bt++;
   }
 
-  if (pbi->has_test_bispectrum == _TRUE_) {
+  if (pbi->has_test_bispectrum) {
     pbi->index_bt_test = index_bt;
     strcpy (pbi->bt_labels[index_bt], "lensing_test");
     pbi->bispectrum_type[index_bt] = analytical_bispectrum;
@@ -2109,7 +2109,7 @@ int bispectra_indices (
   // -                             Second-order bispectra                          -
   // -------------------------------------------------------------------------------
 
-  if (pbi->has_intrinsic == _TRUE_) {
+  if (pbi->has_intrinsic) {
     pbi->index_bt_intrinsic = index_bt;
     strcpy (pbi->bt_labels[index_bt], "intrinsic");
     pbi->bispectrum_type[index_bt] = intrinsic_bispectrum;
@@ -2126,17 +2126,17 @@ int bispectra_indices (
    pbi->error_message);
 
 #ifndef WITH_SONG2
-   class_test (pbi->has_intrinsic == _TRUE_,
+   class_test (pbi->has_intrinsic,
      pbi->error_message,
      "cannot compute the intrinsic bispectrum without SONG support\n");
 #endif // WITH_SONG2
 
   /* Are the Wigner 3j-symbols needed to compute the requested bispectra? */
   pbi->need_3j_symbols = ((pbi->has_bispectra_e) &&
-    ((pbi->has_quadratic_correction == _TRUE_) ||
-     (pbi->has_cmb_lensing == _TRUE_) ||
-     (pbi->has_cmb_lensing_squeezed == _TRUE_) ||
-     (pbi->has_cmb_lensing_kernel == _TRUE_)));
+    ((pbi->has_quadratic_correction) ||
+     (pbi->has_cmb_lensing) ||
+     (pbi->has_cmb_lensing_squeezed) ||
+     (pbi->has_cmb_lensing_kernel)));
 
 
   
@@ -2368,7 +2368,7 @@ int bispectra_indices (
       
     }
 
-    if (ppr->store_bispectra == _TRUE_)
+    if (ppr->store_bispectra)
       printf_log_if (pbi->bispectra_verbose, 1, 
         "     * will create %d files for the bispectra\n", pbi->bt_size);
       
@@ -2446,7 +2446,7 @@ int bispectra_indices (
     l are used and there is effectively no interpolation. However, if we use an all even
     l-grid, the actual step between one multipole and the other is doubled, as the odd
     l are skipped. */
-    if ((l_linstep==1) && (ppr->compute_only_even_ls==_TRUE_))
+    if ((l_linstep==1) && (ppr->compute_only_even_ls))
       l_linstep = 2;
 
     pbi->mesh_link_lengths[1] = 0.5/sqrt(2) * l_linstep;
@@ -2580,7 +2580,7 @@ int bispectra_cls (
     class_calloc (pbi->d_lsq_cls[index_ct], pbi->full_l_size, sizeof(double), pbi->error_message);
 
   /* If they have been computed, also store the lensed C_l up to l_max */
-  if (ppr->extend_lensed_cls == _TRUE_) {
+  if (ppr->extend_lensed_cls) {
 
     class_alloc (pbi->lensed_cls, ple->lt_size*sizeof(double*), pbi->error_message);
     for (int index_lt=0; index_lt < ple->lt_size; ++index_lt)
@@ -2637,7 +2637,7 @@ int bispectra_cls (
 
     /* Store the lensed C_l up to l_max, if they have been computed. Note that for the
     lensing potential C_l we shall always use the unlensed array pbi->cls. */
-    if (ppr->extend_lensed_cls == _TRUE_) {
+    if (ppr->extend_lensed_cls) {
 
         /* The lensed C_l's must have been computed up to the maximum required multipole,
         that is, up to pbi->l_max. This check is made inside lensing_cl_at_l() */
@@ -2664,15 +2664,15 @@ int bispectra_cls (
     l, but it will considerably speed up the lensing variance computations in the Fisher
     module. In CAMB, Antony sets C_l^TP=0 for l>300 and C_l^EP=0 for l>40. */
 
-    if ((ppt->has_cl_cmb_lensing_potential == _TRUE_) && (ppt->has_scalars == _TRUE_)) {
+    if ((ppt->has_cl_cmb_lensing_potential) && (ppt->has_scalars)) {
 
       pbi->lmax_lensing_corrT = 300;
       pbi->lmax_lensing_corrE = 300;
 
-      if ((l > pbi->lmax_lensing_corrT) && (pbi->has_bispectra_t == _TRUE_))
+      if ((l > pbi->lmax_lensing_corrT) && (pbi->has_bispectra_t))
         pbi->cls[psp->index_ct_tp][l-2] = 0;
 
-      if ((l > pbi->lmax_lensing_corrE) && (pbi->has_bispectra_e == _TRUE_))
+      if ((l > pbi->lmax_lensing_corrE) && (pbi->has_bispectra_e))
         pbi->cls[psp->index_ct_ep][l-2] = 0;
     }
 
@@ -2753,7 +2753,7 @@ int bispectra_cls (
   } // end of loop on index_ct
   
   /* Do the same for the lensed C_l's */
-  if (ppr->extend_lensed_cls == _TRUE_) {
+  if (ppr->extend_lensed_cls) {
   
     for (int index_lt=0; index_lt < ple->lt_size; ++index_lt) {
 
@@ -3226,7 +3226,7 @@ int bispectra_output_l2l3 (
           sprintf (line, "This file was generated by SONG %s (%s) on %s.", _SONG_VERSION_, _SONG_URL_, ppr->date);
           fprintf_2way (1, file_1D, 0, file_2D, 0, "%s%s\n", _COMMENT_, line);
           fprintf_2way (1, file_1D, 0, file_2D, 0, "%s\n", _COMMENT_);
-          if (pbi->has_lensed_bispectra == _TRUE_) {
+          if (pbi->has_lensed_bispectra) {
             sprintf (line, "The suffix _u denotes unlensed bispectra.");
             fprintf_2way (1, file_1D, 0, file_2D, 0, "%s%s\n", _COMMENT_, line);
           }
@@ -3363,7 +3363,7 @@ int bispectra_output_l2l3 (
                 sprintf (label[++i], "%s", pbi->bt_labels[index_bt]);
                 value[i] = bispectrum[index_bt];
 
-                if (pbi->lens_me[index_bt] == _TRUE_) {
+                if (pbi->lens_me[index_bt]) {
                   sprintf (label[++i], "%s_u", pbi->bt_labels[index_bt]);
                   value[i] = bispectrum_unlensed[index_bt];
                 }
@@ -3485,7 +3485,7 @@ int bispectra_output_l2l3 (
 
           /* Output a 2D file where (l2,l3) can take any allowed value, using interpolation */
           
-          if (output_interpolated_bispectrum == _TRUE_) {
+          if (output_interpolated_bispectrum) {
           
             FILE * file_2D_interpolated;
             char * file_path_2D_interpolated;
@@ -3593,7 +3593,7 @@ int bispectra_output_l2l3 (
                   sprintf (label[++i], "%s", pbi->bt_labels[index_bt]);
                   value[i] = bispectrum[index_bt];
 
-                  if (pbi->lens_me[index_bt] == _TRUE_) {
+                  if (pbi->lens_me[index_bt]) {
                     sprintf (label[++i], "%s_u", pbi->bt_labels[index_bt]);
                     value[i] = bispectrum_unlensed[index_bt];
                   }
@@ -3853,7 +3853,7 @@ int bispectra_output_l1l2l3 (
       file->error_message,
       pbi->error_message);
 
-  if (ppr->extend_lensed_cls == _TRUE_) {
+  if (ppr->extend_lensed_cls) {
 
     sprintf (desc, "lensed C_l: cls[index_ct][index_l] with index_ct < psp->ct_size, index_l < pbi->full_l_size");
     sprintf (name, "pbi->lensed_cls");
@@ -4313,9 +4313,9 @@ int bispectra_separable_workspace_init (
   // -------------------------------------------------------
   
   /* The alpha and beta functions need to be computed for all models */      
-  if ((pbi->has_local_model == _TRUE_) ||
-      (pbi->has_equilateral_model == _TRUE_) ||
-      (pbi->has_orthogonal_model == _TRUE_)) {
+  if ((pbi->has_local_model) ||
+      (pbi->has_equilateral_model) ||
+      (pbi->has_orthogonal_model)) {
 
     class_alloc (pbi->alpha, pbi->bf_size*sizeof(double **), pbi->error_message);
     class_alloc (pbi->beta, pbi->bf_size*sizeof(double **), pbi->error_message);
@@ -4346,7 +4346,7 @@ int bispectra_separable_workspace_init (
       class_calloc_parallel (pwb->beta_integrand[thread], ptr->q_size, sizeof(double), pbi->error_message);      
     }
 
-    if (abort == _TRUE_)
+    if (abort)
       return _FAILURE_;
     
   } // end of if all models
@@ -4357,7 +4357,7 @@ int bispectra_separable_workspace_init (
   // -          Specific to equilateral & orthogonal         -
   // ---------------------------------------------------------
 
-  if ((pbi->has_equilateral_model == _TRUE_) || (pbi->has_orthogonal_model == _TRUE_)) {
+  if ((pbi->has_equilateral_model) || (pbi->has_orthogonal_model)) {
 
     class_alloc (pbi->gamma, pbi->bf_size*sizeof(double **), pbi->error_message);
     class_alloc (pbi->delta, pbi->bf_size*sizeof(double **), pbi->error_message);
@@ -4388,7 +4388,7 @@ int bispectra_separable_workspace_init (
       class_calloc_parallel (pwb->delta_integrand[thread], ptr->q_size, sizeof(double), pbi->error_message);      
     }
 
-    if (abort == _TRUE_)
+    if (abort)
       return _FAILURE_;
     
   } // end of if equilateral || orthogonal
@@ -4456,9 +4456,9 @@ int bispectra_separable_filter_functions (
       /* Build the integrand functions, leaving out the k^2 * j_l(k*r) bit and any other numerical factor. */
     
       // *** Local and equilateral model ***
-      if ((pbi->has_local_model == _TRUE_) ||
-          (pbi->has_orthogonal_model == _TRUE_) ||
-          (pbi->has_equilateral_model == _TRUE_)) {
+      if ((pbi->has_local_model) ||
+          (pbi->has_orthogonal_model) ||
+          (pbi->has_equilateral_model)) {
 
         for (int index_k=0; index_k < k_size; ++index_k) {
         
@@ -4470,7 +4470,7 @@ int bispectra_separable_filter_functions (
           
           /* Print out the transfer function for a given field */
           // if (ptr->l[index_l]==284)
-          //   if ((ppt->has_cl_cmb_polarization == _TRUE_) && (pbi->index_tt_of_bf[index_bf] == ptr->index_tt_e))
+          //   if ((ppt->has_cl_cmb_polarization) && (pbi->index_tt_of_bf[index_bf] == ptr->index_tt_e))
           //     fprintf (stderr, "%12g %12g\n", ptr->q[index_k], tr);
           
         }
@@ -4478,8 +4478,8 @@ int bispectra_separable_filter_functions (
       } // end of all models
     
       // *** Equilateral and orthogonal models ***
-      if ((pbi->has_equilateral_model == _TRUE_) ||
-          (pbi->has_orthogonal_model == _TRUE_)) {
+      if ((pbi->has_equilateral_model) ||
+          (pbi->has_orthogonal_model)) {
      
         /* Here we basically copy eqs. 15-18 in Creminelli et al. 2006, keeping out the 2/pi factor and the
         Bessel function, and multiplying the rest by k (we use the dimensional power spectrum and we already
@@ -4514,9 +4514,9 @@ int bispectra_separable_filter_functions (
         
         
         // *** All models ***
-        if ((pbi->has_local_model == _TRUE_) ||
-            (pbi->has_equilateral_model == _TRUE_) ||
-            (pbi->has_orthogonal_model == _TRUE_)) {
+        if ((pbi->has_local_model) ||
+            (pbi->has_equilateral_model) ||
+            (pbi->has_orthogonal_model)) {
                       
           /* alpha integral */
           class_call_parallel (bessel_convolution (
@@ -4561,7 +4561,7 @@ int bispectra_separable_filter_functions (
 
         
         // *** Equilateral and orthogonal models ***
-        if ((pbi->has_equilateral_model == _TRUE_) || (pbi->has_orthogonal_model == _TRUE_)) {
+        if ((pbi->has_equilateral_model) || (pbi->has_orthogonal_model)) {
 
           /* gamma integral */
           class_call_parallel (bessel_convolution (
@@ -4605,13 +4605,13 @@ int bispectra_separable_filter_functions (
   
     } // end of for(index_l)
     
-  } if (abort == _TRUE_) return _FAILURE_; /* end of parallel region */
+  } if (abort) return _FAILURE_; /* end of parallel region */
 
     
   /* Output the filter functions */
   // int index_l = 60;
   // 
-  // if ((pbi->has_bispectra_t == _TRUE_) && (index_bf == pbi->index_bf_t) ) {
+  // if ((pbi->has_bispectra_t) && (index_bf == pbi->index_bf_t) ) {
   // 
   //   /* Output beta = b_l */ 
   //   fprintf (stderr, "# Printing BETA filter function for l=%d\n", pbi->l[index_l]);
@@ -4731,7 +4731,7 @@ int bispectra_separable_integrate_over_r (
             // -                               Local model                            -
             // ------------------------------------------------------------------------
 
-            if ((pbi->has_local_model == _TRUE_) && (index_bt == pbi->index_bt_local)) {
+            if ((pbi->has_local_model) && (index_bt == pbi->index_bt_local)) {
   
               /* The primordial bispectrum for the local model has only two extra contributions due to the symmetrization
               P(k1)*P(k2) + P(k1)*P(k3) + P(k2)*P(k3). It is easy to see that each contribution has the same value, but
@@ -4748,7 +4748,7 @@ int bispectra_separable_integrate_over_r (
             // -                           Equilateral model                           -
             // -------------------------------------------------------------------------
             
-            else if ((pbi->has_equilateral_model == _TRUE_) && (index_bt == pbi->index_bt_equilateral)) {
+            else if ((pbi->has_equilateral_model) && (index_bt == pbi->index_bt_equilateral)) {
   
               integrand = 6 * fnl_R * r*r * (
 
@@ -4776,7 +4776,7 @@ int bispectra_separable_integrate_over_r (
             // -                              Orthogonal model                               -
             // -------------------------------------------------------------------------------
             
-            else if ((pbi->has_orthogonal_model == _TRUE_) && (index_bt == pbi->index_bt_orthogonal)) {
+            else if ((pbi->has_orthogonal_model) && (index_bt == pbi->index_bt_orthogonal)) {
   
               /* We take the formula from Senatore et al. 2010, also shown in Komatsu et al. 2011 (WMAP7 paper, eq. 64) */
               integrand = 6 * fnl_R * r*r * (
@@ -4841,7 +4841,7 @@ int bispectra_separable_integrate_over_r (
   
     } // end of for(index_l1)
   
-  } if (abort == _TRUE_) return _FAILURE_;  // end of parallel region
+  } if (abort) return _FAILURE_;  // end of parallel region
   
   return _SUCCESS_; 
   
@@ -5010,23 +5010,23 @@ int bispectra_separable_workspace_free (
     thread = omp_get_thread_num();
     #endif
 
-    if ((pbi->has_local_model == _TRUE_) || (pbi->has_equilateral_model == _TRUE_) || (pbi->has_orthogonal_model == _TRUE_)) {
+    if ((pbi->has_local_model) || (pbi->has_equilateral_model) || (pbi->has_orthogonal_model)) {
       free (pwb->alpha_integrand[thread]);
       free (pwb->beta_integrand[thread]);
     }
 
-    if ((pbi->has_equilateral_model == _TRUE_) || (pbi->has_orthogonal_model == _TRUE_)) {
+    if ((pbi->has_equilateral_model) || (pbi->has_orthogonal_model)) {
       free (pwb->gamma_integrand[thread]);
       free (pwb->delta_integrand[thread]);
     }
   }
 
-  if ((pbi->has_local_model == _TRUE_) || (pbi->has_equilateral_model == _TRUE_) || (pbi->has_orthogonal_model == _TRUE_)) {
+  if ((pbi->has_local_model) || (pbi->has_equilateral_model) || (pbi->has_orthogonal_model)) {
     free (pwb->alpha_integrand);
     free (pwb->beta_integrand);
   }
 
-  if ((pbi->has_equilateral_model == _TRUE_) || (pbi->has_orthogonal_model == _TRUE_)) {
+  if ((pbi->has_equilateral_model) || (pbi->has_orthogonal_model)) {
     free (pwb->gamma_integrand);
     free (pwb->delta_integrand);
   }
@@ -5092,28 +5092,28 @@ int bispectra_analytical_init (
 
     pbi->bispectrum_function[index_bt] = NULL;
 
-    if ((pbi->has_cmb_lensing == _TRUE_) && (index_bt == pbi->index_bt_cmb_lensing))
+    if ((pbi->has_cmb_lensing) && (index_bt == pbi->index_bt_cmb_lensing))
       pbi->bispectrum_function[index_bt] = bispectra_cmb_lensing_bispectrum;
 
-    else if ((pbi->has_cmb_lensing_squeezed == _TRUE_) && (index_bt == pbi->index_bt_cmb_lensing_squeezed))
+    else if ((pbi->has_cmb_lensing_squeezed) && (index_bt == pbi->index_bt_cmb_lensing_squeezed))
       pbi->bispectrum_function[index_bt] = bispectra_cmb_lensing_squeezed_bispectrum;
 
-    else if ((pbi->has_cmb_lensing_kernel == _TRUE_) && (index_bt == pbi->index_bt_cmb_lensing_kernel))
+    else if ((pbi->has_cmb_lensing_kernel) && (index_bt == pbi->index_bt_cmb_lensing_kernel))
       pbi->bispectrum_function[index_bt] = bispectra_cmb_lensing_squeezed_kernel;
 
-    else if ((pbi->has_local_squeezed == _TRUE_) && (index_bt == pbi->index_bt_local_squeezed))
+    else if ((pbi->has_local_squeezed) && (index_bt == pbi->index_bt_local_squeezed))
       pbi->bispectrum_function[index_bt] = bispectra_local_squeezed_bispectrum;
     
-    else if ((pbi->has_intrinsic_squeezed == _TRUE_) && (index_bt == pbi->index_bt_intrinsic_squeezed))
+    else if ((pbi->has_intrinsic_squeezed) && (index_bt == pbi->index_bt_intrinsic_squeezed))
       pbi->bispectrum_function[index_bt] = bispectra_intrinsic_squeezed_bispectrum;
      
-    else if ((pbi->has_quadratic_correction == _TRUE_) && (index_bt == pbi->index_bt_quadratic))
+    else if ((pbi->has_quadratic_correction) && (index_bt == pbi->index_bt_quadratic))
       pbi->bispectrum_function[index_bt] = bispectra_quadratic_correction;
     
-    else if ((pbi->has_test_bispectrum == _TRUE_) && (index_bt == pbi->index_bt_test))
+    else if ((pbi->has_test_bispectrum) && (index_bt == pbi->index_bt_test))
       pbi->bispectrum_function[index_bt] = bispectra_test_bispectrum;
     
-    else if ((pbi->has_cosine_shape == _TRUE_) && (index_bt == pbi->index_bt_cosine))
+    else if ((pbi->has_cosine_shape) && (index_bt == pbi->index_bt_cosine))
       pbi->bispectrum_function[index_bt] = bispectra_cosine_bispectrum;
 
   }
@@ -5210,7 +5210,7 @@ int bispectra_analytical_init (
         and the quadratic correction. */
         double threej_ratio_20m2, threej_ratio_m220, threej_ratio_0m22;
 
-        if (pbi->need_3j_symbols == _TRUE_) {          
+        if (pbi->need_3j_symbols) {          
 
           class_call_parallel (threej_ratio_M (l2, l1, l3, 2, &threej_ratio_20m2, pbi->error_message),
             pbi->error_message, pbi->error_message);
@@ -5243,8 +5243,7 @@ int bispectra_analytical_init (
                 unless pbi->lens_me_brute_force is true, in which case the bispectrum will be
                 lensed later in the bispectra_lensing() function. */
                 
-                short lens_me = (pbi->lens_me[index_bt] == _TRUE_) &&
-                                (pbi->lens_me_brute_force[index_bt] == _FALSE_);
+                short lens_me = pbi->lens_me[index_bt] && !pbi->lens_me_brute_force[index_bt];
 
                 class_call_parallel ((*pbi->bispectrum_function[index_bt]) (
                               ppr, psp, ple, pbi,
@@ -5297,7 +5296,7 @@ int bispectra_analytical_init (
     #pragma omp flush(abort)
   } // for(index_l1)
 
-  if (abort == _TRUE_)
+  if (abort)
     return _FAILURE_;
 
   /* The analytical bispectra are now ready */
@@ -5407,10 +5406,10 @@ int bispectra_non_separable_init (
       // ==================================================================================================
     
       /* Which primordial shape is needed? */
-      if ((pbi->has_galileon_model==_TRUE_) && (index_bt==pbi->index_bt_galileon_gradient))
+      if ((pbi->has_galileon_model) && (index_bt==pbi->index_bt_galileon_gradient))
         pwb->shape_function = bispectra_galileon_gradient;
 
-      else if ((pbi->has_galileon_model==_TRUE_) && (index_bt==pbi->index_bt_galileon_time))
+      else if ((pbi->has_galileon_model) && (index_bt==pbi->index_bt_galileon_time))
         pwb->shape_function = bispectra_galileon_time;
 
       /* Debug - Uncomment to compute a custom bispectrum; useful to test against the separable shapes */
@@ -5736,7 +5735,7 @@ int bispectra_non_separable_workspace_init (
   
   } // end of parallel region
   
-  if (abort == _TRUE_) return _FAILURE_;
+  if (abort) return _FAILURE_;
 
   return _SUCCESS_;
   
@@ -5938,7 +5937,7 @@ int bispectra_non_separable_integrate_over_k3 (
         } // end of for(index_l3)
       } // end of for(index_k2)
     } // end of for(index_k1)
-  } if (abort == _TRUE_) return _FAILURE_; /* end of parallel region */    
+  } if (abort) return _FAILURE_; /* end of parallel region */    
   
   printf_log_if (pbi->bispectra_verbose, 2, 
     " -> memorised ~ %.3g MB (%ld doubles) for the k3-integral array\n",
@@ -6121,7 +6120,7 @@ int bispectra_non_separable_integrate_over_k2 (
         } // end of for(index_l3)
       } // end of for(index_k1)
     } // end of for(index_r)
-  } if (abort == _TRUE_) return _FAILURE_;  // end of parallel region
+  } if (abort) return _FAILURE_;  // end of parallel region
   
   
   printf_log_if (pbi->bispectra_verbose, 2, 
@@ -6424,7 +6423,7 @@ int bispectra_non_separable_integrate_over_k1 (
         } // end of for(index_l2)
       } // end of for(index_l3)
     } // end of for(index_r)
-  } if (abort == _TRUE_) return _FAILURE_;  // end of parallel region
+  } if (abort) return _FAILURE_;  // end of parallel region
   
   printf_log_if (pbi->bispectra_verbose, 2, 
     " -> memorised ~ %.3g MB (%ld doubles) for the k1-integral array\n",
@@ -6671,7 +6670,7 @@ int bispectra_non_separable_integrate_over_r (
       #pragma omp flush(abort)
       
     } // end of for(index_l1)
-  } if (abort == _TRUE_) return _FAILURE_;  // end of parallel region
+  } if (abort) return _FAILURE_;  // end of parallel region
   
   /* Free the memory that was allocated for the integral over k1, but do that only when we are at
   the last iteration of the Z and Y . */
@@ -6727,7 +6726,7 @@ int bispectra_non_separable_workspace_free (
     free(pwb->interpolated_integral[thread]);
     free(pwb->f[thread]);
     
-  }  if (abort == _TRUE_) return _FAILURE_;
+  }  if (abort) return _FAILURE_;
   
   free(pwb->k3_grid);
   free(pwb->delta_k3);
@@ -6919,7 +6918,7 @@ int bispectra_lensing (
     }
   }
   
-  if (abort == _TRUE_)
+  if (abort)
     return _FAILURE_;
   
 
@@ -8329,7 +8328,7 @@ int bispectra_cmb_lensing_bispectrum (
   
   double ttt;
   
-  if (pbi->has_bispectra_t == _TRUE_) {
+  if (pbi->has_bispectra_t) {
   
     /* Temperature-lensing potential correlation */
     double C_l1_Tp = pbi->cls[psp->index_ct_tp][l1-2];
@@ -8342,7 +8341,7 @@ int bispectra_cmb_lensing_bispectrum (
     double C_l3 = pbi->cls[psp->index_ct_tt][l3-2];
                   
     /* Use lensed temperature C_l's if available */
-    if (lens_me == _TRUE_) {
+    if (lens_me) {
       C_l1 = pbi->lensed_cls[ple->index_lt_tt][l1-2];
       C_l2 = pbi->lensed_cls[ple->index_lt_tt][l2-2];
       C_l3 = pbi->lensed_cls[ple->index_lt_tt][l3-2];
@@ -8389,24 +8388,24 @@ int bispectra_cmb_lensing_bispectrum (
 
   // int L = l3-l1-l2;
   //
-  // if (pbi->has_bispectra_t == _TRUE_) {
+  // if (pbi->has_bispectra_t) {
   //   if (X1 == pbi->index_bf_t) S_X1 = (L%2==0)?2:0;
   //   if (X2 == pbi->index_bf_t) S_X2 = (L%2==0)?2:0;
   //   if (X3 == pbi->index_bf_t) S_X3 = (L%2==0)?2:0;
   // }
-  // if (pbi->has_bispectra_e == _TRUE_) {
+  // if (pbi->has_bispectra_e) {
   //   if (X1 == pbi->index_bf_e) S_X1 = (L%2==0)?2:0;
   //   if (X2 == pbi->index_bf_e) S_X2 = (L%2==0)?2:0;
   //   if (X3 == pbi->index_bf_e) S_X3 = (L%2==0)?2:0;
   // }
-  // if (pbi->has_bispectra_b == _TRUE_) {
+  // if (pbi->has_bispectra_b) {
   //   if (X1 == pbi->index_bf_b) S_X1 = (L%2!=0)?2:0;
   //   if (X2 == pbi->index_bf_b) S_X2 = (L%2!=0)?2:0;
   //   if (X3 == pbi->index_bf_b) S_X3 = (L%2!=0)?2:0;
   // }
   
   /* B-mode bispectrum not implemented yet */
-  class_test (pbi->has_bispectra_b == _TRUE_,
+  class_test (pbi->has_bispectra_b,
     pbi->error_message,
     "CMB-lensing bispectrum for B-modes not implemented yet.");
   
@@ -8430,7 +8429,7 @@ int bispectra_cmb_lensing_bispectrum (
   double C_l1_X3_X1 = pbi->cls[pbi->index_ct_of_bf_bf[ X3 ][ X1 ]][l1-2];
     
   /* Use lensed temperature C_l's if available */
-  if (lens_me == _TRUE_) {
+  if (lens_me) {
     C_l3_X1_X3 = pbi->lensed_cls[pbi->index_lt_of_bf_bf[ X1 ][ X3 ]][l3-2];
     C_l2_X1_X2 = pbi->lensed_cls[pbi->index_lt_of_bf_bf[ X1 ][ X2 ]][l2-2];
     C_l3_X2_X3 = pbi->lensed_cls[pbi->index_lt_of_bf_bf[ X2 ][ X3 ]][l3-2];
@@ -8491,7 +8490,7 @@ int bispectra_cmb_lensing_bispectrum (
     + C_l2_X2_p * C_l1_X3_X1 * F_l3_l2_l1_X3;  /* 3-2-1 */
                   
   /* Check that for <TTT> the bispectrum is equal to the one computed with the simpler formula */
-  if ((pbi->has_bispectra_t==_TRUE_) && (X1==pbi->index_bf_t) && (X1==X2) && (X1==X3)) {
+  if ((pbi->has_bispectra_t) && (X1==pbi->index_bf_t) && (X1==X2) && (X1==X3)) {
     double exact = ttt;
     double diff = fabs (1-*result/exact);
     class_test (diff > _SMALL_,
@@ -8569,14 +8568,14 @@ int bispectra_cmb_lensing_squeezed_kernel (
   
   double ttt;
   
-  if (pbi->has_bispectra_t == _TRUE_) {
+  if (pbi->has_bispectra_t) {
   
     /* By default take unlensed temperature C_l's */
     double C_l1 = pbi->cls[psp->index_ct_tt][l1-2];
     double C_l2 = pbi->cls[psp->index_ct_tt][l2-2];
                   
     /* Use lensed temperature C_l's if available */
-    if (lens_me == _TRUE_) {
+    if (lens_me) {
       C_l1 = pbi->lensed_cls[ple->index_lt_tt][l1-2];
       C_l2 = pbi->lensed_cls[ple->index_lt_tt][l2-2];
     }
@@ -8617,21 +8616,21 @@ int bispectra_cmb_lensing_squeezed_kernel (
 
   // int L = l3-l1-l2;
   //
-  // if (pbi->has_bispectra_t == _TRUE_) {
+  // if (pbi->has_bispectra_t) {
   //   if (X1 == pbi->index_bf_t) S_X1 = (L%2==0)?2:0;
   //   if (X2 == pbi->index_bf_t) S_X2 = (L%2==0)?2:0;
   // }
-  // if (pbi->has_bispectra_e == _TRUE_) {
+  // if (pbi->has_bispectra_e) {
   //   if (X1 == pbi->index_bf_e) S_X1 = (L%2==0)?2:0;
   //   if (X2 == pbi->index_bf_e) S_X2 = (L%2==0)?2:0;
   // }
-  // if (pbi->has_bispectra_b == _TRUE_) {
+  // if (pbi->has_bispectra_b) {
   //   if (X1 == pbi->index_bf_b) S_X1 = (L%2!=0)?2:0;
   //   if (X2 == pbi->index_bf_b) S_X2 = (L%2!=0)?2:0;
   // }
   
   /* B-mode bispectrum not implemented yet */
-  class_test (pbi->has_bispectra_b == _TRUE_,
+  class_test (pbi->has_bispectra_b,
     pbi->error_message,
     "CMB-lensing squeezed bispectrum for B-modes not implemented yet.");
   
@@ -8644,7 +8643,7 @@ int bispectra_cmb_lensing_squeezed_kernel (
   double C_l1_X2_X1 = pbi->cls[pbi->index_ct_of_bf_bf[ X2 ][ X1 ]][l1-2];
     
   /* Use lensed temperature C_l's if available */
-  if (lens_me == _TRUE_) {
+  if (lens_me) {
     C_l2_X1_X2 = pbi->lensed_cls[pbi->index_lt_of_bf_bf[ X1 ][ X2 ]][l2-2];
     C_l1_X2_X1 = pbi->lensed_cls[pbi->index_lt_of_bf_bf[ X2 ][ X1 ]][l1-2];
   }
@@ -8688,7 +8687,7 @@ int bispectra_cmb_lensing_squeezed_kernel (
           + C_l1_X2_X1 * F_l2_l3_l1_X2;
                   
   /* Check that for <TTT> the bispectrum is equal to the one computed with the simpler formula */
-  if ((pbi->has_bispectra_t==_TRUE_) && (X1==pbi->index_bf_t) && (X1==X2) && (X1==X3)) {
+  if ((pbi->has_bispectra_t) && (X1==pbi->index_bf_t) && (X1==X2) && (X1==X3)) {
     double exact = ttt;
     double diff = fabs (1-*result/exact);
     class_test (diff > _SMALL_,
@@ -8736,14 +8735,14 @@ int bispectra_cmb_lensing_squeezed_kernel (
 //
 //   double ttt;
 //
-//   if (pbi->has_bispectra_t == _TRUE_) {
+//   if (pbi->has_bispectra_t) {
 //
 //     /* By default take unlensed temperature C_l's */
 //     double C_l2 = pbi->cls[psp->index_ct_tt][l2-2];
 //     double C_l3 = pbi->cls[psp->index_ct_tt][l3-2];
 //
 //     /* Use lensed temperature C_l's if available */
-//     if (lens_me == _TRUE_) {
+//     if (lens_me) {
 //       C_l2 = pbi->lensed_cls[ple->index_lt_tt][l2-2];
 //       C_l3 = pbi->lensed_cls[ple->index_lt_tt][l3-2];
 //     }
@@ -8785,21 +8784,21 @@ int bispectra_cmb_lensing_squeezed_kernel (
 //
 //   // int L = l1-l2-l3;
 //   //
-//   // if (pbi->has_bispectra_t == _TRUE_) {
+//   // if (pbi->has_bispectra_t) {
 //   //   if (X2 == pbi->index_bf_t) S_X2 = (L%2==0)?2:0;
 //   //   if (X3 == pbi->index_bf_t) S_X3 = (L%2==0)?2:0;
 //   // }
-//   // if (pbi->has_bispectra_e == _TRUE_) {
+//   // if (pbi->has_bispectra_e) {
 //   //   if (X2 == pbi->index_bf_e) S_X2 = (L%2==0)?2:0;
 //   //   if (X3 == pbi->index_bf_e) S_X3 = (L%2==0)?2:0;
 //   // }
-//   // if (pbi->has_bispectra_b == _TRUE_) {
+//   // if (pbi->has_bispectra_b) {
 //   //   if (X2 == pbi->index_bf_b) S_X2 = (L%2!=0)?2:0;
 //   //   if (X3 == pbi->index_bf_b) S_X3 = (L%2!=0)?2:0;
 //   // }
 //
 //   /* B-mode bispectrum not implemented yet */
-//   class_test (pbi->has_bispectra_b == _TRUE_,
+//   class_test (pbi->has_bispectra_b,
 //     pbi->error_message,
 //     "CMB-lensing squeezed bispectrum for B-modes not implemented yet.");
 //
@@ -8812,7 +8811,7 @@ int bispectra_cmb_lensing_squeezed_kernel (
 //   double C_l3_X2_X3 = pbi->cls[pbi->index_ct_of_bf_bf[ X2 ][ X3 ]][l3-2];
 //
 //   /* Use lensed temperature C_l's if available */
-//   if (lens_me == _TRUE_) {
+//   if (lens_me) {
 //     C_l2_X3_X2 = pbi->lensed_cls[pbi->index_lt_of_bf_bf[ X3 ][ X2 ]][l2-2];
 //     C_l3_X2_X3 = pbi->lensed_cls[pbi->index_lt_of_bf_bf[ X2 ][ X3 ]][l3-2];
 //   }
@@ -8856,7 +8855,7 @@ int bispectra_cmb_lensing_squeezed_kernel (
 //           + C_l3_X2_X3 * F_l2_l1_l3_X2;
 //
 //   /* Check that for <TTT> the bispectrum is equal to the one computed with the simpler formula */
-//   if ((pbi->has_bispectra_t==_TRUE_) && (X1==pbi->index_bf_t) && (X2==X3) && (X1==X3)) {
+//   if ((pbi->has_bispectra_t) && (X1==pbi->index_bf_t) && (X2==X3) && (X1==X3)) {
 //     double exact = ttt;
 //     double diff = fabs (1-*result/exact);
 //     class_test (diff > _SMALL_,
@@ -8958,7 +8957,7 @@ int bispectra_local_squeezed_bispectrum (
   double cl2_XY = pbi->cls[pbi->index_ct_of_bf_bf[X][Y]][l2-2];
   
   /* Use lensed temperature C_l's if available */
-  if (lens_me == _TRUE_) {
+  if (lens_me) {
     cl1_XY = pbi->lensed_cls[pbi->index_ct_of_bf_bf[X][Y]][l1-2];    
     cl2_XY = pbi->lensed_cls[pbi->index_ct_of_bf_bf[X][Y]][l2-2];    
   }
@@ -9048,7 +9047,7 @@ int bispectra_intrinsic_squeezed_bispectrum (
     "in all squeezed approximations, make sure l3 is the smallest multipole");
 
   /* Uncomment to exclude the polarisation when it is assigned the large-scale mode */
-  // if ((pbi->has_bispectra_e==_TRUE_) && (Z==pbi->index_bf_e)) {
+  // if ((pbi->has_bispectra_e) && (Z==pbi->index_bf_e)) {
   //   *result = 0;
   //   return _SUCCESS_;
   // }
@@ -9059,7 +9058,7 @@ int bispectra_intrinsic_squeezed_bispectrum (
   double dcl2_XY = pbi->d_lsq_cls[pbi->index_ct_of_bf_bf[X][Y]][l2-2];
   
   /* Use lensed temperature C_l's if available */
-  if (lens_me == _TRUE_) {
+  if (lens_me) {
     dcl1_XY = pbi->lensed_d_lsq_cls[pbi->index_lt_of_bf_bf[X][Y]][l1-2];    
     dcl2_XY = pbi->lensed_d_lsq_cls[pbi->index_lt_of_bf_bf[X][Y]][l2-2];    
   }
@@ -9070,19 +9069,19 @@ int bispectra_intrinsic_squeezed_bispectrum (
   /* Redshift modulation in Lewis 2012 (eq. 4.2). This exists only if Y=Z=temperature */
   double bolometric_T_lewis_redshift = 0;
           
-  if (pbi->has_bispectra_t == _TRUE_) {
+  if (pbi->has_bispectra_t) {
     double cl3_Zt_long = 0; double cl1_Xt_short = 0; double cl2_Yt_short = 0;
     cl3_Zt_long = pbi->cls[pbi->index_ct_of_bf_bf[Z][pbi->index_bf_t]][l3-2];
     if (Y == pbi->index_bf_t) cl1_Xt_short = pbi->cls[pbi->index_ct_of_bf_bf[X][pbi->index_bf_t]][l1-2];
     if (X == pbi->index_bf_t) cl2_Yt_short = pbi->cls[pbi->index_ct_of_bf_bf[Y][pbi->index_bf_t]][l2-2];
-    if (lens_me == _TRUE_) {
+    if (lens_me) {
       if (Y == pbi->index_bf_t) cl1_Xt_short = pbi->lensed_cls[pbi->index_lt_of_bf_bf[X][pbi->index_bf_t]][l1-2];
       if (X == pbi->index_bf_t) cl2_Yt_short = pbi->lensed_cls[pbi->index_lt_of_bf_bf[Y][pbi->index_bf_t]][l2-2];
     }
     bolometric_T_lewis_redshift = cl3_Zt_long * (cl1_Xt_short + cl2_Yt_short);
   }
           
-  class_test ((pbi->has_bispectra_e == _TRUE_) &&
+  class_test ((pbi->has_bispectra_e) &&
     ((X == pbi->index_bf_e) && (Y == pbi->index_bf_e))
     && (bolometric_T_lewis_redshift!=0),
     pbi->error_message,
@@ -9191,7 +9190,7 @@ int bispectra_quadratic_correction (
 
   double ttt;
   
-  if (pbi->has_bispectra_t == _TRUE_) {
+  if (pbi->has_bispectra_t) {
   
     double C_l1_TT = pbi->cls[psp->index_ct_tt][l1-2];
     double C_l2_TT = pbi->cls[psp->index_ct_tt][l2-2];
@@ -9222,17 +9221,17 @@ int bispectra_quadratic_correction (
   int index_ct_X1_I, index_ct_X2_I, index_ct_X3_I;  
   double S_X1=0, S_X2=0, S_X3=0;
 
-  if (pbi->has_bispectra_t == _TRUE_) {
+  if (pbi->has_bispectra_t) {
     if (X1 == pbi->index_bf_t) {S_X1 = 1; T_X1 = pbi->index_bf_t; index_ct_X1_I = psp->index_ct_tt;}
     if (X2 == pbi->index_bf_t) {S_X2 = 1; T_X2 = pbi->index_bf_t; index_ct_X2_I = psp->index_ct_tt;}
     if (X3 == pbi->index_bf_t) {S_X3 = 1; T_X3 = pbi->index_bf_t; index_ct_X3_I = psp->index_ct_tt;}
   }
-  if (pbi->has_bispectra_e == _TRUE_) {
+  if (pbi->has_bispectra_e) {
     if (X1 == pbi->index_bf_e) {S_X1 = 2; T_X1 = pbi->index_bf_e; index_ct_X1_I = psp->index_ct_te;}
     if (X2 == pbi->index_bf_e) {S_X2 = 2; T_X2 = pbi->index_bf_e; index_ct_X2_I = psp->index_ct_te;}
     if (X3 == pbi->index_bf_e) {S_X3 = 2; T_X3 = pbi->index_bf_e; index_ct_X3_I = psp->index_ct_te;}
   }
-  if (pbi->has_bispectra_b == _TRUE_) { /* Note that <TB> vanishes, hence the negative values */
+  if (pbi->has_bispectra_b) { /* Note that <TB> vanishes, hence the negative values */
     if (X1 == pbi->index_bf_b) {S_X1 = 2; T_X1 = pbi->index_bf_e; index_ct_X1_I = -1;}
     if (X2 == pbi->index_bf_b) {S_X2 = 2; T_X2 = pbi->index_bf_e; index_ct_X2_I = -1;}
     if (X3 == pbi->index_bf_b) {S_X3 = 2; T_X3 = pbi->index_bf_e; index_ct_X3_I = -1;}
@@ -9245,24 +9244,24 @@ int bispectra_quadratic_correction (
 
   // int L = l3-l1-l2;
   //
-  // if (pbi->has_bispectra_t == _TRUE_) {
+  // if (pbi->has_bispectra_t) {
   //   if (X1 == pbi->index_bf_t) S_X1 = (L%2==0)?1:0;
   //   if (X2 == pbi->index_bf_t) S_X2 = (L%2==0)?1:0;
   //   if (X3 == pbi->index_bf_t) S_X3 = (L%2==0)?1:0;
   // }
-  // if (pbi->has_bispectra_e == _TRUE_) {
+  // if (pbi->has_bispectra_e) {
   //   if (X1 == pbi->index_bf_e) S_X1 = (L%2==0)?2:0;
   //   if (X2 == pbi->index_bf_e) S_X2 = (L%2==0)?2:0;
   //   if (X3 == pbi->index_bf_e) S_X3 = (L%2==0)?2:0;
   // }
-  // if (pbi->has_bispectra_b == _TRUE_) {
+  // if (pbi->has_bispectra_b) {
   //   if (X1 == pbi->index_bf_b) S_X1 = (L%2!=0)?2:0;
   //   if (X2 == pbi->index_bf_b) S_X2 = (L%2!=0)?2:0;
   //   if (X3 == pbi->index_bf_b) S_X3 = (L%2!=0)?2:0;
   // }
               
   /* B-mode bispectrum not implemented yet */
-  class_test (pbi->has_bispectra_b == _TRUE_,
+  class_test (pbi->has_bispectra_b,
     pbi->error_message,
     "quadratic correction for B-mode bispectrum not implemented yet.");
     
@@ -9328,7 +9327,7 @@ int bispectra_quadratic_correction (
           + 4.0 * S_X3 * (threej_l1_l2_l3_0_FX3_mFX3*C_l1_X1_I*C_l2_X2_TX3 + threej_l1_l2_l3_FX3_0_mFX3*C_l1_X1_TX3*C_l2_X2_I);
 
   /* Check that for <TTT> the correction is equal to 8 * (C_l1*C_l2 + C_l1*C_l3 + C_l2*C_l3) */
-  if ((pbi->has_bispectra_t==_TRUE_) && (X1==pbi->index_bf_t) && (X1==X2) && (X1==X3)) {
+  if ((pbi->has_bispectra_t) && (X1==pbi->index_bf_t) && (X1==X2) && (X1==X3)) {
     double exact = ttt;
     double diff = fabs (1-*result/exact);
     class_test (diff > _SMALL_,
@@ -9577,7 +9576,7 @@ int bispectra_local_window_function (
      )
 {
 
-  if (pbi->has_bispectra_t == _TRUE_) {
+  if (pbi->has_bispectra_t) {
     *result = 
         pbi->cls[psp->index_ct_tt][l1-2] * pbi->cls[psp->index_ct_tt][l2-2]
       + pbi->cls[psp->index_ct_tt][l2-2] * pbi->cls[psp->index_ct_tt][l3-2]
@@ -9594,7 +9593,7 @@ int bispectra_local_window_function (
   }
 
   /* Interpolate only temperature */
-  // if ((pbi->has_bispectra_t == _TRUE_) && (X==pbi->index_bf_t) && (X==Y) && (X==Z)) {
+  // if ((pbi->has_bispectra_t) && (X==pbi->index_bf_t) && (X==Y) && (X==Z)) {
   //   *result = 
   //       pbi->cls[psp->index_ct_tt][l1-2] * pbi->cls[psp->index_ct_tt][l2-2]
   //     + pbi->cls[psp->index_ct_tt][l2-2] * pbi->cls[psp->index_ct_tt][l3-2]
@@ -9625,7 +9624,7 @@ int bispectra_intrinsic_window_function (
      )
 {
 
-  if (pbi->has_bispectra_t == _TRUE_) {
+  if (pbi->has_bispectra_t) {
     *result = 
         pbi->cls[psp->index_ct_tt][l1-2] * pbi->cls[psp->index_ct_tt][l2-2]
       + pbi->cls[psp->index_ct_tt][l2-2] * pbi->cls[psp->index_ct_tt][l3-2]
@@ -9771,7 +9770,7 @@ int bispectra_mesh_interpolate (
     class_test_parallel (omp_get_num_threads()>1 && pbi->interpolation_method==mesh_interpolation_3D,
       pbi->error_message,
       "stopping to prevent race condition");
-    if (abort == _TRUE_)
+    if (abort)
       return _FAILURE_;
     #endif
     
@@ -9819,7 +9818,7 @@ int bispectra_mesh_interpolate (
 #endif // DEBUG
 
   /* Debug: print the interpolated value of the intrinsic bispectrum */
-  // if ((pbi->has_intrinsic) || (pbi->index_bt_intrinsic==_TRUE_)) {
+  // if ((pbi->has_intrinsic) || (pbi->index_bt_intrinsic)) {
   //   printf ("%8g %8g %8g %16.7g\n", l1, l2, l3, *result);
   // }
 
@@ -10160,7 +10159,7 @@ int bispectra_mesh_create (
     } // for(index_l2)
   } // for(index_l1)
 
-  if (abort == _TRUE_)
+  if (abort)
     return _FAILURE_;
   
 
