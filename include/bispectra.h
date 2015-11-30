@@ -698,9 +698,6 @@ struct bispectra_workspace_non_separable {
   double * k_smooth_grid;
   int k_smooth_size;
 
-  /* Temporary pointer to store arrays that have pwb->k_smooth_size elements (one per thread) */
-  double ** f;
-
   /* Window function for the interpolation of the k-space bispectrum. It is indexed as pwb->k_window[index_k]
   where 'index_k' indexes pwb->k_smooth_grid. Its size is pwb->k_smooth_size. */
   double * k_window;
@@ -773,13 +770,9 @@ struct bispectra_workspace_non_separable {
     the unsymmetrised bispectrum. */
   double *** integral_over_r;
 
-  
+  double ** interpolated_integral;  /**< Array with the intermediate integrals in ptr->k. Indexed as
+                                    interpolated_integral[thread][index_k] with index_k belonging to ptr->k. */
 
-  /* Array that contains the interpolated values of the above integrals in ptr->k. Each thread has one.
-  Indexed as integral_splines[thread][index_k] and interpolated_integral[thread][index_k], where
-  index_k belongs to ptr->k. */
-  double ** integral_splines;
-  double ** interpolated_integral;
   
   /* Same as above, but for the k3 integration grid (one per thread) */
   double ** delta_k3;
@@ -1150,9 +1143,7 @@ extern "C" {
       int index_r,
       int index_k1,
       int index_l3,
-      double * integral_splines,
       double * interpolated_integral,
-      double * f,
       struct bispectra_workspace_non_separable * pwb
       );
 
@@ -1182,9 +1173,7 @@ extern "C" {
       int index_r,
       int index_l2,
       int index_l3,
-      double * integral_splines,
       double * interpolated_integral,
-      double * f,
       struct bispectra_workspace_non_separable * pwb
       );
 

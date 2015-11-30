@@ -4,6 +4,7 @@
 #define __SONG_TOOLS__
 
 #include "common.h"
+#include "arrays.h"
 #include "complex.h"
 #undef I
 #define IMAG _Complex_I
@@ -187,6 +188,36 @@ extern "C" {
   // =====================================================================================
   // =                                     Interpolation                                 =
   // =====================================================================================
+
+  int interpolate_array (
+        double * x,
+        int x_size,
+        double * y,
+        enum interpolation_methods method,
+        short spline_mode,
+        double * x_out,
+        int x_out_size,
+        double * y_out,
+        double * ddy_out,
+        ErrorMsg errmsg
+        );
+
+
+  int interpolate_matrix (
+        double * x,
+        int x_size,
+        double * y,
+        int n_col,
+        enum interpolation_methods method,
+        short spline_mode,
+        short invert_indexing,
+        double * x_out,
+        int x_out_size,
+        double * y_out,
+        double * ddy_out,
+        ErrorMsg errmsg
+        );
+
 
   int spline_sources_derivs(
 			     double * x, /* vector of size tau_size */

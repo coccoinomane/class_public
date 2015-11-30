@@ -523,8 +523,8 @@ the test */
 }
 
 /**
-  * Possible interpolation techniques.
-  */
+ * Possible interpolation techniques.
+ */
 enum interpolation_methods {
   linear_interpolation,      /**< Linear interpolation */
   cubic_interpolation        /**< Cubic spline interpolation */

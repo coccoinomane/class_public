@@ -3347,7 +3347,7 @@ int thermodynamics_compute_Q_derivatives(
     double T_ev = T_kelvin * _kBoltz_;
     double x = _eps_/T_ev;
 
-    /* Some debug - print all time variables */
+    /* Debug: print all time variables */
     // fprintf(stderr, "%3d %12.7g %12.7g %12.7g %12.7g %12.7g %12.7g\n", index_tau, tau, z, a, T_kelvin, T_ev, x);
     
     /* Compute background quantities at the given time */
@@ -3501,7 +3501,7 @@ int thermodynamics_compute_Q_derivatives_at_z (
   double T_ev = T_kelvin * _kBoltz_;
   double x = _eps_/T_ev;
 
-  /* Some debug - print all time variables */
+  /* Debug: print all time variables */
   // double tau;
   // class_call(background_tau_of_z(pba, z, &tau),
   //   pba->error_message,

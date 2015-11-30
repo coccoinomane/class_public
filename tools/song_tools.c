@@ -2131,8 +2131,172 @@ int size_n_l_indexm (int n_max, int l_max, int * m_vec, int m_size) {
 // ======================================================================================
 // =                                     Interpolation                                  =
 // ======================================================================================
+
+/**
+ * Interpolate the input vector y.
+ *
+ * This is a wrapper to interpolate_matrix(), refer to its documentation for more
+ * details.
+ */
+
+int interpolate_array (
+      double * x, /**< Input: abscissae of the nodes; must be sorted in increasing order */
+      int x_size, /**< Input: number of nodes */
+      double * y, /**< Input: values at the nodes */
+      enum interpolation_methods method, /**< Input: linear or spline interpolation? */
+      short spline_mode, /**< Input: how to compute the spline derivatives? Can be either
+                       _SPLINE_NATURAL_ or _SPLINE_EST_DERIV_; ignored if method=
+                       linear_interpolation */
+      double * x_out, /**< Input: abscissae of the output points */
+      int x_out_size, /**< Input: number of requested values */
+      double * y_out, /**< Output: interpolated values at the output points */
+      double * ddy_out, /**< Output: second derivatives at the nodes, allocated inside this
+                        function; set to NULL if not interested. Ignored for linear interp. */
+      ErrorMsg errmsg)
+
+{
+
+  /* A vector is just a matrix with 1 column */
+  
+  class_call (interpolate_matrix(
+                x,
+                x_size,
+                y,
+                1,
+                method,
+                spline_mode,
+                _FALSE_,
+                x_out,
+                x_out_size,
+                y_out,
+                ddy_out,
+                errmsg),
+    errmsg,
+    errmsg);
+  
+}
+
+
+/**
+ * Interpolate the input matrix y along its fast varying direction.
+ *
+ * This function supports linear and spline interpolation; the x array
+ * with the nodes abscissae must be sorted in ascending order.
+ *
+ * The input and output y arrays are indexed as y[i_col*x_size+index_x].
+ */
+
+int interpolate_matrix (
+      double * x, /**< Input: abscissae of the nodes; must be sorted in increasing order */
+      int x_size, /**< Input: number of nodes, ie. number of rows in y */
+      double * y, /**< Input: values at the nodes */
+      int n_col, /**< Input: number of columns in y; set to 1 if y is 1D */
+      enum interpolation_methods method, /**< Input: linear or spline interpolation? */
+      short spline_mode, /**< Input: how to compute the spline derivatives? Can be either
+                         _SPLINE_NATURAL_ or _SPLINE_EST_DERIV_; ignored if method=
+                         linear_interpolation */
+      short invert_indexing, /**< Input: if true, invert rows and columns in the returned y matrix
+                             (but not in ddy) */
+      double * x_out, /**< Input: abscissae of the output points */
+      int x_out_size, /**< Input: number of requested values */
+      double * y_out, /**< Output: matrix with the interpolated values at the output points */
+      double * ddy_out, /**< Output: second derivatives at the nodes, allocated inside this
+                        function; set to NULL if not interested. Ignored for linear interp. */
+      ErrorMsg errmsg)
+
+{
+  
+  /* Check that x is sorted in ascending order */
+  for (int i=0; i < x_size-1; ++i)
+    class_test (x[i+1] <= x[i],
+      errmsg, "x array not sorted");
+  
+  /* Check that the requested x is within the interpolated range */
+  class_test (x_out[0] < x[0] || x_out[x_out_size-1] > x[x_size-1],
+    errmsg, "x_out array out of bounds");
   
   
+  /* - Allocate and compute second derivative */
+
+  double * ddy;
+
+  if (method == cubic_interpolation) {
+
+    class_calloc (ddy, x_size*n_col, sizeof(double), errmsg);
+      
+    class_call (array_spline_table_columns(
+                  x,
+                  x_size,
+                  y,
+                  n_col,
+                  ddy,
+                  spline_mode,
+                  errmsg),
+      errmsg,
+      errmsg);
+  }
+
+
+  /* - Interpolate */
+
+  int i_left = 0;
+
+  /* Loop on the nodes */
+  for (int i=0; i < x_out_size; ++i) {
+
+    double X = x_out[i];
+
+    while (i_left+1 < x_size && x[i_left+1] < X)
+      i_left++;
+
+    int i_right = i_left + 1;
+    
+    class_test (i_right >= x_size, errmsg, "out of bounds");
+
+    double x_left = x[i_left];
+    double x_right = x[i_right];
+    double h = x_right - x_left;
+    
+    class_test (h==0, errmsg, "stop to avoid division by zero");
+    
+    double b = (X - x_left)/h;
+    double a = 1-b;
+
+    /* Loop on the columns */
+    for (int j=0; j < n_col; ++j) {
+
+      /* Linear interpolation */
+      double Y = a * y[j*x_size+i_left] + b * y[j*x_size+i_right];;
+
+      /* Spline interpolation */
+      if (method == cubic_interpolation)
+        Y += ((a*a*a-a)*ddy[j*x_size+i_left] + (b*b*b-b)*ddy[j*x_size+i_right])*h*h/6.0;
+
+      if (!invert_indexing)
+        y_out[j*x_size+i] = Y;
+      else
+        y_out[i*n_col+j] = Y;
+      
+    }
+    
+  }
+  
+  
+  /* Return ddy if requested */
+  
+  if (method == cubic_interpolation)
+    if (ddy != NULL)
+      ddy_out == ddy;
+    else
+      free (ddy);
+  
+  return _SUCCESS_;
+  
+}
+
+
+
+
 /**
  * Compute and store the second derivatives at the node points of an array
  * indexed like ppt->sources, in view of spline interpolation.
