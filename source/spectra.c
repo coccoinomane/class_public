@@ -3176,12 +3176,12 @@ int spectra_compute_cl(
 
   for (index_ct=0; index_ct<psp->ct_size; index_ct++) {
 
-#ifdef WITH_SONG1
+#ifdef WITH_SONG2
     /* This module deals only with first-order C_l; spectra2.c deals with the
     second-order ones */
     if (psp->cl_type[index_ct] != first_order)
       continue;
-#endif // WITH_SONG1
+#endif // WITH_SONG2
 
     /* treat null spectra (C_l^BB of scalars, C_l^pp of tensors, etc. */
 

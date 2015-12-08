@@ -98,7 +98,10 @@
  * TODO: Implement an independent l3 array, so that we can tune it to have
  * only the even l1+l2+l3 configurations without sacrificing the (2,3,3)
  * configurations. This strategy would require interpolating the transfer
- * functions in l3, though.
+ * functions in l3, which can be done easily enough. The big problem is
+ * that having arbitrary l3 would require rewriting the bispectra_at_node()
+ * function, because we cannot use anymore the l1>=l2>=l3 configurations
+ * to obtain the other ones (l3 would not necessarily be an l1 node anymore).
  *
  * Created by Guido W. Pettinari on 19.07.2012.
  * Last modified by Guido W. Pettinari on 23.10.2015
@@ -6881,19 +6884,19 @@ int bispectra_lensing_convolution (
 {
   
   // TODO:
+  // *) Squeezed bispectra are broken now, as they trigger the l1<l2<l3
+  //    check since we inverted l1 and l3 in fisher_compute_matrix().
+  // *) Lensing variance is broken right now, because we inverted l1 and l3
+  //    in fisher_compute_matrix(). Maybe we need to invert it in the 
+  //    fisher_lensing_variance() function?
   // *) Run lensing on CMB-lensing and see if it matches lensed CMB-lensing
-  // *) Look again at interpolation of 3j symbol
+  // *) Should we interpolate the 3j symbols using the modulo-4 trick?
   // *) Streamline fisher_compute_matrix() (documentation as well)
   // *) Get rid of fisher_compute_matrix_nodes() 
-  // *) Sort out interaction of output functions (bispectra and perturbs2)
-  // *) with store_sources and load_sources
   // *) Sort out interaction of bispectra mesh interpolation and lensed
   //    bispectra (ie right now we need to reinterpolate pbi->bispectra
   //    after we lens). Possible solution: generate separate meshes for
   //    lensed and unlensed bispectra.
-  // *) Lensing variance is broken right now, because we inverted l1 and l3
-  //    in fisher_compute_matrix(). Maybe we need to invert it in the 
-  //    fisher_lensing_variance() function?
 
   int l1 = pbi->l[index_l1], F_X1 = pbi->field_spin[X1];
   int l2 = pbi->l[index_l2], F_X2 = pbi->field_spin[X2];

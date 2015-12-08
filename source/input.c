@@ -3405,7 +3405,7 @@ int input_read_parameters(
 
   class_warning (ppt->l_scalar_max != old_l_scalar_max,
     "\nAdjusted l_scalar_max from %d to %d to take into account l1_out and l2_out\n",
-      __func__, __LINE__, old_l_scalar_max, ppt->l_scalar_max);
+      old_l_scalar_max, ppt->l_scalar_max);
 
 
   /* Allocate memory for output arrays */

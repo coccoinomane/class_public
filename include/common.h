@@ -211,6 +211,15 @@ int get_number_of_titles(char * titlestring);
   }                                                                     \
 }
 
+#define class_warning(condition, args...) {                                                                     \
+  if (condition) {                                                                                              \
+    ErrorMsg buffer;                                                                                            \
+    class_protect_sprintf (buffer, args);                                                                       \
+    printf ("WARNING: %s\n", buffer);                                                                           \
+    /*printf ("%s:%d: WARNING! %s\n", __func__, __LINE__, buffer);*/                                            \
+  }                                                                                                             \
+}
+
 /* macro for returning error message;
    args is a variable list of optional arguments, e.g.: args="x=%d",x
    args cannot be empty, if there is nothing to pass use args="" */
@@ -488,15 +497,6 @@ void fprintf_threeway(
       abort=_TRUE_;                                                                                              \
     }                                                                                                            \
   }                                                                                                              \
-}
-
-#define class_warning(condition, args...) {                                                                     \
-  if (condition) {                                                                                              \
-    ErrorMsg buffer;                                                                                            \
-    class_protect_sprintf (buffer, args);                                                                       \
-    printf ("WARNING: %s\n", buffer);                                                                           \
-    /*printf ("%s:%d: WARNING! %s\n", __func__, __LINE__, buffer);*/                                            \
-  }                                                                                                             \
 }
 
 /** Modification of the class_test() macro that just prints the error message, without
