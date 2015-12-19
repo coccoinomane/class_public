@@ -409,6 +409,25 @@ enum file_format {class_format,camb_format};
 #define _ODD_ 1 /**< Value assigned to the ODD parity state */
 #define _EVEN_ 0 /**< Value assigned to the EVEN parity state */
 
+/**
+ * Macro to safely cast a floating point value to an integer
+ *
+ * This is achieved by incrementing the absolute value of the
+ * floating point number by a tiny amount, and then cast the
+ * result to integer. This avoids stuff like 1.9999999999 to
+ * be converted to 1 instead of 2.
+ */
+#define TO_INT(x) (int)((x)+(SIGN(x)*_EPS_))
+
+/**
+ * Macro to assess whether a number is even or odd.
+ *
+ * If the input is a floating point number, its absolute value
+ * will be incremented by a tiny amount and then truncated using
+ * a cast to integer.
+ */ 
+#define IS_EVEN(x) TO_INT(x)%2==0 ?_TRUE_:_FALSE_
+
 #define _SPECTRA_SCALE_ 1e-10 /**< Natural amplitude of power spectra (used only for debug) */
 #define _BISPECTRA_SCALE_ 1e-20 /**< Natural amplitude of bispectra (used only for debug) */
 

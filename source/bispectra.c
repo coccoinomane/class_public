@@ -6672,6 +6672,11 @@ int bispectra_lensing (
   printf_log_if (pbi->bispectra_verbose, 0,
     " -> computing lensing of the %s bispectrum\n", pbi->bt_labels[index_bt]);
 
+
+  // ====================================================================================
+  // =                               Deflection angle                                   =
+  // ====================================================================================
+
   /* Compute the RMS of the lensing deflection angle */
 
   double R = 0;
@@ -6682,6 +6687,43 @@ int bispectra_lensing (
   printf_log_if (pbi->bispectra_verbose, 0,
     " -> RMS of the lensing deflection angle = %g arcmin\n", sqrt(R) * 180/_PI_ * 60);
   
+
+
+  // ====================================================================================
+  // =                         Compute lensing correction                               =
+  // ====================================================================================
+
+  /* Even/odd parity bispectra vanish when l1+l2+l3 is odd/even. In most cases,
+  we are able to factor out a 3J symbol and compute the reduced bispectrum instead,
+  which is continuous. We cannot do so for the lensing correction, due to the
+  complexity of the formula. Therefore, just for the lensing correction, we resort
+  to a different l3 sampling, structured in a way that l1+l2+l3 is always of the
+  right parity */
+    
+  // class_alloc (pbi->l3_even, pbi->l_size*sizeof(int **), pbi->error_message);
+  // class_alloc (pbi->l3_odd, pbi->l_size*sizeof(int **), pbi->error_message);
+  //
+  // for (int index_l1=0; index_l1 < pbi->l_size; ++index_l1) {
+  //
+  //   class_alloc (pbi->l3_even[index_l1], pbi->l_size*sizeof(int *), pbi->error_message);
+  //   class_alloc (pbi->l3_odd[index_l1], pbi->l_size*sizeof(int *), pbi->error_message);
+  //
+  //   for (int index_l2=0; index_l2 < pbi->l_size; ++index_l2) {
+  //
+  //
+  //
+  //   } // for index_l2
+  //
+  //
+  // } // for index_l1
+
+  
+
+
+
+  // ====================================================================================
+  // =                         Compute lensing correction                               =
+  // ====================================================================================
 
   /* Loop over all bispectra to compute the lensing correction */
 
@@ -6731,10 +6773,10 @@ int bispectra_lensing (
             long int index_l1_l2_l3 = pbi->index_l1_l2_l3[index_l1][index_l1-index_l2][index_l3_max-index_l3];
 
             /* Debug: compute lensing for a reduced set of l */
-            // int l_long = 10;
-            // if ( ! (l1==l_long || l2==l_long || l3==l_long) )
-            // // if ( ! (((l1==l_long) && (l2==l3)) || ((l3==l_long) && (l1==l2))) )
-            //   continue;
+            int l_long = 10;
+            if ( ! (l1==l_long || l2==l_long || l3==l_long) )
+            // if ( ! (((l1==l_long) && (l2==l3)) || ((l3==l_long) && (l1==l2))) )
+              continue;
 
             for (int X3=0; X3 < pbi->bf_size; ++X3) {
 
@@ -7163,6 +7205,15 @@ int bispectra_lensing_convolution (
   free (bispectrum_pq);
   free (is_filled_pq);
   free (delta_l);
+
+  /* Check that the parity is respected */
+  double parity = (pbi->field_parity[X1] + pbi->field_parity[X2] + pbi->field_parity[X3])%2;
+  int should_be_zero = parity==_EVEN_ && !IS_EVEN(l1+l2+l3) || parity==_ODD_ && IS_EVEN(l1+l2+l3);
+  
+  class_test (*result!=0 && should_be_zero,
+    pbi->error_message,
+    "parity broken: expected vanishing result for %s_%s(%d,%d,%d) but got %g",
+    pbi->bt_labels[index_bt], pbi->bfff_labels[X1][X2][X2], l1, l2, l3, *result);
 
   /* Debug: free the debug arrays */
   // free (integrand_lp);

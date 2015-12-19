@@ -3505,6 +3505,7 @@ int trapezoidal_weights_int (
 }
 
 
+
 // ===================================================================================
 // =                                Matrix operations                                =
 // ===================================================================================
@@ -3865,6 +3866,7 @@ int merge_arrays_double (
 }
 
 
+
 /**
  * Add a point to an array if the point is not already present, then sort
  * the array.
@@ -3900,115 +3902,11 @@ int add_point_double (
   return _SUCCESS_;
   
 }
-  
-
-
-/**
- * Merge two arrays of integers into a third one, then sort it and remove
- * duplicates.
- *
- * Please refer to merge_arrays_double() for the documentation.
- */
-
-int merge_arrays_int (
-      int *v1,         /**< Input: array to be merged with v2 */
-      int v1_size,     /**< Input: size of v1 */
-      int *v2,         /**< Input: array to be merged with v1 */
-      int v2_size,     /**< Input: size of v2 */
-      int **out,       /**< Output: merged array; it will be (re)allocated with out_size elements using realloc */
-      int * out_size,  /**< Output: size of merged array */
-      int (*compar)(const void *, const void *), /**< Input: comparison function for the qsort */
-      ErrorMsg errmsg  /**< Output: string where to write error message */
-      )
-{
-
-  class_test (v1_size < 0, errmsg, "v1_size=%d is negative", v1_size);
-  class_test (v2_size < 0, errmsg, "v2_size=%d is negative", v2_size);
-  
-  /* Merge v1 and v2 in a temporary array */
-  int * v_big;
-  int v_big_size = v1_size + v2_size;
-  class_alloc (v_big, v_big_size*sizeof(int), errmsg);
-
-  /* Copy v1 at the beginning of v_big  */
-  for (int i=0; i < v1_size; ++i)
-    v_big[i] = v1[i];
-
-  /* Copy v2 at the end of v_big */
-  for (int i=0; i < v2_size; ++i)
-    v_big[v1_size + i] = v2[i];
-
-  /* Sort v_big in ascending order */
-  qsort (v_big, v_big_size, sizeof(int), compar);
-
-  /* Count duplicates in v_big */
-  int n_duplicates = 0;
-  for (int i=0; i < (v_big_size-1); ++i)
-    if (v_big[i+1] == v_big[i])
-      n_duplicates++;
-
-  /* Allocate output array */
-  *out_size = v_big_size - n_duplicates;
-  class_realloc(*out, *out, *out_size*sizeof(int), errmsg);
-  
-  /* Fill out with the non-duplicate values of v1 and v2 */
-  int index_out = 0;
-  for (int i=0; i < (v_big_size-1); ++i)
-    if (v_big[i+1] != v_big[i])
-      (*out)[index_out++] = v_big[i];
-  if (*out_size>0)
-    (*out)[*out_size-1] = v_big[v_big_size-1];
-
-#ifdef DEBUG
-  /* Double check that there are no duplicates */
-  for (int i=0; i < (*out_size-1); ++i)
-    class_test ((*out)[i+1] <= (*out)[i], errmsg, "sorting failed");
-#endif // DEBUG
-
-  free (v_big);
-  
-  return _SUCCESS_;
-  
-}
 
 
 
 /**
- * Add a point to an array if the point is not already present, then sort
- * the array.
- *
- * Please refer to add_point_double() for the documentation.
- */
-
-int add_point_int (
-      int **v,          /**< Input/output: pointer to the array to increment */
-      int *v_size,      /**< Input/output: pointer to the size of v */
-      int x,            /**< Input: point to add to v */
-      int (*compar)(const void *, const void *), /**< Input: comparison function for qsort */
-      ErrorMsg errmsg   /**< output, string where to write error message */
-      )
-{
-
-  class_call (merge_arrays_int (
-                *v,
-                *v_size,
-                &x,
-                1,
-                v,
-                v_size,
-                compar,
-                errmsg),
-    errmsg,
-    errmsg);
-  
-  return _SUCCESS_;
-  
-}
-  
-
-
-/**
- * Remove a set of elements from an array.
+ * Remove a set of elements from an array of doubles.
  *
  * The elements to remove should be grouped in the indices array.
  * If one index is larger or equal to the size of the input array,
@@ -4018,7 +3916,7 @@ int add_point_int (
  * indices array will be sorted in descending order.
  * 
  * The output array can coincide with the input one, in which case
- * it will be modified in place and its size will be extended using
+ * it will be modified in place and its size will be reduced using
  * realloc.
  */
 
@@ -4053,7 +3951,7 @@ int remove_points_double (
   if (*out != v) {
     *out_size = v_size;
     class_realloc(*out, *out, *out_size*sizeof(double), errmsg);
-    memcpy (*out, v, *out_size*sizeof(double));
+    memmove (*out, v, *out_size*sizeof(double));
   }
   
   /* Loop over each element to remove, starting from the one with the
@@ -4086,6 +3984,47 @@ int remove_points_double (
   return _SUCCESS_;
   
 }
+  
+
+
+/**
+ * Sort the input array of doubles and remove duplicates from it.
+ *
+ * The function will allocate the output array using realloc.
+ * 
+ * The output array can coincide with the input one, in which case
+ * it will be modified in place and its size will be extended using
+ * realloc.
+ */
+
+int remove_duplicates_double (
+      double *v,      /**< Input: input array */
+      int v_size,     /**< Input: size of v */
+      double **out,   /**< Output: array with duplicates removed; it will be (re)allocated with out_size elements using realloc */
+      int * out_size, /**< Output: size of output array */
+      ErrorMsg errmsg /**< Output: string where to write error message */
+      )
+{
+  
+  /* Call merge_arrays_double() with a NULL argument for the second vector; this
+  will sort the input array and remove duplicates from it */
+
+  class_call ( merge_arrays_double (
+      v,
+      v_size,
+      NULL,
+      0,
+      out,
+      out_size,
+      compare_doubles,
+      errmsg),
+    errmsg,
+    errmsg);
+  
+  return _SUCCESS_;
+  
+}
+
 
 
 /**
@@ -4248,6 +4187,355 @@ int find_by_bisection (
 
   *index = inf;
 
+  return _SUCCESS_;
+
+}
+
+
+
+/**
+ * Merge two arrays of integers into a third one, then sort it and remove
+ * duplicates.
+ *
+ * Please refer to merge_arrays_double() for the documentation.
+ */
+
+int merge_arrays_int (
+      int *v1,         /**< Input: array to be merged with v2 */
+      int v1_size,     /**< Input: size of v1 */
+      int *v2,         /**< Input: array to be merged with v1 */
+      int v2_size,     /**< Input: size of v2 */
+      int **out,       /**< Output: merged array; it will be (re)allocated with out_size elements using realloc */
+      int * out_size,  /**< Output: size of merged array */
+      int (*compar)(const void *, const void *), /**< Input: comparison function for the qsort */
+      ErrorMsg errmsg  /**< Output: string where to write error message */
+      )
+{
+
+  class_test (v1_size < 0, errmsg, "v1_size=%d is negative", v1_size);
+  class_test (v2_size < 0, errmsg, "v2_size=%d is negative", v2_size);
+  
+  /* Merge v1 and v2 in a temporary array */
+  int * v_big;
+  int v_big_size = v1_size + v2_size;
+  class_alloc (v_big, v_big_size*sizeof(int), errmsg);
+
+  /* Copy v1 at the beginning of v_big  */
+  for (int i=0; i < v1_size; ++i)
+    v_big[i] = v1[i];
+
+  /* Copy v2 at the end of v_big */
+  for (int i=0; i < v2_size; ++i)
+    v_big[v1_size + i] = v2[i];
+
+  /* Sort v_big in ascending order */
+  qsort (v_big, v_big_size, sizeof(int), compar);
+
+  /* Count duplicates in v_big */
+  int n_duplicates = 0;
+  for (int i=0; i < (v_big_size-1); ++i)
+    if (v_big[i+1] == v_big[i])
+      n_duplicates++;
+
+  /* Allocate output array */
+  *out_size = v_big_size - n_duplicates;
+  class_realloc(*out, *out, *out_size*sizeof(int), errmsg);
+  
+  /* Fill out with the non-duplicate values of v1 and v2 */
+  int index_out = 0;
+  for (int i=0; i < (v_big_size-1); ++i)
+    if (v_big[i+1] != v_big[i])
+      (*out)[index_out++] = v_big[i];
+  if (*out_size>0)
+    (*out)[*out_size-1] = v_big[v_big_size-1];
+
+#ifdef DEBUG
+  /* Double check that there are no duplicates */
+  for (int i=0; i < (*out_size-1); ++i)
+    class_test ((*out)[i+1] <= (*out)[i], errmsg, "sorting failed");
+#endif // DEBUG
+
+  free (v_big);
+  
+  return _SUCCESS_;
+  
+}
+
+
+
+
+/**
+ * Add a point to an array if the point is not already present, then sort
+ * the array.
+ *
+ * Please refer to add_point_double() for the documentation.
+ */
+
+int add_point_int (
+      int **v,          /**< Input/output: pointer to the array to increment */
+      int *v_size,      /**< Input/output: pointer to the size of v */
+      int x,            /**< Input: point to add to v */
+      int (*compar)(const void *, const void *), /**< Input: comparison function for qsort */
+      ErrorMsg errmsg   /**< output, string where to write error message */
+      )
+{
+
+  class_call (merge_arrays_int (
+                *v,
+                *v_size,
+                &x,
+                1,
+                v,
+                v_size,
+                compar,
+                errmsg),
+    errmsg,
+    errmsg);
+  
+  return _SUCCESS_;
+  
+}
+  
+
+
+
+/**
+ * Remove a set of elements from an array of integers.
+ *
+ * Please refer to remove_points_double() for the documentation.
+ */
+
+int remove_points_int (
+      int *v, /**< Input: the original array */
+      int v_size, /**< Input: size of the original array */
+      int *indices, /**< Inuput: array with the positions of the elements to remove; will be sorted */
+      int n_indices, /**< Input: number of elements to remove */
+      int **out, /**< Output: array with elements removed; can coincide with input array, in which case will be reallocated */
+      int *out_size, /**< Output: size of output array; equal to or smaller than v_size-n_indices */
+      ErrorMsg errmsg
+      )
+{
+
+  /* Convert the integer range to a real range */
+  double * v_double;
+  class_alloc (v_double, v_size*sizeof(double), errmsg);
+  for (int i=0; i < v_size; ++i)
+    v_double[i] = (double)v[i];
+
+  /* Remove requested points from the double array */
+  double * out_double = NULL;
+  class_call (remove_points_double (
+                v_double,
+                v_size,
+                indices,
+                n_indices,
+                &out_double,
+                out_size,
+                errmsg),
+    errmsg,
+    errmsg);
+  
+  /* Convert the double range to an integer range */
+  class_realloc (*out, *out, *out_size*sizeof(int), errmsg);
+  for (int i=0; i < *out_size; ++i)
+    (*out)[i] = TO_INT(out_double[i]);
+  
+  /* Free memory */
+  free (out_double);
+  free (v_double);
+  
+  return _SUCCESS_;
+  
+}
+
+
+
+/**
+ * Sort the input array of integers and remove duplicates from it.
+ *
+ * Please refer to remove_duplicates_double() for the documentation.
+ */
+
+int remove_duplicates_int (
+      int *v,         /**< Input: input array */
+      int v_size,     /**< Input: size of v */
+      int **out,      /**< Output: array with duplicates removed; it will be (re)allocated with out_size elements using realloc */
+      int * out_size, /**< Output: size of output array */
+      ErrorMsg errmsg  /**< Output: string where to write error message */
+      )
+{
+  
+  /* Call merge_arrays_int() with a NULL argument for the second vector; this
+  will sort the input array and remove duplicates from it */
+
+  class_call ( merge_arrays_int (
+      v,
+      v_size,
+      NULL,
+      0,
+      out,
+      out_size,
+      compare_integers,
+      errmsg),
+    errmsg,
+    errmsg);
+  
+  return _SUCCESS_;
+  
+}
+
+
+/**
+ * Remove from an ordered array all elements that are smaller
+ * than x_min or larger than x_max.
+ *
+ * Values that are equal to the limits are going to be kept.
+ *
+ * The function will allocate the output array using realloc.
+ * 
+ * The output array can be one of the two input arrays, in which case
+ * it will be modified in place and its size will be extended using
+ * realloc.
+ */
+
+int trim_array_int (
+      int *v,          /**< Input: input array */
+      int v_size,      /**< Input: size of v */
+      int x_min,       /**< Input: minimum allowed value in the output array */
+      int x_max,       /**< Input: maximum allowed value in the output array */
+      int **out,       /**< Output: trimmed array; it will be (re)allocated with out_size elements using realloc */
+      int *out_size,   /**< Output: size of output array */
+      ErrorMsg errmsg  /**< Output: string where to write error message */
+      )
+{
+  
+  /* Count number of out-of-bounds values */
+  int n_indices = 0;
+  for (int i=0; i < v_size; ++i)
+    if (v[i] < x_min || v[i] > x_max)
+      n_indices++;
+
+  /* Allocate array with the positions of the elements in v to trim */
+  int * indices;
+  class_alloc (indices, n_indices*sizeof(int), errmsg);
+
+  /* Fill the indices array with the elements to remove */
+  int n = 0;
+  for (int i=0; i < v_size; ++i)
+    if (v[i] < x_min || v[i] > x_max)
+      indices[n++] = i;
+  
+  /* Remove the elements  */
+  class_call (remove_points_int (
+                v,
+                v_size,
+                indices,
+                n_indices,
+                out,
+                out_size,
+                errmsg),
+    errmsg,
+    errmsg);
+    
+  free (indices);
+  
+  return _SUCCESS_;
+  
+}
+
+
+
+/**
+ * Given an ordered array of integers, make odd entries even
+ * (or viceversa) by either adding or subtracting 1.
+ * 
+ * All duplicate entries in the output array will be removed,
+ * including those arising from the parity switching process.
+ *
+ * The function will allocate the output array using realloc.
+ * 
+ * The output array can coincide with the input one, in which case
+ * it will be modified in place and its size will be reduced using
+ * realloc.
+ */
+
+int switch_parity (
+      int * v, /**< Input: the input array */
+      int v_size, /**< Input: the number of elements in the input array */
+      short parity, /**< Input: requested parity for the elements in the output array; can be either _EVEN_=0 or _ODD_=1 */
+      short add_or_subtract, /**< Input: should we add (_PLUS_ONE_=0) or subtract (_MINUS_ONE_=1) in order to switch parity? */
+      short stay_in_bounds, /**< Input: if false, the output array can have values larger than the
+                            largest element or smaller than the smallest element in the input array */
+      int ** out, /**< Output: output array with only even or odd values, depending on the required parity */
+      int * out_size, /**< Output: the size of the output array; will be smaller than or equal to the input size */
+      ErrorMsg errmsg
+      )
+{
+
+  /* Check that the input is correct */
+  class_test (parity!=_EVEN_ && parity!=_ODD_, errmsg,
+    "argument parity=%d should be either _EVEN_=%d or _ODD_=%d",
+    parity, _EVEN_, _ODD_);
+
+  class_test (add_or_subtract!=_PLUS_ONE_ && add_or_subtract!=_MINUS_ONE_, errmsg,
+    "argument add_or_subtract=%d should be either _PLUS_ONE_=%d or _MINUS_ONE_=%d",
+    add_or_subtract, _PLUS_ONE_, _MINUS_ONE_);
+
+  /* Should we add or subtract? */
+  int parity_factor = add_or_subtract==_PLUS_ONE_ ? +1 : -1;
+
+  /* Make the output array a copy of the input array */
+  if (*out != v) {
+    *out_size = v_size;
+    class_realloc(*out, *out, *out_size*sizeof(double), errmsg);
+    memmove (*out, v, *out_size*sizeof(double));
+  }
+
+  /* Take note of the smallest and largest elements in the input array.
+  We do it here rather than later because the input array might be
+  modified if it coincides with the output array */
+  int x_min = v[0];
+  int x_max = v[v_size-1];
+
+  /* Switch the parity of the elements that do not match the requested parity */
+
+  for (int i=0; i < v_size; ++i) {
+
+    int is_even = (*out)[i]%2==0;
+
+    if (is_even && parity==_ODD_ || !is_even && parity==_EVEN_)
+      (*out)[i] = (*out)[i] + parity_factor;
+  }
+
+  /* Debug: print the intermediate result */
+  // for (i=0; i < v_size; ++i)
+  //   printf ("%5d %5d\n", i, (*out)[i]);
+
+  /* Remove duplicates */
+  class_call (remove_duplicates_int (
+                *out,
+                *out_size,
+                out,
+                out_size,
+                errmsg),
+    errmsg,
+    errmsg);
+
+  
+  /* Make sure that the new array is still within the bounds
+  determined by the first and last value of the input array */
+  if (stay_in_bounds)
+    class_call (trim_array_int (
+                  *out,
+                  *out_size,
+                  x_min,
+                  x_max,
+                  out,
+                  out_size,
+                  errmsg),
+      errmsg,
+      errmsg);
+  
   return _SUCCESS_;
 
 }

@@ -27,6 +27,12 @@
 #define _GAMMA2_ 1.3541179394264004169452
 //@}
 
+/** Constants needed by switch_parity() */
+//@{
+#define _PLUS_ONE_ 0
+#define _MINUS_ONE_ 1
+//@}
+
 
 /**
  * Boilerplate for C++ 
@@ -131,9 +137,9 @@ extern "C" {
 
 
 
-  // ====================================================================================
-  // =                                Coupling factors                                  =
-  // ====================================================================================
+// ====================================================================================
+// =                                Coupling factors                                  =
+// ====================================================================================
 
   double coupling_c_plus (int l, int m1, int m);
   double coupling_c_minus (int l, int m1, int m);
@@ -154,9 +160,9 @@ extern "C" {
     );
     
 
-  // ============================================================================================
-  // =                                 Legendre polynomials                                     =
-  // ============================================================================================
+// ============================================================================================
+// =                                 Legendre polynomials                                     =
+// ============================================================================================
 
   double plegendre_lm(int l, int m, double x);
   double plegendre_lm_rescaled(int l, int m, double x);
@@ -164,9 +170,9 @@ extern "C" {
   double plegendre (int n, double x);
 
 
-  // ============================================================================================
-  // =                             Multipole related functions                                  =
-  // ============================================================================================
+// ============================================================================================
+// =                             Multipole related functions                                  =
+// ============================================================================================
   
   int multipole2offset_l_m(int l, int m, int m_max);
   int size_l_m(int l_max, int m_max);
@@ -185,9 +191,9 @@ extern "C" {
   int size_n_l_indexm (int n_max, int l_max, int * m_vec, int m_size);
   
 
-  // =====================================================================================
-  // =                                     Interpolation                                 =
-  // =====================================================================================
+// =====================================================================================
+// =                                     Interpolation                                 =
+// =====================================================================================
 
   int interpolate_array (
         double * x,
@@ -326,9 +332,9 @@ extern "C" {
              ErrorMsg errmsg);
 
 
-  // ====================================================================================
-  // =                                Sampling related                                  =
-  // ====================================================================================
+// ====================================================================================
+// =                                Sampling related                                  =
+// ====================================================================================
 
   int log_space (double * xx, double x_min, double x_max, int n_points);
   int lin_space (double * xx, double x_min, double x_max, int n_points);
@@ -369,9 +375,9 @@ extern "C" {
 #endif // WITH_SONG2
 
 
-  // ====================================================================================
-  // =                                Matrix operations                                 =
-  // ====================================================================================
+// ====================================================================================
+// =                                Matrix operations                                 =
+// ====================================================================================
 
   double Determinant(double **a,int n);
   void CoFactor(double **a,int n,double **b);
@@ -380,18 +386,18 @@ extern "C" {
   void PrintMatrix(double **in,int n);
 
 
-  // ====================================================================================
-  // =                                Assert functions                                  =
-  // ====================================================================================
+// ====================================================================================
+// =                                Assert functions                                  =
+// ====================================================================================
 
   int is_triangular_int (int l1, int l2, int l3);
   int is_triangular_double (double l1, double l2, double l3);
 
 
 
-  // ====================================================================================
-  // =                                Fortran functions                                 =
-  // ====================================================================================
+// ====================================================================================
+// =                                Fortran functions                                 =
+// ====================================================================================
   
   /* The following functions are Fortran procedures from the Slatec library
   in the file tools/slatec_3j_f90.f90 */
@@ -424,9 +430,9 @@ extern "C" {
 
 
 
-  // ======================================================================================
-  // =                                 Play with arrays                                   =
-  // ======================================================================================
+// ======================================================================================
+// =                                 Play with arrays                                   =
+// ======================================================================================
 
   int merge_arrays_double (
         double *v1,
@@ -444,6 +450,42 @@ extern "C" {
         int *v_size,
         double x,
         int (*compar)(const void *, const void *),
+        ErrorMsg errmsg
+        );
+
+  int remove_points_double (
+        double *v,
+        int v_size,
+        int *indices,
+        int n_indices,
+        double **out,
+        int * out_size,
+        ErrorMsg errmsg
+        );
+
+  int remove_duplicates_double (
+        double *v,
+        int v_size,
+        double **out,
+        int *out_size,
+        ErrorMsg errmsg
+        );
+
+  int remove_close_points (
+        double **v,
+        int *v_size,
+        double min_distance,
+        int * n,
+        int ** indices,
+        double ** values,
+        ErrorMsg errmsg
+        );
+
+  int find_by_bisection (
+        double * x_vec,
+        int n,
+        double x,
+        int * index,
         ErrorMsg errmsg
         );
 
@@ -466,39 +508,49 @@ extern "C" {
         ErrorMsg errmsg
         );
 
-  int remove_points_double (
-        double *v,
+  int remove_points_int (
+        int *v,
         int v_size,
         int *indices,
         int n_indices,
-        double **out,
+        int **out,
+        int *out_size,
+        ErrorMsg errmsg
+        );
+
+  int remove_duplicates_int (
+        int *v,
+        int v_size,
+        int **out,
         int * out_size,
         ErrorMsg errmsg
         );
 
-  int remove_close_points (
-        double **v,
-        int *v_size,
-        double min_distance,
-        int * n,
-        int ** indices,
-        double ** values,
+  int trim_array_int (
+        int *v,
+        int v_size,
+        int x_min,
+        int x_max,
+        int **out,
+        int *out_size,
+        ErrorMsg errmsg
+        );
+
+  int switch_parity (
+        int * v,
+        int v_size,
+        short parity,
+        short add_or_subtract,
+        short stay_in_bounds,
+        int ** out,
+        int * out_size,
         ErrorMsg errmsg
         );
 
 
-
-  // ====================================================================================
-  // =                                      Misc                                        =
-  // ====================================================================================
-
-  int find_by_bisection (
-        double * x_vec,
-        int n,
-        double x,
-        int * index,
-        ErrorMsg errmsg
-        );
+// ====================================================================================
+// =                                      Misc                                        =
+// ====================================================================================
 
   double identity_double (double x);
 

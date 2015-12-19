@@ -995,52 +995,41 @@ int transfer_get_l_list(
   } // if l_out
 
 
+#ifdef WITH_SONG2
+
   /* If needed, convert odd values to even ones or viceversa. */
+  
+  if (ppt->has_perturbations2) {
 
-  if ((ppr->compute_only_even_ls==_TRUE_) || (ppr->compute_only_odd_ls==_TRUE_)) {
+    if (ppr->compute_only_even_ls)
+      class_call (switch_parity (
+                    ptr->l,
+                    ptr->l_size_max,
+                    _EVEN_,
+                    _PLUS_ONE_,
+                    _TRUE_,
+                    &(ptr->l),
+                    &(ptr->l_size_max),
+                    ptr->error_message),
+        ptr->error_message,
+        ptr->error_message);
 
-    int * l_copy;
-    class_alloc (l_copy, ptr->l_size_max*sizeof(int), ptr->error_message);
+    if (ppr->compute_only_odd_ls)
+      class_call (switch_parity (
+                    ptr->l,
+                    ptr->l_size_max,
+                    _ODD_,
+                    _PLUS_ONE_,
+                    _TRUE_,
+                    &(ptr->l),
+                    &(ptr->l_size_max),
+                    ptr->error_message),
+        ptr->error_message,
+        ptr->error_message);
 
-    for (int index_l=0; index_l < ptr->l_size_max; ++index_l)
-      l_copy[index_l] = ptr->l[index_l];
-
-    /* Create an all-even grid */
-    if (ppr->compute_only_even_ls == _TRUE_) {
-      for (int index_l=0; index_l < ptr->l_size_max; ++index_l)
-        if (l_copy[index_l]%2!=0)
-          l_copy[index_l] = l_copy[index_l]+1;
-    }
-    /* ... or an all-odd grid */
-    else if (ppr->compute_only_odd_ls == _TRUE_) {
-      for (int index_l=0; index_l < ptr->l_size_max; ++index_l)
-        if (l_copy[index_l]%2==0)
-          l_copy[index_l] = l_copy[index_l]+1;
-    }
-
-    /* Some debug */
-    // for (index_l=0; index_l < ptr->l_size_max; ++index_l)
-    //   printf ("%5d %5d\n", index_l, l_copy[index_l]);
-
-    /* Remove duplicates */
-    int index_l_copy = 0;
-    index_l = 0;
-    ptr->l[index_l] = l_copy[index_l_copy];
-    index_l++;
-
-    for (index_l_copy=1; index_l_copy < ptr->l_size_max; ++index_l_copy) {
-      if (l_copy[index_l_copy] != l_copy[index_l_copy-1]) {
-        ptr->l[index_l] = l_copy[index_l_copy];
-        index_l++;
-      }
-    }
-
-    ptr->l_size_max = index_l;
-
-    free (l_copy);
-
-  } // if(compute even/odd l-grid)
-
+  }
+  
+#endif // WITH_SONG2
 
   /* Find out the index in ptr->l corresponding to a given l */
 
@@ -1069,9 +1058,6 @@ int transfer_get_l_list(
       ptr->index_l_left[l]--;
     
   }
-
-
-  /* Find out the index in ptr->l corresponding to a given l. */
 
 
   /* Assign to each output l the corresponding index in ptr->l */
@@ -1170,6 +1156,13 @@ int transfer_get_l_list(
       if (_tensors_) {
         l_max = ppt->l_tensor_max;
       }
+
+#ifdef WITH_SONG1
+      /* Make sure that l_max does not overshoot the maximum multipole used in SONG.
+      This check is relevant only if either ppr->compute_only_even_ls or
+      ppr->compute_only_odd_ls is true */
+      l_max = MIN (l_max, ptr->l[ptr->l_size_max-1]);
+#endif // WITH_SONG1
 
       class_test(l_max > ptr->l[ptr->l_size_max-1],
                  ptr->error_message,

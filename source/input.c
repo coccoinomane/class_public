@@ -3463,6 +3463,9 @@ int input_read_parameters(
   
   }
 
+ppr->compute_only_even_ls = _TRUE_;
+// ppr->compute_only_odd_ls = _TRUE_;
+
   if (pbi->has_bispectra == _TRUE_) {
 
     /* Check that l_max is even for trilinear interpolation */
