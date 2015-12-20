@@ -1732,7 +1732,7 @@ int bispectra_allocate_type_level (
   
     for (int index_bt=0; index_bt<pbi->bt_size; ++index_bt) {
 
-      if (pbi->lens_me[index_bt])
+      if (!pbi->lens_me[index_bt])
         continue;
 
       class_alloc (pbi->lensing_correction[index_bt], pbi->bf_size*sizeof(double ***), pbi->error_message);
