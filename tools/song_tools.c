@@ -4341,9 +4341,9 @@ int remove_points_int (
     (*out)[i] = TO_INT(out_double[i]);
   
   /* Free memory */
-  free (out_double);
-  free (v_double);
-  
+  if (v_size > 0) free (v_double);
+  if (out_size > 0) free (out_double);
+    
   return _SUCCESS_;
   
 }
@@ -4409,6 +4409,11 @@ int trim_array_int (
       )
 {
   
+  /* Check that the input is correct */
+  class_test (v_size < 0, errmsg,
+    "v_size=%d is negative",
+    v_size);
+
   /* Count number of out-of-bounds values */
   int n_indices = 0;
   for (int i=0; i < v_size; ++i)
@@ -4473,6 +4478,10 @@ int switch_parity (
 {
 
   /* Check that the input is correct */
+  class_test (v_size < 0, errmsg,
+    "v_size=%d is negative",
+    v_size);
+
   class_test (parity!=_EVEN_ && parity!=_ODD_, errmsg,
     "argument parity=%d should be either _EVEN_=%d or _ODD_=%d",
     parity, _EVEN_, _ODD_);
@@ -4482,7 +4491,7 @@ int switch_parity (
     add_or_subtract, _PLUS_ONE_, _MINUS_ONE_);
 
   /* Should we add or subtract? */
-  int parity_factor = add_or_subtract==_PLUS_ONE_ ? +1 : -1;
+  int parity_factor = (add_or_subtract==_PLUS_ONE_ ? +1 : -1);
 
   /* Make the output array a copy of the input array */
   if (*out != v) {
